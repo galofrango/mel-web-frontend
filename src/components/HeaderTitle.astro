@@ -60,22 +60,22 @@ import IconButton from './IconButton.astro';
   </div>
 
   <!-- 3. Filled State (Tag style, matching V2 text without background) -->
-  <div 
-    id="search-state-filled" 
+  <div
+    id="search-state-filled"
     class="hidden h-full flex items-center justify-between w-full transition-colors cursor-pointer"
   >
     <div class="flex items-center relative shrink-0 truncate mr-2">
-      <span 
-        id="search-filled-text" 
+      <span
+        id="search-filled-text"
         class="font-sans font-bold text-[22px] leading-[28px] text-mel-action-primary tracking-[-0.44px]"
       >
         Query
       </span>
     </div>
-    
+
     <!-- Reset/Close button -->
-    <IconButton 
-      id="search-reset-btn" 
+    <IconButton
+      id="search-reset-btn"
       icon="x"
       size={40}
       variant="ghost"
@@ -276,12 +276,19 @@ import IconButton from './IconButton.astro';
     background-color: var(--mel-action-primary);
     transform: scaleX(0);
     transform-origin: right center;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
+  /* Resting state with hover: line only under the text */
+  #search-box-container[data-state="default"]:hover::after {
+    width: 465px;
+    transform: scaleX(1);
+    transform-origin: left center;
+  }
+  /* Active states: line expands to full width */
   #search-box-container[data-state="placeholder"]::after,
   #search-box-container[data-state="filling"]::after,
-  #search-box-container[data-state="filled"]::after,
-  #search-box-container[data-state="default"]:hover::after {
+  #search-box-container[data-state="filled"]::after {
+    width: 100%;
     transform: scaleX(1);
     transform-origin: left center;
   }
