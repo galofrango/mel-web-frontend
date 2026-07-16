@@ -9,9 +9,9 @@ import IconButton from './IconButton.astro';
 <div id="search-box-container" class="relative h-[48px] transition-all duration-300" data-state="default">
   
   <!-- 1. Default / Header State (Title "Memoria Electrónica Leonesa|") -->
-  <button 
-    id="search-state-default" 
-    class="flex items-center relative w-full h-full text-left bg-transparent border-none cursor-pointer select-none outline-none group" 
+  <button
+    id="search-state-default"
+    class="flex items-center relative w-fit h-full text-left bg-transparent border-none cursor-pointer select-none outline-none group"
     data-node-id="762:69441"
   >
     <div class="flex items-center relative shrink-0">
@@ -265,7 +265,8 @@ import IconButton from './IconButton.astro';
 
   #search-box-container {
     position: relative;
-    width: auto;
+    width: fit-content;
+    max-width: 100%;
   }
   /* Expand container in active states */
   #search-box-container[data-state="placeholder"],
