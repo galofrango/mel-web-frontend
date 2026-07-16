@@ -6,7 +6,7 @@ const { hideDivider = false } = Astro.props;
 import Pica from './Pica.astro';
 import IconButton from './IconButton.astro';
 ---
-<div id="search-box-container" class="relative h-[48px] w-full transition-all duration-300" data-state="default">
+<div id="search-box-container" class="relative h-[48px] transition-all duration-300" data-state="default">
   
   <!-- 1. Default / Header State (Title "Memoria Electrónica Leonesa|") -->
   <button 
@@ -265,7 +265,15 @@ import IconButton from './IconButton.astro';
 
   #search-box-container {
     position: relative;
+    width: auto;
   }
+  /* Expand container in active states */
+  #search-box-container[data-state="placeholder"],
+  #search-box-container[data-state="filling"],
+  #search-box-container[data-state="filled"] {
+    width: 100%;
+  }
+
   #search-box-container::after {
     content: '';
     position: absolute;
@@ -275,12 +283,11 @@ import IconButton from './IconButton.astro';
     height: 2px;
     background-color: var(--mel-action-primary);
     transform: scaleX(0);
-    transform-origin: right center;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: left center;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* Resting state with hover: line only under the text */
+  /* Resting state with hover: line grows right and contracts left */
   #search-box-container[data-state="default"]:hover::after {
-    width: 465px;
     transform: scaleX(1);
     transform-origin: left center;
   }
@@ -288,7 +295,6 @@ import IconButton from './IconButton.astro';
   #search-box-container[data-state="placeholder"]::after,
   #search-box-container[data-state="filling"]::after,
   #search-box-container[data-state="filled"]::after {
-    width: 100%;
     transform: scaleX(1);
     transform-origin: left center;
   }
