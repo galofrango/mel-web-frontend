@@ -288,10 +288,13 @@ const gridSpans = [
     </div>
 
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
-    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col justify-between transition-colors duration-300 mt-[16px]">
-      
+    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 mt-[16px]">
+
       <!-- 1. GALLERY VIEW (Grid Layout exactly matching Figma auto-rows and gaps) -->
-      <div id="view-galería" class="view-panel active flex-1 w-full overflow-y-auto transition-all duration-500 pb-[40px]">
+      <!-- Negative side margins + matching padding let the scroll container clip
+           24px OUTSIDE the grid, so hovered cards (scale + shadow) aren't cut off
+           at the top/bottom/left/right edges while the grid stays full-width. -->
+      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+48px)] -ml-[24px] overflow-y-auto transition-all duration-500 px-[24px] pt-[24px] pb-[40px]">
         <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense">
           {initialArchives.slice(0, 32).map((item, i) => {
             const span = gridSpans[i % gridSpans.length];
