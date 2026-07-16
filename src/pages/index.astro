@@ -288,14 +288,17 @@ const gridSpans = [
     </div>
 
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
-    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 mt-[16px]">
+    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px]">
 
       <!-- 1. GALLERY VIEW (Grid Layout exactly matching Figma auto-rows and gaps) -->
-      <!-- Negative side margins + matching padding let the scroll container clip
-           24px OUTSIDE the grid, so hovered cards (scale + shadow) aren't cut off
-           at the top/bottom/left/right edges while the grid stays full-width. -->
-      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+48px)] -ml-[24px] overflow-y-auto transition-all duration-500 px-[24px] pt-[24px] pb-[40px]">
-        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense">
+      <!-- Negative side margins + matching padding make the scroll container clip
+           44px OUTSIDE the grid on the sides and 24px above it, so hovered cards
+           (scale + shadow) aren't cut off at the edges while the grid stays
+           full-width. Bottom breathing room lives on the grid itself (pb) because
+           a scroll container's own padding-bottom is dropped from the scrollable
+           area, so it wouldn't reserve space at the end of the scroll. -->
+      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px]">
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[64px]">
           {initialArchives.slice(0, 32).map((item, i) => {
             const span = gridSpans[i % gridSpans.length];
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
@@ -748,6 +751,16 @@ const gridSpans = [
 </style>
 
 <style is:global>
+  /* The shared .view-panel.active rule sets display:flex, which stretches the
+     gallery grid to the scroll viewport height and makes its rows overflow —
+     that buries the grid's bottom padding mid-content instead of below the last
+     row. Force the gallery scroll container to flow as a block so the grid grows
+     to its natural height and pb reserves real space at the end of the scroll.
+     :not(.hidden) keeps the display:none !important hide behaviour intact. */
+  #view-galería:not(.hidden) {
+    display: block;
+  }
+
   .gallery-item {
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
@@ -1510,7 +1523,7 @@ const gridSpans = [
         gridContainer.className = 'w-full flex items-center justify-center py-20 text-mel-text-secondary typo-body-roman italic border border-dashed border-mel-border/30';
         gridContainer.innerHTML = `Ningún flyer coincide con los filtros aplicados.`;
       } else {
-        gridContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense';
+        gridContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[64px]';
         paginated.forEach((item, i) => {
           const span = gridSpans[i % gridSpans.length];
           const card = document.createElement('div');
