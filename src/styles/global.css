@@ -1,0 +1,253 @@
+@import "tailwindcss";
+
+:root {
+  /* ==========================================================================
+     PRIMITIVE TOKENS (Leon Color Palette)
+     ========================================================================= */
+  
+  /* Color / Leon Orig */
+  --mel-primitive-le-50: hsla(345, 40%, 96%, 1);
+  --mel-primitive-le-100: hsla(349, 32%, 92%, 1);
+  --mel-primitive-le-200: hsla(348, 40%, 80%, 1);
+  --mel-primitive-le-300: hsla(348, 40%, 64%, 1);
+  --mel-primitive-le-400: hsla(348, 48%, 45%, 1);
+  --mel-primitive-le-500: hsla(348, 72%, 35%, 1);
+  --mel-primitive-le-600: hsla(348, 72%, 28%, 1);
+  --mel-primitive-le-700: hsla(348, 72%, 22%, 1);
+  --mel-primitive-le-800: hsla(349, 80%, 16%, 1);
+  --mel-primitive-le-900: hsla(348, 72%, 10%, 1);
+  --mel-primitive-le-950: hsla(348, 64%, 6%, 1);
+
+  /* Color / Leon Tinted */
+  --mel-primitive-tinted-50: hsla(330, 16%, 96%, 1);
+  --mel-primitive-tinted-100: hsla(347, 16%, 90%, 1);
+  --mel-primitive-tinted-200: hsla(347, 16%, 80%, 1);
+  --mel-primitive-tinted-300: hsla(348, 20%, 72%, 1);
+  --mel-primitive-tinted-400: hsla(348, 20%, 60%, 1);
+  --mel-primitive-tinted-500: hsla(347, 20%, 40%, 1);
+  --mel-primitive-tinted-600: hsla(348, 24%, 30%, 1);
+  --mel-primitive-tinted-700: hsla(348, 20%, 24%, 1);
+  --mel-primitive-tinted-800: hsla(348, 20%, 20%, 1);
+  --mel-primitive-tinted-900: hsla(347, 20%, 12%, 1);
+  --mel-primitive-tinted-950: hsla(345, 20%, 8%, 1);
+
+  /* Color / Primary Colors (CMYK) */
+  --mel-primitive-magenta: hsla(300, 100%, 50%, 1);
+  --mel-primitive-yellow: hsla(60, 100%, 50%, 1);
+  --mel-primitive-cian: hsla(180, 100%, 50%, 1);
+
+  /* Spacing */
+  --mel-spacing-xs: 4px;
+  --mel-spacing-s: 8px;
+  --mel-spacing-sm: 12px;
+  --mel-spacing-m: 16px;
+  --mel-spacing-l: 24px;
+  --mel-spacing-xl: 32px;
+
+  /* ==========================================================================
+     COLOR MODE SEMANTIC VARIABLES (LIGHT DEFAULT)
+     ========================================================================= */
+  
+  /* Background */
+  --mel-bg-primary: var(--mel-primitive-tinted-50);       /* TINTED 50 */
+  --mel-bg-secondary: var(--mel-primitive-tinted-100);    /* TINTED 100 */
+  --mel-bg-tertiary: var(--mel-primitive-tinted-200);     /* TINTED 200 */
+
+  /* Text */
+  --mel-text-primary: var(--mel-primitive-le-950);        /* LE 950 */
+  --mel-text-secondary: var(--mel-primitive-tinted-600);  /* TINTED 600 */
+  --mel-text-tertiary: var(--mel-primitive-tinted-400);   /* TINTED 400 */
+  --mel-text-on-action: var(--mel-primitive-tinted-50);    /* TINTED 50 */
+
+  /* Action */
+  --mel-action-primary: var(--mel-primitive-le-500);      /* LE 500 (ORIG) */
+  --mel-action-secondary: var(--mel-primitive-le-800);    /* LE 800 */
+  --mel-action-tertiary: var(--mel-primitive-tinted-500);  /* TINTED 500 */
+
+  /* Border */
+  --mel-border: var(--mel-primitive-tinted-200);          /* TINTED 200 */
+
+  /* Primaries CMYK */
+  --mel-cyan: var(--mel-primitive-cian);
+  --mel-magenta: var(--mel-primitive-magenta);
+  --mel-yellow: var(--mel-primitive-yellow);
+}
+
+.dark {
+  /* Background overrides */
+  --mel-bg-primary: var(--mel-primitive-le-950);
+  --mel-bg-secondary: var(--mel-primitive-tinted-900);
+  --mel-bg-tertiary: var(--mel-primitive-tinted-800);
+
+  /* Text overrides */
+  --mel-text-primary: var(--mel-primitive-tinted-50);
+  --mel-text-secondary: var(--mel-primitive-tinted-200);
+  --mel-text-tertiary: var(--mel-primitive-tinted-500);
+  --mel-text-on-action: var(--mel-primitive-tinted-900);
+
+  /* Action overrides */
+  --mel-action-primary: var(--mel-primitive-le-400);
+  --mel-action-secondary: var(--mel-primitive-le-100);
+  --mel-action-tertiary: var(--mel-primitive-tinted-400);
+
+  /* Border override */
+  --mel-border: var(--mel-primitive-tinted-700);
+}
+
+
+
+@theme {
+  /* Expose Primitives to Tailwind */
+  --color-mel-le-50: var(--mel-primitive-le-50);
+  --color-mel-le-100: var(--mel-primitive-le-100);
+  --color-mel-le-200: var(--mel-primitive-le-200);
+  --color-mel-le-300: var(--mel-primitive-le-300);
+  --color-mel-le-400: var(--mel-primitive-le-400);
+  --color-mel-le-500: var(--mel-primitive-le-500);
+  --color-mel-le-600: var(--mel-primitive-le-600);
+  --color-mel-le-700: var(--mel-primitive-le-700);
+  --color-mel-le-800: var(--mel-primitive-le-800);
+  --color-mel-le-900: var(--mel-primitive-le-900);
+  --color-mel-le-950: var(--mel-primitive-le-950);
+
+  --color-mel-tinted-50: var(--mel-primitive-tinted-50);
+  --color-mel-tinted-100: var(--mel-primitive-tinted-100);
+  --color-mel-tinted-200: var(--mel-primitive-tinted-200);
+  --color-mel-tinted-300: var(--mel-primitive-tinted-300);
+  --color-mel-tinted-400: var(--mel-primitive-tinted-400);
+  --color-mel-tinted-500: var(--mel-primitive-tinted-500);
+  --color-mel-tinted-600: var(--mel-primitive-tinted-600);
+  --color-mel-tinted-700: var(--mel-primitive-tinted-700);
+  --color-mel-tinted-800: var(--mel-primitive-tinted-800);
+  --color-mel-tinted-900: var(--mel-primitive-tinted-900);
+  --color-mel-tinted-950: var(--mel-primitive-tinted-950);
+
+  /* Expose Semantics to Tailwind */
+  --color-mel-bg-primary: var(--mel-bg-primary);
+  --color-mel-bg-secondary: var(--mel-bg-secondary);
+  --color-mel-bg-tertiary: var(--mel-bg-tertiary);
+  --color-mel-border: var(--mel-border);
+  
+  --color-mel-text-primary: var(--mel-text-primary);
+  --color-mel-text-secondary: var(--mel-text-secondary);
+  --color-mel-text-tertiary: var(--mel-text-tertiary);
+  --color-mel-text-on-action: var(--mel-text-on-action);
+  
+  --color-mel-action-primary: var(--mel-action-primary);
+  --color-mel-action-secondary: var(--mel-action-secondary);
+  --color-mel-action-tertiary: var(--mel-action-tertiary);
+  
+  --spacing-mel-xs: var(--mel-spacing-xs);
+  --spacing-mel-s: var(--mel-spacing-s);
+  --spacing-mel-sm: var(--mel-spacing-sm);
+  --spacing-mel-m: var(--mel-spacing-m);
+  --spacing-mel-l: var(--mel-spacing-l);
+  --spacing-mel-xl: var(--mel-spacing-xl);
+
+  --color-mel-cyan: var(--mel-cyan);
+  --color-mel-magenta: var(--mel-magenta);
+  --color-mel-yellow: var(--mel-yellow);
+  
+  --font-sans: "Space Grotesk", system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-serif: "Lora", Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+body {
+  background-color: var(--mel-bg-primary);
+  color: var(--mel-text-primary);
+  font-family: var(--font-sans);
+}
+
+/* Figma Typographic style sheets helper utilities (responsive Mobile vs Desktop) */
+.typo-lead {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 768px) {
+  .typo-lead {
+    font-size: 16px;
+  }
+}
+
+.typo-body-roman {
+  font-family: var(--font-serif);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 24px;
+  letter-spacing: 0.01em;
+}
+@media (min-width: 768px) {
+  .typo-body-roman {
+    font-size: 15px;
+  }
+}
+
+.typo-h3 {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 768px) {
+  .typo-h3 {
+    font-size: 25px;
+    line-height: 32px;
+  }
+}
+
+.typo-caption {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0em;
+}
+@media (min-width: 768px) {
+  .typo-caption {
+    font-size: 13px;
+    line-height: 16px;
+  }
+}
+
+.typo-overline {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.typo-button {
+  font-family: var(--font-sans);
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 768px) {
+  .typo-button {
+    font-size: 16px;
+  }
+}
+
+/* Custom styles for range slider and blending */
+.multiply-blend {
+  mix-blend-mode: multiply;
+}
+.dark .multiply-blend {
+  mix-blend-mode: screen;
+}
+
+/* Custom styled scrollbars for horizontal carousel */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

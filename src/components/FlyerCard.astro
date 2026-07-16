@@ -1,0 +1,43 @@
+---
+interface Props {
+  title: string;
+  category: string;
+  location: string;
+  year: number;
+  image: string;
+  spanClass: string;
+  id: string;
+}
+
+const { title, category, location, year, image, spanClass, id } = Astro.props;
+---
+<div 
+  class={`gallery-item relative overflow-hidden bg-white cursor-pointer transition-all duration-300 ${spanClass} group hover:z-30`}
+  data-id={id}
+  data-year={year}
+  data-category={category}
+  data-title={title.toLowerCase()}
+  data-location={location.toLowerCase()}
+  data-node-id="Grid Image V2"
+>
+  <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
+  <img 
+    src={image} 
+    alt={title} 
+    referrerpolicy="no-referrer"
+    class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 pointer-events-none" 
+    style={`view-transition-name: flyer-img-${id};`}
+  />
+  
+  <!-- Blending grid overlay (striped Figma style) -->
+  <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
+
+  <!-- Figma Hover overlay: 32px height bottom bar in action-secondary -->
+  <div 
+    class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[0px_-4px_10px_rgba(38,31,31,0.15)]"
+  >
+    <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">
+      {title}
+    </p>
+  </div>
+</div>

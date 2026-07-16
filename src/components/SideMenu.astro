@@ -1,0 +1,161 @@
+---
+import IconButton from './IconButton.astro';
+---
+
+<!-- Side Menu Backdrop Overlay (Dimming) -->
+<div 
+  id="side-menu-backdrop" 
+  class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[190] opacity-0 pointer-events-none transition-opacity duration-300 hidden"
+></div>
+
+<!-- Side Menu Overlay Container -->
+<div 
+  id="side-menu-container" 
+  class="fixed inset-y-0 right-0 w-full max-w-[496px] h-screen bg-mel-bg-primary border-l border-mel-border shadow-[0px_8px_32px_0px_rgba(38,31,31,0.24)] z-[200] flex flex-col justify-between transition-all duration-300 transform translate-x-full hidden"
+  data-node-id="562:70168"
+  data-name="Side Menu"
+>
+  <!-- Top Content Section -->
+  <div class="flex flex-col w-full">
+    <!-- Header / Close button (No border, Figma matches: pb-[16px] px-[16px] pt-[56px]) -->
+    <div class="flex items-center pb-[16px] px-[16px] pt-[56px] shrink-0 w-full">
+      <IconButton 
+        id="close-side-menu" 
+        icon="x"
+        variant="ghost"
+        aria-label="Cerrar menú"
+      />
+    </div>
+    
+    <!-- Title (Figma matches: pb-[32px] pt-[8px] px-[16px] + px-[8px] on inner text) -->
+    <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[8px] px-[16px] shrink-0 w-full relative">
+      <p class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary px-[8px]">
+        Menú
+      </p>
+    </div>
+    
+    <!-- Menu List (Without divide-y, using absolute offset dividers inside anchors) -->
+    <div class="flex flex-col items-start w-full relative" data-node-id="562:70115" data-name="Menu List">
+      <!-- Item: Ajustes y filtros -->
+      <a href="#time-slider" id="menu-item-filters" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Ajustes y filtros
+          </p>
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
+      
+      <!-- Item: Sala de exposiciones -->
+      <a href="#" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Sala de exposiciones
+          </p>
+        </div>
+        <!-- Tag component -->
+        <div class="bg-mel-action-primary text-mel-text-on-action font-sans font-medium text-[14px] px-[8px] py-[2px] mr-2 shrink-0">
+          Nuevo
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
+      
+      <!-- Item: Proyecto -->
+      <a href="/info#proyecto" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Proyecto
+          </p>
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
+      
+      <!-- Item: Equipo -->
+      <a href="/info#equipo" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Equipo
+          </p>
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
+      
+      <!-- Item: Contacto -->
+      <a href="/info#contacto" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Contacto
+          </p>
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
+      
+      <!-- Item: Apoya el proyecto -->
+      <a href="/info#contacto" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Apoya el proyecto
+          </p>
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
+    </div>
+  </div>
+  
+  <!-- Bottom Footer Section -->
+  <div class="px-6 pb-[24px] pt-4 flex gap-[16px] items-end w-full relative" data-node-id="562:70119" data-name="Menu Panel Footer">
+    <!-- Color Mode Toggle Button (Moon/Sun) -->
+    <button 
+      id="color-mode-toggle"
+      class="w-10 h-10 bg-mel-action-secondary text-mel-text-on-action flex items-center justify-center cursor-pointer hover:bg-mel-action-primary transition-colors shrink-0 shadow-sm border-none"
+      aria-label="Cambiar modo color"
+      data-node-id="550:69887"
+    >
+      <!-- Lucide Moon Icon (Active in Light theme) -->
+      <svg class="moon-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"></path>
+      </svg>
+      <!-- Lucide Sun Icon (Active in Dark theme) -->
+      <svg class="sun-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4"></circle>
+        <path d="M12 2v2"></path>
+        <path d="M12 20v2"></path>
+        <path d="m4.93 4.93 1.41 1.41"></path>
+        <path d="m17.66 17.66 1.41 1.41"></path>
+        <path d="M2 12h2"></path>
+        <path d="M20 12h2"></path>
+        <path d="m6.34 17.66-1.41 1.41"></path>
+        <path d="m19.07 4.93-1.41 1.41"></path>
+      </svg>
+    </button>
+    
+    <!-- Copy Text -->
+    <div class="flex flex-col font-sans font-medium text-[16px] leading-[20px] text-mel-text-secondary select-none" data-node-id="562:70121" data-name="Text">
+      <span class="truncate w-[180px]" data-node-id="562:70122">MEL® Web v1.0</span>
+      <span class="truncate w-[180px]" data-node-id="562:70123">All rights reserved</span>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Moon and Sun SVGs visibility based on the dark mode class of <html> */
+  #color-mode-toggle .sun-icon {
+    display: none;
+  }
+  #color-mode-toggle .moon-icon {
+    display: block;
+  }
+
+  :global(.dark) #color-mode-toggle .sun-icon {
+    display: block !important;
+  }
+  :global(.dark) #color-mode-toggle .moon-icon {
+    display: none !important;
+  }
+</style>

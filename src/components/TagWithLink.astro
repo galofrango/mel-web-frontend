@@ -1,0 +1,66 @@
+---
+import Link from './Link.astro';
+
+interface Props {
+  label: string;
+  count: number | string;
+  alignment?: 'Left' | 'Center' | 'Right';
+  titleIcon?: boolean;
+  class?: string;
+  href?: string;
+  state?: 'Default' | 'Hover' | 'Disabled';
+  hideBorder?: boolean;
+}
+
+const { 
+  label, 
+  count, 
+  alignment = "Left", 
+  titleIcon = false, 
+  class: className = "", 
+  href, 
+  state = "Default",
+  hideBorder = false
+} = Astro.props;
+
+const isRight = alignment === "Right";
+const isCenter = alignment === "Center";
+
+// Smart width override logic: default to w-[184px] if no width class is provided
+const hasWidth = className.split(/\s+/).some(cls => cls.startsWith('w-'));
+const widthClass = hasWidth ? '' : 'w-[184px]';
+
+// Border and padding styling: default to border-l, px-6, and py-2 unless hideBorder is requested
+// When hideBorder is true, we remove vertical padding to make Tag height exactly 48px
+const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border/30 px-6 py-2';
+---
+<div 
+  class={`filter-tag flex flex-col gap-2 relative ${widthClass} ${borderClass} bg-transparent transition-all duration-200 ${isRight ? "items-end text-right" : isCenter ? "items-center text-center" : "items-start text-left"} ${className}`}
+  data-category={label}
+  data-node-id="Tag with link"
+>
+  <div class={`flex gap-1 items-center relative shrink-0 ${isRight ? "justify-end" : ""}`}>
+    {titleIcon && (
+      <div class="flex items-center justify-center shrink-0 w-4 h-4 text-mel-text-primary">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="6" cy="6" r="3" fill="currentColor"/>
+        </svg>
+      </div>
+    )}
+    <span class="font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">
+      {label}
+    </span>
+  </div>
+
+  <div class={`flex h-[24px] items-center relative shrink-0 w-auto ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
+    {href ? (
+      <Link alignment={alignment} href={href} state={state}>
+        <span class="tag-count-val">{count}</span>
+      </Link>
+    ) : (
+      <span class={`tag-count-val w-max block ${state === 'Disabled' ? "font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] text-mel-text-tertiary select-text" : "font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] text-mel-text-secondary select-text"}`}>
+        {count}
+      </span>
+    )}
+  </div>
+</div>

@@ -1,0 +1,37 @@
+---
+import ToggleButton from './ToggleButton.astro';
+
+interface Props {
+  class?: string;
+}
+
+const { class: className = "" } = Astro.props;
+---
+<div 
+  class:list={[
+    "toggle-selector relative flex items-center bg-mel-bg-secondary select-none h-[48px] w-full",
+    className
+  ]}
+  style="border: 1px solid var(--mel-border, #D4C4C7); box-shadow: 0 0 8px 0 rgba(33, 24, 26, 0.16) inset;"
+  id="toggle-selector-container"
+  data-node-id="Toggle Selector V1"
+>
+  <!-- Sliding active indicator background -->
+  <div 
+    id="toggle-active-indicator" 
+    class="absolute top-0 bottom-0 left-0 w-1/3 bg-mel-action-secondary shadow-[0px_4px_8px_rgba(38,31,31,0.32)] transition-transform duration-300 ease-out z-5"
+    style="transform: translate3d(0,0,0);"
+  ></div>
+
+  <ToggleButton label="Galería" active={true} dataView="galería" class="z-10" />
+  
+  <!-- Divider 1 -->
+  <div class="h-[32px] w-px bg-mel-border shrink-0 z-0"></div>
+  
+  <ToggleButton label="Mapa" active={false} dataView="mapa" class="z-10" />
+  
+  <!-- Divider 2 -->
+  <div class="h-[32px] w-px bg-mel-border shrink-0 z-0"></div>
+  
+  <ToggleButton label="Lista" active={false} dataView="lista" class="z-10" />
+</div>

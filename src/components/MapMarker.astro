@@ -1,0 +1,76 @@
+---
+/**
+ * MapMarker.astro
+ * Custom map marker matching Figma node 261:10331
+ * Types: Number (compact square) / Text (wider with place name + count)
+ * States: Resting / Hover / Active
+ */
+interface Props {
+  type?: 'Number' | 'Text';
+  state?: 'Resting' | 'Hover' | 'Active';
+  label?: string;
+  count?: number;
+  class?: string;
+}
+
+const { 
+  type = 'Number', 
+  state = 'Resting', 
+  label = '22', 
+  count, 
+  class: className = '' 
+} = Astro.props;
+
+const isNumber = type === 'Number';
+const isHover = state === 'Hover';
+const isActive = state === 'Active';
+const isHoverOrActive = isHover || isActive;
+
+// Background color: Resting=#490815, Hover/Active=#981932
+const bgColor = isHoverOrActive ? 'var(--mel-action-primary)' : 'var(--mel-action-secondary)';
+---
+<div 
+  class:list={[
+    "map-marker flex flex-col items-center justify-center relative",
+    isHoverOrActive ? "drop-shadow-[0px_4px_16px_rgba(38,31,31,0.32)]" : "drop-shadow-[0px_4px_8px_rgba(38,31,31,0.32)]",
+    className
+  ]}
+  data-node-id="Map Marker"
+  data-type={type}
+  data-state={state}
+>
+  <!-- Body -->
+  <div 
+    class:list={[
+      "flex items-center justify-center relative z-10",
+      isNumber ? "p-[8px] gap-[4px]" : "px-[12px] py-[8px] gap-[4px]"
+    ]}
+    style={`background-color: ${bgColor};`}
+  >
+    <!-- Label text -->
+    <p class="font-sans font-medium text-[16px] leading-[20px] text-center overflow-hidden text-ellipsis whitespace-nowrap" 
+       style="color: var(--mel-text-on-action);">
+      {label}
+    </p>
+    
+    <!-- Count (only for Text type) -->
+    {!isNumber && count !== undefined && (
+      <p class="font-sans font-medium text-[16px] leading-[20px] text-center overflow-hidden text-ellipsis whitespace-nowrap"
+         style="color: var(--mel-text-on-action);">
+        ({count})
+      </p>
+    )}
+  </div>
+  
+  <!-- Pointer / Triangle pointing down -->
+  <div class="flex items-center justify-center w-[16px] h-[12px] -mt-px relative z-0">
+    <div 
+      class="w-0 h-0"
+      style={`
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 10px solid ${bgColor};
+      `}
+    ></div>
+  </div>
+</div>

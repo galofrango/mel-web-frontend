@@ -1,0 +1,7 @@
+---
+interface Props {
+  class?: string;
+}
+const { class: className = "" } = Astro.props;
+---
+<div class={`w-[3px] h-[20px] bg-mel-action-secondary animate-mel-cursor shrink-0 ${className}`} data-node-id="500:244103"></div>

@@ -1,0 +1,195 @@
+---
+import SliderHandler from './SliderHandler.astro';
+---
+<div id="slider-track-wrapper" class="relative w-full py-8 select-none cursor-pointer" data-node-id="Slider Bar/Time Slider">
+  
+  <!-- Inactive Slider Bar Background (8px height, rounded-none, color mel-border) -->
+  <div class="h-2 w-full bg-mel-border absolute top-1/2 -translate-y-1/2 rounded-none"></div>
+  
+  <!-- Active Slider Bar Fill (8px height, rounded-none, action/secondary mel-action-secondary) -->
+  <div id="slider-active-fill" class="h-2 bg-mel-action-secondary absolute top-1/2 -translate-y-1/2 rounded-none" style="left: 104px; right: 104px;"></div>
+  
+  <!-- Dual range input fields (Hidden visually but kept for state/accessibility) -->
+  <input 
+    type="range" 
+    id="slider-min" 
+    min="2004" 
+    max="2019" 
+    value="2004" 
+    class="absolute opacity-0 pointer-events-none w-full h-2 top-1/2 -translate-y-1/2 z-0 outline-none"
+  />
+  <input 
+    type="range" 
+    id="slider-max" 
+    min="2004" 
+    max="2019" 
+    value="2019" 
+    class="absolute opacity-0 pointer-events-none w-full h-2 top-1/2 -translate-y-1/2 z-0 outline-none"
+  />
+
+  <!-- Interactive Slider handlers positioned relative to their tips -->
+  <SliderHandler id="min-handle" year={2004} direction="left" class="top-1/2 -translate-y-1/2" />
+  <SliderHandler id="max-handle" year={2019} direction="right" class="top-1/2 -translate-y-1/2" />
+</div>
+
+<script>
+  const trackWrapper = document.getElementById('slider-track-wrapper');
+  const sliderMin = document.getElementById('slider-min') as HTMLInputElement;
+  const sliderMax = document.getElementById('slider-max') as HTMLInputElement;
+  const minHandle = document.getElementById('min-handle') as HTMLElement;
+  const maxHandle = document.getElementById('max-handle') as HTMLElement;
+  const activeFill = document.getElementById('slider-active-fill') as HTMLElement;
+
+  if (trackWrapper && sliderMin && sliderMax && minHandle && maxHandle && activeFill) {
+    const minValSpan = minHandle.querySelector('span') as HTMLSpanElement;
+    const maxValSpan = maxHandle.querySelector('span') as HTMLSpanElement;
+
+    const MIN_YEAR = 2004;
+    const MAX_YEAR = 2019;
+    const RANGE = MAX_YEAR - MIN_YEAR; // 15
+
+    // Continuous percentage states (0 to 100)
+    let minPct = 0;
+    let maxPct = 100;
+
+    let isDraggingMin = false;
+    let isDraggingMax = false;
+    let justFinishedDrag = false; // Suppress click right after drag
+
+    const setDraggingClass = (active) => {
+      if (active) {
+        trackWrapper.classList.add('dragging');
+      } else {
+        trackWrapper.classList.remove('dragging');
+      }
+    };
+
+    const render = () => {
+      minHandle.style.left = `calc(104px + (100% - 208px) * ${minPct / 100} - 72px)`;
+      maxHandle.style.left = `calc(104px + (100% - 208px) * ${maxPct / 100} + 12px)`;
+      
+      activeFill.style.left = `calc(104px + (100% - 208px) * ${minPct / 100} - 42px)`;
+      activeFill.style.right = `calc(104px + (100% - 208px) * ${(100 - maxPct) / 100} - 42px)`;
+
+      const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);
+      const val2 = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
+
+      if (minValSpan) minValSpan.textContent = String(val1);
+      if (maxValSpan) maxValSpan.textContent = String(val2);
+    };
+
+    // Initialize layout
+    render();
+
+    // Handle pointerdown on handles
+    minHandle.addEventListener('pointerdown', (e) => {
+      setDraggingClass(true);
+      isDraggingMin = true;
+      isDraggingMax = false;
+      e.stopPropagation();
+      e.preventDefault();
+    });
+
+    maxHandle.addEventListener('pointerdown', (e) => {
+      setDraggingClass(true);
+      isDraggingMax = true;
+      isDraggingMin = false;
+      e.stopPropagation();
+      e.preventDefault();
+    });
+
+    // Window level pointermove and pointerup for absolute robustness
+    window.addEventListener('pointermove', (e) => {
+      if (!isDraggingMin && !isDraggingMax) return;
+      const rect = trackWrapper.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 104) / (rect.width - 208)) * 100));
+
+      if (isDraggingMin) {
+        // Clamp: never exceed maxPct
+        minPct = Math.min(pct, maxPct);
+        const yearVal = Math.round((minPct / 100) * RANGE + MIN_YEAR);
+        sliderMin.value = String(yearVal);
+        sliderMin.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (isDraggingMax) {
+        // Clamp: never go below minPct
+        maxPct = Math.max(pct, minPct);
+        const yearVal = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
+        sliderMax.value = String(yearVal);
+        sliderMax.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      render();
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (isDraggingMin) {
+        isDraggingMin = false;
+        setDraggingClass(false);
+        justFinishedDrag = true;
+        const yearVal = Math.round((minPct / 100) * RANGE + MIN_YEAR);
+        minPct = ((yearVal - MIN_YEAR) / RANGE) * 100;
+        sliderMin.value = String(yearVal);
+        sliderMin.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (isDraggingMax) {
+        isDraggingMax = false;
+        setDraggingClass(false);
+        justFinishedDrag = true;
+        const yearVal = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
+        maxPct = ((yearVal - MIN_YEAR) / RANGE) * 100;
+        sliderMax.value = String(yearVal);
+        sliderMax.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      render();
+      // Reset justFinishedDrag after the click event has had a chance to fire
+      if (justFinishedDrag) {
+        requestAnimationFrame(() => { justFinishedDrag = false; });
+      }
+    });
+
+    // Track Click positioning — suppressed after drags, with cross-over protection
+    trackWrapper.addEventListener('click', (e) => {
+      // If we just finished a drag, ignore this click entirely
+      if (justFinishedDrag) return;
+
+      const target = e.target as HTMLElement;
+      if (minHandle.contains(target) || maxHandle.contains(target)) return;
+
+      const rect = trackWrapper.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 104) / (rect.width - 208)) * 100));
+      const clickedYear = Math.round((pct / 100) * RANGE + MIN_YEAR);
+
+      const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);
+      const val2 = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
+
+      if (Math.abs(clickedYear - val1) < Math.abs(clickedYear - val2)) {
+        // Move min handle — but clamp so it never exceeds max
+        const clampedYear = Math.min(clickedYear, val2);
+        minPct = ((clampedYear - MIN_YEAR) / RANGE) * 100;
+        sliderMin.value = String(clampedYear);
+        sliderMin.dispatchEvent(new Event('input', { bubbles: true }));
+        sliderMin.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        // Move max handle — but clamp so it never goes below min
+        const clampedYear = Math.max(clickedYear, val1);
+        maxPct = ((clampedYear - MIN_YEAR) / RANGE) * 100;
+        sliderMax.value = String(clampedYear);
+        sliderMax.dispatchEvent(new Event('input', { bubbles: true }));
+        sliderMax.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      render();
+    });
+  }
+</script>
+
+<style>
+  /* Smooth snapping transitions */
+  #slider-active-fill, #min-handle, #max-handle {
+    transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1), right 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+
+  /* Disable transitions while dragging for fluid continuous cursor matching */
+  #slider-track-wrapper.dragging #slider-active-fill,
+  #slider-track-wrapper.dragging #min-handle,
+  #slider-track-wrapper.dragging #max-handle {
+    transition: none !important;
+  }
+</style>

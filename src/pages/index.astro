@@ -1,0 +1,2693 @@
+---
+import Layout from '../layouts/Layout.astro';
+import HeaderTitle from '../components/HeaderTitle.astro';
+import MenuItem from '../components/MenuItem.astro';
+import SideMenu from '../components/SideMenu.astro';
+import TimeSlider from '../components/TimeSlider.astro';
+import TagWithLink from '../components/TagWithLink.astro';
+import ToggleSelector from '../components/ToggleSelector.astro';
+import FlyerCard from '../components/FlyerCard.astro';
+import IconButton from '../components/IconButton.astro';
+
+// Robust DMS/Decimal coordinates parser
+function parseCoordinates(coordStr, locality) {
+  if (!coordStr && !locality) return null;
+  const cleanCoord = coordStr ? coordStr.trim().toLowerCase() : '';
+  const cleanLoc = locality ? locality.trim().toLowerCase() : '';
+  
+  const dict = {
+    'san andrés del rabanedo': [42.6105, -5.6147],
+    'calle sta. ana, 15': [42.5925, -5.5668],
+    'santa ana, 15': [42.5925, -5.5668],
+    'plaza caño de sta. ana, 1': [42.5947, -5.5675],
+    'plaza caño de santa ana, 1': [42.5947, -5.5675],
+    'santa olaja de porma': [42.6322, -5.4055],
+    'león': [42.5987, -5.5671],
+    'leon': [42.5987, -5.5671],
+    'valdepiélago': [42.8687, -5.3995],
+    'valdepielago': [42.8687, -5.3995],
+    'el gran café': [42.5976, -5.5714],
+    'el gran cafe': [42.5976, -5.5714],
+    'tirol rock bar': [42.5982, -5.5695],
+    'calle villa benavente, 3': [42.5956, -5.5701],
+    'calle villa benavente, 9': [42.5954, -5.5700],
+    'calle las varillas, 2': [42.5959, -5.5662],
+    'c. de juan de arfe, 15': [42.5954, -5.5669],
+    'calle caño badillo, 19': [42.5966, -5.5658],
+    'c. arco de ánimas, 2': [42.5977, -5.5690],
+    'av. lancia, 9': [42.5948, -5.5724]
+  };
+  
+  if (cleanCoord && dict[cleanCoord]) return dict[cleanCoord];
+  if (cleanLoc && dict[cleanLoc]) return dict[cleanLoc];
+  
+  if (coordStr) {
+    const dmsRegex = /(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NS])\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([EW])/i;
+    const match = coordStr.match(dmsRegex);
+    if (match) {
+      const latDeg = parseInt(match[1], 10);
+      const latMin = parseInt(match[2], 10);
+      const latSec = parseFloat(match[3]);
+      const latDir = match[4].toUpperCase();
+      const lngDeg = parseInt(match[5], 10);
+      const lngMin = parseInt(match[6], 10);
+      const lngSec = parseFloat(match[7]);
+      const lngDir = match[8].toUpperCase();
+      
+      let lat = latDeg + latMin / 60 + latSec / 3600;
+      if (latDir === 'S') lat = -lat;
+      let lng = lngDeg + lngMin / 60 + lngSec / 3600;
+      if (lngDir === 'W') lng = -lng;
+      return [lat, lng];
+    }
+    
+    const decRegex = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/;
+    const decMatch = coordStr.match(decRegex);
+    if (decMatch) {
+      return [parseFloat(decMatch[1]), parseFloat(decMatch[2])];
+    }
+  }
+  return null;
+}
+
+// Extract Year from Date String
+function getYear(dateStr) {
+  if (!dateStr || dateStr === 'SIN FECHA') return null;
+  const slashBits = dateStr.split('/');
+  if (slashBits.length === 3) {
+    const yr = parseInt(slashBits[2], 10);
+    if (!isNaN(yr)) return yr;
+  }
+  const dashBits = dateStr.split('-');
+  if (dashBits.length === 3) {
+    const yr = parseInt(dashBits[0], 10);
+    if (!isNaN(yr)) return yr;
+  }
+  const match = dateStr.match(/\b(19\d\d|20\d\d)\b/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  return null;
+}
+
+// Direct hotlink builder to bypass drive authentication/cors
+function extractDriveImage(url) {
+  if (!url) return '';
+  let fileId = '';
+  if (url.includes('id=')) {
+    fileId = url.split('id=')[1].split('&')[0];
+  } else if (url.includes('/d/')) {
+    fileId = url.split('/d/')[1].split('/')[0];
+  }
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+}
+
+// Fetch and Group Sheets Google Viz JSON Database
+const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
+const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+
+let initialArchives = [];
+const initialArtists = new Set();
+const initialDesigners = new Set();
+const initialPromoters = new Set();
+
+try {
+  const response = await fetch(CONFIG_URL);
+  const text = await response.text();
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
+  
+  if (match && match[1]) {
+    const cleanJson = JSON.parse(match[1]);
+    const rows = cleanJson.table.rows;
+    
+    const rawItems = rows.map((row) => {
+      const c = row.c;
+      if (!c) return null;
+      return {
+        evento: c[0] ? c[0].v : 'Evento sin título',
+        urlDrive: c[2] ? c[2].v : '',
+        fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
+        lugar: c[4] ? c[4].v : 'León',
+        localidad: c[5] ? c[5].v : '',
+        coordenadas: c[6] ? c[6].v : '',
+        artistas: c[7] ? c[7].v : '',
+        organiza: c[8] ? c[8].v : '',
+        descripcion: c[9] ? c[9].v : '',
+        idMel: c[10] ? c[10].v : '',
+        carruselOrder: c[11] ? c[11].v : '1',
+        disenador: c[13] ? c[13].v : 'Desconocido',
+        existeOriginal: c[16] ? c[16].v : '',
+        formato: c[21] ? c[21].v : 'Flyer',
+        notasArchivo: c[24] ? c[24].v : '',
+        ocr: c[25] ? c[25].v : ''
+      };
+    }).filter(item => item && item.idMel && item.idMel.startsWith('MEL-'));
+    
+    // Group by Event Name + Date
+    const groups = {};
+    rawItems.forEach(item => {
+      const key = `${item.evento.trim().toLowerCase()}_${item.fecha.trim().toLowerCase()}`;
+      if (!groups[key]) {
+        groups[key] = {
+          evento: item.evento,
+          fecha: item.fecha,
+          carruselItems: [],
+          lugar: item.lugar,
+          localidad: item.localidad,
+          coordenadas: item.coordenadas,
+          artistas: item.artistas,
+          organiza: item.organiza,
+          descripcion: item.descripcion,
+          disenador: item.disenador,
+          existeOriginal: item.existeOriginal,
+          formato: item.formato,
+          notasArchivo: item.notasArchivo,
+          ocr: item.ocr,
+          idMel: item.idMel
+        };
+      }
+      groups[key].carruselItems.push({
+        urlDrive: item.urlDrive,
+        carruselOrder: parseInt(item.carruselOrder, 10) || 1,
+        idMel: item.idMel
+      });
+    });
+    function parseDateToNumber(dateStr) {
+      if (!dateStr || dateStr === 'SIN FECHA') return 0;
+      const slashBits = dateStr.split('/');
+      if (slashBits.length === 3) {
+        const d = parseInt(slashBits[0], 10);
+        const m = parseInt(slashBits[1], 10) - 1;
+        const y = parseInt(slashBits[2], 10);
+        return new Date(y, m, d).getTime();
+      }
+      const dashBits = dateStr.split('-');
+      if (dashBits.length === 3) {
+        const y = parseInt(dashBits[0], 10);
+        const m = parseInt(dashBits[1], 10) - 1;
+        const d = parseInt(dashBits[2], 10);
+        return new Date(y, m, d).getTime();
+      }
+      return 0;
+    }
+
+    initialArchives = Object.values(groups).map((g: any) => {
+      g.carruselItems.sort((a, b) => a.carruselOrder - b.carruselOrder);
+      return g;
+    });
+
+    // Sort by date ascending
+    initialArchives.sort((a, b) => {
+      const timeA = parseDateToNumber(a.fecha);
+      const timeB = parseDateToNumber(b.fecha);
+      return timeA - timeB;
+    });
+    
+    // Gather initial unique statistics
+    initialArchives.forEach(item => {
+      if (item.artistas) {
+        item.artistas.split(/[,;\/]+/).forEach(a => {
+          const cleanA = a.trim().toLowerCase();
+          if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') initialArtists.add(cleanA);
+        });
+      }
+      if (item.organiza) {
+        const cleanP = item.organiza.trim().toLowerCase();
+        if (cleanP && cleanP !== 'desconocido' && cleanP !== 'varios') initialPromoters.add(cleanP);
+      }
+      if (item.disenador) {
+        const cleanD = item.disenador.trim().toLowerCase();
+        if (cleanD && cleanD !== 'desconocido') initialDesigners.add(cleanD);
+      }
+    });
+  }
+} catch (e) {
+  console.error("Error fetching or parsing GSheets JSON database", e);
+}
+
+// Mapped stats matching Figma TagWithLink instances exactly
+const tags = [
+  { label: "Eventos", count: initialArchives.length },
+  { label: "Artistas", count: initialArtists.size },
+  { label: "Diseñadores", count: initialDesigners.size },
+  { label: "Promotores", count: initialPromoters.size }
+];
+
+// Grid spans matching Figma specification
+const gridSpans = [
+  { col: 2, row: 2 },
+  { col: 1, row: 4 },
+  { col: 1, row: 3 },
+  { col: 2, row: 2 },
+  { col: 1, row: 2 },
+  { col: 1, row: 1 },
+  { col: 2, row: 4 },
+  { col: 1, row: 2 },
+  { col: 1, row: 1 },
+  { col: 1, row: 2 },
+  { col: 1, row: 3 },
+  { col: 3, row: 4 },
+  { col: 1, row: 2 }
+];
+---
+
+<Layout title="Galería de Diseño">
+  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[112px] pb-8 flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+    
+    <!-- Page Header: Search (Typing Title prompt) and Menu -->
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center shrink-0" style="view-transition-name: mel-header;">
+      <div class="col-span-12 md:col-span-6 w-full">
+        <HeaderTitle hideDivider={true} />
+      </div>
+      <div class="col-span-12 md:col-span-6 flex justify-end">
+        <MenuItem id="menu-btn" />
+      </div>
+    </div>
+
+    <!-- Toolbar: Slider & Controls -->
+    <div class="flex flex-col gap-6 py-4 shrink-0" style="view-transition-name: mel-toolbar;">
+      <!-- Year Slider Bar (Removed text header label as requested) -->
+      <div class="flex flex-col gap-2">
+        <TimeSlider />
+      </div>
+
+      <!-- Filter Tags and View Switcher -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center mt-2">
+        <!-- Event Stats Tags (TagWithLink) -->
+        <div class="col-span-12 lg:col-span-8 flex items-center gap-0 w-full overflow-x-auto">
+          {tags.map((tag) => (
+            <TagWithLink label={tag.label} count={tag.count} />
+          ))}
+        </div>
+
+        <!-- View Selector Toggle (Occupying exactly 4 columns) -->
+        <div class="col-span-12 lg:col-span-4 w-full">
+          <ToggleSelector />
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
+    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col justify-between transition-colors duration-300 mt-[16px]">
+      
+      <!-- 1. GALLERY VIEW (Grid Layout exactly matching Figma auto-rows and gaps) -->
+      <div id="view-galería" class="view-panel active flex-1 w-full overflow-y-auto transition-all duration-500 pb-4">
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense">
+          {initialArchives.slice(0, 32).map((item, i) => {
+            const span = gridSpans[i % gridSpans.length];
+            const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+            const yr = getYear(item.fecha) || 2004;
+            return (
+              <FlyerCard 
+                id={item.idMel}
+                title={item.evento}
+                category={item.organiza || "Colectivo"}
+                location={`${item.lugar}. ${item.localidad}`}
+                year={yr}
+                image={imgSrc}
+                spanClass="span-col-1"
+              />
+            );
+          })}
+        </div>
+      </div>
+
+      <!-- 2. MAP VIEW (Real Google Map with sliding side panel) -->
+      <div id="view-mapa" class="view-panel hidden absolute inset-0 overflow-hidden flex">
+        <div id="map-container" class="flex-1 h-full"></div>
+        
+        <!-- Side Panel / Place Events Panel -->
+        <div 
+          id="map-side-panel" 
+          class="w-0 h-full bg-mel-bg-primary border-l-0 border-mel-border flex flex-col justify-start z-20 overflow-hidden shrink-0 transition-all duration-300"
+          style="opacity: 1;"
+          data-node-id="341:25563"
+        >
+          <!-- Header / Close button (Figma matches: pb-[8px] px-[16px] pt-[8px]) -->
+          <div class="flex items-center pb-[8px] px-[16px] pt-[8px] shrink-0 w-full">
+            <IconButton 
+              id="close-map-side-panel" 
+              icon="x"
+              variant="ghost"
+              aria-label="Cerrar panel"
+            />
+          </div>
+          
+          <!-- Title & Address (Figma matches: pb-[32px] pt-[24px] px-[16px] + px-[8px] on inner text) -->
+          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[24px] px-[16px] shrink-0 w-full relative">
+            <div class="px-[8px] flex flex-col gap-[16px] items-start justify-center w-full">
+              <h2 id="side-panel-title" class="font-sans font-bold text-[31px] leading-[32px] text-mel-text-primary tracking-[-0.62px] truncate w-full"></h2>
+              <p id="side-panel-address" class="font-serif font-medium text-[15px] leading-[24px] text-mel-text-secondary tracking-[0.15px] truncate w-full"></p>
+            </div>
+          </div>
+          
+          <!-- Highlight / Tag Section using the TagWithLink component with horizontal overflow (Figma matches: pb-[32px] px-[24px]) -->
+          <div class="pb-[32px] px-[24px] flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
+            <div class="flex gap-[24px] items-center w-full overflow-x-auto no-scrollbar pb-1" id="side-panel-tags-container">
+              <TagWithLink label="Eventos" count="0" class="shrink-0 w-auto" hideBorder={true} />
+              <div class="h-8 w-[1px] bg-mel-border shrink-0"></div>
+              <TagWithLink label="Artistas" count="0" class="shrink-0 w-auto" hideBorder={true} />
+              <div class="h-8 w-[1px] bg-mel-border shrink-0"></div>
+              <TagWithLink label="Diseñadores" count="0" class="shrink-0 w-auto" hideBorder={true} />
+            </div>
+            <!-- Inset bottom divider (Figma matches: bottom-0 left-24 right-24, color: mel-border) -->
+            <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
+          </div>
+          
+          <!-- Event List (Scrollable) -->
+          <div id="side-panel-event-list" class="flex-1 overflow-y-auto bg-mel-bg-primary relative">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. LIST VIEW -->
+      <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0">
+        <div class="overflow-x-auto w-full flex-1 overflow-y-auto border border-mel-border">
+          <table class="w-full text-left text-sm border-collapse" style="table-layout:fixed;">
+            <colgroup>
+              <col style="width:25%;" />
+              <col style="width:12%;" />
+              <col style="width:18%;" />
+              <col style="width:15%;" />
+              <col style="width:15%;" />
+              <col style="width:15%;" />
+            </colgroup>
+            <thead class="sticky top-0 z-[2]">
+              <tr class="h-[40px]">
+                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none" data-col="evento">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>evento</span>
+                    <span class="sort-icon text-mel-action-secondary shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>
+                    </span>
+                  </div>
+                </th>
+                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none" data-col="fecha">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>fecha</span>
+                    <span class="sort-icon text-mel-action-secondary shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>
+                    </span>
+                  </div>
+                </th>
+                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none" data-col="lugar">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>lugar</span>
+                    <span class="sort-icon text-mel-action-secondary shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>
+                    </span>
+                  </div>
+                </th>
+                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none" data-col="localidad">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>localidad</span>
+                    <span class="sort-icon text-mel-action-secondary shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>
+                    </span>
+                  </div>
+                </th>
+                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none" data-col="organiza">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>organiza</span>
+                    <span class="sort-icon text-mel-action-secondary shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>
+                    </span>
+                  </div>
+                </th>
+                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none" data-col="disenador">
+                  <div class="flex items-center justify-between gap-1">
+                    <span>diseño</span>
+                    <span class="sort-icon text-mel-action-secondary shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>
+                    </span>
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody id="list-table-body">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    
+      <!-- Pagination Controls matching Figma Carousel Navigation 481:234622 -->
+      <div id="pagination-controls" class="flex gap-4 items-center justify-center py-4 relative w-full select-none shrink-0 bg-mel-bg-primary border-t border-mel-border/30" style="view-transition-name: mel-pagination;">
+        <IconButton 
+          id="btn-prev-page" 
+          icon="chevron-left" 
+          size={40} 
+          type="phantom"
+          aria-label="Página anterior" 
+          class="disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+        />
+        <div id="pagination-numbers" class="flex gap-4 items-center relative">
+          <!-- Dynamically populated page buttons -->
+        </div>
+        <IconButton 
+          id="btn-next-page" 
+          icon="chevron-right" 
+          size={40} 
+          type="phantom"
+          aria-label="Página siguiente" 
+          class="disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+        />
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Lightbox Modal -->
+  <div id="lightbox" class="fixed inset-0 z-[100] bg-mel-bg-primary/95 backdrop-blur-md hidden items-center justify-center p-6 transition-all duration-300">
+    <IconButton 
+      id="close-lightbox" 
+      icon="x"
+      size={40}
+      variant="outline"
+      class="absolute top-6 right-6"
+      aria-label="Cerrar"
+    />
+    
+    <div class="max-w-4xl w-full flex flex-col md:flex-row gap-8 items-center justify-center">
+      <!-- Image frame with figma-like stripes background & Carousel Navigation -->
+      <div class="relative max-h-[75vh] md:w-3/5 overflow-hidden border border-mel-border shadow-2xl flex items-center justify-center p-4 bg-white/40">
+        <div class="absolute inset-0 striped-bg opacity-10 z-0"></div>
+        <img id="lightbox-image" src="" alt="" referrerpolicy="no-referrer" class="max-h-[70vh] max-w-full object-contain z-10 shadow-md" />
+        
+        <!-- Carousel buttons (Hidden by default, shown for multiple images) -->
+        <IconButton 
+          id="lightbox-prev" 
+          icon="chevron-left"
+          size={40}
+          variant="outline"
+          class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-20 hidden"
+        />
+        <IconButton 
+          id="lightbox-next" 
+          icon="chevron-right"
+          size={40}
+          variant="outline"
+          class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-20 hidden"
+        />
+        
+        <!-- Carousel indicators (dots) -->
+        <div id="lightbox-dots" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20"></div>
+      </div>
+      
+      <!-- Metadata -->
+      <div class="md:w-2/5 flex flex-col gap-4">
+        <span id="lightbox-category" class="typo-overline bg-mel-action-secondary text-mel-text-on-action px-3 py-1 self-start">Categoría</span>
+        <h2 id="lightbox-title" class="typo-h3 text-mel-text-primary text-3xl leading-tight">Título del Flyer</h2>
+        <div class="h-[1px] bg-mel-border/60 w-full my-2"></div>
+        <div class="flex flex-col gap-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-mel-text-secondary typo-overline font-semibold">Localización</span>
+            <span id="lightbox-location" class="text-mel-text-primary typo-body-roman">Localización</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-mel-text-secondary typo-overline font-semibold">Fecha de Archivo</span>
+            <span id="lightbox-date" class="text-mel-text-primary font-mono">Fecha</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
+  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-24 pb-[108px] px-6 sm:px-12 select-none">
+    <div class="w-full max-w-[1224px] flex flex-col relative" id="overlay-content-wrapper">
+      
+      <!-- Close Button (X) at Top Left -->
+      <button 
+        id="event-details-overlay-close"
+        class="w-6 h-6 mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0 border-none bg-transparent outline-none self-start"
+        aria-label="Cerrar detalles de evento"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
+      <div id="overlay-details-content" class="w-full transition-opacity duration-300">
+        <!-- Three-column content grid (Figma widths: 184px, 496px, 496px) -->
+        <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start w-full">
+          
+          <!-- Column 1: Tags Sidebar -->
+          <div class="flex flex-col gap-10 w-full" id="overlay-tags-sidebar">
+            <!-- Populated dynamically via JS -->
+          </div>
+
+          <!-- Column 2: Image Box -->
+          <div class="flex flex-col items-center w-full relative h-[400px]">
+            <button 
+              id="overlay-carousel-main"
+              class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
+              aria-label="Ver imagen ampliada"
+            >
+              <!-- Striped background -->
+              <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
+              
+              <!-- Track container -->
+              <div 
+                id="overlay-carousel-track" 
+                class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
+                style="transform: translate3d(0, 0, 0);"
+              >
+                <!-- Populated dynamically -->
+              </div>
+            </button>
+
+            <!-- Dots -->
+            <div class="absolute top-[400px] left-0 right-0 flex gap-4 items-center justify-center py-6 w-full" id="overlay-carousel-dots">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Column 3: Event Info -->
+          <div class="flex flex-col gap-10 w-full pl-6">
+            <h2 id="overlay-event-title" class="font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary"></h2>
+
+            <div class="flex flex-col gap-10">
+              <div id="overlay-description-container" class="flex flex-col gap-6">
+                <p id="overlay-event-description" class="font-sans font-normal text-[16px] leading-[24px] tracking-[-0.16px] text-mel-text-primary"></p>
+                <div class="h-px w-full bg-mel-border"></div>
+              </div>
+
+              <div id="overlay-artists-container" class="flex flex-col gap-2">
+                <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
+                <div id="overlay-artists-list" class="flex flex-wrap gap-y-1"></div>
+              </div>
+            </div>
+
+            <!-- Like Button -->
+            <div class="flex gap-6 items-start">
+              <button
+                id="overlay-btn-me-presta"
+                class="content-stretch cursor-pointer flex items-center justify-center py-3 px-4 relative select-none outline-none group border font-sans font-medium text-[16px] leading-[20px] tracking-[0px] w-fit"
+                data-active="false"
+              >
+                <!-- Centered Label -->
+                <span class="text-mel-action-secondary group-hover:text-mel-action-primary group-data-[active=true]:text-mel-text-on-action transition-colors duration-300 select-none pointer-events-none">
+                  Me presta
+                </span>
+                <!-- Checkmark -->
+                <div class="icon-container flex items-center justify-center overflow-hidden shrink-0 w-0 opacity-0 mr-0 transition-all duration-300 ease-out group-data-[active=true]:w-5 group-data-[active=true]:opacity-100 group-data-[active=true]:ml-2">
+                  <svg class="w-4 h-4 text-mel-text-on-action shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Navigation block -->
+        <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-[280px] shrink-0 items-center">
+          <div class="hidden lg:block"></div>
+          
+          <!-- Anterior -->
+          <div class="flex justify-end text-right items-center" id="overlay-nav-prev-container"></div>
+
+          <!-- Siguiente -->
+          <div class="flex justify-start text-left pl-6 items-center" id="overlay-nav-next-container"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Image Detail Lightbox for the Overlay -->
+  <div 
+    id="overlay-image-lightbox" 
+    class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
+  >
+    <div 
+      id="overlay-lightbox-modal" 
+      class="relative bg-mel-bg-primary mx-4 flex flex-col items-center justify-center transform scale-95 transition-transform duration-300 overflow-visible p-8 shadow-[0px_8px_32px_rgba(25,6,9,0.32)]"
+    >
+      <button 
+        id="overlay-lightbox-close"
+        class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
+        aria-label="Cerrar vista grande"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="w-full h-full overflow-hidden flex items-center justify-center bg-transparent relative z-10">
+        <img 
+          id="overlay-lightbox-image"
+          src="" 
+          alt="Vista grande"
+          referrerpolicy="no-referrer"
+          class="max-w-full max-h-full object-contain relative z-10 transition-transform duration-100 ease-out"
+        />
+      </div>
+    </div>
+  </div>
+
+  <SideMenu />
+</Layout>
+
+
+
+<style>
+  ::view-transition-group(mel-header),
+  ::view-transition-group(mel-toolbar),
+  ::view-transition-group(mel-pagination) {
+    z-index: 100;
+  }
+
+  /* Define typographic Lora variables at root for clean token mapping */
+  :root {
+    --Font-Size-Body-Roman: 16px;
+    --Line-Height-Body-Roman: 24px;
+    --Text-Secondary: var(--mel-text-secondary);
+    --Action-Primary: var(--mel-action-primary);
+  }
+
+  /* Custom CSS for Range Slider */
+  input[type="range"]::-webkit-slider-thumb {
+    pointer-events: auto;
+    width: 24px;
+    height: 32px;
+    opacity: 0; /* Hide default thumb, we use absolute divs matching sliders */
+    cursor: pointer;
+  }
+  
+  input[type="range"]::-moz-range-thumb {
+    pointer-events: auto;
+    width: 24px;
+    height: 32px;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  /* Striped grid pattern replicating Figma design */
+  .striped-bg {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 7px,
+      var(--mel-border) 7px,
+      var(--mel-border) 8px
+    );
+  }
+
+  /* Dynamic panels transition */
+  .view-panel {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  }
+  
+  .view-panel.hidden {
+    display: none !important;
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  .view-panel.active {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  #view-lista.active {
+    display: flex;
+  }
+
+  /* Overlay Me Presta Button Styles */
+  #overlay-btn-me-presta {
+    border-color: var(--mel-action-secondary);
+    background-color: transparent;
+    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  #overlay-btn-me-presta:hover {
+    border-color: var(--mel-action-primary);
+  }
+
+  #overlay-btn-me-presta[data-active="true"] {
+    border-color: var(--mel-action-secondary);
+    background-color: var(--mel-action-secondary);
+  }
+
+  #overlay-btn-me-presta[data-active="true"]:hover {
+    border-color: var(--mel-action-primary);
+    background-color: var(--mel-action-primary);
+  }
+</style>
+
+<style is:global>
+  .gallery-item {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .gallery-item:hover {
+    transform: scale(1.025) !important;
+    z-index: 30 !important;
+    box-shadow: 0 239px 67px 0 rgba(38, 32, 32, 0.00), 
+                0 153px 61px 0 rgba(38, 32, 32, 0.01), 
+                0 86px 52px 0 rgba(38, 32, 32, 0.05), 
+                0 38px 38px 0 rgba(38, 32, 32, 0.09), 
+                0 10px 21px 0 rgba(38, 32, 32, 0.10) !important;
+  }
+
+  @media (min-width: 768px) {
+    .span-col-1 {
+      grid-column: span 1 / span 1;
+      height: 408px;
+    }
+    .span-col-2 {
+      grid-column: span 2 / span 2;
+      height: 848px;
+    }
+    .span-col-3 {
+      grid-column: span 3 / span 3;
+      height: 1288px;
+    }
+    .span-col-4 {
+      grid-column: span 4 / span 4;
+      height: 1728px;
+    }
+  }
+
+  @media (max-width: 767px) {
+    .gallery-item {
+      height: 408px !important;
+      grid-column: span 1 / span 1 !important;
+    }
+  }
+
+  @keyframes marker-fade-in {
+    from {
+      opacity: 0;
+      transform: scale(0.6) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  .mel-marker-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    filter: drop-shadow(0px 4px 8px rgba(38,31,31,0.32));
+    cursor: pointer;
+    transition: transform 0.15s ease-out;
+    animation: marker-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .mel-marker-wrapper:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0px 6px 16px rgba(38,31,31,0.42));
+    z-index: 99999 !important;
+  }
+
+  .mel-marker-wrapper.active {
+    z-index: 99998 !important;
+  }
+  .mel-marker-wrapper.active .mel-marker-body {
+    background-color: var(--mel-action-primary) !important;
+  }
+  .mel-marker-wrapper.active .mel-marker-pointer {
+    border-top-color: var(--mel-action-primary) !important;
+  }
+
+  .mel-marker-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    min-width: 40px;
+    width: auto;
+    height: 40px;
+    background-color: var(--mel-action-secondary); /* Resting: Action Secondary */
+    border: none;
+    transition: background-color 0.15s ease-out;
+    box-sizing: border-box;
+  }
+
+  .mel-marker-body.text-marker {
+    padding: 8px 12px;
+    width: auto;
+    height: auto;
+  }
+
+  .mel-marker-wrapper:hover .mel-marker-body {
+    background-color: var(--mel-action-primary); /* Hover: #8C2034 */
+  }
+
+  .mel-marker-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 20px;
+    text-align: center;
+    color: var(--mel-bg-primary); /* #f7f3f5 */
+    white-space: nowrap;
+  }
+
+  .mel-marker-pointer {
+    width: 0;
+    height: 0;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 10px solid var(--mel-action-secondary);
+    margin-top: -1px;
+    transition: border-top-color 0.15s ease-out;
+  }
+
+  .mel-marker-wrapper:hover .mel-marker-pointer {
+    border-top-color: var(--mel-action-primary);
+  }
+
+  /* Google Maps popup card glassmorphism */
+  .gm-style .gm-style-iw-c {
+    background: rgba(246,244,245,0.92) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 2px solid var(--mel-border) !important;
+    border-radius: 0 !important;
+    box-shadow: 0px 10px 10.5px rgba(38,32,32,0.1), 0px 38px 19px rgba(38,32,32,0.09) !important;
+    padding: 0 !important;
+    max-width: 360px !important;
+  }
+
+  .gm-style .gm-style-iw-d {
+    overflow: hidden !important;
+    max-height: 400px !important;
+  }
+
+  .gm-style .gm-style-iw-tc::after {
+    background: rgba(246,244,245,0.92) !important;
+    border: 1px solid var(--mel-border);
+    box-shadow: none !important;
+  }
+
+  .gm-style .gm-ui-hover-effect {
+    top: 8px !important;
+    right: 8px !important;
+    background-color: transparent !important;
+  }
+  
+  .gm-style .gm-ui-hover-effect span {
+    background-color: var(--mel-action-secondary) !important;
+  }
+
+  .mel-popup-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    color: var(--mel-text-primary);
+    font-family: var(--font-sans);
+  }
+
+  .mel-popup-header {
+    background-color: var(--mel-bg-secondary);
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--mel-border);
+  }
+
+  .mel-popup-header-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--mel-action-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .mel-popup-event {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mel-popup-event-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mel-popup-event-title {
+    font-weight: 700;
+    font-size: 17px;
+    line-height: 24px;
+    letter-spacing: -0.17px;
+    color: var(--mel-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mel-popup-event-date {
+    font-weight: 500;
+    font-size: 16px;
+    line-height: 20px;
+    color: var(--mel-text-secondary);
+  }
+
+  .mel-popup-event-location {
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 20px;
+    color: var(--mel-text-secondary);
+  }
+
+  .mel-popup-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 12px 4px 8px;
+    background-color: var(--mel-action-secondary);
+    border: 1px solid var(--mel-action-secondary);
+    color: var(--mel-text-on-action);
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 14px;
+    line-height: 20px;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .mel-popup-btn:hover {
+    background-color: var(--mel-action-primary);
+  }
+
+  .mel-popup-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .mel-popup-divider {
+    height: 1px;
+    background: var(--mel-border);
+    margin: 12px 0;
+  }
+
+  .mel-popup-single {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .mel-popup-thumb {
+    width: 80px;
+    height: 100px;
+    overflow: hidden;
+    flex-shrink: 0;
+    border: 1px solid var(--mel-border);
+  }
+
+  .mel-popup-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .sort-header {
+    cursor: pointer;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  .sort-header:hover {
+    background-color: var(--mel-bg-secondary);
+    color: var(--mel-action-primary) !important;
+  }
+  .sort-header:hover .sort-icon {
+    color: var(--mel-action-primary) !important;
+  }
+
+  /* --- List view: marquee-on-hover for truncated cell text --- */
+  .marquee-cell {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    position: relative;
+  }
+  .marquee-cell .marquee-inner {
+    display: inline-block;
+    white-space: nowrap;
+    transition: transform 0s linear;
+    padding-right: 0;
+  }
+  .marquee-cell:hover .marquee-inner.is-overflowing {
+    animation: marquee-scroll var(--marquee-duration, 4s) linear 0.4s infinite;
+  }
+  @keyframes marquee-scroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(calc(-100% + var(--cell-width))); }
+  }
+
+  /* Event title: show chevron on hover */
+  .event-title-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+  }
+  .event-title-link .title-chevron {
+    opacity: 0;
+    transform: translateX(-4px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+  }
+  .event-title-link:hover .title-chevron {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* Search link cells */
+  .search-cell-link {
+    cursor: pointer;
+    color: var(--mel-action-secondary);
+    transition: color 0.2s ease;
+    text-decoration: none;
+  }
+  .search-cell-link:hover {
+    color: var(--mel-action-primary);
+    text-decoration: underline;
+  }
+</style>
+
+<!-- Client Side Scripting for complete interactivity -->
+<script define:vars={{ initialArchives }}>
+  // State management
+  let archives = [...initialArchives];
+  let filtered = [...initialArchives];
+  let minYear = 2004;
+  let maxYear = 2019;
+  let searchQuery = "";
+  let activeSidePanelKey = null;
+  
+  // Paginación state
+  let currentPage = 1;
+  const PAGE_SIZE = 32;
+
+  // Sorting state
+  let currentSortCol = null;
+  let currentSortDir = 'asc';
+
+  // Dynamic limits initialized from data
+  let ABSOLUTE_MIN_YEAR = 2004;
+  let ABSOLUTE_MAX_YEAR = 2019;
+
+  // Grid spans
+  const gridSpans = [
+    { col: 2, row: 2 },
+    { col: 1, row: 4 },
+    { col: 1, row: 3 },
+    { col: 2, row: 2 },
+    { col: 1, row: 2 },
+    { col: 1, row: 1 },
+    { col: 2, row: 4 },
+    { col: 1, row: 2 },
+    { col: 1, row: 1 },
+    { col: 1, row: 2 },
+    { col: 1, row: 3 },
+    { col: 3, row: 4 },
+    { col: 1, row: 2 }
+  ];
+
+  // DOM Elements
+  const sliderMin = document.getElementById('slider-min');
+  const sliderMax = document.getElementById('slider-max');
+  const minHandle = document.getElementById('min-handle');
+  const maxHandle = document.getElementById('max-handle');
+  const minVal = minHandle ? minHandle.querySelector('span') : null;
+  const maxVal = maxHandle ? maxHandle.querySelector('span') : null;
+  const activeFill = document.getElementById('slider-active-fill');
+
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-image');
+  const lightboxTitle = document.getElementById('lightbox-title');
+  const lightboxLocation = document.getElementById('lightbox-location');
+  const lightboxCategory = document.getElementById('lightbox-category');
+  const lightboxDate = document.getElementById('lightbox-date');
+  const closeLightboxBtn = document.getElementById('close-lightbox');
+  
+  // Pagination Elements
+  const btnPrevPage = document.getElementById('btn-prev-page');
+  const btnNextPage = document.getElementById('btn-next-page');
+  const paginationNumbers = document.getElementById('pagination-numbers');
+
+  let currentDetailGroup = null;
+  let currentCarruselIndex = 0;
+
+  // Calculate year of event
+  function getYear(dateStr) {
+    if (dateStr === null || dateStr === undefined) return null;
+    const str = String(dateStr).trim();
+    if (!str || str === 'SIN FECHA') return null;
+
+    // Check if it's already a 4-digit number (like "2008" or 2008)
+    const numericYear = parseInt(str, 10);
+    if (!isNaN(numericYear) && str.length === 4) return numericYear;
+
+    const slashBits = str.split('/');
+    if (slashBits.length === 3) {
+      const yr = parseInt(slashBits[2], 10);
+      if (!isNaN(yr)) return yr;
+    }
+    const dashBits = str.split('-');
+    if (dashBits.length === 3) {
+      const yr = parseInt(dashBits[0], 10);
+      if (!isNaN(yr)) return yr;
+    }
+    const match = str.match(/\b(19\d\d|20\d\d)\b/);
+    if (match) {
+      return parseInt(match[1], 10);
+    }
+    return null;
+  }
+
+  // Hotlink extractor using the new thumbnail endpoint
+  function extractDriveImage(url) {
+    if (!url) return '';
+    let fileId = '';
+    if (url.includes('id=')) {
+      fileId = url.split('id=')[1].split('&')[0];
+    } else if (url.includes('/d/')) {
+      fileId = url.split('/d/')[1].split('/')[0];
+    }
+    return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+  }
+
+  // Determine dynamic bounds
+  function calculateDynamicBounds() {
+    let min = Infinity;
+    let max = -Infinity;
+    archives.forEach(item => {
+      const yr = getYear(item.fecha);
+      if (yr !== null) {
+        if (yr < min) min = yr;
+        if (yr > max) max = yr;
+      }
+    });
+    if (min === Infinity) min = 2004;
+    if (max === -Infinity) max = 2019;
+    ABSOLUTE_MIN_YEAR = min;
+    ABSOLUTE_MAX_YEAR = max;
+
+    if (sliderMin) {
+      sliderMin.setAttribute('min', String(min));
+      sliderMin.setAttribute('max', String(max));
+    }
+    if (sliderMax) {
+      sliderMax.setAttribute('min', String(min));
+      sliderMax.setAttribute('max', String(max));
+    }
+  }
+
+  // Double Range Slider logic
+  function updateSlider() {
+    if (!sliderMin || !sliderMax) return;
+    let val1 = parseInt(sliderMin.value);
+    let val2 = parseInt(sliderMax.value);
+
+    // Ensure min never exceeds max — simply clamp
+    if (val1 > val2) {
+      val1 = val2;
+      sliderMin.value = String(val1);
+    }
+
+    minYear = val1;
+    maxYear = val2;
+
+    // Reset pagination to first page when filtering changes
+    currentPage = 1;
+    filterArchives();
+  }
+
+  // Bind Slider Events
+  if (sliderMin) sliderMin.addEventListener('input', updateSlider);
+  if (sliderMax) sliderMax.addEventListener('input', updateSlider);
+
+  // Search input change handler
+  window.addEventListener('mel-search', (e) => {
+    searchQuery = e.detail.query.toLowerCase().trim();
+    
+    // Dynamically synchronize the search query parameter in the browser URL
+    try {
+      const url = new URL(window.location.href);
+      if (searchQuery) {
+        url.searchParams.set('search', searchQuery);
+      } else {
+        url.searchParams.delete('search');
+      }
+      window.history.replaceState({}, '', url.toString());
+    } catch (err) {
+      console.warn("Unable to update URL query params", err);
+    }
+
+    currentPage = 1;
+    filterArchives(true);
+  });
+
+  // Carousel Render inside Lightbox
+  function updateLightboxCarousel() {
+    if (!currentDetailGroup) return;
+    const items = currentDetailGroup.carruselItems;
+    const activeItem = items[currentCarruselIndex];
+    lightboxImg.src = extractDriveImage(activeItem.urlDrive);
+    
+    const prevBtn = document.getElementById('lightbox-prev');
+    const nextBtn = document.getElementById('lightbox-next');
+    const dotsContainer = document.getElementById('lightbox-dots');
+    
+    dotsContainer.innerHTML = '';
+    
+    if (items.length > 1) {
+      prevBtn.classList.remove('hidden');
+      nextBtn.classList.remove('hidden');
+      
+      items.forEach((_, idx) => {
+        const dot = document.createElement('div');
+        dot.className = `w-2 h-2 cursor-pointer transition-colors border border-mel-border ${idx === currentCarruselIndex ? 'bg-mel-action-secondary' : 'bg-white/60'}`;
+        dot.addEventListener('click', () => {
+          currentCarruselIndex = idx;
+          updateLightboxCarousel();
+        });
+        dotsContainer.appendChild(dot);
+      });
+    } else {
+      prevBtn.classList.add('hidden');
+      nextBtn.classList.add('hidden');
+    }
+  }
+
+  // Lightbox Handlers
+  function openLightbox(item) {
+    const currentView = new URLSearchParams(window.location.search).get('view') || 'galería';
+    window.location.href = `/event/${item.idMel}?view=${encodeURIComponent(currentView)}&search=${encodeURIComponent(searchQuery)}`;
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('flex');
+    lightbox.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    currentDetailGroup = null;
+  }
+
+  closeLightboxBtn.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  document.getElementById('lightbox-prev').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!currentDetailGroup) return;
+    const items = currentDetailGroup.carruselItems;
+    currentCarruselIndex = (currentCarruselIndex - 1 + items.length) % items.length;
+    updateLightboxCarousel();
+  });
+
+  document.getElementById('lightbox-next').addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!currentDetailGroup) return;
+    const items = currentDetailGroup.carruselItems;
+    currentCarruselIndex = (currentCarruselIndex + 1) % items.length;
+    updateLightboxCarousel();
+  });
+
+  function bindInitialCardClicks() {
+    document.querySelectorAll('.gallery-item').forEach(card => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.id;
+        const item = archives.find(x => x.idMel === id);
+        if (item) openLightbox(item);
+      });
+    });
+  }
+
+  // Smooth numeric counter roll animation
+  function animateValue(obj, start, end, duration = 250) {
+    if (start === end) return;
+    let startTimestamp = null;
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      obj.textContent = Math.floor(progress * (end - start) + start);
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        obj.textContent = end;
+      }
+    };
+    window.requestAnimationFrame(step);
+  }
+
+  // Filter Archives by Year & Search Query and Recalculate unique counts
+  function filterArchives(shouldFitBounds = false) {
+    let tempFiltered = archives.filter(item => {
+      const yr = getYear(item.fecha);
+      const yearMatch = yr >= minYear && yr <= maxYear;
+      
+      const searchMatch = !searchQuery || 
+        item.evento.toLowerCase().includes(searchQuery) || 
+        item.lugar.toLowerCase().includes(searchQuery) ||
+        item.localidad.toLowerCase().includes(searchQuery) ||
+        item.artistas.toLowerCase().includes(searchQuery) ||
+        item.organiza.toLowerCase().includes(searchQuery) ||
+        item.disenador.toLowerCase().includes(searchQuery);
+        
+      return yearMatch && searchMatch;
+    });
+
+    // Apply sorting
+    if (currentSortCol) {
+      if (currentSortCol === 'fecha') {
+        tempFiltered.sort((a, b) => {
+          const parseDate = (dStr) => {
+            if (!dStr || dStr === 'SIN FECHA') return 0;
+            const parts = dStr.split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
+            const parts2 = dStr.split('-');
+            if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
+            return 0;
+          };
+          const valA = parseDate(a.fecha);
+          const valB = parseDate(b.fecha);
+          return currentSortDir === 'asc' ? valA - valB : valB - valA;
+        });
+      } else {
+        tempFiltered.sort((a, b) => {
+          const dbField = currentSortCol === 'disenador' ? 'disenador' : currentSortCol;
+          const valA = (a[dbField] || '').toLowerCase().trim();
+          const valB = (b[dbField] || '').toLowerCase().trim();
+          if (!valA || valA === 'desconocido') return 1;
+          if (!valB || valB === 'desconocido') return -1;
+          return currentSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        });
+      }
+    } else {
+      // Default order: chronological ascending
+      tempFiltered.sort((a, b) => {
+        const parseDate = (dStr) => {
+          if (!dStr || dStr === 'SIN FECHA') return 0;
+          const parts = dStr.split('/');
+          if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
+          const parts2 = dStr.split('-');
+          if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
+          return 0;
+        };
+        return parseDate(a.fecha) - parseDate(b.fecha);
+      });
+    }
+
+    filtered = tempFiltered;
+
+    // 1. Calculate dynamic statistics on the fly
+    const filteredArtists = new Set();
+    const filteredDesigners = new Set();
+    const filteredPromoters = new Set();
+    
+    filtered.forEach(item => {
+      if (item.artistas) {
+        item.artistas.split(/[,;\/]+/).forEach(a => {
+          const cleanA = a.trim().toLowerCase();
+          if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') filteredArtists.add(cleanA);
+        });
+      }
+      if (item.organiza) {
+        const cleanP = item.organiza.trim().toLowerCase();
+        if (cleanP && cleanP !== 'desconocido' && cleanP !== 'varios') filteredPromoters.add(cleanP);
+      }
+      if (item.disenador) {
+        const cleanD = item.disenador.trim().toLowerCase();
+        if (cleanD && cleanD !== 'desconocido') filteredDesigners.add(cleanD);
+      }
+    });
+
+    const stats = {
+      "Eventos": filtered.length,
+      "Artistas": filteredArtists.size,
+      "Diseñadores": filteredDesigners.size,
+      "Promotores": filteredPromoters.size
+    };
+
+    // Run dynamic counter roll animations
+    for (const [label, count] of Object.entries(stats)) {
+      const badge = document.querySelector(`.filter-tag[data-category="${label}"] .tag-count-val`);
+      if (badge) {
+        const startVal = parseInt(badge.textContent) || 0;
+        animateValue(badge, startVal, count, 200);
+      }
+    }
+
+    const performDOMUpdates = () => {
+      // 2. Paginate filtered dataset
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      if (currentPage < 1) currentPage = 1;
+      
+      const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+      // Update pagination UI controls
+      if (paginationNumbers) {
+        paginationNumbers.innerHTML = '';
+        for (let p = 1; p <= totalPages; p++) {
+          const btn = document.createElement('button');
+          if (p === currentPage) {
+            btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-action-primary tracking-[0.16px]";
+            btn.innerHTML = `
+              <span>${p}</span>
+              <div class="absolute bottom-1 left-0 right-0 h-[2px] flex justify-center">
+                <svg width="12" height="2" viewBox="0 0 12 2" fill="none" class="text-mel-action-primary">
+                  <path d="M1 1C4.33333 1 7.66667 1 11 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+            `;
+          } else {
+            btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-text-secondary tracking-[0.16px] hover:text-mel-action-primary transition-colors duration-200";
+            btn.innerHTML = `<span>${p}</span>`;
+            btn.addEventListener('click', () => {
+              currentPage = p;
+              filterArchives();
+            });
+          }
+          paginationNumbers.appendChild(btn);
+        }
+      }
+      
+      if (btnPrevPage) {
+        if (currentPage === 1) {
+          btnPrevPage.setAttribute('disabled', 'true');
+        } else {
+          btnPrevPage.removeAttribute('disabled');
+        }
+      }
+      
+      if (btnNextPage) {
+        if (currentPage === totalPages) {
+          btnNextPage.setAttribute('disabled', 'true');
+        } else {
+          btnNextPage.removeAttribute('disabled');
+        }
+      }
+
+      // 3. Populate Gallery Grid View
+      const gridContainer = document.getElementById('gallery-grid');
+      gridContainer.innerHTML = '';
+      
+      if (paginated.length === 0) {
+        gridContainer.className = 'w-full flex items-center justify-center py-20 text-mel-text-secondary typo-body-roman italic border border-dashed border-mel-border/30';
+        gridContainer.innerHTML = `Ningún flyer coincide con los filtros aplicados.`;
+      } else {
+        gridContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense';
+        paginated.forEach((item, i) => {
+          const span = gridSpans[i % gridSpans.length];
+          const card = document.createElement('div');
+          const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+          const yr = getYear(item.fecha) || 2004;
+          
+          card.className = `gallery-item relative overflow-hidden shadow-sm group bg-white transition-all duration-300 span-col-1 cursor-pointer`;
+          card.dataset.id = item.idMel;
+          card.innerHTML = `
+            <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
+            <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" />
+            
+            <!-- Blending grid overlay (striped Figma style) -->
+            <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
+
+            <!-- Overlay info on hover -->
+            <div class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[0px_-4px_10px_rgba(38,31,31,0.15)]">
+              <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">${item.evento}</p>
+            </div>
+          `;
+          
+          card.addEventListener('click', () => {
+            openLightbox(item);
+          });
+          
+          gridContainer.appendChild(card);
+        });
+      }
+
+      // 4. Populate List view (matching the paginated dataset of size 32)
+      const listBody = document.getElementById('list-table-body');
+      if (listBody) {
+        listBody.innerHTML = '';
+        
+        if (paginated.length === 0) {
+          listBody.innerHTML = `
+            <tr>
+              <td colspan="6" class="py-8 text-center text-mel-text-secondary typo-body-roman italic">
+                Ningún archivo coincide con los filtros aplicados.
+              </td>
+            </tr>
+          `;
+        } else {
+          paginated.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-mel-bg-secondary/10 transition-colors';
+            tr.style.viewTransitionName = `row-${item.idMel}`;
+            
+            // Format date nicely to DD/MM/YYYY
+            let formattedDate = item.fecha || '';
+            if (formattedDate && formattedDate.includes('-')) {
+              const parts = formattedDate.split('-');
+              if (parts.length === 3) {
+                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
+              }
+            }
+
+            // Get first image for preview thumbnail via extractDriveImage
+            let firstImg = '';
+            if (item.carruselItems && item.carruselItems.length > 0) {
+              firstImg = extractDriveImage(item.carruselItems[0].urlDrive);
+            }
+
+            const escHtml = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+            tr.innerHTML = `
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary p-2">
+                <div class="flex gap-[12px] h-[48px] items-center min-w-0">
+                  <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0 border border-mel-border/30">
+                    ${firstImg ? `<img alt="" class="object-contain w-full h-full pointer-events-none" src="${firstImg}" />` : ''}
+                  </div>
+                  <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary hover:underline transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
+                    <span class="marquee-inner">${escHtml(item.evento)}</span>
+                    <svg class="title-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </span>
+                </div>
+              </td>
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] text-mel-text-secondary leading-[24px] tracking-[0.16px] marquee-cell">
+                <span class="marquee-inner">${escHtml(formattedDate)}</span>
+              </td>
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
+                ${item.lugar && item.lugar.toLowerCase() !== 'desconocido' 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.lugar)}">${escHtml(item.lugar)}</span>` 
+                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
+                }
+              </td>
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
+                ${item.localidad && item.localidad.toLowerCase() !== 'desconocido' 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}</span>` 
+                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
+                }
+              </td>
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
+                ${item.organiza && item.organiza.toLowerCase() !== 'desconocido' 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}</span>` 
+                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
+                }
+              </td>
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
+                ${item.disenador && item.disenador.toLowerCase() !== 'desconocido' 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}</span>` 
+                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
+                }
+              </td>
+            `;
+            listBody.appendChild(tr);
+          });
+
+          // Bind title link clicks to open event details
+          listBody.querySelectorAll('.event-title-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const id = link.getAttribute('data-id');
+              const item = archives.find(x => x.idMel === id);
+              if (item) {
+                openLightbox(item);
+              }
+            });
+          });
+
+          // Bind search-cell-link clicks to trigger search
+          listBody.querySelectorAll('.search-cell-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const query = link.getAttribute('data-search');
+              if (query) {
+                window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query } }));
+              }
+            });
+          });
+
+          // Setup marquee overflow detection
+          listBody.querySelectorAll('.marquee-cell').forEach(cell => {
+            const inner = cell.querySelector('.marquee-inner');
+            if (inner && inner.scrollWidth > cell.clientWidth) {
+              inner.classList.add('is-overflowing');
+              const overflow = inner.scrollWidth - cell.clientWidth + 32;
+              const duration = Math.max(2, overflow / 40);
+              cell.style.setProperty('--marquee-duration', duration + 's');
+              cell.style.setProperty('--cell-width', cell.clientWidth + 'px');
+            }
+          });
+        }
+      }
+      updateMapMarkers(shouldFitBounds);
+    };
+
+    if (document.startViewTransition) {
+      try {
+        const transition = document.startViewTransition(performDOMUpdates);
+        transition.finished.catch(() => {});
+      } catch (err) {
+        performDOMUpdates();
+      }
+    } else {
+      performDOMUpdates();
+    }
+  }
+
+  // Pagination click handlers
+  if (btnPrevPage) {
+    btnPrevPage.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        filterArchives();
+        const cv = document.getElementById('content-views');
+        if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+  }
+
+  if (btnNextPage) {
+    btnNextPage.addEventListener('click', () => {
+      currentPage++;
+      filterArchives();
+      const cv = document.getElementById('content-views');
+      if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+    });
+  }
+
+  // View Switcher logic (updated for new ToggleButton component and sliding indicator)
+  const viewBtns = document.querySelectorAll('.toggle-btn');
+  const viewPanels = document.querySelectorAll('.view-panel');
+  const activeIndicator = document.getElementById('toggle-active-indicator');
+  let googleMap = null;
+  let mapMarkers = [];
+  let mapInitialized = false;
+  let infoWindow = null;
+  let mapCore = null;
+  let markerLib = null;
+  let googleMapClusterer = null;
+
+  function switchView(viewName) {
+    // Dynamically synchronize the view query parameter in the browser URL
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('view', viewName);
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {
+      console.warn("Unable to update URL query params", e);
+    }
+
+    // Update sliding indicator position
+    if (activeIndicator) {
+      if (viewName === 'galería') {
+        activeIndicator.style.transform = 'translate3d(0, 0, 0)';
+      } else if (viewName === 'mapa') {
+        activeIndicator.style.transform = 'translate3d(100%, 0, 0)';
+      } else if (viewName === 'lista') {
+        activeIndicator.style.transform = 'translate3d(200%, 0, 0)';
+      }
+    }
+
+    viewBtns.forEach(btn => {
+      const isActive = btn.dataset.view === viewName;
+      btn.setAttribute('data-active', isActive ? 'true' : 'false');
+      
+      if (isActive) {
+        btn.classList.add('toggle-btn-active');
+        btn.classList.remove('toggle-btn-inactive');
+      } else {
+        btn.classList.remove('toggle-btn-active');
+        btn.classList.add('toggle-btn-inactive');
+      }
+
+      const span = btn.querySelector('span');
+      if (span) {
+        if (isActive) {
+          span.classList.add('font-bold', 'text-mel-text-on-action');
+          span.classList.remove('font-medium', 'text-mel-text-secondary');
+        } else {
+          span.classList.remove('font-bold', 'text-mel-text-on-action');
+          span.classList.add('font-medium', 'text-mel-text-secondary');
+        }
+      }
+    });
+
+    viewPanels.forEach(panel => {
+      if (panel.id === `view-${viewName}`) {
+        panel.classList.remove('hidden');
+        panel.classList.add('active');
+      } else {
+        panel.classList.add('hidden');
+        panel.classList.remove('active');
+      }
+    });
+
+    const pagControls = document.getElementById('pagination-controls');
+    if (pagControls) {
+      if (viewName === 'galería' || viewName === 'lista') {
+        pagControls.classList.remove('hidden');
+        pagControls.classList.add('flex');
+      } else {
+        pagControls.classList.add('hidden');
+        pagControls.classList.remove('flex');
+      }
+    }
+
+    // Initialize or refresh Google map on switch to 'mapa'
+    if (viewName === 'mapa') {
+      if (!mapInitialized) {
+        initGoogleMap();
+        mapInitialized = true;
+      } else if (googleMap) {
+        // Trigger resize and re-fit bounds now that container has dimensions
+        google.maps.event.trigger(googleMap, 'resize');
+        fitMapToMarkers();
+      }
+    }
+  }
+
+  // Coordinates parser for map markers
+  function parseCoords(coordStr, locality) {
+    if (!coordStr && !locality) return null;
+    const cleanCoord = coordStr ? coordStr.trim().toLowerCase() : '';
+    const cleanLoc = locality ? locality.trim().toLowerCase() : '';
+    
+    const dict = {
+      'san andrés del rabanedo': [42.6105, -5.6147],
+      'calle sta. ana, 15': [42.5925, -5.5668],
+      'santa ana, 15': [42.5925, -5.5668],
+      'plaza caño de sta. ana, 1': [42.5947, -5.5675],
+      'plaza caño de santa ana, 1': [42.5947, -5.5675],
+      'santa olaja de porma': [42.6322, -5.4055],
+      'león': [42.5987, -5.5671],
+      'leon': [42.5987, -5.5671],
+      'valdepiélago': [42.8687, -5.3995],
+      'valdepielago': [42.8687, -5.3995],
+      'el gran café': [42.5976, -5.5714],
+      'el gran cafe': [42.5976, -5.5714],
+      'calle cervantes, 9': [42.5976, -5.5714],
+      'la xana del torío': [42.7861, -5.4983],
+      'la xana del torio': [42.7861, -5.4983],
+      'av. la estación, 23': [42.7861, -5.4983],
+      'av. la estacion, 23': [42.7861, -5.4983],
+      'tirol rock bar': [42.5982, -5.5695],
+      'calle villa benavente, 3': [42.5956, -5.5701],
+      'calle villa benavente, 9': [42.5954, -5.5700],
+      'calle las varillas, 2': [42.5959, -5.5662],
+      'c. de juan de arfe, 15': [42.5954, -5.5669],
+      'calle caño badillo, 19': [42.5966, -5.5658],
+      'c. arco de ánimas, 2': [42.5977, -5.5690],
+      'av. lancia, 9': [42.5948, -5.5724],
+      'graffiti bar': [42.5978, -5.5693],
+      'glam rock': [42.5969, -5.5696],
+      'espacio vías': [42.5941, -5.5773],
+      'sala monasterio': [42.5972, -5.5678],
+      'cardenal landázuri': [42.5968, -5.5645],
+      'el plástico': [42.5954, -5.5669], // Map El Plástico to Barrio Húmedo area
+      'el plastico': [42.5954, -5.5669]
+    };
+    
+    if (cleanCoord && dict[cleanCoord]) return dict[cleanCoord];
+    
+    if (coordStr) {
+      const dmsRegex = /(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NS])\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([EW])/i;
+      const match = coordStr.match(dmsRegex);
+      if (match) {
+        let lat = parseInt(match[1]) + parseInt(match[2]) / 60 + parseFloat(match[3]) / 3600;
+        if (match[4].toUpperCase() === 'S') lat = -lat;
+        let lng = parseInt(match[5]) + parseInt(match[6]) / 60 + parseFloat(match[7]) / 3600;
+        if (match[8].toUpperCase() === 'W') lng = -lng;
+        return [lat, lng];
+      }
+      const decRegex = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/;
+      const decMatch = coordStr.match(decRegex);
+      if (decMatch) return [parseFloat(decMatch[1]), parseFloat(decMatch[2])];
+    }
+    
+    // Only fall back to locality if coordStr is empty
+    if (!cleanCoord && cleanLoc && dict[cleanLoc]) return dict[cleanLoc];
+    
+    return null;
+  }
+
+  async function initGoogleMap() {
+    try {
+      const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+      markerLib = await google.maps.importLibrary("marker");
+      mapCore = await google.maps.importLibrary("core");
+
+      // Create map centered on León
+      googleMap = new Map(document.getElementById("map-container"), {
+        center: { lat: 42.5987, lng: -5.5671 },
+        zoom: 14,
+        mapId: "972db64e35393894d465ef68", // Custom Maps style ID matching Figma
+        disableDefaultUI: true, // Disables Satellite view, Street View (saves cost and keeps layout clean)
+        zoomControl: true,
+      });
+      
+      infoWindow = new InfoWindow({
+        minWidth: 280
+      });
+
+      // Bind close button event for map side panel
+      const closePanelBtn = document.getElementById('close-map-side-panel');
+      const sidePanel = document.getElementById('map-side-panel');
+      if (closePanelBtn && sidePanel) {
+        closePanelBtn.addEventListener('click', () => {
+          activeSidePanelKey = null;
+          sidePanel.classList.remove('w-[393px]', 'border-l');
+          sidePanel.classList.add('w-0', 'border-l-0');
+          if (googleMap) {
+            setTimeout(() => {
+              google.maps.event.trigger(googleMap, "resize");
+            }, 310);
+          }
+        });
+      }
+
+      updateMapMarkers(true);
+    } catch (e) {
+      console.error("Error loading Google Maps API", e);
+    }
+  }
+
+  // Populate side panel details dynamically
+  function populateSidePanel(group) {
+    const sidePanel = document.getElementById('map-side-panel');
+    if (!sidePanel) return;
+
+    const isAlreadyOpen = sidePanel.classList.contains('w-[393px]');
+
+    const updateSidePanelDOM = () => {
+      // Populate side panel fields
+      document.getElementById('side-panel-title').textContent = group.locationName;
+      const sampleEvt = group.events[0];
+      // Display the raw coordinates/address column G directly
+      document.getElementById('side-panel-address').textContent = sampleEvt?.coordenadas || 'León';
+
+      // Calculate unique artists and designers
+      const artistsSet = new Set();
+      const designersSet = new Set();
+      group.events.forEach(evt => {
+        if (evt.artistas) {
+          evt.artistas.split(/[,;\/]+/).forEach(a => {
+            const cleanA = a.trim().toLowerCase();
+            if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') artistsSet.add(cleanA);
+          });
+        }
+        if (evt.disenador) {
+          const cleanD = evt.disenador.trim().toLowerCase();
+          if (cleanD && cleanD !== 'desconocido') designersSet.add(cleanD);
+        }
+      });
+
+      // Update TagWithLink components inside side panel
+      const sideEventsVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Eventos"] .tag-count-val');
+      if (sideEventsVal) sideEventsVal.textContent = group.events.length;
+      
+      const sideArtistsVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Artistas"] .tag-count-val');
+      if (sideArtistsVal) sideArtistsVal.textContent = artistsSet.size;
+
+      const sideDesignersVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Diseñadores"] .tag-count-val');
+      if (sideDesignersVal) sideDesignersVal.textContent = designersSet.size;
+
+      // Populate event cards list inside side panel
+      const listContainer = document.getElementById('side-panel-event-list');
+      listContainer.innerHTML = '';
+
+      group.events.forEach((evt, idx) => {
+        const card = document.createElement('div');
+        card.className = 'content-stretch cursor-pointer flex gap-4 items-center pl-6 pr-4 py-4 relative shrink-0 w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200';
+        
+        const imgSrc = extractDriveImage(evt.carruselItems[0]?.urlDrive) || `/flyers/flyer-1.png`;
+        const hasDivider = idx < group.events.length - 1;
+        
+        card.innerHTML = `
+          <div class="bg-mel-bg-secondary overflow-hidden shrink-0 w-[56px] h-[56px] border border-mel-border">
+            <img src="${imgSrc}" alt="${evt.evento}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
+          </div>
+          <div class="flex flex-col min-w-0 flex-1 gap-1">
+            <p class="font-sans font-medium text-[16px] leading-[24px] tracking-[-0.32px] text-mel-text-primary truncate">${evt.evento}</p>
+            <p class="font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] text-mel-text-secondary">${evt.fecha}</p>
+          </div>
+          <div class="w-6 h-6 flex items-center justify-center text-mel-action-secondary shrink-0">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          ${hasDivider ? '<div class="absolute bottom-[0.5px] h-0 left-[24px] right-[24px] border-b border-mel-border/30"></div>' : ''}
+        `;
+        
+        card.addEventListener('click', () => {
+          openDetailsOverlaySPA(evt, group.events);
+        });
+        listContainer.appendChild(card);
+      });
+    };
+
+    if (isAlreadyOpen) {
+      // Fade out content first, update DOM, and fade back in
+      sidePanel.style.opacity = '0';
+      setTimeout(() => {
+        updateSidePanelDOM();
+        sidePanel.style.opacity = '1';
+        if (googleMap) {
+          googleMap.panTo(group.coords);
+        }
+      }, 150);
+    } else {
+      // Update and open dynamically, pushing the map
+      updateSidePanelDOM();
+      sidePanel.style.opacity = '1';
+      sidePanel.classList.remove('w-0', 'border-l-0');
+      sidePanel.classList.add('w-[393px]', 'border-l');
+      if (googleMap) {
+        setTimeout(() => {
+          google.maps.event.trigger(googleMap, "resize");
+          googleMap.panTo(group.coords);
+        }, 310);
+      }
+    }
+  }
+
+  function fitMapToMarkers() {
+    if (!googleMap || mapMarkers.length === 0) return;
+    const bounds = new google.maps.LatLngBounds();
+    mapMarkers.forEach(m => {
+      if (m.position) {
+        bounds.extend(m.position);
+      }
+    });
+    googleMap.fitBounds(bounds);
+    
+    // Prevent over-zooming on load/fit
+    const listener = google.maps.event.addListener(googleMap, 'idle', () => {
+      if (googleMap.getZoom() > 15) {
+        googleMap.setZoom(15);
+      }
+      google.maps.event.removeListener(listener);
+    });
+  }
+
+  function updateMapMarkers() {
+    if (!googleMap || !markerLib) return;
+
+    // Clear existing markers and clusterer
+    if (googleMapClusterer) {
+      googleMapClusterer.clearMarkers();
+    }
+    mapMarkers.forEach(m => m.map = null);
+    mapMarkers = [];
+    if (infoWindow) infoWindow.close();
+
+    // Get currently filtered archives
+    const filtered = archives.filter(item => {
+      const yr = getYear(item.fecha);
+      const yearMatch = yr >= minYear && yr <= maxYear;
+      const searchMatch = !searchQuery || 
+        item.evento.toLowerCase().includes(searchQuery) || 
+        item.lugar.toLowerCase().includes(searchQuery) ||
+        item.localidad.toLowerCase().includes(searchQuery) ||
+        item.artistas.toLowerCase().includes(searchQuery) ||
+        item.organiza.toLowerCase().includes(searchQuery) ||
+        item.disenador.toLowerCase().includes(searchQuery);
+      return yearMatch && searchMatch;
+    });
+
+    // Group by location key for clustering (using item.coordenadas!)
+    const locationGroups = {};
+    filtered.forEach(item => {
+      const coords = parseCoords(item.coordenadas, item.localidad);
+      if (!coords) return;
+      // Round coords to group nearby points
+      const locKey = `${coords[0].toFixed(4)},${coords[1].toFixed(4)}`;
+      if (!locationGroups[locKey]) {
+        locationGroups[locKey] = {
+          coords: { lat: coords[0], lng: coords[1] },
+          locationName: item.lugar || item.localidad || 'León',
+          events: []
+        };
+      }
+      locationGroups[locKey].events.push(item);
+    });
+
+    // Auto-open side panel if loading with search/location parameter matching a specific place name
+    const params = new URLSearchParams(window.location.search);
+    const urlView = params.get('view');
+    const urlSearch = params.get('search');
+    const urlLocation = params.get('location');
+    if (urlView === 'mapa' && !activeSidePanelKey) {
+      const matchName = (urlLocation || urlSearch || '').toLowerCase().trim();
+      if (matchName) {
+        const matchKey = Object.keys(locationGroups).find(key => {
+          return locationGroups[key].locationName.toLowerCase() === matchName;
+        });
+        if (matchKey) {
+          activeSidePanelKey = matchKey;
+        }
+      }
+    }
+
+    // Update or hide side panel dynamically based on filtered data
+    if (activeSidePanelKey && locationGroups[activeSidePanelKey]) {
+      populateSidePanel(locationGroups[activeSidePanelKey]);
+      const sidePanel = document.getElementById('map-side-panel');
+      if (sidePanel) {
+        sidePanel.style.opacity = '1';
+        sidePanel.classList.remove('w-0', 'border-l-0');
+        sidePanel.classList.add('w-[393px]', 'border-l');
+        if (googleMap) {
+          setTimeout(() => {
+            googleMap.panTo(locationGroups[activeSidePanelKey].coords);
+          }, 150);
+        }
+      }
+    } else {
+      activeSidePanelKey = null;
+      const sidePanel = document.getElementById('map-side-panel');
+      if (sidePanel) {
+        sidePanel.classList.remove('w-[393px]', 'border-l');
+        sidePanel.classList.add('w-0', 'border-l-0');
+        if (googleMap) {
+          setTimeout(() => {
+            google.maps.event.trigger(googleMap, "resize");
+          }, 310);
+        }
+      }
+    }
+
+    // Create markers for each location group
+    Object.keys(locationGroups).forEach(locKey => {
+      const group = locationGroups[locKey];
+      const count = group.events.length;
+      
+      // Build custom marker HTML (Always Text Marker format when not clustered)
+      const markerContent = document.createElement('div');
+      markerContent.className = 'mel-marker-wrapper';
+      if (activeSidePanelKey === locKey) {
+        markerContent.classList.add('active');
+      }
+      
+      markerContent.innerHTML = `
+        <div class="mel-marker-body text-marker">
+          <span class="mel-marker-label">${group.locationName} (${count})</span>
+        </div>
+        <div class="mel-marker-pointer"></div>
+      `;
+
+      const marker = new markerLib.AdvancedMarkerElement({
+        position: group.coords,
+        content: markerContent,
+        title: group.locationName
+      });
+
+      // Add click listener to show the details Side Panel
+      marker.addListener("click", () => {
+        activeSidePanelKey = locKey;
+        populateSidePanel(group);
+        updateMapMarkers(false); // Redraw map to update the active marker color without resetting bounds!
+        if (googleMap) {
+          googleMap.panTo(group.coords);
+          googleMap.setZoom(15); // Zoom in on the clicked place!
+        }
+      });
+
+      mapMarkers.push(marker);
+    });
+
+    // Create clusters using MarkerClusterer
+    if (typeof markerClusterer !== 'undefined' && mapMarkers.length > 0) {
+      const clusterRenderer = {
+        render: ({ count, position }) => {
+          // Number Marker when clustered
+          const clusterContent = document.createElement('div');
+          clusterContent.className = 'mel-marker-wrapper';
+          clusterContent.innerHTML = `
+            <div class="mel-marker-body">
+              <span class="mel-marker-label">${count}</span>
+            </div>
+            <div class="mel-marker-pointer"></div>
+          `;
+          
+          const clusterMarker = new markerLib.AdvancedMarkerElement({
+            position,
+            content: clusterContent,
+            zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+          });
+          
+          clusterMarker.addListener('click', () => {
+            googleMap.setZoom(googleMap.getZoom() + 2);
+            googleMap.setCenter(position);
+          });
+          
+          return clusterMarker;
+        }
+      };
+
+      googleMapClusterer = new markerClusterer.MarkerClusterer({
+        map: googleMap,
+        markers: mapMarkers,
+        renderer: clusterRenderer
+      });
+    }
+
+    // Auto-fit bounds of the Google Map ONLY if the map view is active/visible
+    const mapContainer = document.getElementById('view-mapa');
+    if (mapContainer && !mapContainer.classList.contains('hidden')) {
+      fitMapToMarkers();
+    }
+  }
+
+  // Listen for lightbox open from map popup buttons
+  window.addEventListener('mel-open-lightbox', (e) => {
+    const id = e.detail.id;
+    const item = archives.find(x => x.idMel === id);
+    if (item) openLightbox(item);
+  });
+
+  viewBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const button = e.target.closest('.toggle-btn');
+      if (button) {
+        const view = button.dataset.view;
+        switchView(view);
+      }
+    });
+  });
+
+  // Initialize
+  calculateDynamicBounds();
+  updateSlider();
+  bindInitialCardClicks();
+
+  // Parse view from URL on load
+  const loadParams = new URLSearchParams(window.location.search);
+  const viewParam = loadParams.get('view');
+  if (viewParam === 'mapa') {
+    switchView('mapa');
+  } else if (viewParam === 'lista') {
+    switchView('lista');
+  } else {
+    switchView('galería');
+  }
+
+  // Side Menu logic
+  const menuBtn = document.getElementById('menu-btn');
+  const sideMenu = document.getElementById('side-menu-container');
+  const closeMenuBtn = document.getElementById('close-side-menu');
+  const filterItemLink = document.getElementById('menu-item-filters');
+  const colorToggle = document.getElementById('color-mode-toggle');
+  const menuBackdrop = document.getElementById('side-menu-backdrop');
+
+  if (menuBtn && sideMenu) {
+    menuBtn.addEventListener('click', () => {
+      sideMenu.classList.remove('hidden');
+      if (menuBackdrop) {
+        menuBackdrop.classList.remove('hidden');
+        setTimeout(() => {
+          menuBackdrop.classList.remove('opacity-0', 'pointer-events-none');
+          menuBackdrop.classList.add('opacity-100', 'pointer-events-auto');
+        }, 10);
+      }
+      setTimeout(() => {
+        sideMenu.classList.remove('translate-x-full');
+        sideMenu.classList.add('translate-x-0');
+      }, 50);
+    });
+  }
+
+  if (closeMenuBtn && sideMenu) {
+    closeMenuBtn.addEventListener('click', () => {
+      sideMenu.classList.remove('translate-x-0');
+      sideMenu.classList.add('translate-x-full');
+      if (menuBackdrop) {
+        menuBackdrop.classList.remove('opacity-100', 'pointer-events-auto');
+        menuBackdrop.classList.add('opacity-0', 'pointer-events-none');
+      }
+      setTimeout(() => {
+        sideMenu.classList.add('hidden');
+        if (menuBackdrop) {
+          menuBackdrop.classList.add('hidden');
+        }
+      }, 300);
+    });
+  }
+
+  if (menuBackdrop) {
+    menuBackdrop.addEventListener('click', () => {
+      if (closeMenuBtn) closeMenuBtn.click();
+    });
+  }
+
+  if (filterItemLink && sideMenu) {
+    filterItemLink.addEventListener('click', () => {
+      sideMenu.classList.remove('translate-x-0');
+      sideMenu.classList.add('translate-x-full');
+      if (menuBackdrop) {
+        menuBackdrop.classList.remove('opacity-100', 'pointer-events-auto');
+        menuBackdrop.classList.add('opacity-0', 'pointer-events-none');
+      }
+      setTimeout(() => {
+        sideMenu.classList.add('hidden');
+        if (menuBackdrop) {
+          menuBackdrop.classList.add('hidden');
+        }
+      }, 300);
+    });
+  }
+
+  // Color Mode Toggle (Dark Mode)
+  if (colorToggle) {
+    colorToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('mel-color-scheme', isDark ? 'dark' : 'light');
+    });
+  }
+
+  // Initial Color Mode
+  const savedScheme = localStorage.getItem('mel-color-scheme') || 'light';
+  if (savedScheme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+
+  // ----------------------------------------------------
+  // Fullscreen SPA Event Details Overlay Implementation
+  // ----------------------------------------------------
+  let overlayAutoplayInterval = null;
+  let overlayCurrentIndex = 0;
+  let originalUrlBeforeSPA = null;
+
+  function makeTagHtml(label, value, href) {
+    const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
+    const displayVal = isUnknown ? 'desconocido' : value;
+    const stateClass = isUnknown ? 'text-mel-text-tertiary opacity-60' : 'text-mel-text-secondary';
+    
+    return `
+      <div class="flex flex-col items-start gap-1 w-full font-sans select-none">
+        <span class="text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">${label}</span>
+        ${(!isUnknown && href) 
+          ? `<a href="${href}" class="text-[17px] font-medium leading-[24px] tracking-[-0.34px] text-mel-action-secondary hover:text-mel-action-primary transition-colors hover:underline underline-offset-4">${displayVal}</a>`
+          : `<span class="text-[17px] font-medium leading-[24px] tracking-[-0.34px] ${stateClass}">${displayVal}</span>`
+        }
+      </div>
+    `;
+  }
+
+  function renderOverlayEvent(eventItem, panelEvents) {
+    // 1. Text & Basic Details
+    document.getElementById('overlay-event-title').textContent = eventItem.evento;
+    
+    const desc = eventItem.descripcion || '';
+    const descContainer = document.getElementById('overlay-description-container');
+    const descText = document.getElementById('overlay-event-description');
+    if (desc) {
+      descText.textContent = desc;
+      descContainer.classList.remove('hidden');
+    } else {
+      descContainer.classList.add('hidden');
+    }
+
+    // 2. Sidebar Tags
+    const sidebar = document.getElementById('overlay-tags-sidebar');
+    sidebar.innerHTML = `
+      ${makeTagHtml("Fecha", eventItem.fecha)}
+      ${makeTagHtml("Lugar", eventItem.lugar, `/?view=mapa&location=${encodeURIComponent(eventItem.lugar)}`)}
+      ${makeTagHtml("Localidad", eventItem.localidad, `/?search=${encodeURIComponent(eventItem.localidad)}`)}
+      ${makeTagHtml("Organiza", eventItem.organiza, `/?search=${encodeURIComponent(eventItem.organiza)}`)}
+      ${makeTagHtml("Diseño", eventItem.disenador, `/?search=${encodeURIComponent(eventItem.disenador)}`)}
+    `;
+
+    // 3. Artists List
+    const artistsContainer = document.getElementById('overlay-artists-container');
+    const artistsList = document.getElementById('overlay-artists-list');
+    if (eventItem.artistas && eventItem.artistas.toLowerCase() !== 'no detallados') {
+      artistsContainer.classList.remove('hidden');
+      artistsList.innerHTML = eventItem.artistas.split(/[,;\/]+/).map((artist, idx, arr) => {
+        const cleanArtist = artist.trim();
+        if (!cleanArtist) return '';
+        const isLast = idx === arr.length - 1;
+        return `
+          <span class="inline-flex items-center whitespace-nowrap">
+            <a href="/?search=${encodeURIComponent(cleanArtist)}" class="text-[16px] font-medium leading-[24px] tracking-[0.16px] text-mel-action-secondary hover:text-mel-action-primary hover:underline underline-offset-4 transition-colors">${cleanArtist}</a>
+            ${!isLast ? `<span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>` : ''}
+          </span>
+        `;
+      }).join('');
+    } else {
+      artistsContainer.classList.add('hidden');
+    }
+
+    // 4. Image carousel
+    const track = document.getElementById('overlay-carousel-track');
+    const imageUrls = eventItem.carruselItems.map(item => extractDriveImage(item.urlDrive)).filter(Boolean);
+    
+    // Clear any previous interval
+    if (overlayAutoplayInterval) {
+      clearInterval(overlayAutoplayInterval);
+      overlayAutoplayInterval = null;
+    }
+
+    track.innerHTML = imageUrls.map(img => `
+      <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+        <img src="${img}" alt="${eventItem.evento}" class="w-full h-full object-contain" referrerpolicy="no-referrer" />
+      </div>
+    `).join('');
+
+    overlayCurrentIndex = 0;
+    track.style.transform = `translate3d(0, 0, 0)`;
+
+    // Dots
+    const dotsContainer = document.getElementById('overlay-carousel-dots');
+    dotsContainer.innerHTML = '';
+    
+    function updateOverlayCarousel(idx) {
+      overlayCurrentIndex = (idx + imageUrls.length) % imageUrls.length;
+      track.style.transform = `translate3d(-${overlayCurrentIndex * 100}%, 0, 0)`;
+      const dots = dotsContainer.querySelectorAll('.overlay-carousel-dot');
+      dots.forEach((dot, dIdx) => {
+        dot.setAttribute('data-active', dIdx === overlayCurrentIndex ? 'true' : 'false');
+      });
+    }
+
+    function startOverlayAutoplay() {
+      if (overlayAutoplayInterval) clearInterval(overlayAutoplayInterval);
+      if (imageUrls.length <= 1) return;
+      overlayAutoplayInterval = setInterval(() => {
+        updateOverlayCarousel(overlayCurrentIndex + 1);
+      }, 5000);
+    }
+
+    if (imageUrls.length > 1) {
+      imageUrls.forEach((_, idx) => {
+        const dot = document.createElement('div');
+        dot.className = 'overlay-carousel-dot w-8 h-8 flex items-center justify-center relative cursor-pointer group select-none';
+        dot.setAttribute('data-index', idx);
+        dot.setAttribute('data-active', idx === 0 ? 'true' : 'false');
+        dot.innerHTML = `
+          <div class="absolute inset-[4px] border border-mel-action-tertiary transition-all duration-300 opacity-0 scale-75 group-data-[active=true]:opacity-100 group-data-[active=true]:scale-100 pointer-events-none flex items-center justify-center">
+            <div class="w-2 h-2 bg-mel-action-tertiary"></div>
+          </div>
+          <div class="dot-resting w-2 h-2 bg-mel-action-secondary transition-all duration-300 group-hover:w-[6px] group-hover:h-[6px] group-hover:bg-mel-action-primary group-data-[active=true]:opacity-0"></div>
+        `;
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          updateOverlayCarousel(idx);
+          startOverlayAutoplay();
+        });
+        dotsContainer.appendChild(dot);
+      });
+      startOverlayAutoplay();
+    }
+
+    // 5. Zoom image visualizer within overlay
+    const carouselMain = document.getElementById('overlay-carousel-main');
+    const imageLightbox = document.getElementById('overlay-image-lightbox');
+    const lightboxModal = document.getElementById('overlay-lightbox-modal');
+    const lightboxImage = document.getElementById('overlay-lightbox-image');
+    
+    let overlayNaturalWidth = 800;
+    let overlayNaturalHeight = 600;
+
+    function adjustLightboxSizing() {
+      if (!imageLightbox || imageLightbox.classList.contains('hidden')) return;
+      let maxAllowedWidth = window.innerWidth - 32;
+      let maxAllowedHeight = window.innerHeight - 32;
+      if (window.innerWidth >= 1024) {
+        maxAllowedWidth = window.innerWidth * 0.64;
+        maxAllowedHeight = window.innerHeight * 0.80;
+      }
+      const maxImgWidth = Math.max(50, maxAllowedWidth - 64);
+      const maxImgHeight = Math.max(50, maxAllowedHeight - 64);
+      const ratio = overlayNaturalWidth / overlayNaturalHeight;
+      let imgTargetWidth = overlayNaturalWidth;
+      let imgTargetHeight = overlayNaturalHeight;
+      if (imgTargetWidth > maxImgWidth) {
+        imgTargetWidth = maxImgWidth;
+        imgTargetHeight = imgTargetWidth / ratio;
+      }
+      if (imgTargetHeight > maxImgHeight) {
+        imgTargetHeight = maxImgHeight;
+        imgTargetWidth = imgTargetHeight * ratio;
+      }
+      const modalW = imgTargetWidth + 64;
+      const modalH = imgTargetHeight + 64;
+      if (lightboxModal) {
+        lightboxModal.style.width = `${modalW}px`;
+        lightboxModal.style.height = `${modalH}px`;
+      }
+      if (lightboxImage) {
+        lightboxImage.style.width = `${imgTargetWidth}px`;
+        lightboxImage.style.height = `${imgTargetHeight}px`;
+      }
+    }
+
+    carouselMain.onclick = () => {
+      if (overlayAutoplayInterval) clearInterval(overlayAutoplayInterval);
+      const currentImgUrl = imageUrls[overlayCurrentIndex];
+      const tempImg = new Image();
+      tempImg.src = currentImgUrl;
+      tempImg.onload = () => {
+        overlayNaturalWidth = tempImg.naturalWidth;
+        overlayNaturalHeight = tempImg.naturalHeight;
+        if (lightboxImage) lightboxImage.src = currentImgUrl;
+        imageLightbox.classList.remove('hidden');
+        adjustLightboxSizing();
+        setTimeout(() => {
+          imageLightbox.classList.remove('opacity-0', 'pointer-events-none');
+          imageLightbox.classList.add('opacity-100', 'pointer-events-auto');
+          lightboxModal.classList.remove('scale-95');
+          lightboxModal.classList.add('scale-100');
+        }, 10);
+      };
+    };
+
+    const closeOverlayLightbox = () => {
+      imageLightbox.classList.remove('opacity-100', 'pointer-events-auto');
+      imageLightbox.classList.add('opacity-0', 'pointer-events-none');
+      lightboxModal.classList.remove('scale-100');
+      lightboxModal.classList.add('scale-95');
+      setTimeout(() => {
+        imageLightbox.classList.add('hidden');
+        startOverlayAutoplay();
+      }, 300);
+    };
+
+    document.getElementById('overlay-lightbox-close').onclick = closeOverlayLightbox;
+    imageLightbox.onclick = (e) => {
+      if (e.target === imageLightbox) closeOverlayLightbox();
+    };
+
+    window.addEventListener('resize', adjustLightboxSizing);
+
+    // 6. Like button
+    const likeKey = `mel-like-${eventItem.idMel}`;
+    let isLiked = localStorage.getItem(likeKey) === 'true';
+    const likeBtn = document.getElementById('overlay-btn-me-presta');
+    const updateLikeUI = () => {
+      likeBtn.setAttribute('data-active', isLiked ? 'true' : 'false');
+    };
+    updateLikeUI();
+    likeBtn.onclick = () => {
+      isLiked = !isLiked;
+      localStorage.setItem(likeKey, String(isLiked));
+      updateLikeUI();
+    };
+
+    // 7. Navigation
+    const curIdx = panelEvents.findIndex(x => x.idMel === eventItem.idMel);
+    const prevItem = curIdx > 0 ? panelEvents[curIdx - 1] : null;
+    const nextItem = curIdx < panelEvents.length - 1 ? panelEvents[curIdx + 1] : null;
+
+    const prevNav = document.getElementById('overlay-nav-prev-container');
+    const nextNav = document.getElementById('overlay-nav-next-container');
+
+    prevNav.innerHTML = '';
+    nextNav.innerHTML = '';
+
+    if (prevItem) {
+      const prevBtn = document.createElement('div');
+      prevBtn.className = 'w-full max-w-[496px] cursor-pointer group flex flex-col items-end gap-1 select-none';
+      prevBtn.innerHTML = `
+        <span class="text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">Anterior</span>
+        <span class="text-[17px] font-medium leading-[24px] tracking-[-0.34px] text-mel-action-secondary group-hover:text-mel-action-primary transition-colors text-right truncate w-full">${prevItem.evento}</span>
+      `;
+      prevBtn.addEventListener('click', () => {
+        transitionToOverlayEvent(prevItem, panelEvents);
+      });
+      prevNav.appendChild(prevBtn);
+    }
+
+    if (nextItem) {
+      const nextBtn = document.createElement('div');
+      nextBtn.className = 'w-full max-w-[496px] cursor-pointer group flex flex-col items-start gap-1 select-none';
+      nextBtn.innerHTML = `
+        <span class="text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">Siguiente</span>
+        <span class="text-[17px] font-medium leading-[24px] tracking-[-0.34px] text-mel-action-secondary group-hover:text-mel-action-primary transition-colors text-left truncate w-full">${nextItem.evento}</span>
+      `;
+      nextBtn.addEventListener('click', () => {
+        transitionToOverlayEvent(nextItem, panelEvents);
+      });
+      nextNav.appendChild(nextBtn);
+    }
+  }
+
+  function transitionToOverlayEvent(newEvent, panelEvents) {
+    // Update URL to match current event using replaceState so we don't pollute the history stack
+    const detailUrl = `/event/${newEvent.idMel}?view=mapa&location=${encodeURIComponent(newEvent.lugar || '')}&search=${encodeURIComponent(searchQuery)}`;
+    try {
+      window.history.replaceState({ spaDetail: true }, '', detailUrl);
+    } catch(e){}
+
+    const content = document.getElementById('overlay-details-content');
+    if (content) {
+      content.style.opacity = '0';
+      setTimeout(() => {
+        renderOverlayEvent(newEvent, panelEvents);
+        content.style.opacity = '1';
+      }, 250); // 250ms fade out, 250ms fade in = 500ms total dissolve transition!
+    }
+  }
+
+  function openDetailsOverlaySPA(eventItem, panelEvents) {
+    // Lock scroll
+    document.body.classList.add('overflow-hidden');
+    
+    // Save current url before entering SPA to restore exactly on close
+    originalUrlBeforeSPA = window.location.href;
+    
+    // Update browser history with event detail URL to preserve address bar integration
+    const detailUrl = `/event/${eventItem.idMel}?view=mapa&location=${encodeURIComponent(eventItem.lugar || '')}&search=${encodeURIComponent(searchQuery)}`;
+    try {
+      window.history.pushState({ spaDetail: true }, '', detailUrl);
+    } catch(e){}
+
+    // Show overlay
+    const overlay = document.getElementById('event-details-overlay');
+    if (overlay) {
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+    }
+
+    renderOverlayEvent(eventItem, panelEvents);
+  }
+
+  function closeDetailsOverlaySPA(shouldGoBack = true) {
+    const overlay = document.getElementById('event-details-overlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+    }
+    
+    if (overlayAutoplayInterval) {
+      clearInterval(overlayAutoplayInterval);
+      overlayAutoplayInterval = null;
+    }
+
+    document.body.classList.remove('overflow-hidden');
+
+    if (shouldGoBack) {
+      // If we pushed state, go back in history to clean it up and restore the URL
+      if (window.history.state && window.history.state.spaDetail) {
+        window.history.back();
+      } else if (originalUrlBeforeSPA) {
+        try {
+          window.history.replaceState({}, '', originalUrlBeforeSPA);
+        } catch(e){}
+      }
+    }
+  }
+
+  // Bind close buttons and window actions
+  const overlayClose = document.getElementById('event-details-overlay-close');
+  if (overlayClose) {
+    overlayClose.onclick = () => closeDetailsOverlaySPA(true);
+  }
+
+  window.addEventListener('popstate', (e) => {
+    const overlay = document.getElementById('event-details-overlay');
+    if (overlay && !overlay.classList.contains('hidden')) {
+      closeDetailsOverlaySPA(false); // Do not call history.back() as popstate did it!
+    }
+  });
+
+  // --- List View Sorting and Navigation Actions ---
+
+  window.showLocationOnMap = function(lugarName) {
+    switchView('mapa');
+    const matchKey = Object.keys(locationGroups).find(key => {
+      return locationGroups[key].locationName.toLowerCase() === lugarName.toLowerCase().trim();
+    });
+    if (matchKey) {
+      activeSidePanelKey = matchKey;
+      populateSidePanel(locationGroups[matchKey]);
+      const sidePanel = document.getElementById('map-side-panel');
+      if (sidePanel) {
+        sidePanel.classList.remove('w-0', 'border-l-0');
+        sidePanel.classList.add('w-[360px]', 'border-l');
+        sidePanel.style.opacity = '1';
+      }
+      const group = locationGroups[matchKey];
+      if (group && googleMap) {
+        googleMap.setCenter(group.coords);
+        googleMap.setZoom(15);
+      }
+    }
+  };
+
+  window.searchInListView = function(query) {
+    window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query } }));
+  };
+
+  function handleSortClick(col) {
+    if (currentSortCol === col) {
+      currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
+    } else {
+      currentSortCol = col;
+      currentSortDir = 'asc';
+    }
+
+    // Update Header Icons UI
+    const headers = document.querySelectorAll('.sort-header');
+    headers.forEach(h => {
+      const hCol = h.dataset.col;
+      const iconSpan = h.querySelector('.sort-icon');
+      if (hCol === currentSortCol) {
+        iconSpan.className = 'sort-icon text-mel-action-primary shrink-0';
+        if (currentSortDir === 'asc') {
+          iconSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+        } else {
+          iconSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>`;
+        }
+      } else {
+        iconSpan.className = 'sort-icon text-mel-action-secondary shrink-0';
+        iconSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>`;
+      }
+    });
+
+    // Re-render starting at page 1
+    currentPage = 1;
+    filterArchives();
+  }
+
+  // Initialize sort click listeners
+  function initSortHeaders() {
+    document.querySelectorAll('.sort-header').forEach(h => {
+      h.addEventListener('click', () => {
+        handleSortClick(h.dataset.col);
+      });
+    });
+  }
+
+  // Bind headers on page load/ready
+  initSortHeaders();
+ 
+</script>

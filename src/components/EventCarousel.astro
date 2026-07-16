@@ -1,0 +1,126 @@
+---
+interface Props {
+  items: string[];
+}
+
+const { items } = Astro.props;
+---
+<div class="flex flex-col gap-4 py-8 border-b border-mel-border/60" data-node-id="EventCarousel">
+  <div class="relative w-full aspect-[4/3] max-h-[60vh] overflow-hidden border border-mel-border/60 bg-mel-bg-secondary/40 flex items-center justify-center p-4">
+    <div class="absolute inset-0 striped-bg opacity-10 z-0"></div>
+    
+    <!-- Large display image -->
+    <img
+      id="carousel-main-image"
+      src={items[0]}
+      alt="Event Image"
+      referrerpolicy="no-referrer"
+      class="max-h-full max-w-full object-contain relative z-10 shadow-md transition-opacity duration-300"
+    />
+
+    <!-- Navigation Arrows -->
+    <button
+      id="carousel-prev"
+      class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center border border-mel-border bg-mel-bg-primary/80 hover:bg-mel-bg-primary text-mel-text-primary z-20 cursor-pointer transition-colors shadow-md"
+      aria-label="Anterior"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M15 18l-6-6 6-6"/>
+      </svg>
+    </button>
+    <button
+      id="carousel-next"
+      class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center border border-mel-border bg-mel-bg-primary/80 hover:bg-mel-bg-primary text-mel-text-primary z-20 cursor-pointer transition-colors shadow-md"
+      aria-label="Siguiente"
+    >
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18l6-6-6-6"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Thumbnails row -->
+  <div class="flex gap-2 overflow-x-auto no-scrollbar py-2">
+    {items.map((img, idx) => (
+      <button
+        class={`carousel-thumb shrink-0 w-20 h-20 border transition-all duration-200 overflow-hidden cursor-pointer ${
+          idx === 0 ? 'border-mel-action-primary ring-2 ring-mel-action-primary/30' : 'border-mel-border/60 opacity-60 hover:opacity-100'
+        }`}
+        data-index={idx}
+        data-src={img}
+      >
+        <img
+          src={img}
+          alt={`Thumbnail ${idx + 1}`}
+          referrerpolicy="no-referrer"
+          class="w-full h-full object-cover"
+        />
+      </button>
+    ))}
+  </div>
+</div>
+
+<script define:vars={{ items }}>
+  let currentIndex = 0;
+  const mainImage = document.getElementById('carousel-main-image');
+  const prevBtn = document.getElementById('carousel-prev');
+  const nextBtn = document.getElementById('carousel-next');
+  const thumbs = document.querySelectorAll('.carousel-thumb');
+
+  function updateCarousel(index) {
+    currentIndex = (index + items.length) % items.length;
+    
+    // Update main image src
+    if (mainImage) {
+      mainImage.style.opacity = '0';
+      setTimeout(() => {
+        mainImage.src = items[currentIndex];
+        mainImage.style.opacity = '1';
+      }, 150);
+    }
+
+    // Update thumbs selection style
+    thumbs.forEach((thumb, idx) => {
+      if (idx === currentIndex) {
+        thumb.classList.add('border-mel-action-primary', 'ring-2', 'ring-mel-action-primary/30');
+        thumb.classList.remove('border-mel-border/60', 'opacity-60');
+      } else {
+        thumb.classList.remove('border-mel-action-primary', 'ring-2', 'ring-mel-action-primary/30');
+        thumb.classList.add('border-mel-border/60', 'opacity-60');
+      }
+    });
+  }
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', () => updateCarousel(currentIndex - 1));
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('click', () => updateCarousel(currentIndex + 1));
+  }
+
+  thumbs.forEach(thumb => {
+    thumb.addEventListener('click', () => {
+      const idx = parseInt(thumb.dataset.index, 10);
+      updateCarousel(idx);
+    });
+  });
+</script>
+
+<style>
+  .striped-bg {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      var(--mel-border) 10px,
+      var(--mel-border) 11px
+    );
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+</style>

@@ -1,0 +1,745 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import TagWithLink from '../../components/TagWithLink.astro';
+import Link from '../../components/Link.astro';
+import PaginationDot from '../../components/PaginationDot.astro';
+import LikeButton from '../../components/LikeButton.astro';
+
+export async function getStaticPaths() {
+  const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
+  const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+
+  try {
+    const response = await fetch(CONFIG_URL);
+    const text = await response.text();
+    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
+    if (!match || !match[1]) return [];
+    
+    const json = JSON.parse(match[1]);
+    const rows = json.table.rows;
+    
+    const rawItems = rows.map((row) => {
+      const c = row.c;
+      if (!c) return null;
+      return {
+        evento: c[0] ? c[0].v : 'Evento sin título',
+        urlDrive: c[2] ? c[2].v : '',
+        fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
+        lugar: c[4] ? c[4].v : 'León',
+        localidad: c[5] ? c[5].v : '',
+        coordenadas: c[6] ? c[6].v : '',
+        artistas: c[7] ? c[7].v : '',
+        organiza: c[8] ? c[8].v : '',
+        descripcion: c[9] ? c[9].v : '',
+        idMel: c[10] ? c[10].v : '',
+        carruselOrder: c[11] ? c[11].v : '1',
+        disenador: c[13] ? c[13].v : 'Desconocido',
+        existeOriginal: c[16] ? c[16].v : '',
+        formato: c[21] ? c[21].v : 'Flyer',
+        notesArchivo: c[24] ? c[24].v : '',
+        ocr: c[25] ? c[25].v : ''
+      };
+    }).filter(item => item && item.idMel && item.idMel.startsWith('MEL-'));
+
+    // Group by Event Name + Date (same logic as index.astro to group multiple flyer images)
+    const groups = {};
+    rawItems.forEach(item => {
+      const key = `${item.evento.trim().toLowerCase()}_${item.fecha.trim().toLowerCase()}`;
+      if (!groups[key]) {
+        groups[key] = {
+          idMel: item.idMel,
+          title: item.evento,
+          date: item.fecha,
+          location: item.lugar,
+          locality: item.localidad,
+          description: item.descripcion,
+          artists: item.artistas,
+          organizer: item.organiza,
+          designer: item.disenador,
+          carruselItems: []
+        };
+      }
+      groups[key].carruselItems.push({
+        urlDrive: item.urlDrive,
+        order: parseInt(item.carruselOrder, 10) || 1
+      });
+    });
+
+    const eventsList = Object.values(groups).map((g: any) => {
+      g.carruselItems.sort((a, b) => a.order - b.order);
+      return g;
+    });
+
+    return eventsList.map((eventData: any, index) => {
+      const prevEvent = index > 0 ? eventsList[index - 1] : null;
+      const nextEvent = index < eventsList.length - 1 ? eventsList[index + 1] : null;
+      return {
+        params: { id: eventData.idMel },
+        props: { eventData, prevEvent, nextEvent, eventsList }
+      };
+    });
+  } catch (e) {
+    console.error("Error generating static paths", e);
+    return [];
+  }
+}
+
+const { eventData, prevEvent, nextEvent, eventsList } = Astro.props;
+
+// Map full list of events for client-side search filtering
+const allEvents = eventsList.map((e: any) => ({
+  idMel: e.idMel,
+  title: e.title,
+  location: e.location || '',
+  locality: e.locality || '',
+  artists: e.artists || '',
+  organizer: e.organizer || '',
+  designer: e.designer || ''
+}));
+
+function extractDriveImage(url) {
+  if (!url) return '';
+  let fileId = '';
+  if (url.includes('id=')) {
+    fileId = url.split('id=')[1].split('&')[0];
+  } else if (url.includes('/d/')) {
+    fileId = url.split('/d/')[1].split('/')[0];
+  }
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+}
+
+const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
+
+// Helper function to format unknown tag values
+function getTagDisplay(val) {
+  const clean = val ? String(val).trim() : '';
+  if (!clean || clean.toLowerCase() === 'desconocido' || clean.toLowerCase() === 'sin fecha') {
+    return { text: 'Desconocido', isUnknown: true };
+  }
+  return { text: clean, isUnknown: false };
+}
+
+const dateDisplay = getTagDisplay(eventData.date);
+const locationDisplay = getTagDisplay(eventData.location);
+const localityDisplay = getTagDisplay(eventData.locality);
+const organizerDisplay = getTagDisplay(eventData.organizer);
+const designerDisplay = getTagDisplay(eventData.designer);
+---
+<Layout title={eventData.title}>
+  <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
+  <style is:inline>
+    ::view-transition-old(flyer-img-{eventData.idMel}),
+    ::view-transition-new(flyer-img-{eventData.idMel}) {
+      animation-duration: 0.5s !important;
+      animation-timing-function: cubic-bezier(0.76, 0, 0.24, 1) !important;
+    }
+  </style>
+
+  <!-- Main layout container with 108px (pb-[108px]) padding bottom -->
+  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-24 pb-[108px] px-6 sm:px-12">
+    <!-- Main Box Container (Figma 1224px wide) -->
+    <div class="w-full max-w-[1224px] flex flex-col select-none">
+      
+      <!-- Close Button (X) at Top Left -->
+      <a 
+        id="detail-close-btn"
+        href="/" 
+        class="w-6 h-6 mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0"
+        aria-label="Cerrar detalles de evento"
+        data-node-id="536:47449"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </a>
+
+      <!-- Three-column content grid (Figma widths: 184px, 496px, 496px) -->
+      <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start">
+        
+        <!-- Column 1: Tags Sidebar (Figma 184px wide). Gap 10 (40px) spaces items exactly -->
+        <div class="flex flex-col gap-10 w-full" data-name="Tags Section" style="view-transition-name: event-tags;">
+          <TagWithLink 
+            label="Fecha" 
+            count={dateDisplay.text} 
+            state={dateDisplay.isUnknown ? "Disabled" : "Default"} 
+            hideBorder={true}
+          />
+          <TagWithLink 
+            label="Lugar" 
+            count={locationDisplay.text} 
+            state={locationDisplay.isUnknown ? "Disabled" : "Default"} 
+            href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`}
+            hideBorder={true}
+          />
+          <TagWithLink 
+            label="Localidad" 
+            count={localityDisplay.text} 
+            state={localityDisplay.isUnknown ? "Disabled" : "Default"} 
+            href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
+            hideBorder={true}
+          />
+          <TagWithLink 
+            label="Organiza" 
+            count={organizerDisplay.text} 
+            state={organizerDisplay.isUnknown ? "Disabled" : "Default"} 
+            href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
+            hideBorder={true}
+          />
+          <TagWithLink 
+            label="Diseño" 
+            count={designerDisplay.text} 
+            state={designerDisplay.isUnknown ? "Disabled" : "Default"} 
+            href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
+            hideBorder={true}
+          />
+        </div>
+
+        <!-- Column 2: Image Box (Figma 496px wide, height exactly 400px, dots absolute/floating so layout height remains constant) -->
+        <div class="flex flex-col items-center w-full relative h-[400px]" data-name="Image Viewer / Desktop">
+          <button 
+            id="carousel-main-container"
+            class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
+            aria-label="Siguiente imagen"
+          >
+            <!-- Custom background image matching Figma specifications exactly (flipped 180deg horizontally) -->
+            <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
+            
+            <!-- Slides track container with sliding transform transition -->
+            <div 
+              id="carousel-track" 
+              class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
+              style="transform: translate3d(0, 0, 0);"
+            >
+              {imageUrls.map((img, idx) => (
+                <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={img}
+                    alt={eventData.title}
+                    referrerpolicy="no-referrer"
+                    class="w-full h-full object-contain"
+                    style={idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : ""}
+                  />
+                </div>
+              ))}
+            </div>
+          </button>
+
+          <!-- Floating pagination dots for carousel (absolute positioned at top-[400px] so they don't shift navigation block) -->
+          {imageUrls.length > 1 && (
+            <div class="absolute top-[400px] left-0 right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
+
+              {imageUrls.map((_, idx) => (
+                <PaginationDot
+                  state={idx === 0 ? "Active" : "Resting"}
+                  index={idx}
+                  class="carousel-dot"
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <!-- Column 3: Event Info (Figma 496px wide with 24px left padding) -->
+        <div class="flex flex-col gap-10 w-full pl-6" data-name="Info" style="view-transition-name: event-info;">
+          
+          <!-- Event Title -->
+          <h2 class="font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
+            {eventData.title}
+          </h2>
+
+          <!-- Description + Artists block -->
+          <div class="flex flex-col gap-10">
+            {eventData.description && (
+              <div class="flex flex-col gap-6">
+                <p class="font-sans font-normal text-[16px] leading-[24px] tracking-[-0.16px] text-mel-text-primary">
+                  {eventData.description}
+                </p>
+                <!-- Figma 1px divider -->
+                <div class="h-px w-full bg-mel-border"></div>
+              </div>
+            )}
+
+            {eventData.artists && eventData.artists.toLowerCase() !== 'no detallados' && (
+              <div class="flex flex-col gap-2">
+                <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
+                <div class="flex flex-wrap gap-y-1">
+                  {eventData.artists.split(/[,;\/]+/).map((artist, idx, arr) => {
+                    const cleanArtist = artist.trim();
+                    if (!cleanArtist) return null;
+                    const isLast = idx === arr.length - 1;
+                    return (
+                      <span class="inline-flex items-center whitespace-nowrap">
+                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <!-- Actions: Componetized "Me presta" button -->
+          <div class="flex gap-6 items-start">
+            <LikeButton
+              id="btn-me-presta"
+              class="w-fit"
+            />
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Navigation block (positioned exactly 280px below the image container and columns, top-aligned) -->
+      <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-[280px] shrink-0 items-center" data-name="Navigation Block">
+        
+        <!-- Empty cell for Left Column alignment -->
+        <div class="hidden lg:block"></div>
+        
+        <!-- Anterior (Right-aligned under middle column) -->
+        <div class="flex justify-end text-right items-center" id="nav-prev-container">
+          {prevEvent && (
+            <TagWithLink 
+              label="Anterior"
+              count={prevEvent.title}
+              alignment="Right"
+              href={`/event/${prevEvent.idMel}`}
+              class="w-full max-w-[496px]"
+              hideBorder={true}
+            />
+          )}
+        </div>
+
+        <!-- Siguiente (Left-aligned under right column with 24px left padding) -->
+        <div class="flex justify-start text-left pl-6 items-center" id="nav-next-container">
+          {nextEvent && (
+            <TagWithLink 
+              label="Siguiente"
+              count={nextEvent.title}
+              alignment="Left"
+              href={`/event/${nextEvent.idMel}`}
+              class="w-full max-w-[496px]"
+              hideBorder={true}
+            />
+          )}
+        </div>
+
+      </div>
+
+    </div>
+    
+    <!-- Image Detail Lightbox Overlay -->
+    <div 
+      id="image-detail-overlay" 
+      class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
+    >
+      <!-- Modal Container -->
+      <div 
+        id="image-detail-modal" 
+        class="relative bg-mel-bg-primary mx-4 flex flex-col items-center justify-center transform scale-95 transition-transform duration-300 overflow-visible p-8 shadow-[0px_8px_32px_rgba(25,6,9,0.32)]"
+        data-node-id="350:22541"
+      >
+        <!-- Close Button (Absolute on top-right, aligned) -->
+        <button 
+          id="overlay-close-btn"
+          class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
+          aria-label="Cerrar vista grande"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+
+        <!-- Large Image Box (height up to 600px, w-full) -->
+        <div id="overlay-image-box" class="w-full h-full overflow-hidden flex items-center justify-center bg-transparent relative z-10">
+          <img 
+            id="overlay-main-image"
+            src={imageUrls[0]} 
+            alt={eventData.title}
+            referrerpolicy="no-referrer"
+            class="w-full h-full object-contain relative z-10 transition-transform duration-100 ease-out"
+          />
+        </div>
+
+        <!-- Carousel Navigation (Figma matches: gap-4 py-6 w-[496px] max-w-full) - Hidden for now -->
+        <div class="hidden gap-4 items-center justify-center py-6 w-[496px] max-w-full relative shrink-0 z-20">
+          <button 
+            id="overlay-prev-btn" 
+            class="w-10 h-10 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer border-none bg-transparent"
+            aria-label="Anterior imagen"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+
+          <div class="flex gap-4 items-center relative" id="overlay-dots-container">
+            <!-- Active indicator dot outline box -->
+            <div 
+              id="overlay-active-indicator"
+              class="absolute left-0 top-0 w-6 h-6 border border-mel-action-tertiary transition-all duration-300 ease-out pointer-events-none flex items-center justify-center z-10 opacity-0"
+              style="transform: translate3d(0, 0, 0);"
+            >
+              <div class="w-2 h-2 bg-mel-action-tertiary"></div>
+            </div>
+
+            {imageUrls.map((_, idx) => (
+              <PaginationDot
+                state={idx === 0 ? "Active" : "Resting"}
+                index={idx}
+                class="overlay-dot"
+              />
+            ))}
+          </div>
+
+          <button 
+            id="overlay-next-btn" 
+            class="w-10 h-10 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer border-none bg-transparent"
+            aria-label="Siguiente imagen"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</Layout>
+
+<script define:vars={{ imageUrls, eventId: eventData.idMel, allEvents }}>
+  function initPage() {
+    // Parse search/location/view queries from URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const activeView = urlParams.get('view') || 'galería';
+    const activeSearch = urlParams.get('search') || '';
+    const activeLocation = urlParams.get('location') || '';
+
+    // Append search/location/view queries to close button so it returns with filters and state preserved
+    const closeBtn = document.getElementById('detail-close-btn');
+    if (closeBtn) {
+      const returnParams = new URLSearchParams();
+      if (activeView) returnParams.set('view', activeView);
+      if (activeSearch) returnParams.set('search', activeSearch);
+      if (activeLocation) returnParams.set('location', activeLocation);
+      closeBtn.href = `/?${returnParams.toString()}`;
+    }
+
+    // Dynamic Navigation filtering based on activeSearch or activeLocation results
+    let filteredEvents = [];
+    if (activeLocation) {
+      // If location parameter is present, restrict navigation ONLY to events matching this location
+      filteredEvents = allEvents.filter(item => item.location.toLowerCase() === activeLocation.toLowerCase());
+    } else {
+      // Otherwise filter by search query
+      filteredEvents = allEvents.filter(item => {
+        if (!activeSearch) return true;
+        const q = activeSearch.toLowerCase().trim();
+        return item.title.toLowerCase().includes(q) ||
+               item.location.toLowerCase().includes(q) ||
+               item.locality.toLowerCase().includes(q) ||
+               item.artists.toLowerCase().includes(q) ||
+               item.organizer.toLowerCase().includes(q) ||
+               item.designer.toLowerCase().includes(q);
+      });
+    }
+
+    const curIdx = filteredEvents.findIndex(x => x.idMel === eventId);
+    const prevEventItem = curIdx > 0 ? filteredEvents[curIdx - 1] : null;
+    const nextEventItem = curIdx < filteredEvents.length - 1 ? filteredEvents[curIdx + 1] : null;
+
+    // Build the correct detail page query param: search, location, and view
+    const returnNavParams = new URLSearchParams();
+    if (activeView) returnNavParams.set('view', activeView);
+    if (activeSearch) returnNavParams.set('search', activeSearch);
+    if (activeLocation) returnNavParams.set('location', activeLocation);
+    const navParam = returnNavParams.toString();
+
+    // Render navigation dynamically based on active search/location matches (using visibility:hidden to preserve grid layout!)
+    const prevContainer = document.getElementById('nav-prev-container');
+    if (prevContainer) {
+      if (prevEventItem) {
+        prevContainer.classList.remove('invisible');
+        const link = prevContainer.querySelector('a');
+        const text = prevContainer.querySelector('.tag-count-val');
+        if (link) link.href = `/event/${prevEventItem.idMel}?${navParam}`;
+        if (text) text.textContent = prevEventItem.title;
+      } else {
+        prevContainer.classList.add('invisible');
+      }
+    }
+
+    const nextContainer = document.getElementById('nav-next-container');
+    if (nextContainer) {
+      if (nextEventItem) {
+        nextContainer.classList.remove('invisible');
+        const link = nextContainer.querySelector('a');
+        const text = nextContainer.querySelector('.tag-count-val');
+        if (link) link.href = `/event/${nextEventItem.idMel}?${navParam}`;
+        if (text) text.textContent = nextEventItem.title;
+      } else {
+        nextContainer.classList.add('invisible');
+      }
+    }
+
+    // Interactive like state persistent via localStorage using componetized LikeButton
+    const likeKey = `mel-like-${eventId}`;
+    const likeBtn = document.getElementById('btn-me-presta');
+    
+    if (likeBtn) {
+      let isLiked = localStorage.getItem(likeKey) === 'true';
+      
+      const updateLikeUI = () => {
+        likeBtn.setAttribute('data-active', isLiked ? 'true' : 'false');
+      };
+
+      updateLikeUI();
+
+      likeBtn.onclick = () => {
+        isLiked = !isLiked;
+        localStorage.setItem(likeKey, String(isLiked));
+        updateLikeUI();
+      };
+    }
+
+    // Interactive Carousel Image Swap with horizontal sliding transition
+    let currentIndex = 0;
+
+    // Crucial: Clear any running autoplay interval on script mount to avoid cumulative loops
+    if (window.melAutoplayInterval) {
+      clearInterval(window.melAutoplayInterval);
+      window.melAutoplayInterval = null;
+    }
+
+    function updateCarousel(index) {
+      if (!imageUrls || imageUrls.length === 0) return;
+      
+      // Wrap index around boundaries
+      currentIndex = (index + imageUrls.length) % imageUrls.length;
+      
+      // Slide the track using CSS transform
+      const track = document.getElementById('carousel-track');
+      if (track) {
+        track.style.transform = `translate3d(-${currentIndex * 100}%, 0, 0)`;
+      }
+
+      // Toggle dots active attributes
+      const dots = document.querySelectorAll('.carousel-dot');
+      dots.forEach((dot, idx) => {
+        const isActive = idx === currentIndex;
+        dot.setAttribute('data-active', isActive ? 'true' : 'false');
+      });
+    }
+
+    // Autoplay function (only runs if there are multiple images)
+    function startAutoplay() {
+      if (!imageUrls || imageUrls.length <= 1) return;
+      if (window.melAutoplayInterval) {
+        clearInterval(window.melAutoplayInterval);
+      }
+      window.melAutoplayInterval = setInterval(() => {
+        updateCarousel(currentIndex + 1);
+      }, 5000);
+    }
+
+    function resetAutoplayTimer() {
+      startAutoplay();
+    }
+
+    // Large Image Overlay Lightbox Elements
+    const overlay = document.getElementById('image-detail-overlay');
+    const overlayModal = document.getElementById('image-detail-modal');
+    const overlayMainImage = document.getElementById('overlay-main-image');
+    const overlayCloseBtn = document.getElementById('overlay-close-btn');
+
+    let naturalWidth = 800;
+    let naturalHeight = 600;
+    let targetWidth = 800;
+    let targetHeight = 600;
+
+    function adjustOverlaySizing() {
+      if (!overlay || overlay.classList.contains('hidden')) return;
+
+      let maxAllowedWidth = window.innerWidth - 32;
+      let maxAllowedHeight = window.innerHeight - 32;
+
+      if (window.innerWidth >= 1024) {
+        maxAllowedWidth = window.innerWidth * 0.64;
+        maxAllowedHeight = window.innerHeight * 0.80;
+      }
+
+      // Account for 32px padding on all sides (64px total vertical/horizontal)
+      const maxImgWidth = Math.max(50, maxAllowedWidth - 64);
+      const maxImgHeight = Math.max(50, maxAllowedHeight - 64);
+
+      const ratio = naturalWidth / naturalHeight;
+      
+      let imgTargetWidth = naturalWidth;
+      let imgTargetHeight = naturalHeight;
+
+      if (imgTargetWidth > maxImgWidth) {
+        imgTargetWidth = maxImgWidth;
+        imgTargetHeight = imgTargetWidth / ratio;
+      }
+      if (imgTargetHeight > maxImgHeight) {
+        imgTargetHeight = maxImgHeight;
+        imgTargetWidth = imgTargetHeight * ratio;
+      }
+
+      targetWidth = imgTargetWidth + 64;
+      targetHeight = imgTargetHeight + 64;
+
+      // Set modal container dimensions
+      if (overlayModal) {
+        overlayModal.style.width = `${targetWidth}px`;
+        overlayModal.style.height = `${targetHeight}px`;
+      }
+      if (overlayMainImage) {
+        overlayMainImage.style.width = `${imgTargetWidth}px`;
+        overlayMainImage.style.height = `${imgTargetHeight}px`;
+      }
+    }
+
+    function openOverlay() {
+      if (!overlay || !overlayModal) return;
+      
+      // Stop autoplay when large view is open
+      if (window.melAutoplayInterval) {
+        clearInterval(window.melAutoplayInterval);
+        window.melAutoplayInterval = null;
+      }
+
+      const currentImgUrl = imageUrls[currentIndex];
+      const tempImg = new Image();
+      tempImg.src = currentImgUrl;
+      tempImg.onload = () => {
+        naturalWidth = tempImg.naturalWidth;
+        naturalHeight = tempImg.naturalHeight;
+        
+        // Update image source
+        if (overlayMainImage) {
+          overlayMainImage.src = currentImgUrl;
+        }
+        
+        adjustOverlaySizing();
+
+        // Show overlay
+        overlay.classList.remove('hidden');
+        setTimeout(() => {
+          overlay.classList.remove('opacity-0', 'pointer-events-none');
+          overlay.classList.add('opacity-100', 'pointer-events-auto');
+          overlayModal.classList.remove('scale-95');
+          overlayModal.classList.add('scale-100');
+        }, 10);
+      };
+    }
+
+    function closeOverlay() {
+      if (!overlay || !overlayModal) return;
+      
+      overlay.classList.remove('opacity-100', 'pointer-events-auto');
+      overlay.classList.add('opacity-0', 'pointer-events-none');
+      overlayModal.classList.remove('scale-100');
+      overlayModal.classList.add('scale-95');
+
+      setTimeout(() => {
+        overlay.classList.add('hidden');
+        // Resume autoplay
+        startAutoplay();
+      }, 300);
+    }
+
+    // Click on main image container opens overlay
+    const mainImageContainer = document.getElementById('carousel-main-container');
+    if (mainImageContainer) {
+      mainImageContainer.addEventListener('click', openOverlay);
+    }
+
+    if (overlayCloseBtn) overlayCloseBtn.onclick = closeOverlay;
+    if (overlay) {
+      overlay.onclick = (e) => {
+        if (e.target === overlay) closeOverlay();
+      };
+    }
+
+    const dots = document.querySelectorAll('.carousel-dot');
+    dots.forEach(dot => {
+      dot.onclick = (e) => {
+        e.stopPropagation();
+        const idx = parseInt(dot.dataset.index, 10);
+        updateCarousel(idx);
+        resetAutoplayTimer();
+      };
+    });
+
+    // Keep indicators aligned perfectly on window resize
+    window.addEventListener('resize', () => {
+      updateCarousel(currentIndex);
+      adjustOverlaySizing();
+    });
+
+    // Initialize carousel and autoplay
+    if (imageUrls && imageUrls.length > 0) {
+      updateCarousel(0);
+      startAutoplay();
+    }
+  }
+
+  // Bind carousel and listener init to page-load so it functions perfectly on transition navigation
+  document.addEventListener('astro:page-load', initPage);
+
+  // Clean transition intervals on Astro page unload
+  document.addEventListener('astro:before-preparation', () => {
+    if (window.melAutoplayInterval) {
+      clearInterval(window.melAutoplayInterval);
+      window.melAutoplayInterval = null;
+    }
+  });
+</script>
+
+<style>
+  /* Custom Typography style sheets mapping Figma tokens */
+  .typo-tag-label {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 16px;
+    letter-spacing: 0.12em; /* 1.56px letter-spacing */
+    text-transform: uppercase;
+    color: var(--mel-text-primary);
+  }
+
+  /* Custom vector diagonal line pattern with -45deg incline and border color */
+  .striped-bg {
+    background-image: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 7px,
+      var(--mel-border) 7px,
+      var(--mel-border) 8px
+    );
+  }
+
+  /* Custom dissolve view transitions for details page info/tags panels */
+  ::view-transition-old(event-info),
+  ::view-transition-old(event-tags) {
+    animation: fade-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  ::view-transition-new(event-info),
+  ::view-transition-new(event-tags) {
+    animation: fade-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  @keyframes fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+</style>

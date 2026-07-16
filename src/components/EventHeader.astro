@@ -1,0 +1,45 @@
+---
+interface Props {
+  title: string;
+  date: string;
+  location: string;
+  imageUrl?: string;
+}
+
+const { title, date, location, imageUrl } = Astro.props;
+---
+<div class="flex flex-col gap-6 pb-6 border-b border-mel-border/60">
+  <div class="flex flex-col gap-2">
+    <span class="typo-overline text-mel-action-secondary">{date}</span>
+    <h1 class="font-sans font-bold text-4xl sm:text-5xl leading-tight tracking-tight text-mel-text-primary">
+      {title}
+    </h1>
+    <p class="font-serif font-medium text-lg text-mel-text-secondary">
+      {location}
+    </p>
+  </div>
+
+  {imageUrl && (
+    <div class="relative w-full aspect-[16/9] overflow-hidden border border-mel-border/60 shadow-xl bg-mel-bg-secondary/40">
+      <div class="absolute inset-0 striped-bg opacity-10 z-0"></div>
+      <img
+        src={imageUrl}
+        alt={title}
+        referrerpolicy="no-referrer"
+        class="w-full h-full object-cover relative z-10"
+      />
+    </div>
+  )}
+</div>
+
+<style>
+  .striped-bg {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      var(--mel-border) 10px,
+      var(--mel-border) 11px
+    );
+  }
+</style>

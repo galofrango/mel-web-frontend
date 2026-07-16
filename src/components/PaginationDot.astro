@@ -1,0 +1,24 @@
+---
+interface Props {
+  state?: 'Resting' | 'Active';
+  class?: string;
+  index?: number;
+}
+
+const { state = "Resting", class: className = "", index } = Astro.props;
+const isActive = state === "Active";
+---
+<div 
+  class={`w-8 h-8 flex items-center justify-center relative cursor-pointer group select-none ${className}`}
+  data-index={index}
+  data-active={isActive ? "true" : "false"}
+  data-node-id="Pagination Dot"
+>
+  <!-- Active state outer border box -->
+  <div class="absolute inset-[4px] border border-mel-action-tertiary transition-all duration-300 opacity-0 scale-75 group-data-[active=true]:opacity-100 group-data-[active=true]:scale-100 pointer-events-none flex items-center justify-center">
+    <div class="w-2 h-2 bg-mel-action-tertiary"></div>
+  </div>
+
+  <!-- Resting state inner dot -->
+  <div class="dot-resting w-2 h-2 bg-mel-action-secondary transition-all duration-300 group-hover:w-[6px] group-hover:h-[6px] group-hover:bg-mel-action-primary group-data-[active=true]:opacity-0"></div>
+</div>

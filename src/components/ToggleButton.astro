@@ -1,0 +1,33 @@
+---
+interface Props {
+  label: string;
+  active?: boolean;
+  dataView?: string;
+  class?: string;
+}
+
+const { label, active = false, dataView = "", class: className = "" } = Astro.props;
+---
+<button 
+  class:list={[
+    "toggle-btn",
+    "flex items-center justify-center h-[48px] flex-1 min-w-0 cursor-pointer border-none outline-none bg-transparent transition-all duration-200 relative",
+    active ? "toggle-btn-active" : "toggle-btn-inactive",
+    className
+  ]}
+  data-view={dataView}
+  data-active={active ? "true" : "false"}
+>
+  <span class:list={[
+    "overflow-hidden text-ellipsis whitespace-nowrap text-[17px] tracking-[-0.34px] leading-[24px] font-sans relative z-10 transition-colors duration-200",
+    active ? "font-bold text-mel-text-on-action" : "font-medium text-mel-text-secondary"
+  ]}>
+    {label}
+  </span>
+</button>
+
+<style>
+  .toggle-btn-inactive:hover span {
+    color: var(--mel-action-secondary);
+  }
+</style>
