@@ -1134,6 +1134,10 @@ const gridSpans = [
   let maxYear              = _s.maxYear;
   let searchQuery          = _s.searchQuery;
   let activeSidePanelKey   = _s.activeSidePanelKey;
+  // Coords of the location whose panel is currently open — recomputed by
+  // updateMapMarkers() alongside activeSidePanelKey; read back when the
+  // panel closes to find that marker again and reset its resting style.
+  let activeSidePanelCoords = null;
   let currentPage          = _s.currentPage;
   const PAGE_SIZE          = 32;
   let currentSortCol       = _s.currentSortCol;
@@ -1870,11 +1874,15 @@ const gridSpans = [
       markerLib = await google.maps.importLibrary("marker");
       mapCore = await google.maps.importLibrary("core");
 
-      // Create map centered on León
+      // Create map centered on León. The Map ID has both a light and a dark
+      // style variant configured in Google Cloud Console — colorScheme picks
+      // between them; it's kept in sync with the site's own toggle below.
+      const isDarkNow = document.documentElement.classList.contains('dark');
       googleMap = new Map(document.getElementById("map-container"), {
         center: { lat: 42.5987, lng: -5.5671 },
         zoom: 14,
         mapId: "972db64e35393894d465ef68", // Custom Maps style ID matching Figma
+        colorScheme: isDarkNow ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT,
         disableDefaultUI: true, // Disables Satellite view, Street View (saves cost and keeps layout clean)
         zoomControl: true,
       });
@@ -1883,11 +1891,54 @@ const gridSpans = [
         minWidth: 280
       });
 
+      // Create the MarkerClusterer ONCE and reuse it for the page's lifetime.
+      // Re-instantiating a new MarkerClusterer on every filter/search change
+      // (as this used to do) left the old instance's rendered marker/cluster
+      // DOM nodes on the map — clearMarkers()+addMarkers() on a single
+      // instance is the library's supported way to refresh its contents.
+      const clusterRenderer = {
+        render: ({ count, position, markers }) => {
+          const clusterContent = document.createElement('div');
+          clusterContent.className = 'mel-marker-wrapper';
+          clusterContent.innerHTML = `
+            <div class="mel-marker-body">
+              <span class="mel-marker-label">${count}</span>
+            </div>
+            <div class="mel-marker-pointer"></div>
+          `;
+
+          const clusterMarker = new markerLib.AdvancedMarkerElement({
+            position,
+            content: clusterContent,
+            zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+          });
+
+          clusterMarker.addListener('click', () => {
+            // Fit to the cluster's own child markers (rather than a blind
+            // +2 zoom) so they end up with generous breathing room instead
+            // of pinned against the viewport edges.
+            const bounds = new google.maps.LatLngBounds();
+            (markers || []).forEach(m => { if (m.position) bounds.extend(m.position); });
+            googleMap.fitBounds(bounds, 120);
+          });
+
+          return clusterMarker;
+        }
+      };
+      if (typeof markerClusterer !== 'undefined') {
+        googleMapClusterer = new markerClusterer.MarkerClusterer({
+          map: googleMap,
+          markers: [],
+          renderer: clusterRenderer
+        });
+      }
+
       // Persist to global state
       _s.googleMap = googleMap;
       _s.markerLib = markerLib;
       _s.mapCore = mapCore;
       _s.infoWindow = infoWindow;
+      _s.googleMapClusterer = googleMapClusterer;
       _s.mapInitialized = true;
       mapInitialized = true;
 
@@ -1896,8 +1947,18 @@ const gridSpans = [
       const sidePanel = document.getElementById('map-side-panel');
       if (closePanelBtn && sidePanel) {
         closePanelBtn.addEventListener('click', () => {
+          const closedCoords = activeSidePanelCoords;
           activeSidePanelKey = null;
           _s.activeSidePanelKey = null;
+          activeSidePanelCoords = null;
+          // Drop ?location= so the auto-open check inside updateMapMarkers()
+          // doesn't immediately re-match this same place and pop the panel
+          // back open next time it runs.
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('location');
+            window.history.replaceState({}, '', url.toString());
+          } catch (e) {}
           sidePanel.classList.remove('w-[393px]', 'border-l');
           sidePanel.classList.add('w-0', 'border-l-0');
           if (googleMap) {
@@ -1905,10 +1966,35 @@ const gridSpans = [
               google.maps.event.trigger(googleMap, "resize");
             }, 310);
           }
+          // Return the closed marker to its resting look via the same CSS
+          // transition already used for hover — no pan/zoom at all, since
+          // the user may well have moved around the map independently of
+          // this marker. Toggling the class on the existing marker element
+          // (instead of a full updateMapMarkers() rebuild, which destroys
+          // and recreates every marker) is what lets it actually animate
+          // instead of snapping.
+          if (closedCoords) {
+            const closedMarker = mapMarkers.find(m =>
+              m.position && m.position.lat === closedCoords.lat && m.position.lng === closedCoords.lng
+            );
+            if (closedMarker && closedMarker.content) {
+              closedMarker.content.classList.remove('active');
+            }
+          }
         });
       }
 
       updateMapMarkers(true);
+
+      // The map container may not have its final layout size yet at this
+      // exact moment (it just became visible as part of the same view
+      // switch), which can make this first fitBounds() compute a bogus,
+      // too-far-out zoom. Re-trigger resize + re-fit shortly after, same
+      // fix already relied on when switching back to an initialized map.
+      setTimeout(() => {
+        google.maps.event.trigger(googleMap, 'resize');
+        fitMapToMarkers();
+      }, 150);
     } catch (e) {
       console.error("Error loading Google Maps API", e);
     }
@@ -2022,7 +2108,7 @@ const gridSpans = [
       }
     });
     googleMap.fitBounds(bounds);
-    
+
     // Prevent over-zooming on load/fit
     const listener = google.maps.event.addListener(googleMap, 'idle', () => {
       if (googleMap.getZoom() > 15) {
@@ -2032,10 +2118,10 @@ const gridSpans = [
     });
   }
 
-  function updateMapMarkers() {
+  function updateMapMarkers(shouldFitBounds = true) {
     if (!googleMap || !markerLib) return;
 
-    // Clear existing markers and clusterer
+    // Clear existing markers from the clusterer (reused instance — see initGoogleMap)
     if (googleMapClusterer) {
       googleMapClusterer.clearMarkers();
     }
@@ -2091,22 +2177,17 @@ const gridSpans = [
       }
     }
 
-    // Update or hide side panel dynamically based on filtered data
+    // Update or hide side panel dynamically based on filtered data.
+    // populateSidePanel() already opens the panel (if needed) and pans to
+    // its coords itself, correctly timed against its own open/resize
+    // transition — doing that again here just raced its own panTo with a
+    // second, differently-timed one.
     if (activeSidePanelKey && locationGroups[activeSidePanelKey]) {
+      activeSidePanelCoords = locationGroups[activeSidePanelKey].coords;
       populateSidePanel(locationGroups[activeSidePanelKey]);
-      const sidePanel = document.getElementById('map-side-panel');
-      if (sidePanel) {
-        sidePanel.style.opacity = '1';
-        sidePanel.classList.remove('w-0', 'border-l-0');
-        sidePanel.classList.add('w-[393px]', 'border-l');
-        if (googleMap) {
-          setTimeout(() => {
-            googleMap.panTo(locationGroups[activeSidePanelKey].coords);
-          }, 150);
-        }
-      }
     } else {
       activeSidePanelKey = null;
+      activeSidePanelCoords = null;
       const sidePanel = document.getElementById('map-side-panel');
       if (sidePanel) {
         sidePanel.classList.remove('w-[393px]', 'border-l');
@@ -2123,7 +2204,7 @@ const gridSpans = [
     Object.keys(locationGroups).forEach(locKey => {
       const group = locationGroups[locKey];
       const count = group.events.length;
-      
+
       // Build custom marker HTML (Always Text Marker format when not clustered)
       const markerContent = document.createElement('div');
       markerContent.className = 'mel-marker-wrapper';
@@ -2147,56 +2228,32 @@ const gridSpans = [
       // Add click listener to show the details Side Panel
       marker.addListener("click", () => {
         activeSidePanelKey = locKey;
+        // populateSidePanel() already pans to group.coords itself, timed to
+        // run after the panel's own open/resize transition so it centers
+        // against the map's final (post-panel) width — no separate panTo/
+        // setZoom here, which used to fire immediately (before that resize)
+        // and could also zoom out if already zoomed in past 15.
         populateSidePanel(group);
         updateMapMarkers(false); // Redraw map to update the active marker color without resetting bounds!
-        if (googleMap) {
-          googleMap.panTo(group.coords);
-          googleMap.setZoom(15); // Zoom in on the clicked place!
-        }
       });
 
       mapMarkers.push(marker);
     });
 
-    // Create clusters using MarkerClusterer
-    if (typeof markerClusterer !== 'undefined' && mapMarkers.length > 0) {
-      const clusterRenderer = {
-        render: ({ count, position }) => {
-          // Number Marker when clustered
-          const clusterContent = document.createElement('div');
-          clusterContent.className = 'mel-marker-wrapper';
-          clusterContent.innerHTML = `
-            <div class="mel-marker-body">
-              <span class="mel-marker-label">${count}</span>
-            </div>
-            <div class="mel-marker-pointer"></div>
-          `;
-          
-          const clusterMarker = new markerLib.AdvancedMarkerElement({
-            position,
-            content: clusterContent,
-            zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
-          });
-          
-          clusterMarker.addListener('click', () => {
-            googleMap.setZoom(googleMap.getZoom() + 2);
-            googleMap.setCenter(position);
-          });
-          
-          return clusterMarker;
-        }
-      };
-
-      googleMapClusterer = new markerClusterer.MarkerClusterer({
-        map: googleMap,
-        markers: mapMarkers,
-        renderer: clusterRenderer
-      });
+    // Add the freshly-filtered markers to the single, reused clusterer
+    // instance (created once in initGoogleMap). Re-instantiating a new
+    // MarkerClusterer here on every filter change left the previous
+    // instance's rendered marker/cluster DOM nodes stuck on the map.
+    if (googleMapClusterer && mapMarkers.length > 0) {
+      googleMapClusterer.addMarkers(mapMarkers);
     }
 
     // Auto-fit bounds of the Google Map ONLY if the map view is active/visible
+    // and the caller actually wants it (callers that are about to apply
+    // their own pan/zoom, e.g. opening or closing a marker's panel, pass
+    // false so they don't race against this fit).
     const mapContainer = document.getElementById('view-mapa');
-    if (mapContainer && !mapContainer.classList.contains('hidden')) {
+    if (shouldFitBounds && mapContainer && !mapContainer.classList.contains('hidden')) {
       fitMapToMarkers();
     }
   }
@@ -2275,6 +2332,15 @@ const gridSpans = [
     // Listen for view switcher from menu items
     window.addEventListener('mel-switch-view', (e) => {
       switchView(e.detail.view);
+    }, { signal: wSig });
+
+    // Keep the map's basemap style in sync with the site's light/dark toggle
+    window.addEventListener('mel-color-scheme-change', (e) => {
+      if (googleMap) {
+        googleMap.setOptions({
+          colorScheme: e.detail.isDark ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT
+        });
+      }
     }, { signal: wSig });
 
     // Listen for search events

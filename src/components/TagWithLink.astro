@@ -10,17 +10,19 @@ interface Props {
   href?: string;
   state?: 'Default' | 'Hover' | 'Disabled';
   hideBorder?: boolean;
+  reload?: boolean;
 }
 
-const { 
-  label, 
-  count, 
-  alignment = "Left", 
-  titleIcon = false, 
-  class: className = "", 
-  href, 
+const {
+  label,
+  count,
+  alignment = "Left",
+  titleIcon = false,
+  class: className = "",
+  href,
   state = "Default",
-  hideBorder = false
+  hideBorder = false,
+  reload = false
 } = Astro.props;
 
 const isRight = alignment === "Right";
@@ -54,7 +56,7 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border/30 px
 
   <div class={`flex h-[24px] items-center relative shrink-0 w-auto ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
     {href ? (
-      <Link alignment={alignment} href={href} state={state}>
+      <Link alignment={alignment} href={href} state={state} reload={reload}>
         <span class="tag-count-val">{count}</span>
       </Link>
     ) : (

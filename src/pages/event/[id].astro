@@ -300,13 +300,14 @@ const designerDisplay = getTagDisplay(eventData.designer);
         <!-- Anterior (Right-aligned under middle column) -->
         <div class="flex justify-end text-right items-center" id="nav-prev-container">
           {prevEvent && (
-            <TagWithLink 
+            <TagWithLink
               label="Anterior"
               count={prevEvent.title}
               alignment="Right"
               href={`/event/${prevEvent.idMel}`}
               class="w-full max-w-[496px]"
               hideBorder={true}
+              reload={true}
             />
           )}
         </div>
@@ -314,13 +315,14 @@ const designerDisplay = getTagDisplay(eventData.designer);
         <!-- Siguiente (Left-aligned under right column with 24px left padding) -->
         <div class="flex justify-start text-left pl-6 items-center" id="nav-next-container">
           {nextEvent && (
-            <TagWithLink 
+            <TagWithLink
               label="Siguiente"
               count={nextEvent.title}
               alignment="Left"
               href={`/event/${nextEvent.idMel}`}
               class="w-full max-w-[496px]"
               hideBorder={true}
+              reload={true}
             />
           )}
         </div>

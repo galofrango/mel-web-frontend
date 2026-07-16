@@ -6,9 +6,10 @@ interface Props {
   state?: 'Default' | 'Hover' | 'Disabled';
   id?: string;
   hideChevron?: boolean;
+  reload?: boolean;
 }
 
-const { href = "#", class: className = "", alignment = "Left", state = "Default", id, hideChevron = false } = Astro.props;
+const { href = "#", class: className = "", alignment = "Left", state = "Default", id, hideChevron = false, reload = false } = Astro.props;
 
 const isRight = alignment === "Right";
 const isCenter = alignment === "Center";
@@ -22,10 +23,11 @@ const isDisabled = state === "Disabled";
     <slot />
   </span>
 ) : (
-  <a 
-    href={href} 
+  <a
+    href={href}
     class={`group relative inline-flex items-center gap-1 no-underline mel-link-active ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
     id={id}
+    data-astro-reload={reload}
   >
     <span class="relative inline-block text-inherit">
       <slot />
