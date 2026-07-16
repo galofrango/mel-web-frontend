@@ -2313,6 +2313,11 @@ const gridSpans = [
     window.addEventListener('popstate', (e) => {
       const overlay = document.getElementById('event-details-overlay');
       if (overlay && !overlay.classList.contains('hidden')) {
+        _s.mapInitialized = false;
+        _s.googleMap = null;
+        _s.mapMarkers = [];
+        _s.infoWindow = null;
+        _s.googleMapClusterer = null;
         closeDetailsOverlaySPA(false);
       }
     }, { signal: wSig });
@@ -2342,14 +2347,13 @@ const gridSpans = [
   function makeTagHtml(label, value, href) {
     const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
     const displayVal = isUnknown ? 'desconocido' : value;
-    const stateClass = isUnknown ? 'text-mel-text-tertiary opacity-60' : 'text-mel-text-secondary';
-    
+
     return `
-      <div class="flex flex-col items-start gap-1 w-full font-sans select-none">
-        <span class="text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">${label}</span>
-        ${(!isUnknown && href) 
-          ? `<a href="${href}" class="text-[17px] font-medium leading-[24px] tracking-[-0.34px] text-mel-action-secondary hover:text-mel-action-primary transition-colors hover:underline underline-offset-4">${displayVal}</a>`
-          : `<span class="text-[17px] font-medium leading-[24px] tracking-[-0.34px] ${stateClass}">${displayVal}</span>`
+      <div class="flex flex-col items-start gap-1 w-full select-none">
+        <span class="font-sans text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">${label}</span>
+        ${(!isUnknown && href)
+          ? `<a href="${href}" class="group/tag font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative inline-flex items-center gap-1 no-underline"><span class="relative inline-block text-inherit">${displayVal}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover/tag:scale-x-100 transition-transform duration-200 origin-left"></span></span><svg class="w-3 h-3 text-inherit opacity-0 group-hover/tag:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover/tag:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></a>`
+          : `<span class="font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] ${isUnknown ? 'text-mel-text-tertiary' : 'text-mel-text-secondary'}">${displayVal}</span>`
         }
       </div>
     `;
@@ -2390,7 +2394,7 @@ const gridSpans = [
         const isLast = idx === arr.length - 1;
         return `
           <span class="inline-flex items-center whitespace-nowrap">
-            <a href="/?search=${encodeURIComponent(cleanArtist)}" class="text-[16px] font-medium leading-[24px] tracking-[0.16px] text-mel-action-secondary hover:text-mel-action-primary hover:underline underline-offset-4 transition-colors">${cleanArtist}</a>
+            <a href="/?search=${encodeURIComponent(cleanArtist)}" class="group/art font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative inline-flex items-center no-underline"><span class="relative inline-block text-inherit">${cleanArtist}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover/art:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>
             ${!isLast ? `<span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>` : ''}
           </span>
         `;
@@ -2594,8 +2598,7 @@ const gridSpans = [
   }
 
   function transitionToOverlayEvent(newEvent, panelEvents) {
-    // Update URL to match current event using replaceState so we don't pollute the history stack
-    const detailUrl = `/event/${newEvent.idMel}?view=mapa&location=${encodeURIComponent(newEvent.lugar || '')}&search=${encodeURIComponent(searchQuery)}`;
+    const detailUrl = `/?view=mapa&detail=${newEvent.idMel}&location=${encodeURIComponent(newEvent.lugar || '')}&search=${encodeURIComponent(searchQuery)}`;
     try {
       window.history.replaceState({ spaDetail: true }, '', detailUrl);
     } catch(e){}
@@ -2611,16 +2614,14 @@ const gridSpans = [
   }
 
   function openDetailsOverlaySPA(eventItem, panelEvents) {
-    // Lock scroll
     document.body.classList.add('overflow-hidden');
-    
-    // Save current url before entering SPA to restore exactly on close
+
     originalUrlBeforeSPA = window.location.href;
-    
-    // Update browser history with event detail URL to preserve address bar integration
-    const detailUrl = `/event/${eventItem.idMel}?view=mapa&location=${encodeURIComponent(eventItem.lugar || '')}&search=${encodeURIComponent(searchQuery)}`;
+    _s.originalUrlBeforeSPA = originalUrlBeforeSPA;
+
+    const detailUrl = `/?view=mapa&detail=${eventItem.idMel}&location=${encodeURIComponent(eventItem.lugar || '')}&search=${encodeURIComponent(searchQuery)}`;
     try {
-      window.history.pushState({ spaDetail: true }, '', detailUrl);
+      window.history.replaceState({ spaDetail: true }, '', detailUrl);
     } catch(e){}
 
     // Show overlay
@@ -2633,13 +2634,13 @@ const gridSpans = [
     renderOverlayEvent(eventItem, panelEvents);
   }
 
-  function closeDetailsOverlaySPA(shouldGoBack = true) {
+  function closeDetailsOverlaySPA(shouldRestore = true) {
     const overlay = document.getElementById('event-details-overlay');
     if (overlay) {
       overlay.classList.add('hidden');
       overlay.classList.remove('flex');
     }
-    
+
     if (overlayAutoplayInterval) {
       clearInterval(overlayAutoplayInterval);
       overlayAutoplayInterval = null;
@@ -2647,15 +2648,10 @@ const gridSpans = [
 
     document.body.classList.remove('overflow-hidden');
 
-    if (shouldGoBack) {
-      // If we pushed state, go back in history to clean it up and restore the URL
-      if (window.history.state && window.history.state.spaDetail) {
-        window.history.back();
-      } else if (originalUrlBeforeSPA) {
-        try {
-          window.history.replaceState({}, '', originalUrlBeforeSPA);
-        } catch(e){}
-      }
+    if (shouldRestore && originalUrlBeforeSPA) {
+      try {
+        window.history.replaceState({}, '', originalUrlBeforeSPA);
+      } catch(e){}
     }
   }
 
