@@ -291,40 +291,6 @@ if (sectionsData.length === 0) {
 
 <script>
   function initInfoPage() {
-    // 1. Hook Menu Toggle button
-    const menuBtn = document.getElementById('menu-btn');
-    const sideMenu = document.getElementById('side-menu-container');
-    const backdrop = document.getElementById('side-menu-backdrop');
-    const closeBtn = document.getElementById('close-side-menu');
-
-    function openMenu() {
-      if (sideMenu && backdrop) {
-        sideMenu.classList.remove('hidden');
-        backdrop.classList.remove('hidden');
-        // Force reflow
-        sideMenu.offsetHeight;
-        sideMenu.classList.remove('translate-x-full');
-        backdrop.classList.remove('opacity-0');
-        document.body.classList.add('overflow-hidden');
-      }
-    }
-
-    function closeMenu() {
-      if (sideMenu && backdrop) {
-        sideMenu.classList.add('translate-x-full');
-        backdrop.classList.add('opacity-0');
-        document.body.classList.remove('overflow-hidden');
-        setTimeout(() => {
-          sideMenu.classList.add('hidden');
-          backdrop.classList.add('hidden');
-        }, 300);
-      }
-    }
-
-    menuBtn?.addEventListener('click', openMenu);
-    closeBtn?.addEventListener('click', closeMenu);
-    backdrop?.addEventListener('click', closeMenu);
-
     // 2. Setup manual accordion clicks
     document.querySelectorAll('.accordion-header').forEach(header => {
       header.addEventListener('click', () => {

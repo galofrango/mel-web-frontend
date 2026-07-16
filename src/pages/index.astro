@@ -291,7 +291,7 @@ const gridSpans = [
     <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-hidden flex flex-col justify-between transition-colors duration-300 mt-[16px]">
       
       <!-- 1. GALLERY VIEW (Grid Layout exactly matching Figma auto-rows and gaps) -->
-      <div id="view-galería" class="view-panel active flex-1 w-full overflow-y-auto transition-all duration-500 pb-4">
+      <div id="view-galería" class="view-panel active flex-1 w-full overflow-y-auto transition-all duration-500 pb-[40px]">
         <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense">
           {initialArchives.slice(0, 32).map((item, i) => {
             const span = gridSpans[i % gridSpans.length];
@@ -1079,25 +1079,64 @@ const gridSpans = [
 
 <!-- Client Side Scripting for complete interactivity -->
 <script define:vars={{ initialArchives }}>
-  // State management
-  let archives = [...initialArchives];
-  let filtered = [...initialArchives];
-  let minYear = 2004;
-  let maxYear = 2019;
-  let searchQuery = "";
-  let activeSidePanelKey = null;
-  
-  // Paginación state
-  let currentPage = 1;
-  const PAGE_SIZE = 32;
+  // -------------------------------------------------------
+  // Persistent state: survives View Transition re-execution
+  // -------------------------------------------------------
+  if (!window._melState) {
+    window._melState = {
+      archives: [...initialArchives],
+      filtered: [...initialArchives],
+      minYear: 2004,
+      maxYear: 2019,
+      searchQuery: "",
+      activeSidePanelKey: null,
+      currentPage: 1,
+      currentSortCol: null,
+      currentSortDir: 'asc',
+      ABSOLUTE_MIN_YEAR: 2004,
+      ABSOLUTE_MAX_YEAR: 2019,
+      currentDetailGroup: null,
+      currentCarruselIndex: 0,
+      googleMap: null,
+      mapMarkers: [],
+      mapInitialized: false,
+      infoWindow: null,
+      mapCore: null,
+      markerLib: null,
+      googleMapClusterer: null,
+      overlayAutoplayInterval: null,
+      overlayCurrentIndex: 0,
+      originalUrlBeforeSPA: null,
+    };
+  }
+  const _s = window._melState;
 
-  // Sorting state
-  let currentSortCol = null;
-  let currentSortDir = 'asc';
+  // Aliases (writable via _s.xxx = ...)
+  let archives             = _s.archives;
+  let filtered             = _s.filtered;
+  let minYear              = _s.minYear;
+  let maxYear              = _s.maxYear;
+  let searchQuery          = _s.searchQuery;
+  let activeSidePanelKey   = _s.activeSidePanelKey;
+  let currentPage          = _s.currentPage;
+  const PAGE_SIZE          = 32;
+  let currentSortCol       = _s.currentSortCol;
+  let currentSortDir       = _s.currentSortDir;
+  let ABSOLUTE_MIN_YEAR    = _s.ABSOLUTE_MIN_YEAR;
+  let ABSOLUTE_MAX_YEAR    = _s.ABSOLUTE_MAX_YEAR;
+  let currentDetailGroup   = _s.currentDetailGroup;
+  let currentCarruselIndex = _s.currentCarruselIndex;
 
-  // Dynamic limits initialized from data
-  let ABSOLUTE_MIN_YEAR = 2004;
-  let ABSOLUTE_MAX_YEAR = 2019;
+  // Helper to keep _melState in sync when we mutate these aliases
+  function syncState() {
+    _s.archives = archives; _s.filtered = filtered;
+    _s.minYear = minYear; _s.maxYear = maxYear;
+    _s.searchQuery = searchQuery; _s.activeSidePanelKey = activeSidePanelKey;
+    _s.currentPage = currentPage; _s.currentSortCol = currentSortCol;
+    _s.currentSortDir = currentSortDir;
+    _s.ABSOLUTE_MIN_YEAR = ABSOLUTE_MIN_YEAR; _s.ABSOLUTE_MAX_YEAR = ABSOLUTE_MAX_YEAR;
+    _s.currentDetailGroup = currentDetailGroup; _s.currentCarruselIndex = currentCarruselIndex;
+  }
 
   // Grid spans
   const gridSpans = [
@@ -1116,30 +1155,10 @@ const gridSpans = [
     { col: 1, row: 2 }
   ];
 
-  // DOM Elements
-  const sliderMin = document.getElementById('slider-min');
-  const sliderMax = document.getElementById('slider-max');
-  const minHandle = document.getElementById('min-handle');
-  const maxHandle = document.getElementById('max-handle');
-  const minVal = minHandle ? minHandle.querySelector('span') : null;
-  const maxVal = maxHandle ? maxHandle.querySelector('span') : null;
-  const activeFill = document.getElementById('slider-active-fill');
-
-  const lightbox = document.getElementById('lightbox');
-  const lightboxImg = document.getElementById('lightbox-image');
-  const lightboxTitle = document.getElementById('lightbox-title');
-  const lightboxLocation = document.getElementById('lightbox-location');
-  const lightboxCategory = document.getElementById('lightbox-category');
-  const lightboxDate = document.getElementById('lightbox-date');
-  const closeLightboxBtn = document.getElementById('close-lightbox');
-  
-  // Pagination Elements
-  const btnPrevPage = document.getElementById('btn-prev-page');
-  const btnNextPage = document.getElementById('btn-next-page');
-  const paginationNumbers = document.getElementById('pagination-numbers');
-
-  let currentDetailGroup = null;
-  let currentCarruselIndex = 0;
+  // DOM Element refs — re-assigned in initHomePage()
+  let sliderMin, sliderMax, minHandle, maxHandle, minVal, maxVal, activeFill;
+  let lightbox, lightboxImg, lightboxTitle, lightboxLocation, lightboxCategory, lightboxDate, closeLightboxBtn;
+  let btnPrevPage, btnNextPage, paginationNumbers;
 
   // Calculate year of event
   function getYear(dateStr) {
@@ -1226,30 +1245,11 @@ const gridSpans = [
     filterArchives();
   }
 
-  // Bind Slider Events
-  if (sliderMin) sliderMin.addEventListener('input', updateSlider);
-  if (sliderMax) sliderMax.addEventListener('input', updateSlider);
-
-  // Search input change handler
-  window.addEventListener('mel-search', (e) => {
-    searchQuery = e.detail.query.toLowerCase().trim();
-    
-    // Dynamically synchronize the search query parameter in the browser URL
-    try {
-      const url = new URL(window.location.href);
-      if (searchQuery) {
-        url.searchParams.set('search', searchQuery);
-      } else {
-        url.searchParams.delete('search');
-      }
-      window.history.replaceState({}, '', url.toString());
-    } catch (err) {
-      console.warn("Unable to update URL query params", err);
-    }
-
-    currentPage = 1;
-    filterArchives(true);
-  });
+  // Bind Slider Events — called from initHomePage()
+  function bindSliderEvents() {
+    if (sliderMin) sliderMin.addEventListener('input', updateSlider);
+    if (sliderMax) sliderMax.addEventListener('input', updateSlider);
+  }
 
   // Carousel Render inside Lightbox
   function updateLightboxCarousel() {
@@ -1296,26 +1296,32 @@ const gridSpans = [
     currentDetailGroup = null;
   }
 
-  closeLightboxBtn.addEventListener('click', closeLightbox);
-  lightbox.addEventListener('click', (e) => {
-    if (e.target === lightbox) closeLightbox();
-  });
+  // Lightbox bindings — called from initHomePage()
+  function bindLightboxEvents() {
+    if (closeLightboxBtn) closeLightboxBtn.addEventListener('click', closeLightbox);
+    if (lightbox) lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) closeLightbox();
+    });
 
-  document.getElementById('lightbox-prev').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!currentDetailGroup) return;
-    const items = currentDetailGroup.carruselItems;
-    currentCarruselIndex = (currentCarruselIndex - 1 + items.length) % items.length;
-    updateLightboxCarousel();
-  });
-
-  document.getElementById('lightbox-next').addEventListener('click', (e) => {
-    e.stopPropagation();
-    if (!currentDetailGroup) return;
-    const items = currentDetailGroup.carruselItems;
-    currentCarruselIndex = (currentCarruselIndex + 1) % items.length;
-    updateLightboxCarousel();
-  });
+    const lbPrev = document.getElementById('lightbox-prev');
+    const lbNext = document.getElementById('lightbox-next');
+    if (lbPrev) lbPrev.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!currentDetailGroup) return;
+      const items = currentDetailGroup.carruselItems;
+      currentCarruselIndex = (currentCarruselIndex - 1 + items.length) % items.length;
+      syncState();
+      updateLightboxCarousel();
+    });
+    if (lbNext) lbNext.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!currentDetailGroup) return;
+      const items = currentDetailGroup.carruselItems;
+      currentCarruselIndex = (currentCarruselIndex + 1) % items.length;
+      syncState();
+      updateLightboxCarousel();
+    });
+  }
 
   function bindInitialCardClicks() {
     document.querySelectorAll('.gallery-item').forEach(card => {
@@ -1661,38 +1667,43 @@ const gridSpans = [
     }
   }
 
-  // Pagination click handlers
-  if (btnPrevPage) {
-    btnPrevPage.addEventListener('click', () => {
-      if (currentPage > 1) {
-        currentPage--;
+  // Pagination click handlers — called from initHomePage()
+  function bindPaginationEvents() {
+    if (btnPrevPage) {
+      btnPrevPage.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          syncState();
+          filterArchives();
+          const cv = document.getElementById('content-views');
+          if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    }
+
+    if (btnNextPage) {
+      btnNextPage.addEventListener('click', () => {
+        currentPage++;
+        syncState();
         filterArchives();
         const cv = document.getElementById('content-views');
         if (cv) cv.scrollIntoView({ behavior: 'smooth' });
-      }
-    });
+      });
+    }
   }
 
-  if (btnNextPage) {
-    btnNextPage.addEventListener('click', () => {
-      currentPage++;
-      filterArchives();
-      const cv = document.getElementById('content-views');
-      if (cv) cv.scrollIntoView({ behavior: 'smooth' });
-    });
-  }
-
-  // View Switcher logic (updated for new ToggleButton component and sliding indicator)
-  const viewBtns = document.querySelectorAll('.toggle-btn');
-  const viewPanels = document.querySelectorAll('.view-panel');
-  const activeIndicator = document.getElementById('toggle-active-indicator');
-  let googleMap = null;
-  let mapMarkers = [];
-  let mapInitialized = false;
-  let infoWindow = null;
-  let mapCore = null;
-  let markerLib = null;
-  let googleMapClusterer = null;
+  // View Switcher logic
+  let viewBtns, viewPanels, activeIndicator;
+  let googleMap     = _s.googleMap;
+  let mapMarkers    = _s.mapMarkers;
+  let mapInitialized = _s.mapInitialized;
+  let infoWindow    = _s.infoWindow;
+  let mapCore       = _s.mapCore;
+  let markerLib     = _s.markerLib;
+  let googleMapClusterer = _s.googleMapClusterer;
+  let overlayAutoplayInterval = _s.overlayAutoplayInterval;
+  let overlayCurrentIndex     = _s.overlayCurrentIndex;
+  let originalUrlBeforeSPA    = _s.originalUrlBeforeSPA;
 
   function switchView(viewName) {
     // Dynamically synchronize the view query parameter in the browser URL
@@ -1856,12 +1867,21 @@ const gridSpans = [
         minWidth: 280
       });
 
+      // Persist to global state
+      _s.googleMap = googleMap;
+      _s.markerLib = markerLib;
+      _s.mapCore = mapCore;
+      _s.infoWindow = infoWindow;
+      _s.mapInitialized = true;
+      mapInitialized = true;
+
       // Bind close button event for map side panel
       const closePanelBtn = document.getElementById('close-map-side-panel');
       const sidePanel = document.getElementById('map-side-panel');
       if (closePanelBtn && sidePanel) {
         closePanelBtn.addEventListener('click', () => {
           activeSidePanelKey = null;
+          _s.activeSidePanelKey = null;
           sidePanel.classList.remove('w-[393px]', 'border-l');
           sidePanel.classList.add('w-0', 'border-l-0');
           if (googleMap) {
@@ -2165,126 +2185,143 @@ const gridSpans = [
     }
   }
 
-  // Listen for lightbox open from map popup buttons
-  window.addEventListener('mel-open-lightbox', (e) => {
-    const id = e.detail.id;
-    const item = archives.find(x => x.idMel === id);
-    if (item) openLightbox(item);
-  });
+  // -------------------------------------------------------
+  // initHomePage — re-runs on every astro:page-load
+  // -------------------------------------------------------
+  function initHomePage() {
+    // Re-sync local aliases from persisted state
+    archives           = _s.archives;
+    filtered           = _s.filtered;
+    minYear            = _s.minYear;
+    maxYear            = _s.maxYear;
+    searchQuery        = _s.searchQuery;
+    activeSidePanelKey = _s.activeSidePanelKey;
+    currentPage        = _s.currentPage;
+    currentSortCol     = _s.currentSortCol;
+    currentSortDir     = _s.currentSortDir;
+    ABSOLUTE_MIN_YEAR  = _s.ABSOLUTE_MIN_YEAR;
+    ABSOLUTE_MAX_YEAR  = _s.ABSOLUTE_MAX_YEAR;
+    currentDetailGroup   = _s.currentDetailGroup;
+    currentCarruselIndex = _s.currentCarruselIndex;
+    googleMap          = _s.googleMap;
+    mapMarkers         = _s.mapMarkers;
+    mapInitialized     = _s.mapInitialized;
+    infoWindow         = _s.infoWindow;
+    mapCore            = _s.mapCore;
+    markerLib          = _s.markerLib;
+    googleMapClusterer = _s.googleMapClusterer;
+    overlayAutoplayInterval = _s.overlayAutoplayInterval;
+    overlayCurrentIndex     = _s.overlayCurrentIndex;
+    originalUrlBeforeSPA    = _s.originalUrlBeforeSPA;
 
-  viewBtns.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const button = e.target.closest('.toggle-btn');
-      if (button) {
-        const view = button.dataset.view;
-        switchView(view);
-      }
-    });
-  });
+    // Re-query all DOM element refs
+    sliderMin  = document.getElementById('slider-min');
+    sliderMax  = document.getElementById('slider-max');
+    minHandle  = document.getElementById('min-handle');
+    maxHandle  = document.getElementById('max-handle');
+    minVal     = minHandle ? minHandle.querySelector('span') : null;
+    maxVal     = maxHandle ? maxHandle.querySelector('span') : null;
+    activeFill = document.getElementById('slider-active-fill');
 
-  // Initialize
-  calculateDynamicBounds();
-  updateSlider();
-  bindInitialCardClicks();
+    lightbox         = document.getElementById('lightbox');
+    lightboxImg      = document.getElementById('lightbox-image');
+    lightboxTitle    = document.getElementById('lightbox-title');
+    lightboxLocation = document.getElementById('lightbox-location');
+    lightboxCategory = document.getElementById('lightbox-category');
+    lightboxDate     = document.getElementById('lightbox-date');
+    closeLightboxBtn = document.getElementById('close-lightbox');
 
-  // Parse view from URL on load
-  const loadParams = new URLSearchParams(window.location.search);
-  const viewParam = loadParams.get('view');
-  if (viewParam === 'mapa') {
-    switchView('mapa');
-  } else if (viewParam === 'lista') {
-    switchView('lista');
-  } else {
-    switchView('galería');
-  }
+    btnPrevPage      = document.getElementById('btn-prev-page');
+    btnNextPage      = document.getElementById('btn-next-page');
+    paginationNumbers = document.getElementById('pagination-numbers');
 
-  // Side Menu logic
-  const menuBtn = document.getElementById('menu-btn');
-  const sideMenu = document.getElementById('side-menu-container');
-  const closeMenuBtn = document.getElementById('close-side-menu');
-  const filterItemLink = document.getElementById('menu-item-filters');
-  const colorToggle = document.getElementById('color-mode-toggle');
-  const menuBackdrop = document.getElementById('side-menu-backdrop');
+    viewBtns      = document.querySelectorAll('.toggle-btn');
+    viewPanels    = document.querySelectorAll('.view-panel');
+    activeIndicator = document.getElementById('toggle-active-indicator');
 
-  if (menuBtn && sideMenu) {
-    menuBtn.addEventListener('click', () => {
-      sideMenu.classList.remove('hidden');
-      if (menuBackdrop) {
-        menuBackdrop.classList.remove('hidden');
-        setTimeout(() => {
-          menuBackdrop.classList.remove('opacity-0', 'pointer-events-none');
-          menuBackdrop.classList.add('opacity-100', 'pointer-events-auto');
-        }, 10);
-      }
-      setTimeout(() => {
-        sideMenu.classList.remove('translate-x-full');
-        sideMenu.classList.add('translate-x-0');
-      }, 50);
-    });
-  }
+    // Abort any previous window listeners to prevent duplicates across page transitions
+    if (window._melAbortCtrl) window._melAbortCtrl.abort();
+    window._melAbortCtrl = new AbortController();
+    const wSig = window._melAbortCtrl.signal;
 
-  if (closeMenuBtn && sideMenu) {
-    closeMenuBtn.addEventListener('click', () => {
-      sideMenu.classList.remove('translate-x-0');
-      sideMenu.classList.add('translate-x-full');
-      if (menuBackdrop) {
-        menuBackdrop.classList.remove('opacity-100', 'pointer-events-auto');
-        menuBackdrop.classList.add('opacity-0', 'pointer-events-none');
-      }
-      setTimeout(() => {
-        sideMenu.classList.add('hidden');
-        if (menuBackdrop) {
-          menuBackdrop.classList.add('hidden');
+    // Bind all event listeners
+    bindSliderEvents();
+    bindLightboxEvents();
+    bindPaginationEvents();
+
+    // Listen for lightbox open from map popup buttons
+    window.addEventListener('mel-open-lightbox', (e) => {
+      const id = e.detail.id;
+      const item = archives.find(x => x.idMel === id);
+      if (item) openLightbox(item);
+    }, { signal: wSig });
+
+    // Listen for view switcher from menu items
+    window.addEventListener('mel-switch-view', (e) => {
+      switchView(e.detail.view);
+    }, { signal: wSig });
+
+    // Listen for search events
+    window.addEventListener('mel-search', (e) => {
+      searchQuery = e.detail.query.toLowerCase().trim();
+      _s.searchQuery = searchQuery;
+      try {
+        const url = new URL(window.location.href);
+        if (searchQuery) {
+          url.searchParams.set('search', searchQuery);
+        } else {
+          url.searchParams.delete('search');
         }
-      }, 300);
-    });
-  }
-
-  if (menuBackdrop) {
-    menuBackdrop.addEventListener('click', () => {
-      if (closeMenuBtn) closeMenuBtn.click();
-    });
-  }
-
-  if (filterItemLink && sideMenu) {
-    filterItemLink.addEventListener('click', () => {
-      sideMenu.classList.remove('translate-x-0');
-      sideMenu.classList.add('translate-x-full');
-      if (menuBackdrop) {
-        menuBackdrop.classList.remove('opacity-100', 'pointer-events-auto');
-        menuBackdrop.classList.add('opacity-0', 'pointer-events-none');
+        window.history.replaceState({}, '', url.toString());
+      } catch (err) {
+        console.warn("Unable to update URL query params", err);
       }
-      setTimeout(() => {
-        sideMenu.classList.add('hidden');
-        if (menuBackdrop) {
-          menuBackdrop.classList.add('hidden');
-        }
-      }, 300);
-    });
-  }
+      currentPage = 1;
+      _s.currentPage = 1;
+      filterArchives(true);
+    }, { signal: wSig });
 
-  // Color Mode Toggle (Dark Mode)
-  if (colorToggle) {
-    colorToggle.addEventListener('click', () => {
-      const isDark = document.documentElement.classList.toggle('dark');
-      localStorage.setItem('mel-color-scheme', isDark ? 'dark' : 'light');
+    viewBtns.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const button = e.target.closest('.toggle-btn');
+        if (button) switchView(button.dataset.view);
+      });
     });
-  }
 
-  // Initial Color Mode
-  const savedScheme = localStorage.getItem('mel-color-scheme') || 'light';
-  if (savedScheme === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
+    // Bind overlay close
+    const overlayCloseBtn = document.getElementById('event-details-overlay-close');
+    if (overlayCloseBtn) {
+      overlayCloseBtn.onclick = () => closeDetailsOverlaySPA(true);
+    }
+
+    window.addEventListener('popstate', (e) => {
+      const overlay = document.getElementById('event-details-overlay');
+      if (overlay && !overlay.classList.contains('hidden')) {
+        closeDetailsOverlaySPA(false);
+      }
+    }, { signal: wSig });
+
+    // Initialize state and render
+    calculateDynamicBounds();
+    updateSlider();
+    bindInitialCardClicks();
+    initSortHeaders();
+
+    // Parse view from URL on load
+    const loadParams = new URLSearchParams(window.location.search);
+    const viewParam = loadParams.get('view');
+    if (viewParam === 'mapa') {
+      switchView('mapa');
+    } else if (viewParam === 'lista') {
+      switchView('lista');
+    } else {
+      switchView('galería');
+    }
   }
 
   // ----------------------------------------------------
   // Fullscreen SPA Event Details Overlay Implementation
   // ----------------------------------------------------
-  let overlayAutoplayInterval = null;
-  let overlayCurrentIndex = 0;
-  let originalUrlBeforeSPA = null;
 
   function makeTagHtml(label, value, href) {
     const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
@@ -2606,18 +2643,7 @@ const gridSpans = [
     }
   }
 
-  // Bind close buttons and window actions
-  const overlayClose = document.getElementById('event-details-overlay-close');
-  if (overlayClose) {
-    overlayClose.onclick = () => closeDetailsOverlaySPA(true);
-  }
-
-  window.addEventListener('popstate', (e) => {
-    const overlay = document.getElementById('event-details-overlay');
-    if (overlay && !overlay.classList.contains('hidden')) {
-      closeDetailsOverlaySPA(false); // Do not call history.back() as popstate did it!
-    }
-  });
+  // Overlay close buttons are bound in initHomePage()
 
   // --- List View Sorting and Navigation Actions ---
 
@@ -2687,7 +2713,10 @@ const gridSpans = [
     });
   }
 
-  // Bind headers on page load/ready
-  initSortHeaders();
+  // -------------------------------------------------------
+  // Bootstrap: run immediately and on every page transition
+  // -------------------------------------------------------
+  initHomePage();
+  document.addEventListener('astro:page-load', initHomePage);
  
 </script>

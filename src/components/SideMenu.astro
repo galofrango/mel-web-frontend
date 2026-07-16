@@ -36,11 +36,11 @@ import IconButton from './IconButton.astro';
     
     <!-- Menu List (Without divide-y, using absolute offset dividers inside anchors) -->
     <div class="flex flex-col items-start w-full relative" data-node-id="562:70115" data-name="Menu List">
-      <!-- Item: Ajustes y filtros -->
-      <a href="#time-slider" id="menu-item-filters" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+      <!-- Item: Inicio -->
+      <a href="/" id="menu-item-home" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
         <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
           <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
-            Ajustes y filtros
+            Inicio
           </p>
         </div>
         <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
@@ -48,15 +48,11 @@ import IconButton from './IconButton.astro';
       </a>
       
       <!-- Item: Sala de exposiciones -->
-      <a href="#" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+      <a href="/exposiciones" id="menu-item-exhibitions" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
         <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
           <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
             Sala de exposiciones
           </p>
-        </div>
-        <!-- Tag component -->
-        <div class="bg-mel-action-primary text-mel-text-on-action font-sans font-medium text-[14px] px-[8px] py-[2px] mr-2 shrink-0">
-          Nuevo
         </div>
         <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
@@ -142,6 +138,84 @@ import IconButton from './IconButton.astro';
     </div>
   </div>
 </div>
+
+<script>
+  function initSideMenuGlobal() {
+    const menuBtn = document.getElementById('menu-btn');
+    const sideMenu = document.getElementById('side-menu-container');
+    const closeMenuBtn = document.getElementById('close-side-menu');
+    const backdrop = document.getElementById('side-menu-backdrop');
+    const homeLink = document.getElementById('menu-item-home');
+    const colorToggle = document.getElementById('color-mode-toggle');
+
+    function openMenu() {
+      if (sideMenu && backdrop) {
+        sideMenu.classList.remove('hidden');
+        backdrop.classList.remove('hidden');
+        // Force reflow to allow transition
+        sideMenu.offsetHeight;
+        sideMenu.classList.remove('translate-x-full');
+        sideMenu.classList.add('translate-x-0');
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+        backdrop.classList.add('opacity-100', 'pointer-events-auto');
+        document.body.classList.add('overflow-hidden');
+      }
+    }
+
+    function closeMenu() {
+      if (sideMenu && backdrop) {
+        sideMenu.classList.remove('translate-x-0');
+        sideMenu.classList.add('translate-x-full');
+        backdrop.classList.remove('opacity-100', 'pointer-events-auto');
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+        document.body.classList.remove('overflow-hidden');
+        setTimeout(() => {
+          sideMenu.classList.add('hidden');
+          backdrop.classList.add('hidden');
+        }, 300);
+      }
+    }
+
+    if (menuBtn) {
+      // Remove any existing listeners to prevent multiple fires
+      const newMenuBtn = menuBtn.cloneNode(true);
+      menuBtn.parentNode?.replaceChild(newMenuBtn, menuBtn);
+      newMenuBtn.addEventListener('click', openMenu);
+    }
+
+    if (closeMenuBtn) {
+      closeMenuBtn.addEventListener('click', closeMenu);
+    }
+
+    if (backdrop) {
+      backdrop.addEventListener('click', closeMenu);
+    }
+
+    if (homeLink) {
+      homeLink.addEventListener('click', (e) => {
+        if (window.location.pathname === '/') {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('mel-switch-view', { detail: { view: 'galería' } }));
+          closeMenu();
+        }
+      });
+    }
+
+    if (colorToggle) {
+      // Remove any existing color mode toggle listener
+      const newColorToggle = colorToggle.cloneNode(true);
+      colorToggle.parentNode?.replaceChild(newColorToggle, colorToggle);
+      newColorToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('mel-color-scheme', isDark ? 'dark' : 'light');
+      });
+    }
+  }
+
+  // Bind to page swap / load
+  initSideMenuGlobal();
+  document.addEventListener('astro:page-load', initSideMenuGlobal);
+</script>
 
 <style>
   /* Moon and Sun SVGs visibility based on the dark mode class of <html> */
