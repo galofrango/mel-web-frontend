@@ -104,6 +104,34 @@ import IconButton from './IconButton.astro';
 
     if (!container) return;
 
+    // Measure the compact (title-only) and expanded (full available) widths
+    // in px up front. CSS can't smoothly animate to/from `fit-content`, so we
+    // drive the container's width transition between two real numbers instead
+    // — that's what lets the underline (100% of container) visibly grow to
+    // the right and shrink back to the left instead of snapping.
+    let compactWidth = stateDefault?.getBoundingClientRect().width ?? 0;
+    let expandedWidth = container.parentElement?.clientWidth ?? 0;
+
+    function applyContainerWidth() {
+      if (!container) return;
+      const state = container.getAttribute('data-state');
+      container.style.width = `${state === 'default' ? compactWidth : expandedWidth}px`;
+    }
+
+    applyContainerWidth();
+
+    function remeasure() {
+      if (stateDefault && !stateDefault.classList.contains('hidden')) {
+        compactWidth = stateDefault.getBoundingClientRect().width;
+      }
+      if (container?.parentElement) {
+        expandedWidth = container.parentElement.clientWidth;
+      }
+      applyContainerWidth();
+    }
+
+    window.addEventListener('resize', remeasure);
+
     function updateCustomCursorPosition() {
       if (!activeInput || !shadowSpan || !customCursor) return;
       
@@ -124,6 +152,7 @@ import IconButton from './IconButton.astro';
     function setState(state: 'default' | 'placeholder' | 'filling' | 'filled', val = "") {
       if (!container) return;
       container.setAttribute('data-state', state);
+      applyContainerWidth();
 
       // Hide all
       stateDefault?.classList.add('hidden');
@@ -265,14 +294,10 @@ import IconButton from './IconButton.astro';
 
   #search-box-container {
     position: relative;
+    /* Fallback for the instant before JS measures and takes over; JS then
+       drives width transitions between real px values (see applyContainerWidth). */
     width: fit-content;
     max-width: 100%;
-  }
-  /* Expand container in active states */
-  #search-box-container[data-state="placeholder"],
-  #search-box-container[data-state="filling"],
-  #search-box-container[data-state="filled"] {
-    width: 100%;
   }
 
   #search-box-container::after {
