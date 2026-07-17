@@ -1061,6 +1061,7 @@ const gridSpans = [
       googleMap: null,
       mapMarkers: [],
       mapInitialized: false,
+      mapContainerEl: null,
       infoWindow: null,
       mapCore: null,
       markerLib: null,
@@ -1692,6 +1693,7 @@ const gridSpans = [
   let googleMap     = _s.googleMap;
   let mapMarkers    = _s.mapMarkers;
   let mapInitialized = _s.mapInitialized;
+  let mapContainerEl = _s.mapContainerEl;
   let infoWindow    = _s.infoWindow;
   let mapCore       = _s.mapCore;
   let markerLib     = _s.markerLib;
@@ -1776,9 +1778,19 @@ const gridSpans = [
       }
     }
 
-    // Initialize or refresh Google map on switch to 'mapa'
+    // Initialize or refresh Google map on switch to 'mapa'. On a soft (Astro
+    // SPA) navigation away from and back to this page, mapInitialized/googleMap
+    // persist on window._melState (they're just JS objects), but the actual
+    // #map-container DOM node they were built into gets swapped out for a
+    // fresh one — Google Maps never re-parents into the new node, so the map
+    // silently renders into a detached element. Detect that by comparing the
+    // container we last built into against the one currently in the DOM, and
+    // force a full re-init when they differ (or the old one got disconnected).
     if (viewName === 'mapa') {
-      if (!mapInitialized) {
+      const currentMapContainer = document.getElementById('map-container');
+      const isStale = !mapInitialized || !googleMap || !currentMapContainer ||
+        currentMapContainer !== mapContainerEl || !mapContainerEl.isConnected;
+      if (isStale) {
         initGoogleMap();
         mapInitialized = true;
       } else if (googleMap) {
@@ -1931,7 +1943,9 @@ const gridSpans = [
   // on an existing Map instance, Google keeps rendering tiles from whichever
   // scheme it was created with, so switching it means building a new one.
   function createGoogleMapInstance(colorScheme, center, zoom) {
-    googleMap = new google.maps.Map(document.getElementById("map-container"), {
+    mapContainerEl = document.getElementById("map-container");
+    _s.mapContainerEl = mapContainerEl;
+    googleMap = new google.maps.Map(mapContainerEl, {
       center,
       zoom,
       mapId: "972db64e35393894d465ef68", // Custom Maps style ID matching Figma
@@ -1984,48 +1998,6 @@ const gridSpans = [
       _s.infoWindow = infoWindow;
       _s.mapInitialized = true;
       mapInitialized = true;
-
-      // Bind close button event for map side panel
-      const closePanelBtn = document.getElementById('close-map-side-panel');
-      const sidePanel = document.getElementById('map-side-panel');
-      if (closePanelBtn && sidePanel) {
-        closePanelBtn.addEventListener('click', () => {
-          const closedCoords = activeSidePanelCoords;
-          activeSidePanelKey = null;
-          _s.activeSidePanelKey = null;
-          activeSidePanelCoords = null;
-          // Drop ?location= so the auto-open check inside updateMapMarkers()
-          // doesn't immediately re-match this same place and pop the panel
-          // back open next time it runs.
-          try {
-            const url = new URL(window.location.href);
-            url.searchParams.delete('location');
-            window.history.replaceState({}, '', url.toString());
-          } catch (e) {}
-          sidePanel.classList.remove('w-[393px]', 'border-l');
-          sidePanel.classList.add('w-0', 'border-l-0');
-          if (googleMap) {
-            setTimeout(() => {
-              google.maps.event.trigger(googleMap, "resize");
-            }, 310);
-          }
-          // Return the closed marker to its resting look via the same CSS
-          // transition already used for hover — no pan/zoom at all, since
-          // the user may well have moved around the map independently of
-          // this marker. Toggling the class on the existing marker element
-          // (instead of a full updateMapMarkers() rebuild, which destroys
-          // and recreates every marker) is what lets it actually animate
-          // instead of snapping.
-          if (closedCoords) {
-            const closedMarker = mapMarkers.find(m =>
-              m.position && m.position.lat === closedCoords.lat && m.position.lng === closedCoords.lng
-            );
-            if (closedMarker && closedMarker.content) {
-              closedMarker.content.classList.remove('active');
-            }
-          }
-        });
-      }
 
       updateMapMarkers(true);
 
@@ -2345,6 +2317,7 @@ const gridSpans = [
     googleMap          = _s.googleMap;
     mapMarkers         = _s.mapMarkers;
     mapInitialized     = _s.mapInitialized;
+    mapContainerEl     = _s.mapContainerEl;
     infoWindow         = _s.infoWindow;
     mapCore            = _s.mapCore;
     markerLib          = _s.markerLib;
@@ -2446,6 +2419,51 @@ const gridSpans = [
         if (button) switchView(button.dataset.view);
       });
     });
+
+    // Bind close button for the map side panel. Rebound every page load
+    // (rather than once inside initGoogleMap()) since the map itself may not
+    // get rebuilt on a soft navigation back to this page — but the close
+    // button is a fresh DOM node every time and needs its own listener.
+    const closePanelBtn = document.getElementById('close-map-side-panel');
+    const sidePanel = document.getElementById('map-side-panel');
+    if (closePanelBtn && sidePanel) {
+      closePanelBtn.addEventListener('click', () => {
+        const closedCoords = activeSidePanelCoords;
+        activeSidePanelKey = null;
+        _s.activeSidePanelKey = null;
+        activeSidePanelCoords = null;
+        // Drop ?location= so the auto-open check inside updateMapMarkers()
+        // doesn't immediately re-match this same place and pop the panel
+        // back open next time it runs.
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('location');
+          window.history.replaceState({}, '', url.toString());
+        } catch (e) {}
+        sidePanel.classList.remove('w-[393px]', 'border-l');
+        sidePanel.classList.add('w-0', 'border-l-0');
+        if (googleMap) {
+          setTimeout(() => {
+            google.maps.event.trigger(googleMap, "resize");
+          }, 310);
+        }
+        // Return the closed marker to its resting look via the same CSS
+        // transition already used for hover — no pan/zoom at all, since
+        // the user may well have moved around the map independently of
+        // this marker. Toggling the class on the existing marker element
+        // (instead of a full updateMapMarkers() rebuild, which destroys
+        // and recreates every marker) is what lets it actually animate
+        // instead of snapping.
+        if (closedCoords) {
+          const closedMarker = mapMarkers.find(m =>
+            m.position && m.position.lat === closedCoords.lat && m.position.lng === closedCoords.lng
+          );
+          if (closedMarker && closedMarker.content) {
+            closedMarker.content.classList.remove('active');
+          }
+        }
+      }, { signal: wSig });
+    }
 
     // Bind overlay close
     const overlayCloseBtn = document.getElementById('event-details-overlay-close');

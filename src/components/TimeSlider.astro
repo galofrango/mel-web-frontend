@@ -33,12 +33,27 @@ import SliderHandler from './SliderHandler.astro';
 </div>
 
 <script>
+  // Bound only via astro:page-load (see bottom of file), never called directly:
+  // a soft Astro navigation away from and back to this page swaps in a fresh
+  // #slider-track-wrapper DOM node, but this script tag itself only runs once
+  // per real browser load — without re-running init on every page-load, the
+  // handles/listeners stay wired to the old, now-detached elements and the
+  // freshly-rendered ones never get positioned (they show their unstyled
+  // default, which looks "bunched" at the left edge).
+  function initTimeSlider() {
   const trackWrapper = document.getElementById('slider-track-wrapper');
   const sliderMin = document.getElementById('slider-min') as HTMLInputElement;
   const sliderMax = document.getElementById('slider-max') as HTMLInputElement;
   const minHandle = document.getElementById('min-handle') as HTMLElement;
   const maxHandle = document.getElementById('max-handle') as HTMLElement;
   const activeFill = document.getElementById('slider-active-fill') as HTMLElement;
+
+  // Cancel listeners bound by a previous init (e.g. from before an earlier
+  // soft navigation away from this page) so they don't pile up.
+  if ((window as any)._melTimeSliderAbortCtrl) (window as any)._melTimeSliderAbortCtrl.abort();
+  const abortCtrl = new AbortController();
+  (window as any)._melTimeSliderAbortCtrl = abortCtrl;
+  const sig = abortCtrl.signal;
 
   if (trackWrapper && sliderMin && sliderMax && minHandle && maxHandle && activeFill) {
     const minValSpan = minHandle.querySelector('span') as HTMLSpanElement;
@@ -118,7 +133,7 @@ import SliderHandler from './SliderHandler.astro';
         sliderMax.dispatchEvent(new Event('input', { bubbles: true }));
       }
       render();
-    });
+    }, { signal: sig });
 
     window.addEventListener('pointerup', () => {
       if (isDraggingMin) {
@@ -143,7 +158,7 @@ import SliderHandler from './SliderHandler.astro';
       if (justFinishedDrag) {
         requestAnimationFrame(() => { justFinishedDrag = false; });
       }
-    });
+    }, { signal: sig });
 
     // Track Click positioning — suppressed after drags, with cross-over protection
     trackWrapper.addEventListener('click', (e) => {
@@ -178,6 +193,9 @@ import SliderHandler from './SliderHandler.astro';
       render();
     });
   }
+  }
+
+  document.addEventListener('astro:page-load', initTimeSlider);
 </script>
 
 <style>
