@@ -46,6 +46,17 @@ import IconButton from './IconButton.astro';
         <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
       </a>
+
+      <!-- Item: Intro -->
+      <a href="/?intro=true" id="menu-item-intro" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
+        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
+          <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
+            Intro
+          </p>
+        </div>
+        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
+        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
+      </a>
       
       <!-- Item: Sala de exposiciones -->
       <a href="/exposiciones" id="menu-item-exhibitions" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
@@ -146,6 +157,7 @@ import IconButton from './IconButton.astro';
     const closeMenuBtn = document.getElementById('close-side-menu');
     const backdrop = document.getElementById('side-menu-backdrop');
     const homeLink = document.getElementById('menu-item-home');
+    const introLink = document.getElementById('menu-item-intro');
     const colorToggle = document.getElementById('color-mode-toggle');
 
     function openMenu() {
@@ -196,6 +208,16 @@ import IconButton from './IconButton.astro';
         if (window.location.pathname === '/') {
           e.preventDefault();
           window.dispatchEvent(new CustomEvent('mel-switch-view', { detail: { view: 'galería' } }));
+          closeMenu();
+        }
+      });
+    }
+
+    if (introLink) {
+      introLink.addEventListener('click', (e) => {
+        if (window.location.pathname === '/') {
+          e.preventDefault();
+          window.dispatchEvent(new CustomEvent('mel-trigger-intro'));
           closeMenu();
         }
       });

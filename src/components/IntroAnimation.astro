@@ -1,0 +1,175 @@
+---
+// IntroAnimation.astro
+// Premium scroll-driven / button-triggered split chromatic aberration intro animation.
+---
+
+<div 
+  id="intro-animation-overlay" 
+  class="fixed inset-0 bg-[#f7f3f5] z-[300] flex items-center justify-center overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.77,0,0.175,1)] opacity-0 pointer-events-none hidden"
+>
+  <!-- Animated container keeping a fixed aspect ratio of 1440x1024 to match Figma coordinate space perfectly -->
+  <div class="relative w-full max-w-[1440px] h-full max-h-[1024px] aspect-[1440/1024] flex flex-col justify-between p-[108px] select-none">
+    
+    <!-- Title Text Layer Container -->
+    <div class="relative flex-1 w-full min-h-0">
+      
+      <!-- CIAN Layer -->
+      <div 
+        id="intro-layer-cian"
+        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#00ffff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88 transition-transform duration-[1800ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0"
+      >
+        <span class="block">Memoria</span>
+        <span class="block">Electrónica</span>
+        <span class="block">Leonesa</span>
+      </div>
+
+      <!-- YELLOW Layer -->
+      <div 
+        id="intro-layer-yellow"
+        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ffff00] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88 transition-transform duration-[1800ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0"
+      >
+        <span class="block">Memoria</span>
+        <span class="block">Electrónica</span>
+        <span class="block">Leonesa</span>
+      </div>
+
+      <!-- MAGENTA Layer -->
+      <div 
+        id="intro-layer-magenta"
+        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ff00ff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-95 transition-transform duration-[1800ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0"
+      >
+        <span class="block">Memoria</span>
+        <span class="block">Electrónica</span>
+        <span class="block">
+          Leonesa<span class="text-[#981932] text-[0.8em] tracking-[-0.05em] font-sans font-bold select-none relative -top-[0.1em] ml-1">®</span>
+        </span>
+      </div>
+
+    </div>
+
+    <!-- Divider Line -->
+    <div 
+      id="intro-divider"
+      class="w-full h-[1px] bg-mel-border/30 my-[40px] transition-all duration-[1000ms] ease-out opacity-100 scale-x-100"
+    ></div>
+
+    <!-- Subtitle Container -->
+    <div class="flex items-center gap-[12px] h-[48px] shrink-0 font-sans font-normal text-[2.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full">
+      <div id="intro-sub-1" class="transition-transform duration-[1500ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0">A través</div>
+      <div id="intro-sub-2" class="transition-transform duration-[1500ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0 ml-[8px]">del diseño</div>
+      <div id="intro-sub-3" class="transition-transform duration-[1500ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0 ml-[8px]">gráfico</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let activeAnimationTimeout = null;
+  let activeHideTimeout = null;
+
+  function runIntroAnimation() {
+    const overlay = document.getElementById('intro-animation-overlay');
+    const layerCian = document.getElementById('intro-layer-cian');
+    const layerYellow = document.getElementById('intro-layer-yellow');
+    const layerMagenta = document.getElementById('intro-layer-magenta');
+    const divider = document.getElementById('intro-divider');
+    const sub1 = document.getElementById('intro-sub-1');
+    const sub2 = document.getElementById('intro-sub-2');
+    const sub3 = document.getElementById('intro-sub-3');
+
+    if (!overlay) return;
+
+    // Reset styles to initial resting state
+    if (activeAnimationTimeout) clearTimeout(activeAnimationTimeout);
+    if (activeHideTimeout) clearTimeout(activeHideTimeout);
+
+    overlay.classList.remove('hidden');
+    // Force reflow
+    overlay.offsetHeight;
+    
+    // Show overlay
+    overlay.classList.remove('opacity-0', 'pointer-events-none');
+    overlay.classList.add('opacity-100', 'pointer-events-auto');
+
+    // Make sure body overflow is locked during intro
+    document.body.classList.add('overflow-hidden');
+
+    // Reset components to center (resting) state
+    [layerCian, layerYellow, layerMagenta].forEach(l => {
+      if (l) {
+        l.style.transform = 'translate3d(0, 0, 0)';
+        l.style.opacity = l.id.includes('magenta') ? '0.95' : '0.88';
+      }
+    });
+    if (divider) {
+      divider.style.opacity = '1';
+      divider.style.transform = 'scaleX(1)';
+    }
+    if (sub1) sub1.style.transform = 'translate3d(0, 0, 0)';
+    if (sub2) sub2.style.transform = 'translate3d(0, 0, 0)';
+    if (sub3) sub3.style.transform = 'translate3d(0, 0, 0)';
+
+    // Play split/ascension animation after a short rest (resting state duration = 1s)
+    activeAnimationTimeout = setTimeout(() => {
+      // Yellow flies up fastest: Y = -1039px from initial Y = 338px => relative -1377px
+      if (layerYellow) layerYellow.style.transform = 'translate3d(0, -1377px, 0)';
+      // Magenta flies up medium speed: Y = -597px from Y = 338px => relative -935px
+      if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -935px, 0)';
+      // Cian flies up slowest: Y = -257px from Y = 338px => relative -595px
+      if (layerCian) layerCian.style.transform = 'translate3d(0, -595px, 0)';
+
+      // Divider fades out
+      if (divider) {
+        divider.style.opacity = '0';
+        divider.style.transform = 'scaleX(0)';
+      }
+
+      // Subtitles fly up and disperse:
+      // "A través" moves from 906px to 388px => Y = -518px
+      if (sub1) sub1.style.transform = 'translate3d(0, -518px, 0)';
+      // "del diseño" moves from 906px to 478px => Y = -428px
+      if (sub2) sub2.style.transform = 'translate3d(38px, -428px, 0)'; // Slight X shift to match Figma
+      // "gráfico" moves from 906px to 568px => Y = -338px
+      if (sub3) sub3.style.transform = 'translate3d(86px, -338px, 0)'; // Slight X shift to match Figma
+
+      // Hide overlay after animation finishes (duration of transition = 1.8s, total 2.3s from start)
+      activeHideTimeout = setTimeout(() => {
+        // Fade out overlay
+        overlay.classList.remove('opacity-100', 'pointer-events-auto');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+        document.body.classList.remove('overflow-hidden');
+
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          // Dispatch completed event to return to gallery view
+          window.dispatchEvent(new CustomEvent('mel-switch-view', { detail: { view: 'galería' } }));
+        }, 600);
+      }, 2000);
+
+    }, 1200);
+  }
+
+  // Bind to global trigger events
+  window.addEventListener('mel-trigger-intro', runIntroAnimation);
+
+  // Auto trigger if URL search query is present
+  document.addEventListener('astro:page-load', () => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('intro') === 'true') {
+      // Clean query parameter from URL bar without forcing reload
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('intro');
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
+
+      runIntroAnimation();
+    }
+  });
+</script>
+
+<style>
+  .intro-title-layer {
+    transform-origin: bottom left;
+  }
+</style>
