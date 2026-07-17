@@ -16,30 +16,30 @@
       <!-- Title Text Layer Container (active for mouse movement hover parallax) -->
       <div id="intro-title-container" class="relative w-full h-[220px] md:h-[420px] cursor-pointer">
         
-        <!-- CIAN Layer -->
+        <!-- CIAN Layer: Solid opacity-100 -->
         <div 
           id="intro-layer-cian"
-          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#00ffff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88"
+          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#00ffff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
         >
           <span class="block">Memoria</span>
           <span class="block">Electrónica</span>
           <span class="block">Leonesa</span>
         </div>
 
-        <!-- YELLOW Layer -->
+        <!-- YELLOW Layer: Solid opacity-100 -->
         <div 
           id="intro-layer-yellow"
-          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ffff00] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88"
+          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ffff00] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
         >
           <span class="block">Memoria</span>
           <span class="block">Electrónica</span>
           <span class="block">Leonesa</span>
         </div>
 
-        <!-- MAGENTA Layer -->
+        <!-- MAGENTA Layer: Solid opacity-100 -->
         <div 
           id="intro-layer-magenta"
-          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ff00ff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-95"
+          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ff00ff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
         >
           <span class="block">Memoria</span>
           <span class="block">Electrónica</span>
@@ -50,17 +50,18 @@
 
       </div>
 
-      <!-- Divider Line: 2px thickness, action secondary color, my-[24px] spacing -->
+      <!-- Divider Line: 2px thickness, action secondary color, my-[48px] spacing (increased by 24px) -->
       <div 
         id="intro-divider"
-        class="w-full h-[2px] bg-[var(--mel-action-secondary)] my-[24px] transition-all duration-[1200ms] ease-out opacity-100 scale-x-100 origin-left"
+        class="w-full h-[2px] bg-[var(--mel-action-secondary)] my-[48px] transition-all duration-[1200ms] ease-out opacity-100 scale-x-100 origin-left"
       ></div>
 
-      <!-- Subtitle Container: equidistant from the divider -->
-      <div class="flex items-center gap-[12px] h-[48px] shrink-0 font-sans font-normal text-[2.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full">
-        <div id="intro-sub-1" class="intro-sub-word translate-y-0">A través</div>
-        <div id="intro-sub-2" class="intro-sub-word translate-y-0 ml-[8px]">del diseño</div>
-        <div id="intro-sub-3" class="intro-sub-word translate-y-0 ml-[8px]">gráfico</div>
+      <!-- Subtitle Container: Equidistant from the divider, dynamic letter-by-letter split container -->
+      <div 
+        id="intro-subtitle-container"
+        class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[2.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full"
+      >
+        <!-- Populated dynamically via JS -->
       </div>
 
     </div>
@@ -98,8 +99,10 @@
   let magentaX = 0, magentaY = 0;
 
   // Dom refs
-  let overlay, titleContainer, layerCian, layerYellow, layerMagenta, divider, sub1, sub2, sub3, scrollIndicator;
+  let overlay, titleContainer, layerCian, layerYellow, layerMagenta, divider, subContainer, scrollIndicator;
   let animationFrameId = null;
+
+  const subtitleText = "A través del diseño gráfico";
 
   function runIntroAnimation() {
     overlay = document.getElementById('intro-animation-overlay');
@@ -108,9 +111,7 @@
     layerYellow = document.getElementById('intro-layer-yellow');
     layerMagenta = document.getElementById('intro-layer-magenta');
     divider = document.getElementById('intro-divider');
-    sub1 = document.getElementById('intro-sub-1');
-    sub2 = document.getElementById('intro-sub-2');
-    sub3 = document.getElementById('intro-sub-3');
+    subContainer = document.getElementById('intro-subtitle-container');
     scrollIndicator = document.getElementById('intro-scroll-indicator');
 
     if (!overlay) return;
@@ -128,6 +129,14 @@
     if (activeDissolveTimeout) clearTimeout(activeDissolveTimeout);
     if (activeCompleteTimeout) clearTimeout(activeCompleteTimeout);
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
+
+    // Populate subtitle letters dynamically
+    if (subContainer) {
+      subContainer.innerHTML = subtitleText.split('').map((char, idx) => {
+        const isSpace = char === ' ';
+        return `<span class="intro-letter inline-block" style="will-change: transform, opacity; transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);" data-index="${idx}">${isSpace ? '&nbsp;' : char}</span>`;
+      }).join('');
+    }
 
     overlay.classList.remove('hidden');
     overlay.offsetHeight; // Force reflow
@@ -166,14 +175,22 @@
   }
 
   function resetLayersToResting(immediate = false) {
-    const transition = immediate ? 'none' : 'transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 1.2s cubic-bezier(0.16, 1, 0.3, 1)';
-    [layerCian, layerYellow, layerMagenta, sub1, sub2, sub3].forEach(el => {
+    const transition = immediate ? 'none' : 'transform 1.2s cubic-bezier(0.16, 1, 0.3, 1), filter 1.2s cubic-bezier(0.16, 1, 0.3, 1)';
+    [layerCian, layerYellow, layerMagenta].forEach(el => {
       if (el) {
         el.style.transition = transition;
         el.style.transform = 'translate3d(0, 0, 0)';
-        if (el.id.includes('cian') || el.id.includes('yellow')) el.style.opacity = '0.88';
-        if (el.id.includes('magenta')) el.style.opacity = '0.95';
         el.style.filter = 'none';
+        el.style.opacity = '1'; // Completely remove opacity effect from MEL
+      }
+    });
+
+    const letters = document.querySelectorAll('.intro-letter');
+    letters.forEach(letter => {
+      if (letter) {
+        letter.style.transition = transition;
+        letter.style.transform = 'translate3d(0, 0, 0)';
+        letter.style.opacity = '1';
       }
     });
   }
@@ -196,34 +213,31 @@
     magentaX += (targetX * 0.25 - magentaX) * 0.04;
     magentaY += (targetY * 0.25 - magentaY) * 0.04;
 
-    // Cyan calculations (max 16px)
+    // Cyan calculations (max 16px, blur as it drifts, solid opacity = 1)
     const distCian = Math.sqrt(cianX * cianX + cianY * cianY);
     const blurCian = Math.min(6, (distCian / 16) * 6);
-    const opacCian = Math.max(0.3, 0.88 - (distCian / 16) * 0.58);
     if (layerCian) {
       layerCian.style.transform = `translate3d(${cianX}px, ${cianY}px, 0)`;
       layerCian.style.filter = blurCian > 0.1 ? `blur(${blurCian}px)` : 'none';
-      layerCian.style.opacity = String(opacCian);
+      layerCian.style.opacity = '1'; // Strictly solid
     }
 
-    // Yellow calculations (max 8px)
+    // Yellow calculations (max 8px, blur as it drifts, solid opacity = 1)
     const distYellow = Math.sqrt(yellowX * yellowX + yellowY * yellowY);
     const blurYellow = Math.min(4, (distYellow / 8) * 4);
-    const opacYellow = Math.max(0.3, 0.88 - (distYellow / 8) * 0.58);
     if (layerYellow) {
       layerYellow.style.transform = `translate3d(${yellowX}px, ${yellowY}px, 0)`;
       layerYellow.style.filter = blurYellow > 0.1 ? `blur(${blurYellow}px)` : 'none';
-      layerYellow.style.opacity = String(opacYellow);
+      layerYellow.style.opacity = '1'; // Strictly solid
     }
 
-    // Magenta calculations (max 4px)
+    // Magenta calculations (max 4px, blur as it drifts, solid opacity = 1)
     const distMagenta = Math.sqrt(magentaX * magentaX + magentaY * magentaY);
     const blurMagenta = Math.min(2, (distMagenta / 4) * 2);
-    const opacMagenta = Math.max(0.4, 0.95 - (distMagenta / 4) * 0.55);
     if (layerMagenta) {
       layerMagenta.style.transform = `translate3d(${magentaX}px, ${magentaY}px, 0)`;
       layerMagenta.style.filter = blurMagenta > 0.1 ? `blur(${blurMagenta}px)` : 'none';
-      layerMagenta.style.opacity = String(opacMagenta);
+      layerMagenta.style.opacity = '1'; // Strictly solid
     }
 
     animationFrameId = requestAnimationFrame(updatePhysicsLoop);
@@ -254,7 +268,6 @@
     lastClientY = e.clientY;
 
     // Push the layers in the direction of the movement vector
-    // Multiply by a factor to make it feel responsive, then clamp to Cyan limit (-16px to 16px)
     targetX = Math.max(-16, Math.min(16, targetX + dx * 0.8));
     targetY = Math.max(-16, Math.min(16, targetY + dy * 0.8));
   }
@@ -273,6 +286,7 @@
     }
   }
 
+  // Trigger Enter condition
   function handleKeyTrigger(e) {
     if (animationStarted) return;
     if (e.key === 'Enter') {
@@ -314,35 +328,29 @@
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
     // Setup smooth transition styles for the final vertical fly-up
-    const transitionStyle = 'transform 2500ms cubic-bezier(0.77, 0, 0.175, 1), opacity 2500ms cubic-bezier(0.77, 0, 0.175, 1), filter 2500ms cubic-bezier(0.77, 0, 0.175, 1)';
+    const transitionStyle = 'transform 2500ms cubic-bezier(0.77, 0, 0.175, 1), filter 2500ms cubic-bezier(0.77, 0, 0.175, 1)';
     [layerCian, layerYellow, layerMagenta].forEach(l => {
       if (l) {
         l.style.transition = transitionStyle;
         l.style.filter = 'none';
+        l.style.opacity = '1';
       }
-    });
-    [sub1, sub2, sub3].forEach(s => {
-      if (s) s.style.transition = transitionStyle;
     });
 
     // Translate layers completely above the top of the viewport
-    if (layerYellow) {
-      layerYellow.style.opacity = '0.88';
-      layerYellow.style.transform = 'translate3d(0, -180vh, 0)';
-    }
-    if (layerMagenta) {
-      layerMagenta.style.opacity = '0.95';
-      layerMagenta.style.transform = 'translate3d(0, -140vh, 0)';
-    }
-    if (layerCian) {
-      layerCian.style.opacity = '0.88';
-      layerCian.style.transform = 'translate3d(0, -115vh, 0)';
-    }
+    if (layerYellow) layerYellow.style.transform = 'translate3d(0, -180vh, 0)';
+    if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -140vh, 0)';
+    if (layerCian) layerCian.style.transform = 'translate3d(0, -115vh, 0)';
 
-    // Subtitle words fly upward out of the screen
-    if (sub1) sub1.style.transform = 'translate3d(0, -115vh, 0)';
-    if (sub2) sub2.style.transform = 'translate3d(0, -115vh, 0)';
-    if (sub3) sub3.style.transform = 'translate3d(0, -115vh, 0)';
+    // Subtitle letters fly upward letter by letter sequentially (stagger wave starting from the left)
+    const letters = document.querySelectorAll('.intro-letter');
+    letters.forEach((letter, idx) => {
+      const staggerDelay = idx * 35; // 35ms stagger per character
+      letter.style.transition = `transform 2200ms cubic-bezier(0.77, 0, 0.175, 1), opacity 2200ms cubic-bezier(0.77, 0, 0.175, 1)`;
+      letter.style.transitionDelay = `${staggerDelay}ms`;
+      letter.style.transform = 'translate3d(0, -115vh, 0)';
+      letter.style.opacity = '0';
+    });
 
     // Divider line collapses and fades out
     if (divider) {
@@ -355,7 +363,7 @@
       scrollIndicator.style.opacity = '0';
     }
 
-    // Dissolve Phase
+    // Dissolve Phase: start fading overlay to show the main page before ascension completes
     activeDissolveTimeout = setTimeout(() => {
       if (overlay) {
         overlay.classList.remove('opacity-100', 'pointer-events-auto');
@@ -392,9 +400,9 @@
 <style>
   .intro-title-layer {
     transform-origin: bottom left;
-    will-change: transform, filter, opacity;
+    will-change: transform, filter;
   }
-  .intro-sub-word {
-    will-change: transform;
+  .intro-letter {
+    will-change: transform, opacity;
   }
 </style>
