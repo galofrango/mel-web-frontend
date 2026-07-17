@@ -1919,7 +1919,21 @@ const gridSpans = [
             // of pinned against the viewport edges.
             const bounds = new google.maps.LatLngBounds();
             (markers || []).forEach(m => { if (m.position) bounds.extend(m.position); });
-            googleMap.fitBounds(bounds, 120);
+
+            // Padding is capped to a share of the container's own size
+            // instead of a flat px number. The map view here is quite
+            // short vertically (toolbar/slider/tags above it eat most of
+            // the height) — asking for more top+bottom padding than the
+            // container is tall is a self-defeating request: fitBounds()
+            // still has to pick ONE zoom that satisfies both axes, and an
+            // over-constrained request on the short axis was forcing an
+            // ill-fitting zoom where labels ended up overlapping or
+            // clipped on BOTH axes, not just the tight one.
+            const mapDiv = document.getElementById('map-container');
+            const rect = mapDiv ? mapDiv.getBoundingClientRect() : null;
+            const shortSide = rect ? Math.min(rect.width, rect.height) : 400;
+            const padding = Math.max(24, Math.round(shortSide * 0.18));
+            googleMap.fitBounds(bounds, padding);
           });
 
           return clusterMarker;
@@ -2107,15 +2121,23 @@ const gridSpans = [
         bounds.extend(m.position);
       }
     });
-    googleMap.fitBounds(bounds);
 
-    // Prevent over-zooming on load/fit
-    const listener = google.maps.event.addListener(googleMap, 'idle', () => {
-      if (googleMap.getZoom() > 15) {
-        googleMap.setZoom(15);
-      }
-      google.maps.event.removeListener(listener);
-    });
+    // A single marker (or several stacked on the same spot) makes a
+    // zero-area bounds, which fitBounds() would zoom into as far as it
+    // can go. We used to correct that with a one-time 'idle' listener
+    // added after the fact — but with searches/filters calling this on
+    // every keystroke, several of those could pile up unfired and then
+    // all fire together on some later, unrelated zoom (e.g. opening a
+    // cluster), stomping it back down to 15. Checking synchronously up
+    // front avoids ever needing that listener.
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    if (ne.equals(sw)) {
+      googleMap.setCenter(ne);
+      googleMap.setZoom(15);
+    } else {
+      googleMap.fitBounds(bounds);
+    }
   }
 
   function updateMapMarkers(shouldFitBounds = true) {
