@@ -2,7 +2,6 @@
 import Layout from '../layouts/Layout.astro';
 import SideMenu from '../components/SideMenu.astro';
 import MenuItem from '../components/MenuItem.astro';
-import Link from '../components/Link.astro';
 
 // Dynamic fetching from Google Sheets tab: "Página de Información"
 const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
@@ -95,54 +94,66 @@ const fallbackSections = [
   }
 ];
 
+// The info tab is a mini-CMS. Every column drives the page:
+//  A "Nombre de sección"  -> one <section> per distinct name (fully dynamic:
+//                           add a row with a new section name in the sheet
+//                           and it appears on the page, no code change)
+//  B "Orden de Sección"   -> section order (filled on the section's 1st row)
+//  C "Tipo de módulo"     -> "Párrafo" (section subtitle) | "Acordeón" (item)
+//  D "Título de módulo"   -> accordion title
+//  E "Orden de módulo"    -> item order within its section
+//  F "Imagen"             -> optional image URL shown inside the accordion
+//  G "Contenido"          -> text (line breaks split paragraphs)
 try {
   const response = await fetch(INFO_SHEET_URL);
   const text = await response.text();
   const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-  
+
   if (match && match[1]) {
     const cleanJson = JSON.parse(match[1]);
     const rows = cleanJson.table.rows;
     const sectionsMap = {};
-    
+
     rows.forEach(row => {
       const c = row.c;
       if (!c) return;
-      
-      const sectionName = c[0] ? c[0].v : '';
+
+      const sectionName = c[0] ? String(c[0].v).trim() : '';
       if (!sectionName) return;
-      
+
+      const sectionOrder = c[1] && c[1].v != null ? Number(c[1].v) : null;
       const type = c[2] ? c[2].v : '';
-      const textVal = c[6] ? c[6].v : '';
-      
+      const moduleTitle = c[3] ? c[3].v : '';
+      const moduleOrder = c[4] && c[4].v != null ? Number(c[4].v) : 999;
+      const imageUrl = c[5] && c[5].v ? String(c[5].v).trim() : '';
+      const textVal = c[6] ? String(c[6].v) : '';
+
       if (!sectionsMap[sectionName]) {
         sectionsMap[sectionName] = {
-          id: sectionName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+          id: sectionName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-"),
           title: sectionName,
+          order: 999,
           subtitle: '',
           items: []
         };
       }
-      
-      if (type === 'Párrafo') {
-        sectionsMap[sectionName].subtitle = textVal.trim();
+      const section = sectionsMap[sectionName];
+      if (sectionOrder != null) section.order = sectionOrder;
+
+      if (type === 'Párrafo' || type === 'Parrafo') {
+        if (!section.subtitle) section.subtitle = textVal.trim();
       } else if (type === 'Acordeon' || type === 'Acordeón') {
-        const itemTitle = c[3] ? c[3].v : '';
-        const paragraphs = textVal.split('\n').map(p => p.trim()).filter(p => p.length > 0);
-        
-        sectionsMap[sectionName].items.push({
-          title: itemTitle,
-          paragraphs: paragraphs,
-          // Only show photos in the Equipo section items as requested by user
-          photo: sectionName === 'Equipo' 
-            ? (itemTitle.includes('Marcos') ? '/archive-1.png' : '/archive-2.png') 
-            : null
+        section.items.push({
+          title: moduleTitle,
+          order: moduleOrder,
+          photo: imageUrl || null,
+          paragraphs: textVal.split('\n').map(p => p.trim()).filter(p => p.length > 0)
         });
       }
     });
-    
-    const orderedKeys = ['Proyecto', 'Equipo', 'Contacto'];
-    sectionsData = orderedKeys.map(key => sectionsMap[key]).filter(Boolean);
+
+    sectionsData = Object.values(sectionsMap).sort((a: any, b: any) => a.order - b.order);
+    sectionsData.forEach((s: any) => s.items.sort((a: any, b: any) => a.order - b.order));
   }
 } catch (err) {
   console.error("Error loading info sheet:", err);
@@ -151,6 +162,19 @@ try {
 // Fallback if data is empty or fetch failed
 if (sectionsData.length === 0) {
   sectionsData = fallbackSections;
+}
+
+// Turns plain sheet text into safe HTML where emails and @handles become
+// links (mailto: / instagram profile) — so contact info typed straight into
+// the sheet works as links without anyone touching code.
+function escapeHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function linkify(s) {
+  const linkClass = 'text-mel-action-secondary hover:text-mel-action-primary underline underline-offset-4 transition-colors';
+  return escapeHtml(s)
+    .replace(/([\w.+-]+@[\w-]+\.[\w.-]*\w)/g, `<a href="mailto:$1" class="${linkClass}">$1</a>`)
+    .replace(/(^|\s)@([\w.]*\w)/g, `$1<a href="https://instagram.com/$2" target="_blank" rel="noopener" class="${linkClass}">@$2</a>`);
 }
 ---
 
@@ -179,21 +203,16 @@ if (sectionsData.length === 0) {
       <div class="col-span-12 md:col-span-8 flex flex-col gap-[40px] pb-[80px]">
         
         {sectionsData.map((section) => (
-          <section id={section.id} class="w-full scroll-mt-[180px] flex flex-col gap-6" data-node-id="606:39642">
+          <section id={section.id} data-info-section class="w-full scroll-mt-[180px] flex flex-col gap-6" data-node-id="606:39642">
             
-            <!-- Section Title & Subtitle Header -->
+            <!-- Section Title & Subtitle Header (subtitle comes straight from
+                 the sheet; emails/@handles in it are auto-linked) -->
             <div class="flex flex-col gap-[16px]" data-node-id="590:91521">
               <h2 class="font-sans font-bold text-[40px] leading-[40px] tracking-[-1.6px] text-mel-text-primary">
                 {section.title}
               </h2>
-              {section.id === 'contacto' ? (
-                <p class="font-sans font-normal text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-secondary">
-                  Puedes escribirnos a <Link href="mailto:contacto@mel.org" hideChevron={true}>contacto@mel.org</Link> o a través del perfil de Instagram <Link href="https://instagram.com/mel.archivo" hideChevron={true}>@mel.archivo</Link>
-                </p>
-              ) : (
-                <p class="font-sans font-normal text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-secondary">
-                  {section.subtitle}
-                </p>
+              {section.subtitle && (
+                <p class="font-sans font-normal text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-secondary" set:html={linkify(section.subtitle)} />
               )}
             </div>
 
@@ -232,7 +251,7 @@ if (sectionsData.length === 0) {
                         )}
                         <div class="flex-1 min-w-[280px] text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-primary font-sans font-normal">
                           {item.paragraphs.map((p) => (
-                            <p class="mb-[16px] last:mb-0">{p}</p>
+                            <p class="mb-[16px] last:mb-0" set:html={linkify(p)} />
                           ))}
                         </div>
                       </div>
@@ -324,13 +343,11 @@ if (sectionsData.length === 0) {
         // Scroll into view smoothly
         targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-        // Go through all sections and expand accordions inside target section, collapse others
-        const sections = ['proyecto', 'equipo', 'contacto'];
-        sections.forEach(secId => {
-          const sec = document.getElementById(secId);
-          if (!sec) return;
+        // Go through all (sheet-driven, dynamic) sections and expand
+        // accordions inside the target section, collapse the others
+        document.querySelectorAll('section[data-info-section]').forEach(sec => {
           const items = sec.querySelectorAll('.accordion-item');
-          const shouldExpand = secId === targetId;
+          const shouldExpand = sec.id === targetId;
 
           items.forEach(item => {
             const body = item.querySelector('.accordion-body') as HTMLElement;

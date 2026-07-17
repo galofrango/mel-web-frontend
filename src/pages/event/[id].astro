@@ -332,19 +332,22 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
     </div>
     
-    <!-- Image Detail Lightbox Overlay -->
-    <div 
-      id="image-detail-overlay" 
+    <!-- Image Detail Lightbox Overlay (Figma 841:40903: fixed-size modal,
+         image object-contained inside it — never sized off the photo's
+         natural dimensions, which used to let large photos overflow the
+         screen — with pagination dots inside the modal below the image) -->
+    <div
+      id="image-detail-overlay"
       class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
     >
-      <!-- Modal Container -->
-      <div 
-        id="image-detail-modal" 
-        class="relative bg-mel-bg-primary mx-4 flex flex-col items-center justify-center transform scale-95 transition-transform duration-300 overflow-visible p-8 shadow-[0px_8px_32px_rgba(25,6,9,0.32)]"
-        data-node-id="350:22541"
+      <!-- Modal Container: proportional to viewport height (68vh, leaving 16% top/bottom), width follows the design's aspect ratio -->
+      <div
+        id="image-detail-modal"
+        class="relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 pb-4 h-[68vh] max-w-[92vw] aspect-[808/864]"
+        data-node-id="841:40541"
       >
-        <!-- Close Button (Absolute on top-right, aligned) -->
-        <button 
+        <!-- Close Button (40px, offset half-outside the top-right corner) -->
+        <button
           id="overlay-close-btn"
           class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
           aria-label="Cerrar vista grande"
@@ -355,57 +358,37 @@ const designerDisplay = getTagDisplay(eventData.designer);
           </svg>
         </button>
 
-        <!-- Large Image Box (height up to 600px, w-full) -->
-        <div id="overlay-image-box" class="w-full h-full overflow-hidden flex items-center justify-center bg-transparent relative z-10">
-          <img 
-            id="overlay-main-image"
-            src={imageUrls[0]} 
-            alt={eventData.title}
-            referrerpolicy="no-referrer"
-            class="w-full h-full object-contain relative z-10 transition-transform duration-100 ease-out"
-          />
-        </div>
-
-        <!-- Carousel Navigation (Figma matches: gap-4 py-6 w-[496px] max-w-full) - Hidden for now -->
-        <div class="hidden gap-4 items-center justify-center py-6 w-[496px] max-w-full relative shrink-0 z-20">
-          <button 
-            id="overlay-prev-btn" 
-            class="w-10 h-10 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer border-none bg-transparent"
-            aria-label="Anterior imagen"
+        <!-- Image Box: fills the modal, sliding track mirrors the main carousel's transition (no autoplay here) -->
+        <div id="overlay-image-box" class="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center">
+          <div class="absolute inset-0 striped-bg pointer-events-none"></div>
+          <div
+            id="overlay-track"
+            class="flex w-full h-full transition-transform duration-500 ease-out z-10"
+            style="transform: translate3d(0, 0, 0);"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-          </button>
-
-          <div class="flex gap-4 items-center relative" id="overlay-dots-container">
-            <!-- Active indicator dot outline box -->
-            <div 
-              id="overlay-active-indicator"
-              class="absolute left-0 top-0 w-6 h-6 border border-mel-action-tertiary transition-all duration-300 ease-out pointer-events-none flex items-center justify-center z-10 opacity-0"
-              style="transform: translate3d(0, 0, 0);"
-            >
-              <div class="w-2 h-2 bg-mel-action-tertiary"></div>
-            </div>
-
-            {imageUrls.map((_, idx) => (
-              <PaginationDot
-                state={idx === 0 ? "Active" : "Resting"}
-                index={idx}
-                class="overlay-dot"
-              />
+            {imageUrls.map((img) => (
+              <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+                <img
+                  src={img}
+                  alt={eventData.title}
+                  referrerpolicy="no-referrer"
+                  class="w-full h-full object-contain"
+                />
+              </div>
             ))}
           </div>
+        </div>
 
-          <button 
-            id="overlay-next-btn" 
-            class="w-10 h-10 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer border-none bg-transparent"
-            aria-label="Siguiente imagen"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
+        <!-- Pagination between the event's images: always reserves the same height so the modal's
+             bottom whitespace looks identical whether or not there are dots to show -->
+        <div class="flex gap-4 items-center justify-center pt-4 pb-1 shrink-0 h-[52px]" id="overlay-dots-container">
+          {imageUrls.length > 1 && imageUrls.map((_, idx) => (
+            <PaginationDot
+              state={idx === 0 ? "Active" : "Resting"}
+              index={idx}
+              class="overlay-dot"
+            />
+          ))}
         </div>
       </div>
     </div>
@@ -552,97 +535,64 @@ const designerDisplay = getTagDisplay(eventData.designer);
       startAutoplay();
     }
 
-    // Large Image Overlay Lightbox Elements
+    // Large Image Overlay Lightbox. The modal is a fixed-size CSS box (see
+    // markup) and the photo object-contains inside it — no JS sizing off
+    // the image's natural dimensions, which is what previously let large
+    // photos push the modal beyond the screen.
     const overlay = document.getElementById('image-detail-overlay');
     const overlayModal = document.getElementById('image-detail-modal');
-    const overlayMainImage = document.getElementById('overlay-main-image');
+    const overlayTrack = document.getElementById('overlay-track');
     const overlayCloseBtn = document.getElementById('overlay-close-btn');
+    const overlayDots = document.querySelectorAll('.overlay-dot');
 
-    let naturalWidth = 800;
-    let naturalHeight = 600;
-    let targetWidth = 800;
-    let targetHeight = 600;
+    let overlayIndex = 0;
 
-    function adjustOverlaySizing() {
-      if (!overlay || overlay.classList.contains('hidden')) return;
-
-      let maxAllowedWidth = window.innerWidth - 32;
-      let maxAllowedHeight = window.innerHeight - 32;
-
-      if (window.innerWidth >= 1024) {
-        maxAllowedWidth = window.innerWidth * 0.64;
-        maxAllowedHeight = window.innerHeight * 0.80;
-      }
-
-      // Account for 32px padding on all sides (64px total vertical/horizontal)
-      const maxImgWidth = Math.max(50, maxAllowedWidth - 64);
-      const maxImgHeight = Math.max(50, maxAllowedHeight - 64);
-
-      const ratio = naturalWidth / naturalHeight;
-      
-      let imgTargetWidth = naturalWidth;
-      let imgTargetHeight = naturalHeight;
-
-      if (imgTargetWidth > maxImgWidth) {
-        imgTargetWidth = maxImgWidth;
-        imgTargetHeight = imgTargetWidth / ratio;
-      }
-      if (imgTargetHeight > maxImgHeight) {
-        imgTargetHeight = maxImgHeight;
-        imgTargetWidth = imgTargetHeight * ratio;
-      }
-
-      targetWidth = imgTargetWidth + 64;
-      targetHeight = imgTargetHeight + 64;
-
-      // Set modal container dimensions
-      if (overlayModal) {
-        overlayModal.style.width = `${targetWidth}px`;
-        overlayModal.style.height = `${targetHeight}px`;
-      }
-      if (overlayMainImage) {
-        overlayMainImage.style.width = `${imgTargetWidth}px`;
-        overlayMainImage.style.height = `${imgTargetHeight}px`;
-      }
+    // Same sliding-track transition as the main carousel, but this never autoplays on its own
+    function showOverlayImage(idx) {
+      if (!imageUrls || imageUrls.length === 0) return;
+      overlayIndex = (idx + imageUrls.length) % imageUrls.length;
+      if (overlayTrack) overlayTrack.style.transform = `translate3d(-${overlayIndex * 100}%, 0, 0)`;
+      overlayDots.forEach((dot, dIdx) => {
+        dot.setAttribute('data-active', dIdx === overlayIndex ? 'true' : 'false');
+      });
     }
+
+    // Left/right arrow keys navigate images while the lightbox is open
+    function handleOverlayKeydown(e) {
+      if (!overlay || overlay.classList.contains('hidden')) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); showOverlayImage(overlayIndex - 1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); showOverlayImage(overlayIndex + 1); }
+    }
+    if (window.melOverlayKeydownHandler) {
+      document.removeEventListener('keydown', window.melOverlayKeydownHandler);
+    }
+    window.melOverlayKeydownHandler = handleOverlayKeydown;
+    document.addEventListener('keydown', window.melOverlayKeydownHandler);
 
     function openOverlay() {
       if (!overlay || !overlayModal) return;
-      
+
       // Stop autoplay when large view is open
       if (window.melAutoplayInterval) {
         clearInterval(window.melAutoplayInterval);
         window.melAutoplayInterval = null;
       }
 
-      const currentImgUrl = imageUrls[currentIndex];
-      const tempImg = new Image();
-      tempImg.src = currentImgUrl;
-      tempImg.onload = () => {
-        naturalWidth = tempImg.naturalWidth;
-        naturalHeight = tempImg.naturalHeight;
-        
-        // Update image source
-        if (overlayMainImage) {
-          overlayMainImage.src = currentImgUrl;
-        }
-        
-        adjustOverlaySizing();
+      // Open on whichever image the page carousel is showing
+      showOverlayImage(currentIndex);
 
-        // Show overlay
-        overlay.classList.remove('hidden');
-        setTimeout(() => {
-          overlay.classList.remove('opacity-0', 'pointer-events-none');
-          overlay.classList.add('opacity-100', 'pointer-events-auto');
-          overlayModal.classList.remove('scale-95');
-          overlayModal.classList.add('scale-100');
-        }, 10);
-      };
+      overlay.classList.remove('hidden');
+      setTimeout(() => {
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+        overlay.classList.add('opacity-100', 'pointer-events-auto');
+        overlayModal.classList.remove('scale-95');
+        overlayModal.classList.add('scale-100');
+      }, 10);
     }
 
     function closeOverlay() {
       if (!overlay || !overlayModal) return;
-      
+
       overlay.classList.remove('opacity-100', 'pointer-events-auto');
       overlay.classList.add('opacity-0', 'pointer-events-none');
       overlayModal.classList.remove('scale-100');
@@ -668,6 +618,14 @@ const designerDisplay = getTagDisplay(eventData.designer);
       };
     }
 
+    // Lightbox pagination dots switch the displayed photo
+    overlayDots.forEach(dot => {
+      dot.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showOverlayImage(parseInt(dot.dataset.index, 10));
+      });
+    });
+
     const dots = document.querySelectorAll('.carousel-dot');
     dots.forEach(dot => {
       dot.onclick = (e) => {
@@ -681,7 +639,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // Keep indicators aligned perfectly on window resize
     window.addEventListener('resize', () => {
       updateCarousel(currentIndex);
-      adjustOverlaySizing();
     });
 
     // Initialize carousel and autoplay
@@ -699,6 +656,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
     if (window.melAutoplayInterval) {
       clearInterval(window.melAutoplayInterval);
       window.melAutoplayInterval = null;
+    }
+    if (window.melOverlayKeydownHandler) {
+      document.removeEventListener('keydown', window.melOverlayKeydownHandler);
+      window.melOverlayKeydownHandler = null;
     }
   });
 </script>

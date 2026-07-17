@@ -213,8 +213,10 @@ import IconButton from './IconButton.astro';
     }
   }
 
-  // Bind to page swap / load
-  initSideMenuGlobal();
+  // astro:page-load also fires on the initial load (ClientRouter is always
+  // present via Layout.astro), so it's the single entry point — calling
+  // initSideMenuGlobal() directly here too ran it twice per full load and
+  // double-bound the close/backdrop/home listeners.
   document.addEventListener('astro:page-load', initSideMenuGlobal);
 </script>
 
