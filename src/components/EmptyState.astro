@@ -1,0 +1,86 @@
+---
+// EmptyState.astro
+// Reusable Empty State component matching Figma 810:71904 specifications exactly.
+
+interface Props {
+  title?: string;
+  description?: string;
+  showImage?: boolean;
+  showButton?: boolean;
+  buttonText?: string;
+  buttonLink?: string;
+}
+
+const {
+  title = "La exposición está en construcción",
+  description = "Estamos trabajando en ello para ofrecerte la mejor experiencia muy pronto.",
+  showImage = true,
+  showButton = true,
+  buttonText = "Volver al Inicio",
+  buttonLink = "/"
+} = Astro.props;
+---
+
+<div 
+  class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto"
+  data-node-id="810:71904"
+  data-name="Empty State"
+>
+  <!-- Striped Image Box -->
+  {showImage && (
+    <div 
+      class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 bg-mel-bg-secondary flex items-center justify-center select-none"
+      data-node-id="810:72008"
+      data-name="Empty State Image"
+    >
+      <div class="absolute inset-0 striped-bg opacity-30 z-0"></div>
+    </div>
+  )}
+
+  <!-- Title & Description -->
+  <div 
+    class="flex flex-col gap-[16px] items-center w-full"
+    data-node-id="810:71907"
+    data-name="Text"
+  >
+    <h2 
+      class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0"
+      data-node-id="810:71902"
+    >
+      {title}
+    </h2>
+    <p 
+      class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0"
+      data-node-id="810:71905"
+    >
+      {description}
+    </p>
+  </div>
+
+  <!-- Action Button -->
+  {showButton && (
+    <a 
+      href={buttonLink}
+      class="inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary transition-colors duration-200 cursor-pointer shadow-sm"
+      data-node-id="821:72737"
+      data-name="Button"
+    >
+      <span data-node-id="821:72738">
+        {buttonText}
+      </span>
+    </a>
+  )}
+</div>
+
+<style>
+  /* Match the repeating striped pattern defined in the design system */
+  .striped-bg {
+    background-image: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      var(--mel-border) 10px,
+      var(--mel-border) 11px
+    );
+  }
+</style>
