@@ -13,8 +13,8 @@
     <!-- Flex column layout to perfectly control spacing and bring elements closer together -->
     <div class="flex flex-col items-start w-full">
       
-      <!-- Title Text Layer Container (active for mouse movement hover parallax) -->
-      <div id="intro-title-container" class="relative w-full h-[220px] md:h-[420px] cursor-pointer">
+      <!-- Title Text Layer Container (active for mouse movement hover parallax, isolate stacking context) -->
+      <div id="intro-title-container" class="relative w-full h-[220px] md:h-[420px] cursor-pointer isolate">
         
         <!-- CIAN Layer: Solid opacity-100 -->
         <div 
@@ -50,13 +50,13 @@
 
       </div>
 
-      <!-- Divider Line: 2px thickness, action secondary color, my-[48px] spacing (increased by 24px) -->
+      <!-- Divider Line: 2px thickness, action secondary color, my-[48px] spacing -->
       <div 
         id="intro-divider"
         class="w-full h-[2px] bg-[var(--mel-action-secondary)] my-[48px] transition-all duration-[1200ms] ease-out opacity-100 scale-x-100 origin-left"
       ></div>
 
-      <!-- Subtitle Container: Equidistant from the divider, dynamic letter-by-letter split container -->
+      <!-- Subtitle Container: Equidistant from the divider, dynamic word-by-word split container -->
       <div 
         id="intro-subtitle-container"
         class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[2.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full"
@@ -130,12 +130,11 @@
     if (activeCompleteTimeout) clearTimeout(activeCompleteTimeout);
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
-    // Populate subtitle letters dynamically
+    // Populate subtitle words dynamically
     if (subContainer) {
-      subContainer.innerHTML = subtitleText.split('').map((char, idx) => {
-        const isSpace = char === ' ';
-        return `<span class="intro-letter inline-block" style="will-change: transform, opacity; transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);" data-index="${idx}">${isSpace ? '&nbsp;' : char}</span>`;
-      }).join('');
+      subContainer.innerHTML = subtitleText.split(' ').map((word, idx) => {
+        return `<span class="intro-word inline-block mr-[12px] last:mr-0" style="will-change: transform, opacity; transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);" data-index="${idx}">${word}</span>`;
+      }).join(' ');
     }
 
     overlay.classList.remove('hidden');
@@ -181,16 +180,16 @@
         el.style.transition = transition;
         el.style.transform = 'translate3d(0, 0, 0)';
         el.style.filter = 'none';
-        el.style.opacity = '1'; // Completely remove opacity effect from MEL
+        el.style.opacity = '1'; // Solid opacity
       }
     });
 
-    const letters = document.querySelectorAll('.intro-letter');
-    letters.forEach(letter => {
-      if (letter) {
-        letter.style.transition = transition;
-        letter.style.transform = 'translate3d(0, 0, 0)';
-        letter.style.opacity = '1';
+    const words = document.querySelectorAll('.intro-word');
+    words.forEach(word => {
+      if (word) {
+        word.style.transition = transition;
+        word.style.transform = 'translate3d(0, 0, 0)';
+        word.style.opacity = '1';
       }
     });
   }
@@ -213,31 +212,31 @@
     magentaX += (targetX * 0.25 - magentaX) * 0.04;
     magentaY += (targetY * 0.25 - magentaY) * 0.04;
 
-    // Cyan calculations (max 16px, blur as it drifts, solid opacity = 1)
+    // Cyan calculations (max 16px, blur reduced to 1/3: max 2px, solid opacity = 1)
     const distCian = Math.sqrt(cianX * cianX + cianY * cianY);
-    const blurCian = Math.min(6, (distCian / 16) * 6);
+    const blurCian = Math.min(2, (distCian / 16) * 2);
     if (layerCian) {
       layerCian.style.transform = `translate3d(${cianX}px, ${cianY}px, 0)`;
       layerCian.style.filter = blurCian > 0.1 ? `blur(${blurCian}px)` : 'none';
-      layerCian.style.opacity = '1'; // Strictly solid
+      layerCian.style.opacity = '1'; // Solid
     }
 
-    // Yellow calculations (max 8px, blur as it drifts, solid opacity = 1)
+    // Yellow calculations (max 8px, blur reduced to 1/3: max 1.33px, solid opacity = 1)
     const distYellow = Math.sqrt(yellowX * yellowX + yellowY * yellowY);
-    const blurYellow = Math.min(4, (distYellow / 8) * 4);
+    const blurYellow = Math.min(1.33, (distYellow / 8) * 1.33);
     if (layerYellow) {
       layerYellow.style.transform = `translate3d(${yellowX}px, ${yellowY}px, 0)`;
       layerYellow.style.filter = blurYellow > 0.1 ? `blur(${blurYellow}px)` : 'none';
-      layerYellow.style.opacity = '1'; // Strictly solid
+      layerYellow.style.opacity = '1'; // Solid
     }
 
-    // Magenta calculations (max 4px, blur as it drifts, solid opacity = 1)
+    // Magenta calculations (max 4px, blur reduced to 1/3: max 0.67px, solid opacity = 1)
     const distMagenta = Math.sqrt(magentaX * magentaX + magentaY * magentaY);
-    const blurMagenta = Math.min(2, (distMagenta / 4) * 2);
+    const blurMagenta = Math.min(0.67, (distMagenta / 4) * 0.67);
     if (layerMagenta) {
       layerMagenta.style.transform = `translate3d(${magentaX}px, ${magentaY}px, 0)`;
       layerMagenta.style.filter = blurMagenta > 0.1 ? `blur(${blurMagenta}px)` : 'none';
-      layerMagenta.style.opacity = '1'; // Strictly solid
+      layerMagenta.style.opacity = '1'; // Solid
     }
 
     animationFrameId = requestAnimationFrame(updatePhysicsLoop);
@@ -342,14 +341,14 @@
     if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -140vh, 0)';
     if (layerCian) layerCian.style.transform = 'translate3d(0, -115vh, 0)';
 
-    // Subtitle letters fly upward letter by letter sequentially (stagger wave starting from the left)
-    const letters = document.querySelectorAll('.intro-letter');
-    letters.forEach((letter, idx) => {
-      const staggerDelay = idx * 35; // 35ms stagger per character
-      letter.style.transition = `transform 2200ms cubic-bezier(0.77, 0, 0.175, 1), opacity 2200ms cubic-bezier(0.77, 0, 0.175, 1)`;
-      letter.style.transitionDelay = `${staggerDelay}ms`;
-      letter.style.transform = 'translate3d(0, -115vh, 0)';
-      letter.style.opacity = '0';
+    // Subtitle words fly upward word by word sequentially (stagger wave starting from the left)
+    const words = document.querySelectorAll('.intro-word');
+    words.forEach((word, idx) => {
+      const staggerDelay = idx * 150; // 150ms stagger per word
+      word.style.transition = `transform 2200ms cubic-bezier(0.77, 0, 0.175, 1), opacity 2200ms cubic-bezier(0.77, 0, 0.175, 1)`;
+      word.style.transitionDelay = `${staggerDelay}ms`;
+      word.style.transform = 'translate3d(0, -115vh, 0)';
+      word.style.opacity = '0';
     });
 
     // Divider line collapses and fades out
@@ -363,7 +362,7 @@
       scrollIndicator.style.opacity = '0';
     }
 
-    // Dissolve Phase: start fading overlay to show the main page before ascension completes
+    // Dissolve Phase
     activeDissolveTimeout = setTimeout(() => {
       if (overlay) {
         overlay.classList.remove('opacity-100', 'pointer-events-auto');
@@ -402,7 +401,7 @@
     transform-origin: bottom left;
     will-change: transform, filter;
   }
-  .intro-letter {
+  .intro-word {
     will-change: transform, opacity;
   }
 </style>
