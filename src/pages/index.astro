@@ -746,13 +746,28 @@ const gridSpans = [
   }
 
   @keyframes marker-fade-in {
-    from {
+    0% {
       opacity: 0;
       transform: scale(0.6) translateY(10px);
     }
-    to {
+    60% {
+      opacity: 1;
+      transform: scale(1.08) translateY(-2px);
+    }
+    100% {
       opacity: 1;
       transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes marker-fade-out {
+    from {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.6) translateY(10px);
     }
   }
 
@@ -763,7 +778,12 @@ const gridSpans = [
     filter: drop-shadow(0px 4px 8px rgba(38,31,31,0.32));
     cursor: pointer;
     transition: transform 0.15s ease-out;
-    animation: marker-fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: marker-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  .mel-marker-wrapper.exiting {
+    animation: marker-fade-out 0.15s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
   }
 
   .mel-marker-wrapper:hover {
@@ -1060,6 +1080,10 @@ const gridSpans = [
       currentCarruselIndex: 0,
       googleMap: null,
       mapMarkers: [],
+      // locKey -> { marker, group, inClusterer } — lets updateMapMarkers() update
+      // an existing pin's count/active state in place instead of destroying and
+      // recreating every marker on each filter change (which flashed them all).
+      locationMarkers: new Map(),
       mapInitialized: false,
       mapContainerEl: null,
       infoWindow: null,
@@ -1079,10 +1103,6 @@ const gridSpans = [
   let maxYear              = _s.maxYear;
   let searchQuery          = _s.searchQuery;
   let activeSidePanelKey   = _s.activeSidePanelKey;
-  // Coords of the location whose panel is currently open — recomputed by
-  // updateMapMarkers() alongside activeSidePanelKey; read back when the
-  // panel closes to find that marker again and reset its resting style.
-  let activeSidePanelCoords = null;
   let currentPage          = _s.currentPage;
   const PAGE_SIZE          = 32;
   let currentSortCol       = _s.currentSortCol;
@@ -1692,6 +1712,7 @@ const gridSpans = [
   let viewBtns, viewPanels, activeIndicator;
   let googleMap     = _s.googleMap;
   let mapMarkers    = _s.mapMarkers;
+  let locationMarkers = _s.locationMarkers;
   let mapInitialized = _s.mapInitialized;
   let mapContainerEl = _s.mapContainerEl;
   let infoWindow    = _s.infoWindow;
@@ -1904,12 +1925,17 @@ const gridSpans = [
   // are already shared top-level state — that lets createGoogleMapInstance()
   // reuse it too when the map gets recreated for a color scheme change.
   const clusterRenderer = {
-    render: ({ count, position }) => {
+    render: ({ count, position, markers }) => {
+      // `count` is the number of distinct location pins folded into this
+      // cluster — what actually matters to a visitor is how many events live
+      // behind it, i.e. the sum of each pin's own event count.
+      const eventCount = (markers || []).reduce((sum, m) => sum + (m.eventCount || 1), 0);
+
       const clusterContent = document.createElement('div');
       clusterContent.className = 'mel-marker-wrapper';
       clusterContent.innerHTML = `
         <div class="mel-marker-body">
-          <span class="mel-marker-label">${count}</span>
+          <span class="mel-marker-label">${eventCount}</span>
         </div>
         <div class="mel-marker-pointer"></div>
       `;
@@ -1929,8 +1955,11 @@ const gridSpans = [
         // a fixed, moderate amount and let the clusterer re-group
         // whatever's still packed together into smaller pieces — click
         // again to keep drilling down until it's just individual pins.
-        googleMap.panTo(position);
-        smoothZoomTo(Math.min(Math.round(googleMap.getZoom()) + 3, 20));
+        // Centering happens together with the zoom (not as a separate,
+        // instant panTo beforehand) so the cluster gradually drifts toward
+        // the center as it zooms in and breaks apart, rather than jumping
+        // to its final position first.
+        smoothZoomTo(Math.min(Math.round(googleMap.getZoom()) + 3, 20), position);
       });
 
       return clusterMarker;
@@ -1952,6 +1981,7 @@ const gridSpans = [
       colorScheme,
       disableDefaultUI: true, // Disables Satellite view, Street View (saves cost and keeps layout clean)
       zoomControl: true,
+      isFractionalZoomEnabled: true, // lets smoothZoomTo() animate through in-between zoom levels
     });
     _s.googleMap = googleMap;
 
@@ -1970,6 +2000,14 @@ const gridSpans = [
       });
     }
     _s.googleMapClusterer = googleMapClusterer;
+
+    // Any markers from a previous Map instance are gone along with it (a new
+    // Map wipes its container's contents) — drop stale references so
+    // updateMapMarkers() rebuilds every pin fresh instead of thinking they
+    // still exist.
+    locationMarkers.clear();
+    mapMarkers = [];
+    _s.mapMarkers = mapMarkers;
   }
 
   async function initGoogleMap() {
@@ -2098,7 +2136,7 @@ const gridSpans = [
         updateSidePanelDOM();
         sidePanel.style.opacity = '1';
         if (googleMap) {
-          googleMap.panTo(group.coords);
+          googleMap.panTo(group.coords); // panTo animates smoothly on its own
         }
       }, 150);
     } else {
@@ -2143,28 +2181,60 @@ const gridSpans = [
     }
   }
 
-  // Google's setZoom() jumps straight to the target level with no in-between
-  // frames — this steps through it one level at a time, waiting for each
-  // step's 'zoom_changed' before firing the next, so it reads as a
-  // continuous zoom-in instead of a snap.
-  function smoothZoomTo(targetZoom) {
-    const current = Math.round(googleMap.getZoom());
-    if (current >= targetZoom) return;
-    google.maps.event.addListenerOnce(googleMap, 'zoom_changed', () => {
-      setTimeout(() => smoothZoomTo(targetZoom), 120);
-    });
-    googleMap.setZoom(current + 1);
+  // Previously stepped zoom one whole level at a time, waiting ~120ms between
+  // each 'zoom_changed' — each step reloaded a fresh set of raster tiles, so
+  // it always read as a series of snaps rather than continuous motion. This
+  // map's custom Map ID renders as a vector map, which can display *fractional*
+  // zoom levels smoothly — so instead we drive the camera every animation
+  // frame with an eased, continuously-interpolated zoom (and, optionally,
+  // center) between the start and target, which the vector renderer can
+  // actually animate. Centering and zooming happen in the SAME loop (instead
+  // of a separate panTo() fired first) so the map doesn't jump to the target
+  // instantly before the zoom even starts.
+  let zoomAnimFrame = null;
+  function smoothZoomTo(targetZoom, targetCenter, duration = 550) {
+    if (zoomAnimFrame) cancelAnimationFrame(zoomAnimFrame);
+    const startZoom = googleMap.getZoom();
+    const startCenterObj = googleMap.getCenter();
+    const startCenter = { lat: startCenterObj.lat(), lng: startCenterObj.lng() };
+    const endCenter = targetCenter
+      ? {
+          lat: typeof targetCenter.lat === 'function' ? targetCenter.lat() : targetCenter.lat,
+          lng: typeof targetCenter.lng === 'function' ? targetCenter.lng() : targetCenter.lng,
+        }
+      : startCenter;
+    const zoomDelta = targetZoom - startZoom;
+    const centerDelta = { lat: endCenter.lat - startCenter.lat, lng: endCenter.lng - startCenter.lng };
+    if (Math.abs(zoomDelta) < 0.01 && Math.abs(centerDelta.lat) < 1e-9 && Math.abs(centerDelta.lng) < 1e-9) return;
+    const startTime = performance.now();
+    const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2); // ease-in-out-cubic — softer landing than the quad curve used before
+
+    const step = (now) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const e = ease(t);
+      googleMap.moveCamera({
+        center: { lat: startCenter.lat + centerDelta.lat * e, lng: startCenter.lng + centerDelta.lng * e },
+        zoom: startZoom + zoomDelta * e,
+      });
+      // Force the clusterer to re-group against the in-progress viewport on
+      // every frame, so members that are far enough apart at the current
+      // (still-animating) zoom level visually break out of the bubble as
+      // soon as that happens, instead of only once the camera motion fully
+      // settles and the map's own 'idle' event fires at the very end.
+      if (googleMapClusterer) googleMapClusterer.render();
+      zoomAnimFrame = t < 1 ? requestAnimationFrame(step) : null;
+    };
+    zoomAnimFrame = requestAnimationFrame(step);
   }
 
   function updateMapMarkers(shouldFitBounds = true) {
     if (!googleMap || !markerLib) return;
 
-    // Clear existing markers from the clusterer (reused instance — see initGoogleMap)
-    if (googleMapClusterer) {
-      googleMapClusterer.clearMarkers();
-    }
-    mapMarkers.forEach(m => m.map = null);
-    mapMarkers = [];
+    // Kept comfortably above any cluster's zIndex (MAX_ZINDEX + count, where
+    // count is a small number of events) so the active marker always renders
+    // on top of cluster bubbles too.
+    const ACTIVE_MARKER_ZINDEX = Number(google.maps.Marker.MAX_ZINDEX) + 1000000;
+
     if (infoWindow) infoWindow.close();
 
     // Get currently filtered archives
@@ -2216,16 +2286,10 @@ const gridSpans = [
     }
 
     // Update or hide side panel dynamically based on filtered data.
-    // populateSidePanel() already opens the panel (if needed) and pans to
-    // its coords itself, correctly timed against its own open/resize
-    // transition — doing that again here just raced its own panTo with a
-    // second, differently-timed one.
     if (activeSidePanelKey && locationGroups[activeSidePanelKey]) {
-      activeSidePanelCoords = locationGroups[activeSidePanelKey].coords;
       populateSidePanel(locationGroups[activeSidePanelKey]);
     } else {
       activeSidePanelKey = null;
-      activeSidePanelCoords = null;
       const sidePanel = document.getElementById('map-side-panel');
       if (sidePanel) {
         sidePanel.classList.remove('w-[393px]', 'border-l');
@@ -2238,53 +2302,141 @@ const gridSpans = [
       }
     }
 
-    // Create markers for each location group
+    // Diff against the previous marker set instead of tearing every pin down
+    // and rebuilding from scratch: dragging the date slider fires this on
+    // every 'input' event, and destroying+recreating all markers each time
+    // made them all flash away and reappear just to update a count. Now an
+    // existing location's pin is only ever mutated in place (label text,
+    // active state) — only locations that actually gained or lost their last
+    // matching event are added to or removed from the map.
+    const newKeys = new Set(Object.keys(locationGroups));
+
+    const toAddToClusterer = [];
+    const toRemoveFromClusterer = [];
+    const activeEntries = [];
+    const toExit = [];
+
+    for (const [locKey, entry] of locationMarkers) {
+      if (!newKeys.has(locKey)) {
+        if (entry.inClusterer && googleMapClusterer) toRemoveFromClusterer.push(entry.marker);
+        toExit.push(entry);
+        locationMarkers.delete(locKey);
+      }
+    }
+
     Object.keys(locationGroups).forEach(locKey => {
       const group = locationGroups[locKey];
       const count = group.events.length;
+      const isActive = activeSidePanelKey === locKey;
+      let entry = locationMarkers.get(locKey);
 
-      // Build custom marker HTML (Always Text Marker format when not clustered)
-      const markerContent = document.createElement('div');
-      markerContent.className = 'mel-marker-wrapper';
-      if (activeSidePanelKey === locKey) {
-        markerContent.classList.add('active');
+      if (!entry) {
+        const markerContent = document.createElement('div');
+        markerContent.className = 'mel-marker-wrapper';
+        markerContent.innerHTML = `
+          <div class="mel-marker-body text-marker">
+            <span class="mel-marker-label"></span>
+          </div>
+          <div class="mel-marker-pointer"></div>
+        `;
+
+        const marker = new markerLib.AdvancedMarkerElement({
+          position: group.coords,
+          content: markerContent,
+          title: group.locationName
+        });
+
+        // Add click listener to show the details Side Panel
+        marker.addListener("click", () => {
+          activeSidePanelKey = locKey;
+          // populateSidePanel() itself calls panTo() to smoothly recenter on
+          // this marker — no separate zoom change here, just the pan.
+          populateSidePanel(group);
+          updateMapMarkers(false); // Redraw map to update the active marker's state without resetting bounds!
+        });
+
+        entry = { marker, group, inClusterer: false };
+        locationMarkers.set(locKey, entry);
       }
-      
-      markerContent.innerHTML = `
-        <div class="mel-marker-body text-marker">
-          <span class="mel-marker-label">${group.locationName} (${count})</span>
-        </div>
-        <div class="mel-marker-pointer"></div>
-      `;
 
-      const marker = new markerLib.AdvancedMarkerElement({
-        position: group.coords,
-        content: markerContent,
-        title: group.locationName
-      });
+      entry.group = group;
+      entry.marker.eventCount = count;
+      const label = entry.marker.content.querySelector('.mel-marker-label');
+      if (label) label.textContent = `${group.locationName} (${count})`;
+      entry.marker.content.classList.toggle('active', isActive);
 
-      // Add click listener to show the details Side Panel
-      marker.addListener("click", () => {
-        activeSidePanelKey = locKey;
-        // populateSidePanel() already pans to group.coords itself, timed to
-        // run after the panel's own open/resize transition so it centers
-        // against the map's final (post-panel) width — no separate panTo/
-        // setZoom here, which used to fire immediately (before that resize)
-        // and could also zoom out if already zoomed in past 15.
-        populateSidePanel(group);
-        updateMapMarkers(false); // Redraw map to update the active marker color without resetting bounds!
-      });
-
-      mapMarkers.push(marker);
+      // The active marker is pulled out of the clusterer entirely and placed
+      // directly on the map with a very high zIndex — so it never gets
+      // folded back into a cluster bubble on zoom-out, and always renders
+      // above every other pin/cluster. Everything else stays managed by the
+      // clusterer as usual. The actual map/zIndex assignment for active
+      // markers happens in a pass AFTER the clusterer batch calls below —
+      // removeMarkers()/addMarkers() reset a marker's own .map internally,
+      // which would otherwise clobber this right after we set it.
+      if (isActive) {
+        if (entry.inClusterer && googleMapClusterer) {
+          toRemoveFromClusterer.push(entry.marker);
+          entry.inClusterer = false;
+        }
+        activeEntries.push(entry);
+      } else if (!entry.inClusterer) {
+        entry.marker.zIndex = null;
+        entry.marker.map = null;
+        toAddToClusterer.push(entry.marker);
+        entry.inClusterer = true;
+      }
     });
 
-    // Add the freshly-filtered markers to the single, reused clusterer
-    // instance (created once in initGoogleMap). Re-instantiating a new
-    // MarkerClusterer here on every filter change left the previous
-    // instance's rendered marker/cluster DOM nodes stuck on the map.
-    if (googleMapClusterer && mapMarkers.length > 0) {
-      googleMapClusterer.addMarkers(mapMarkers);
+    if (googleMapClusterer) {
+      const topologyChanged = toRemoveFromClusterer.length > 0 || toAddToClusterer.length > 0;
+      if (topologyChanged) {
+        // A location actually entered or left the clusterer's pool — the
+        // library's render() recomputes the whole clustering index from
+        // scratch (it's not incremental), so every bubble on screen gets
+        // torn down and recreated here, not just the one that changed. That's
+        // unavoidable when membership genuinely changes, but see below for
+        // the (much more common, e.g. every slider drag tick) case where it
+        // doesn't.
+        if (toRemoveFromClusterer.length > 0) googleMapClusterer.removeMarkers(toRemoveFromClusterer, true);
+        if (toAddToClusterer.length > 0) googleMapClusterer.addMarkers(toAddToClusterer, true);
+        googleMapClusterer.render();
+      } else {
+        // Nothing joined or left any cluster this cycle — only member counts
+        // changed (e.g. dragging the date slider while every matching
+        // location still has at least one event). Skip render() entirely
+        // and just refresh each existing bubble's own number in place, so
+        // clusters don't visibly fall apart and reform for no topological
+        // reason — only once a cluster actually needs to gain/lose a member.
+        (googleMapClusterer.clusters || []).forEach(cluster => {
+          if (!cluster.marker || !cluster.markers || cluster.markers.length <= 1) return;
+          const sum = cluster.markers.reduce((s, m) => s + (m.eventCount || 1), 0);
+          const label = cluster.marker.content && cluster.marker.content.querySelector('.mel-marker-label');
+          if (label) label.textContent = String(sum);
+        });
+      }
     }
+
+    activeEntries.forEach(entry => {
+      entry.marker.zIndex = ACTIVE_MARKER_ZINDEX;
+      entry.marker.map = googleMap;
+    });
+
+    // Markers whose location no longer matches the filter don't just vanish —
+    // removeMarkers() above already pulled them out of the clusterer's index,
+    // but here we place them directly on the map (bypassing the clusterer) so
+    // their own fade-out animation (the .exiting class) actually gets to play
+    // before they're removed from the map for good.
+    toExit.forEach(entry => {
+      entry.marker.zIndex = ACTIVE_MARKER_ZINDEX;
+      entry.marker.map = googleMap;
+      entry.marker.content.classList.add('exiting');
+      setTimeout(() => {
+        entry.marker.map = null;
+      }, 150);
+    });
+
+    mapMarkers = Array.from(locationMarkers.values(), entry => entry.marker);
+    _s.mapMarkers = mapMarkers;
 
     // Auto-fit bounds of the Google Map ONLY if the map view is active/visible
     // and the caller actually wants it (callers that are about to apply
@@ -2316,6 +2468,7 @@ const gridSpans = [
     currentCarruselIndex = _s.currentCarruselIndex;
     googleMap          = _s.googleMap;
     mapMarkers         = _s.mapMarkers;
+    locationMarkers    = _s.locationMarkers;
     mapInitialized     = _s.mapInitialized;
     mapContainerEl     = _s.mapContainerEl;
     infoWindow         = _s.infoWindow;
@@ -2382,9 +2535,9 @@ const gridSpans = [
       if (!googleMap) return;
       const center = googleMap.getCenter();
       const zoom = googleMap.getZoom();
-      if (googleMapClusterer) googleMapClusterer.clearMarkers();
-      mapMarkers.forEach(m => m.map = null);
-      mapMarkers = [];
+      // createGoogleMapInstance() drops the old markers/locationMarkers
+      // itself (a new Map wipes its container, so the old ones are already
+      // gone) — updateMapMarkers() then rebuilds every pin fresh on it.
       createGoogleMapInstance(
         e.detail.isDark ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT,
         center,
@@ -2428,10 +2581,8 @@ const gridSpans = [
     const sidePanel = document.getElementById('map-side-panel');
     if (closePanelBtn && sidePanel) {
       closePanelBtn.addEventListener('click', () => {
-        const closedCoords = activeSidePanelCoords;
         activeSidePanelKey = null;
         _s.activeSidePanelKey = null;
-        activeSidePanelCoords = null;
         // Drop ?location= so the auto-open check inside updateMapMarkers()
         // doesn't immediately re-match this same place and pop the panel
         // back open next time it runs.
@@ -2447,21 +2598,13 @@ const gridSpans = [
             google.maps.event.trigger(googleMap, "resize");
           }, 310);
         }
-        // Return the closed marker to its resting look via the same CSS
-        // transition already used for hover — no pan/zoom at all, since
-        // the user may well have moved around the map independently of
-        // this marker. Toggling the class on the existing marker element
-        // (instead of a full updateMapMarkers() rebuild, which destroys
-        // and recreates every marker) is what lets it actually animate
-        // instead of snapping.
-        if (closedCoords) {
-          const closedMarker = mapMarkers.find(m =>
-            m.position && m.position.lat === closedCoords.lat && m.position.lng === closedCoords.lng
-          );
-          if (closedMarker && closedMarker.content) {
-            closedMarker.content.classList.remove('active');
-          }
-        }
+        // Return the closed marker to its resting look (via the same CSS
+        // transition already used for hover — no pan/zoom at all, since the
+        // user may well have moved around the map independently of this
+        // marker) and back into the clusterer pool it was pulled out of
+        // while active. updateMapMarkers()'s diff now treats it as any
+        // other non-active marker since activeSidePanelKey is cleared.
+        updateMapMarkers(false);
       }, { signal: wSig });
     }
 
