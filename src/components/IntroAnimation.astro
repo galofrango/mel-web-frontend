@@ -203,38 +203,39 @@
     targetY *= 0.94;
 
     // Slower interpolation rate (lerp = 0.04) for a longer, smoother return transition
-    // Swap layer movement priorities: Yellow moves the MOST, Magenta SECOND, Cian LEAST.
+    // Swap layer movement priorities: Yellow moves the MOST, Magenta SECOND, Cian remains STATIC.
     yellowX += (targetX - yellowX) * 0.04;
     yellowY += (targetY - yellowY) * 0.04;
 
     magentaX += (targetX * 0.5 - magentaX) * 0.04;
     magentaY += (targetY * 0.5 - magentaY) * 0.04;
 
-    cianX += (targetX * 0.25 - cianX) * 0.04;
-    cianY += (targetY * 0.25 - cianY) * 0.04;
+    // Cyan stays strictly static
+    cianX = 0;
+    cianY = 0;
 
-    // Yellow calculations: moves the MOST (max 16px, blur max 2px)
+    // Yellow calculations: moves the MOST (max 16px, blur max 1px)
     const distYellow = Math.sqrt(yellowX * yellowX + yellowY * yellowY);
-    const blurYellow = Math.min(2, (distYellow / 16) * 2);
+    const blurYellow = Math.min(1, (distYellow / 16) * 1);
     if (layerYellow) {
       layerYellow.style.transform = `translate3d(${yellowX}px, ${yellowY}px, 0)`;
       layerYellow.style.filter = blurYellow > 0.1 ? `blur(${blurYellow}px)` : 'none';
       layerYellow.style.opacity = '1';
     }
 
-    // Magenta calculations: moves SECOND (max 8px, blur max 1.33px)
+    // Magenta calculations: moves SECOND (max 8px, blur max 0.5px)
     const distMagenta = Math.sqrt(magentaX * magentaX + magentaY * magentaY);
-    const blurMagenta = Math.min(1.33, (distMagenta / 8) * 1.33);
+    const blurMagenta = Math.min(0.5, (distMagenta / 8) * 0.5);
     if (layerMagenta) {
       layerMagenta.style.transform = `translate3d(${magentaX}px, ${magentaY}px, 0)`;
       layerMagenta.style.filter = blurMagenta > 0.1 ? `blur(${blurMagenta}px)` : 'none';
       layerMagenta.style.opacity = '1';
     }
 
-    // Cian calculations: moves the LEAST (max 4px, NO BLUR)
+    // Cyan calculations: remains completely static (no translate, no blur)
     if (layerCian) {
-      layerCian.style.transform = `translate3d(${cianX}px, ${cianY}px, 0)`;
-      layerCian.style.filter = 'none'; // Cyan never blurs
+      layerCian.style.transform = 'translate3d(0, 0, 0)';
+      layerCian.style.filter = 'none';
       layerCian.style.opacity = '1';
     }
 
@@ -325,9 +326,9 @@
 
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
-    // Setup smooth transition styles for the final vertical fly-up
-    // Slowed down slightly using 3200ms and a gentler ease-out curve (cubic-bezier(0.16, 1, 0.3, 1))
-    const transitionStyle = 'transform 3200ms cubic-bezier(0.16, 1, 0.3, 1), filter 3200ms cubic-bezier(0.16, 1, 0.3, 1)';
+    // Setup ease-in accelerating transition style for the final vertical fly-up
+    // It starts slower and exits at maximum velocity without deceleration (cubic-bezier(0.55, 0.085, 0.68, 0.53))
+    const transitionStyle = 'transform 2600ms cubic-bezier(0.55, 0.085, 0.68, 0.53), filter 2600ms cubic-bezier(0.55, 0.085, 0.68, 0.53)';
     [layerCian, layerYellow, layerMagenta].forEach(l => {
       if (l) {
         l.style.transition = transitionStyle;
@@ -336,21 +337,19 @@
       }
     });
 
-    // Translate layers completely above the top of the viewport (increased final heights)
+    // Translate layers completely above the top of the viewport
     if (layerYellow) layerYellow.style.transform = 'translate3d(0, -200vh, 0)';
-    if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -160vh, 0)';
-    if (layerCian) layerCian.style.transform = 'translate3d(0, -130vh, 0)';
+    if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -165vh, 0)';
+    if (layerCian) layerCian.style.transform = 'translate3d(0, -135vh, 0)';
 
     // Subtitle words fly upward word by word sequentially (stagger wave starting from the left)
-    // To prevent them from catching up or reaching MEL:
-    // 1) Their final destination is set lower (-95vh) so they always stay below Cyan (-130vh).
-    // 2) They share the same deceleration curve, guaranteeing they never overtake the title.
+    // Destination is set lower (-90vh) so they always stay below Cyan (-135vh) and never overlap MEL.
     const words = document.querySelectorAll('.intro-word');
     words.forEach((word, idx) => {
-      const staggerDelay = idx * 150; // 150ms stagger per word
-      word.style.transition = `transform 2600ms cubic-bezier(0.16, 1, 0.3, 1), opacity 2600ms cubic-bezier(0.16, 1, 0.3, 1)`;
+      const staggerDelay = idx * 150;
+      word.style.transition = `transform 2300ms cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 2300ms cubic-bezier(0.55, 0.085, 0.68, 0.53)`;
       word.style.transitionDelay = `${staggerDelay}ms`;
-      word.style.transform = 'translate3d(0, -95vh, 0)';
+      word.style.transform = 'translate3d(0, -90vh, 0)';
       word.style.opacity = '0';
     });
 
