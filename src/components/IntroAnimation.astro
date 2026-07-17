@@ -327,8 +327,8 @@
     if (animationFrameId) cancelAnimationFrame(animationFrameId);
 
     // Setup ease-in accelerating transition style for the final vertical fly-up
-    // It starts slower and exits at maximum velocity without deceleration (cubic-bezier(0.55, 0.085, 0.68, 0.53))
-    const transitionStyle = 'transform 2600ms cubic-bezier(0.55, 0.085, 0.68, 0.53), filter 2600ms cubic-bezier(0.55, 0.085, 0.68, 0.53)';
+    // Reduced duration by 0.5s overall (from 2600ms to 2100ms) for a slightly faster flow
+    const transitionStyle = 'transform 2100ms cubic-bezier(0.55, 0.085, 0.68, 0.53), filter 2100ms cubic-bezier(0.55, 0.085, 0.68, 0.53)';
     [layerCian, layerYellow, layerMagenta].forEach(l => {
       if (l) {
         l.style.transition = transitionStyle;
@@ -343,11 +343,11 @@
     if (layerCian) layerCian.style.transform = 'translate3d(0, -135vh, 0)';
 
     // Subtitle words fly upward word by word sequentially (stagger wave starting from the left)
-    // Destination is set lower (-90vh) so they always stay below Cyan (-135vh) and never overlap MEL.
+    // Reduced duration by 0.5s (from 2300ms to 1800ms)
     const words = document.querySelectorAll('.intro-word');
     words.forEach((word, idx) => {
       const staggerDelay = idx * 150;
-      word.style.transition = `transform 2300ms cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 2300ms cubic-bezier(0.55, 0.085, 0.68, 0.53)`;
+      word.style.transition = `transform 1800ms cubic-bezier(0.55, 0.085, 0.68, 0.53), opacity 1800ms cubic-bezier(0.55, 0.085, 0.68, 0.53)`;
       word.style.transitionDelay = `${staggerDelay}ms`;
       word.style.transform = 'translate3d(0, -90vh, 0)';
       word.style.opacity = '0';
@@ -364,20 +364,20 @@
       scrollIndicator.style.opacity = '0';
     }
 
-    // Dissolve Phase
+    // Dissolve Phase: reduced by 0.5s (from 1800ms to 1300ms)
     activeDissolveTimeout = setTimeout(() => {
       if (overlay) {
         overlay.classList.remove('opacity-100', 'pointer-events-auto');
         overlay.classList.add('opacity-0', 'pointer-events-none');
       }
       document.body.classList.remove('overflow-hidden');
-    }, 1800);
+    }, 1300);
 
-    // Complete Phase
+    // Complete Phase: reduced by 0.5s (from 2800ms to 2300ms)
     activeCompleteTimeout = setTimeout(() => {
       if (overlay) overlay.classList.add('hidden');
       window.dispatchEvent(new CustomEvent('mel-switch-view', { detail: { view: 'galería' } }));
-    }, 2800);
+    }, 2300);
   }
 
   // Bind to global trigger events
