@@ -1,22 +1,22 @@
 ---
 // IntroAnimation.astro
-// Premium scroll-driven / button-triggered split chromatic aberration intro animation.
+// Premium interactive chromatic aberration offset hover & scroll/Enter triggered split ascension animation.
 ---
 
 <div 
   id="intro-animation-overlay" 
-  class="fixed inset-0 bg-[#f7f3f5] z-[300] flex items-center justify-center overflow-hidden transition-all duration-[600ms] ease-[cubic-bezier(0.77,0,0.175,1)] opacity-0 pointer-events-none hidden"
+  class="fixed inset-0 bg-[#f7f3f5] z-[300] flex items-center justify-center overflow-hidden transition-opacity duration-[1000ms] ease-in-out opacity-0 pointer-events-none hidden"
 >
   <!-- Animated container keeping a fixed aspect ratio of 1440x1024 to match Figma coordinate space perfectly -->
   <div class="relative w-full max-w-[1440px] h-full max-h-[1024px] aspect-[1440/1024] flex flex-col justify-between p-[108px] select-none">
     
-    <!-- Title Text Layer Container -->
-    <div class="relative flex-1 w-full min-h-0">
+    <!-- Title Text Layer Container (active for mouse movement hover parallax) -->
+    <div id="intro-title-container" class="relative flex-1 w-full min-h-0 cursor-pointer">
       
       <!-- CIAN Layer -->
       <div 
         id="intro-layer-cian"
-        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#00ffff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88 transition-transform duration-[1800ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0"
+        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#00ffff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88 translate-y-0"
       >
         <span class="block">Memoria</span>
         <span class="block">Electrónica</span>
@@ -26,7 +26,7 @@
       <!-- YELLOW Layer -->
       <div 
         id="intro-layer-yellow"
-        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ffff00] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88 transition-transform duration-[1800ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0"
+        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ffff00] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-88 translate-y-0"
       >
         <span class="block">Memoria</span>
         <span class="block">Electrónica</span>
@@ -36,7 +36,7 @@
       <!-- MAGENTA Layer -->
       <div 
         id="intro-layer-magenta"
-        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ff00ff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-95 transition-transform duration-[1800ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0"
+        class="intro-title-layer absolute left-0 bottom-[102px] flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ff00ff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-95 translate-y-0"
       >
         <span class="block">Memoria</span>
         <span class="block">Electrónica</span>
@@ -50,113 +50,252 @@
     <!-- Divider Line -->
     <div 
       id="intro-divider"
-      class="w-full h-[1px] bg-mel-border/30 my-[40px] transition-all duration-[1000ms] ease-out opacity-100 scale-x-100"
+      class="w-full h-[1px] bg-mel-border/30 my-[40px] transition-all duration-[1200ms] ease-out opacity-100 scale-x-100"
     ></div>
 
     <!-- Subtitle Container -->
     <div class="flex items-center gap-[12px] h-[48px] shrink-0 font-sans font-normal text-[2.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full">
-      <div id="intro-sub-1" class="transition-transform duration-[1500ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0">A través</div>
-      <div id="intro-sub-2" class="transition-transform duration-[1500ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0 ml-[8px]">del diseño</div>
-      <div id="intro-sub-3" class="transition-transform duration-[1500ms] ease-[cubic-bezier(0.25,1,0.5,1)] translate-y-0 ml-[8px]">gráfico</div>
+      <div id="intro-sub-1" class="intro-sub-word translate-y-0">A través</div>
+      <div id="intro-sub-2" class="intro-sub-word translate-y-0 ml-[8px]">del diseño</div>
+      <div id="intro-sub-3" class="intro-sub-word translate-y-0 ml-[8px]">gráfico</div>
+    </div>
+
+    <!-- Scroll / Enter Action Callout Indicator -->
+    <div 
+      id="intro-scroll-indicator" 
+      class="absolute bottom-[32px] left-[108px] flex items-center gap-2 font-sans font-medium text-[15px] text-mel-text-secondary opacity-60 transition-opacity duration-500 animate-pulse pointer-events-none"
+    >
+      <span>Scroll o presiona Enter para comenzar</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"></line>
+        <polyline points="19 12 12 19 5 12"></polyline>
+      </svg>
     </div>
 
   </div>
 </div>
 
 <script>
-  let activeAnimationTimeout = null;
-  let activeHideTimeout = null;
+  let animationStarted = false;
+  let activeDissolveTimeout = null;
+  let activeCompleteTimeout = null;
+  let mouseStopTimeout = null;
+  let touchStartY = 0;
+
+  // Dom refs
+  let overlay, titleContainer, layerCian, layerYellow, layerMagenta, divider, sub1, sub2, sub3, scrollIndicator;
 
   function runIntroAnimation() {
-    const overlay = document.getElementById('intro-animation-overlay');
-    const layerCian = document.getElementById('intro-layer-cian');
-    const layerYellow = document.getElementById('intro-layer-yellow');
-    const layerMagenta = document.getElementById('intro-layer-magenta');
-    const divider = document.getElementById('intro-divider');
-    const sub1 = document.getElementById('intro-sub-1');
-    const sub2 = document.getElementById('intro-sub-2');
-    const sub3 = document.getElementById('intro-sub-3');
+    overlay = document.getElementById('intro-animation-overlay');
+    titleContainer = document.getElementById('intro-title-container');
+    layerCian = document.getElementById('intro-layer-cian');
+    layerYellow = document.getElementById('intro-layer-yellow');
+    layerMagenta = document.getElementById('intro-layer-magenta');
+    divider = document.getElementById('intro-divider');
+    sub1 = document.getElementById('intro-sub-1');
+    sub2 = document.getElementById('intro-sub-2');
+    sub3 = document.getElementById('intro-sub-3');
+    scrollIndicator = document.getElementById('intro-scroll-indicator');
 
     if (!overlay) return;
 
-    // Reset styles to initial resting state
-    if (activeAnimationTimeout) clearTimeout(activeAnimationTimeout);
-    if (activeHideTimeout) clearTimeout(activeHideTimeout);
+    // Reset state & timeouts
+    animationStarted = false;
+    if (activeDissolveTimeout) clearTimeout(activeDissolveTimeout);
+    if (activeCompleteTimeout) clearTimeout(activeCompleteTimeout);
+    if (mouseStopTimeout) clearTimeout(mouseStopTimeout);
 
     overlay.classList.remove('hidden');
-    // Force reflow
-    overlay.offsetHeight;
+    overlay.offsetHeight; // Force reflow
     
-    // Show overlay
+    // Display intro overlay container
     overlay.classList.remove('opacity-0', 'pointer-events-none');
     overlay.classList.add('opacity-100', 'pointer-events-auto');
-
-    // Make sure body overflow is locked during intro
     document.body.classList.add('overflow-hidden');
 
-    // Reset components to center (resting) state
-    [layerCian, layerYellow, layerMagenta].forEach(l => {
-      if (l) {
-        l.style.transform = 'translate3d(0, 0, 0)';
-        l.style.opacity = l.id.includes('magenta') ? '0.95' : '0.88';
-      }
-    });
+    // Reset layers and subtitles to resting state (with smooth transition for manual recovery)
+    resetLayersToResting(true);
+
     if (divider) {
       divider.style.opacity = '1';
       divider.style.transform = 'scaleX(1)';
     }
-    if (sub1) sub1.style.transform = 'translate3d(0, 0, 0)';
-    if (sub2) sub2.style.transform = 'translate3d(0, 0, 0)';
-    if (sub3) sub3.style.transform = 'translate3d(0, 0, 0)';
 
-    // Play split/ascension animation after a short rest (resting state duration = 1s)
-    activeAnimationTimeout = setTimeout(() => {
-      // Yellow flies up fastest: Y = -1039px from initial Y = 338px => relative -1377px
-      if (layerYellow) layerYellow.style.transform = 'translate3d(0, -1377px, 0)';
-      // Magenta flies up medium speed: Y = -597px from Y = 338px => relative -935px
-      if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -935px, 0)';
-      // Cian flies up slowest: Y = -257px from Y = 338px => relative -595px
-      if (layerCian) layerCian.style.transform = 'translate3d(0, -595px, 0)';
+    if (scrollIndicator) {
+      scrollIndicator.style.opacity = '0.6';
+    }
 
-      // Divider fades out
-      if (divider) {
-        divider.style.opacity = '0';
-        divider.style.transform = 'scaleX(0)';
+    // Set up hover interactive offset listeners on titleContainer
+    if (titleContainer) {
+      titleContainer.addEventListener('mousemove', handleTitleMouseMove);
+      titleContainer.addEventListener('mouseleave', handleTitleMouseLeave);
+    }
+
+    // Set up trigger listeners (scroll down, keydown Enter, touch swipe up)
+    window.addEventListener('wheel', handleScrollTrigger, { passive: false });
+    window.addEventListener('keydown', handleKeyTrigger);
+    window.addEventListener('touchstart', handleTouchStart, { passive: true });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+  }
+
+  // Set standard smooth transitions for resting coordinates
+  function resetLayersToResting(immediateTransition = false) {
+    const transitionStyle = immediateTransition ? 'none' : 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)';
+    
+    [layerCian, layerYellow, layerMagenta].forEach(l => {
+      if (l) {
+        l.style.transition = transitionStyle;
+        l.style.transform = 'translate3d(0, 0, 0)';
       }
+    });
 
-      // Subtitles fly up and disperse:
-      // "A través" moves from 906px to 388px => Y = -518px
-      if (sub1) sub1.style.transform = 'translate3d(0, -518px, 0)';
-      // "del diseño" moves from 906px to 478px => Y = -428px
-      if (sub2) sub2.style.transform = 'translate3d(38px, -428px, 0)'; // Slight X shift to match Figma
-      // "gráfico" moves from 906px to 568px => Y = -338px
-      if (sub3) sub3.style.transform = 'translate3d(86px, -338px, 0)'; // Slight X shift to match Figma
+    [sub1, sub2, sub3].forEach(s => {
+      if (s) {
+        s.style.transition = transitionStyle;
+        s.style.transform = 'translate3d(0, 0, 0)';
+      }
+    });
+  }
 
-      // Hide overlay after animation finishes (duration of transition = 1.8s, total 2.3s from start)
-      activeHideTimeout = setTimeout(() => {
-        // Fade out overlay
+  // Trigger scroll conditions
+  function handleScrollTrigger(e) {
+    if (animationStarted) return;
+    if (e.deltaY > 5) { // Downward scroll detected
+      e.preventDefault();
+      startAscension();
+    }
+  }
+
+  function handleKeyTrigger(e) {
+    if (animationStarted) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      startAscension();
+    }
+  }
+
+  function handleTouchStart(e) {
+    if (animationStarted) return;
+    touchStartY = e.touches[0].clientY;
+  }
+
+  // Touch move handler to trigger on upward swipe
+  function handleTouchMove(e) {
+    if (animationStarted) return;
+    const currentY = e.touches[0].clientY;
+    if (touchStartY - currentY > 30) { // Upward swipe (equivalent to scrolling down)
+      e.preventDefault();
+      startAscension();
+    }
+  }
+
+  // Interactive mouse offset (chromatic aberration offset)
+  function handleTitleMouseMove(e) {
+    if (animationStarted) return;
+
+    const rect = titleContainer.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    // Normalized distance from center (-1 to 1)
+    const normX = (e.clientX - centerX) / (rect.width / 2);
+    const normY = (e.clientY - centerY) / (rect.height / 2);
+
+    // Apply quick transition for follow effect
+    [layerCian, layerYellow, layerMagenta].forEach(l => {
+      if (l) l.style.transition = 'transform 0.15s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
+    });
+
+    // Translate layers: Cyan = 16px, Yellow = 8px, Magenta = 4px
+    if (layerCian) layerCian.style.transform = `translate3d(${normX * 16}px, ${normY * 16}px, 0)`;
+    if (layerYellow) layerYellow.style.transform = `translate3d(${normX * 8}px, ${normY * 8}px, 0)`;
+    if (layerMagenta) layerMagenta.style.transform = `translate3d(${normX * 4}px, ${normY * 4}px, 0)`;
+
+    // Reset to resting coordinate space when mouse stops moving
+    if (mouseStopTimeout) clearTimeout(mouseStopTimeout);
+    mouseStopTimeout = setTimeout(() => {
+      if (!animationStarted) resetLayersToResting();
+    }, 150);
+  }
+
+  function handleTitleMouseLeave() {
+    if (animationStarted) return;
+    if (mouseStopTimeout) clearTimeout(mouseStopTimeout);
+    resetLayersToResting();
+  }
+
+  // Animation timeline trigger
+  function startAscension() {
+    animationStarted = true;
+
+    // Clean up trigger event listeners
+    window.removeEventListener('wheel', handleScrollTrigger);
+    window.removeEventListener('keydown', handleKeyTrigger);
+    window.removeEventListener('touchstart', handleTouchStart);
+    window.removeEventListener('touchmove', handleTouchMove);
+
+    if (titleContainer) {
+      titleContainer.removeEventListener('mousemove', handleTitleMouseMove);
+      titleContainer.removeEventListener('mouseleave', handleTitleMouseLeave);
+    }
+
+    // 1. Slow down the ascension transition to make it feel more epic (2500ms duration)
+    const transitionStyle = 'transform 2500ms cubic-bezier(0.77, 0, 0.175, 1)';
+    [layerCian, layerYellow, layerMagenta].forEach(l => {
+      if (l) l.style.transition = transitionStyle;
+    });
+    [sub1, sub2, sub3].forEach(s => {
+      if (s) s.style.transition = transitionStyle;
+    });
+
+    // 2. Translate layers completely above the top of the viewport
+    // Yellow goes highest (-180vh), Magenta mid (-140vh), Cian lowest but fully off (-115vh)
+    if (layerYellow) layerYellow.style.transform = 'translate3d(0, -180vh, 0)';
+    if (layerMagenta) layerMagenta.style.transform = 'translate3d(0, -140vh, 0)';
+    if (layerCian) layerCian.style.transform = 'translate3d(0, -115vh, 0)';
+
+    // Subtitle words fly upward out of the screen
+    if (sub1) sub1.style.transform = 'translate3d(0, -115vh, 0)';
+    if (sub2) sub2.style.transform = 'translate3d(0, -115vh, 0)';
+    if (sub3) sub3.style.transform = 'translate3d(0, -115vh, 0)';
+
+    // Divider line collapses and fades out
+    if (divider) {
+      divider.style.transform = 'scaleX(0)';
+      divider.style.opacity = '0';
+    }
+
+    // Scroll hint indicator fades out
+    if (scrollIndicator) {
+      scrollIndicator.style.opacity = '0';
+    }
+
+    // 3. Dissolve Phase:
+    // Before the ascension finishes completely (e.g. at 1700ms into the 2500ms transition),
+    // start cross-dissolving the overlay background to reveal the main screen.
+    activeDissolveTimeout = setTimeout(() => {
+      if (overlay) {
         overlay.classList.remove('opacity-100', 'pointer-events-auto');
         overlay.classList.add('opacity-0', 'pointer-events-none');
-        document.body.classList.remove('overflow-hidden');
+      }
+      document.body.classList.remove('overflow-hidden');
+    }, 1700);
 
-        setTimeout(() => {
-          overlay.classList.add('hidden');
-          // Dispatch completed event to return to gallery view
-          window.dispatchEvent(new CustomEvent('mel-switch-view', { detail: { view: 'galería' } }));
-        }, 600);
-      }, 2000);
-
-    }, 1200);
+    // 4. Complete Phase: hide container completely
+    activeCompleteTimeout = setTimeout(() => {
+      if (overlay) overlay.classList.add('hidden');
+      // Dispatch switch-view back to gallery
+      window.dispatchEvent(new CustomEvent('mel-switch-view', { detail: { view: 'galería' } }));
+    }, 2700);
   }
 
   // Bind to global trigger events
   window.addEventListener('mel-trigger-intro', runIntroAnimation);
 
-  // Auto trigger if URL search query is present
+  // Auto-trigger if URL search query contains intro=true
   document.addEventListener('astro:page-load', () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('intro') === 'true') {
-      // Clean query parameter from URL bar without forcing reload
       try {
         const url = new URL(window.location.href);
         url.searchParams.delete('intro');
@@ -171,5 +310,9 @@
 <style>
   .intro-title-layer {
     transform-origin: bottom left;
+    will-change: transform;
+  }
+  .intro-sub-word {
+    will-change: transform;
   }
 </style>
