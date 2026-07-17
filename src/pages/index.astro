@@ -1474,8 +1474,19 @@ const gridSpans = [
       gridContainer.innerHTML = '';
       
       if (paginated.length === 0) {
-        gridContainer.className = 'w-full flex items-center justify-center py-20 text-mel-text-secondary typo-body-roman italic border border-dashed border-mel-border/30';
-        gridContainer.innerHTML = `Ningún flyer coincide con los filtros aplicados.`;
+        gridContainer.className = 'w-full flex items-center justify-center py-12';
+        gridContainer.innerHTML = `
+          <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
+            <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
+              <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
+              <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
+            </div>
+            <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
+              <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
+              <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Comprueba los filtros y prueba buscando otra cosa.</p>
+            </div>
+          </div>
+        `;
       } else {
         gridContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[64px]';
         paginated.forEach((item, i) => {
@@ -1515,8 +1526,17 @@ const gridSpans = [
         if (paginated.length === 0) {
           listBody.innerHTML = `
             <tr>
-              <td colspan="6" class="py-8 text-center text-mel-text-secondary typo-body-roman italic">
-                Ningún archivo coincide con los filtros aplicados.
+              <td colspan="6" class="py-12 border-l border-r border-b border-mel-border bg-mel-bg-primary">
+                <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
+                  <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
+                    <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
+                    <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
+                  </div>
+                  <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
+                    <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
+                    <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Comprueba los filtros y prueba buscando otra cosa.</p>
+                  </div>
+                </div>
               </td>
             </tr>
           `;

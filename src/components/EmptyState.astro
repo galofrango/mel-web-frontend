@@ -1,8 +1,9 @@
 ---
 // EmptyState.astro
-// Reusable Empty State component matching Figma 810:71904 specifications exactly.
+// Reusable Empty State component matching Figma 825:72958 specifications exactly.
 
 interface Props {
+  variant?: "construction" | "no-results";
   title?: string;
   description?: string;
   showImage?: boolean;
@@ -12,13 +13,29 @@ interface Props {
 }
 
 const {
-  title = "La exposición está en construcción",
-  description = "Estamos trabajando en ello para ofrecerte la mejor experiencia muy pronto.",
+  variant = "construction",
+  title,
+  description,
   showImage = true,
-  showButton = true,
-  buttonText = "Volver al Inicio",
+  showButton = variant === "construction",
+  buttonText = "De acuerdo",
   buttonLink = "/"
 } = Astro.props;
+
+// Determine default texts and images based on the variant
+const defaultTitle = variant === "construction" ? "En construcción" : "Sin resultados";
+const defaultDesc = variant === "construction" 
+  ? "Estamos trabajando para poder ofrecerte más cosas interesantes." 
+  : "Comprueba los filtros y prueba buscando otra cosa.";
+
+const displayTitle = title ?? defaultTitle;
+const displayDescription = description ?? defaultDesc;
+
+const imageSrc = variant === "construction" 
+  ? "/empty-state-construction.png" 
+  : "/empty-state-no-results.png";
+
+const imgFitClass = variant === "construction" ? "object-cover" : "object-bottom";
 ---
 
 <div 
@@ -26,14 +43,25 @@ const {
   data-node-id="810:71904"
   data-name="Empty State"
 >
-  <!-- Striped Image Box -->
+  <!-- Tinted Photographic Empty State Image -->
   {showImage && (
     <div 
-      class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 bg-mel-bg-secondary flex items-center justify-center select-none"
-      data-node-id="810:72008"
+      class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none"
+      data-node-id="821:72317"
       data-name="Empty State Image"
     >
-      <div class="absolute inset-0 striped-bg opacity-30 z-0"></div>
+      <!-- Black and white image asset -->
+      <img 
+        src={imageSrc} 
+        alt="" 
+        class={`absolute inset-0 size-full pointer-events-none ${imgFitClass}`} 
+        referrerpolicy="no-referrer"
+      />
+      <!-- Photographic tint layer blending to create the branding duotone -->
+      <div 
+        class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"
+        data-name="Filtro fotográfico"
+      ></div>
     </div>
   )}
 
@@ -47,13 +75,13 @@ const {
       class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0"
       data-node-id="810:71902"
     >
-      {title}
+      {displayTitle}
     </h2>
     <p 
       class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0"
       data-node-id="810:71905"
     >
-      {description}
+      {displayDescription}
     </p>
   </div>
 
@@ -71,16 +99,3 @@ const {
     </a>
   )}
 </div>
-
-<style>
-  /* Match the repeating striped pattern defined in the design system */
-  .striped-bg {
-    background-image: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      var(--mel-border) 10px,
-      var(--mel-border) 11px
-    );
-  }
-</style>
