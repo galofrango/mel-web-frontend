@@ -5,19 +5,23 @@ import Link from '../../components/Link.astro';
 import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
 
-export async function getStaticPaths() {
-  const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
-  const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+// SSR route (server-rendered per request, see astro.config.mjs) — reads the
+// sheet fresh on every visit instead of baking it in at build time, so new
+// events/edits show up without a rebuild. Fetches + groups the full list
+// (not just the one event) because Anterior/Siguiente need their neighbors.
+const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
+const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
-  try {
-    const response = await fetch(CONFIG_URL);
-    const text = await response.text();
-    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-    if (!match || !match[1]) return [];
-    
+let eventsList: any[] = [];
+try {
+  const response = await fetch(CONFIG_URL);
+  const text = await response.text();
+  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
+
+  if (match && match[1]) {
     const json = JSON.parse(match[1]);
     const rows = json.table.rows;
-    
+
     const rawItems = rows.map((row) => {
       const c = row.c;
       if (!c) return null;
@@ -65,26 +69,23 @@ export async function getStaticPaths() {
       });
     });
 
-    const eventsList = Object.values(groups).map((g: any) => {
+    eventsList = Object.values(groups).map((g: any) => {
       g.carruselItems.sort((a, b) => a.order - b.order);
       return g;
     });
-
-    return eventsList.map((eventData: any, index) => {
-      const prevEvent = index > 0 ? eventsList[index - 1] : null;
-      const nextEvent = index < eventsList.length - 1 ? eventsList[index + 1] : null;
-      return {
-        params: { id: eventData.idMel },
-        props: { eventData, prevEvent, nextEvent, eventsList }
-      };
-    });
-  } catch (e) {
-    console.error("Error generating static paths", e);
-    return [];
   }
+} catch (e) {
+  console.error("Error fetching event data", e);
 }
 
-const { eventData, prevEvent, nextEvent, eventsList } = Astro.props;
+const eventIndex = eventsList.findIndex((e: any) => e.idMel === Astro.params.id);
+if (eventIndex === -1) {
+  return Astro.redirect('/');
+}
+
+const eventData = eventsList[eventIndex];
+const prevEvent = eventIndex > 0 ? eventsList[eventIndex - 1] : null;
+const nextEvent = eventIndex < eventsList.length - 1 ? eventsList[eventIndex + 1] : null;
 
 // Map full list of events for client-side search filtering
 const allEvents = eventsList.map((e: any) => ({

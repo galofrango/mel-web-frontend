@@ -9,67 +9,6 @@ import ToggleSelector from '../components/ToggleSelector.astro';
 import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
 
-// Robust DMS/Decimal coordinates parser
-function parseCoordinates(coordStr, locality) {
-  if (!coordStr && !locality) return null;
-  const cleanCoord = coordStr ? coordStr.trim().toLowerCase() : '';
-  const cleanLoc = locality ? locality.trim().toLowerCase() : '';
-  
-  const dict = {
-    'san andrés del rabanedo': [42.6105, -5.6147],
-    'calle sta. ana, 15': [42.5925, -5.5668],
-    'santa ana, 15': [42.5925, -5.5668],
-    'plaza caño de sta. ana, 1': [42.5947, -5.5675],
-    'plaza caño de santa ana, 1': [42.5947, -5.5675],
-    'santa olaja de porma': [42.6322, -5.4055],
-    'león': [42.5987, -5.5671],
-    'leon': [42.5987, -5.5671],
-    'valdepiélago': [42.8687, -5.3995],
-    'valdepielago': [42.8687, -5.3995],
-    'el gran café': [42.5976, -5.5714],
-    'el gran cafe': [42.5976, -5.5714],
-    'tirol rock bar': [42.5982, -5.5695],
-    'calle villa benavente, 3': [42.5956, -5.5701],
-    'calle villa benavente, 9': [42.5954, -5.5700],
-    'calle las varillas, 2': [42.5959, -5.5662],
-    'c. de juan de arfe, 15': [42.5954, -5.5669],
-    'calle caño badillo, 19': [42.5966, -5.5658],
-    'c. arco de ánimas, 2': [42.5977, -5.5690],
-    'av. lancia, 9': [42.5948, -5.5724]
-  };
-  
-  if (cleanCoord && dict[cleanCoord]) return dict[cleanCoord];
-  if (cleanLoc && dict[cleanLoc]) return dict[cleanLoc];
-  
-  if (coordStr) {
-    const dmsRegex = /(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([NS])\s*(\d+)°\s*(\d+)'\s*([\d.]+)"\s*([EW])/i;
-    const match = coordStr.match(dmsRegex);
-    if (match) {
-      const latDeg = parseInt(match[1], 10);
-      const latMin = parseInt(match[2], 10);
-      const latSec = parseFloat(match[3]);
-      const latDir = match[4].toUpperCase();
-      const lngDeg = parseInt(match[5], 10);
-      const lngMin = parseInt(match[6], 10);
-      const lngSec = parseFloat(match[7]);
-      const lngDir = match[8].toUpperCase();
-      
-      let lat = latDeg + latMin / 60 + latSec / 3600;
-      if (latDir === 'S') lat = -lat;
-      let lng = lngDeg + lngMin / 60 + lngSec / 3600;
-      if (lngDir === 'W') lng = -lng;
-      return [lat, lng];
-    }
-    
-    const decRegex = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/;
-    const decMatch = coordStr.match(decRegex);
-    if (decMatch) {
-      return [parseFloat(decMatch[1]), parseFloat(decMatch[2])];
-    }
-  }
-  return null;
-}
-
 // Extract Year from Date String
 function getYear(dateStr) {
   if (!dateStr || dateStr === 'SIN FECHA') return null;
@@ -1804,45 +1743,79 @@ const gridSpans = [
     }
   }
 
+  // Matches the long-format Google Maps share link, e.g.
+  // https://www.google.com/maps/place/Av.+Lancia,+9,+24004+León/@42.59,-5.57,460m/data=...!3d42.5937072!4d-5.573658!...
+  // — the preferred way to fill in an event's address going forward (see
+  // parseCoords below): paste the "share" link from Maps and it carries
+  // both a human-readable address AND precise coordinates, no separate
+  // geocoding step or hand-maintained coordinate dictionary needed. Only
+  // the long format is supported (not the maps.app.goo.gl short one) since
+  // that one embeds everything directly in the URL text — resolving a
+  // short link's redirect would mean a network call on every page render
+  // now that this site is server-rendered per visit.
+  const GOOGLE_MAPS_URL_RE = /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps/i;
+
+  // Pulls the readable address out of a Maps share link's /maps/place/NAME/
+  // segment for display (e.g. in the map side panel). Falls back to the
+  // raw string unchanged for anything that isn't a Maps link (DMS text,
+  // a plain address someone typed by hand, etc.).
+  function extractAddressLabel(coordStr) {
+    if (!coordStr || !GOOGLE_MAPS_URL_RE.test(coordStr)) return coordStr;
+    const placeMatch = coordStr.match(/\/maps\/place\/([^/]+)/);
+    if (placeMatch) {
+      try {
+        return decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+      } catch (e) {
+        return placeMatch[1].replace(/\+/g, ' ');
+      }
+    }
+    return coordStr;
+  }
+
   // Coordinates parser for map markers
   function parseCoords(coordStr, locality) {
     if (!coordStr && !locality) return null;
     const cleanCoord = coordStr ? coordStr.trim().toLowerCase() : '';
+
+    // Google Maps share link: prefer the precise pinned point (!3d..!4d..)
+    // over the @lat,lng that follows the place name, which is just the
+    // map viewport's center at share time and can be noticeably off from
+    // the actual pin for a zoomed-out share.
+    if (coordStr && GOOGLE_MAPS_URL_RE.test(coordStr)) {
+      const preciseMatch = coordStr.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/);
+      if (preciseMatch) return [parseFloat(preciseMatch[1]), parseFloat(preciseMatch[2])];
+      const viewportMatch = coordStr.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (viewportMatch) return [parseFloat(viewportMatch[1]), parseFloat(viewportMatch[2])];
+    }
     const cleanLoc = locality ? locality.trim().toLowerCase() : '';
     
+    // Verified against the actual street address by geocoding it (OpenStreetMap
+    // Nominatim), not hand-guessed — the previous values here were off by
+    // 100-700m from the real address on almost every entry, and three venues
+    // (Dickens Tavern, Sala Place, Tirol Rock Bar) had no entry at all for
+    // their real address text, so they never got plotted on the map.
     const dict = {
-      'san andrés del rabanedo': [42.6105, -5.6147],
-      'calle sta. ana, 15': [42.5925, -5.5668],
-      'santa ana, 15': [42.5925, -5.5668],
-      'plaza caño de sta. ana, 1': [42.5947, -5.5675],
-      'plaza caño de santa ana, 1': [42.5947, -5.5675],
-      'santa olaja de porma': [42.6322, -5.4055],
+      // Generic locality fallbacks, used only when a row has no address text
       'león': [42.5987, -5.5671],
       'leon': [42.5987, -5.5671],
-      'valdepiélago': [42.8687, -5.3995],
-      'valdepielago': [42.8687, -5.3995],
-      'el gran café': [42.5976, -5.5714],
-      'el gran cafe': [42.5976, -5.5714],
-      'calle cervantes, 9': [42.5976, -5.5714],
-      'la xana del torío': [42.7861, -5.4983],
-      'la xana del torio': [42.7861, -5.4983],
-      'av. la estación, 23': [42.7861, -5.4983],
-      'av. la estacion, 23': [42.7861, -5.4983],
-      'tirol rock bar': [42.5982, -5.5695],
-      'calle villa benavente, 3': [42.5956, -5.5701],
-      'calle villa benavente, 9': [42.5954, -5.5700],
-      'calle las varillas, 2': [42.5959, -5.5662],
-      'c. de juan de arfe, 15': [42.5954, -5.5669],
-      'calle caño badillo, 19': [42.5966, -5.5658],
-      'c. arco de ánimas, 2': [42.5977, -5.5690],
-      'av. lancia, 9': [42.5948, -5.5724],
-      'graffiti bar': [42.5978, -5.5693],
-      'glam rock': [42.5969, -5.5696],
-      'espacio vías': [42.5941, -5.5773],
-      'sala monasterio': [42.5972, -5.5678],
-      'cardenal landázuri': [42.5968, -5.5645],
-      'el plástico': [42.5954, -5.5669], // Map El Plástico to Barrio Húmedo area
-      'el plastico': [42.5954, -5.5669]
+      'san andrés del rabanedo': [42.6105, -5.6147],
+      'santa olaja de porma': [42.6322, -5.4055],
+
+      // Real street addresses from the "Dirección / Coordenadas" column
+      'plaza caño de sta. ana, 1': [42.5954405, -5.5665437], // Caño Santana
+      'c. arco de ánimas, 2': [42.5971331, -5.5712475], // Confussion
+      'c. de pablo flórez, 2': [42.6000294, -5.5674657], // Dickens Tavern
+      'calle cervantes, 9': [42.5990618, -5.5692838], // El Gran Café
+      'c. de juan de arfe, 15': [42.5961847, -5.5676066], // Graffiti Pub
+      'av. la estación, 23': [42.7886268, -5.5060121], // La Xana del Torío
+      'calle villa benavente, 3': [42.5963345, -5.5723652], // LeClub
+      'calle las varillas, 2': [42.5982118, -5.5679074], // MOMA
+      'av. lancia, 9': [42.5935856, -5.5735919], // Moravia
+      'calle sta. ana, 15': [42.5945004, -5.5658876], // Plástico
+      'pl. don gutierre': [42.5961017, -5.5684446], // Sala Place
+      'calle villa benavente, 9': [42.5954228, -5.5730187], // Sala Retrovisor
+      'calle caño badillo, 19': [42.5976998, -5.5656898], // Tempo Club
+      'calle conde guillén, 9': [42.5946594, -5.5745765], // Tirol Rock Bar
     };
     
     if (cleanCoord && dict[cleanCoord]) return dict[cleanCoord];
@@ -1868,91 +1841,101 @@ const gridSpans = [
     return null;
   }
 
+  // Renders a cluster bubble. Defined once at module scope (not nested
+  // inside initGoogleMap) since it only touches markerLib/googleMap, which
+  // are already shared top-level state — that lets createGoogleMapInstance()
+  // reuse it too when the map gets recreated for a color scheme change.
+  const clusterRenderer = {
+    render: ({ count, position }) => {
+      const clusterContent = document.createElement('div');
+      clusterContent.className = 'mel-marker-wrapper';
+      clusterContent.innerHTML = `
+        <div class="mel-marker-body">
+          <span class="mel-marker-label">${count}</span>
+        </div>
+        <div class="mel-marker-pointer"></div>
+      `;
+
+      const clusterMarker = new markerLib.AdvancedMarkerElement({
+        position,
+        content: clusterContent,
+        zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+      });
+
+      clusterMarker.addListener('click', () => {
+        // A cluster can hold many members packed into a small area —
+        // forcing them ALL to separate with margin in one step demands
+        // a zoom deep enough that, in this map's fairly short viewport,
+        // often isn't achievable at all (see fitBounds()'s padding vs.
+        // container-height math we hit trying that). Instead, zoom in
+        // a fixed, moderate amount and let the clusterer re-group
+        // whatever's still packed together into smaller pieces — click
+        // again to keep drilling down until it's just individual pins.
+        googleMap.panTo(position);
+        smoothZoomTo(Math.min(Math.round(googleMap.getZoom()) + 3, 20));
+      });
+
+      return clusterMarker;
+    }
+  };
+
+  // Creates (or re-creates) the Map + its MarkerClusterer in #map-container.
+  // Split out of initGoogleMap() so the color-scheme-change handler below
+  // can call it again — colorScheme can't be swapped live via setOptions()
+  // on an existing Map instance, Google keeps rendering tiles from whichever
+  // scheme it was created with, so switching it means building a new one.
+  function createGoogleMapInstance(colorScheme, center, zoom) {
+    googleMap = new google.maps.Map(document.getElementById("map-container"), {
+      center,
+      zoom,
+      mapId: "972db64e35393894d465ef68", // Custom Maps style ID matching Figma
+      colorScheme,
+      disableDefaultUI: true, // Disables Satellite view, Street View (saves cost and keeps layout clean)
+      zoomControl: true,
+    });
+    _s.googleMap = googleMap;
+
+    if (typeof markerClusterer !== 'undefined') {
+      googleMapClusterer = new markerClusterer.MarkerClusterer({
+        map: googleMap,
+        markers: [],
+        renderer: clusterRenderer,
+        // Default clustering radius (60px) is tuned for small dot markers —
+        // ours are wide text-label bubbles (~150-250px), so the library was
+        // "declustering" them into individual pins well before they were
+        // actually far enough apart on screen not to overlap. A wider
+        // radius keeps them bundled as one cluster bubble until they've
+        // spread out enough to stand on their own without piling up.
+        algorithm: new markerClusterer.SuperClusterAlgorithm({ radius: 110 }),
+      });
+    }
+    _s.googleMapClusterer = googleMapClusterer;
+  }
+
   async function initGoogleMap() {
     try {
-      const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+      await google.maps.importLibrary("maps");
       markerLib = await google.maps.importLibrary("marker");
       mapCore = await google.maps.importLibrary("core");
 
-      // Create map centered on León. The Map ID has both a light and a dark
-      // style variant configured in Google Cloud Console — colorScheme picks
-      // between them; it's kept in sync with the site's own toggle below.
+      // The Map ID has both a light and a dark style variant configured in
+      // Google Cloud Console — colorScheme picks between them; it's kept in
+      // sync with the site's own toggle below.
       const isDarkNow = document.documentElement.classList.contains('dark');
-      googleMap = new Map(document.getElementById("map-container"), {
-        center: { lat: 42.5987, lng: -5.5671 },
-        zoom: 14,
-        mapId: "972db64e35393894d465ef68", // Custom Maps style ID matching Figma
-        colorScheme: isDarkNow ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT,
-        disableDefaultUI: true, // Disables Satellite view, Street View (saves cost and keeps layout clean)
-        zoomControl: true,
-      });
-      
-      infoWindow = new InfoWindow({
+      createGoogleMapInstance(
+        isDarkNow ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT,
+        { lat: 42.5987, lng: -5.5671 },
+        14
+      );
+
+      infoWindow = new google.maps.InfoWindow({
         minWidth: 280
       });
 
-      // Create the MarkerClusterer ONCE and reuse it for the page's lifetime.
-      // Re-instantiating a new MarkerClusterer on every filter/search change
-      // (as this used to do) left the old instance's rendered marker/cluster
-      // DOM nodes on the map — clearMarkers()+addMarkers() on a single
-      // instance is the library's supported way to refresh its contents.
-      const clusterRenderer = {
-        render: ({ count, position, markers }) => {
-          const clusterContent = document.createElement('div');
-          clusterContent.className = 'mel-marker-wrapper';
-          clusterContent.innerHTML = `
-            <div class="mel-marker-body">
-              <span class="mel-marker-label">${count}</span>
-            </div>
-            <div class="mel-marker-pointer"></div>
-          `;
-
-          const clusterMarker = new markerLib.AdvancedMarkerElement({
-            position,
-            content: clusterContent,
-            zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
-          });
-
-          clusterMarker.addListener('click', () => {
-            // Fit to the cluster's own child markers (rather than a blind
-            // +2 zoom) so they end up with generous breathing room instead
-            // of pinned against the viewport edges.
-            const bounds = new google.maps.LatLngBounds();
-            (markers || []).forEach(m => { if (m.position) bounds.extend(m.position); });
-
-            // Padding is capped to a share of the container's own size
-            // instead of a flat px number. The map view here is quite
-            // short vertically (toolbar/slider/tags above it eat most of
-            // the height) — asking for more top+bottom padding than the
-            // container is tall is a self-defeating request: fitBounds()
-            // still has to pick ONE zoom that satisfies both axes, and an
-            // over-constrained request on the short axis was forcing an
-            // ill-fitting zoom where labels ended up overlapping or
-            // clipped on BOTH axes, not just the tight one.
-            const mapDiv = document.getElementById('map-container');
-            const rect = mapDiv ? mapDiv.getBoundingClientRect() : null;
-            const shortSide = rect ? Math.min(rect.width, rect.height) : 400;
-            const padding = Math.max(24, Math.round(shortSide * 0.18));
-            googleMap.fitBounds(bounds, padding);
-          });
-
-          return clusterMarker;
-        }
-      };
-      if (typeof markerClusterer !== 'undefined') {
-        googleMapClusterer = new markerClusterer.MarkerClusterer({
-          map: googleMap,
-          markers: [],
-          renderer: clusterRenderer
-        });
-      }
-
       // Persist to global state
-      _s.googleMap = googleMap;
       _s.markerLib = markerLib;
       _s.mapCore = mapCore;
       _s.infoWindow = infoWindow;
-      _s.googleMapClusterer = googleMapClusterer;
       _s.mapInitialized = true;
       mapInitialized = true;
 
@@ -2025,8 +2008,10 @@ const gridSpans = [
       // Populate side panel fields
       document.getElementById('side-panel-title').textContent = group.locationName;
       const sampleEvt = group.events[0];
-      // Display the raw coordinates/address column G directly
-      document.getElementById('side-panel-address').textContent = sampleEvt?.coordenadas || 'León';
+      // Column G holds either a plain address/DMS string (shown as-is) or a
+      // Google Maps share link, in which case we show its readable address
+      // instead of the raw URL.
+      document.getElementById('side-panel-address').textContent = extractAddressLabel(sampleEvt?.coordenadas) || 'León';
 
       // Calculate unique artists and designers
       const artistsSet = new Set();
@@ -2138,6 +2123,19 @@ const gridSpans = [
     } else {
       googleMap.fitBounds(bounds);
     }
+  }
+
+  // Google's setZoom() jumps straight to the target level with no in-between
+  // frames — this steps through it one level at a time, waiting for each
+  // step's 'zoom_changed' before firing the next, so it reads as a
+  // continuous zoom-in instead of a snap.
+  function smoothZoomTo(targetZoom) {
+    const current = Math.round(googleMap.getZoom());
+    if (current >= targetZoom) return;
+    google.maps.event.addListenerOnce(googleMap, 'zoom_changed', () => {
+      setTimeout(() => smoothZoomTo(targetZoom), 120);
+    });
+    googleMap.setZoom(current + 1);
   }
 
   function updateMapMarkers(shouldFitBounds = true) {
@@ -2356,13 +2354,25 @@ const gridSpans = [
       switchView(e.detail.view);
     }, { signal: wSig });
 
-    // Keep the map's basemap style in sync with the site's light/dark toggle
+    // Keep the map's basemap style in sync with the site's light/dark
+    // toggle. setOptions({colorScheme}) updates the property but Google
+    // keeps rendering tiles from whichever scheme the map was originally
+    // created with — the only way to actually see the other style is to
+    // rebuild the Map instance, so do that in place, preserving the
+    // current view, and rebuild the markers on it.
     window.addEventListener('mel-color-scheme-change', (e) => {
-      if (googleMap) {
-        googleMap.setOptions({
-          colorScheme: e.detail.isDark ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT
-        });
-      }
+      if (!googleMap) return;
+      const center = googleMap.getCenter();
+      const zoom = googleMap.getZoom();
+      if (googleMapClusterer) googleMapClusterer.clearMarkers();
+      mapMarkers.forEach(m => m.map = null);
+      mapMarkers = [];
+      createGoogleMapInstance(
+        e.detail.isDark ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT,
+        center,
+        zoom
+      );
+      updateMapMarkers(false);
     }, { signal: wSig });
 
     // Listen for search events
