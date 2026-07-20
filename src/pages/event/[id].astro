@@ -136,9 +136,9 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
   </style>
 
-  <!-- Main layout container with 108px (pb-[108px]) padding bottom. pt-[10vh]
+  <!-- Main layout container with 108px (pb-[108px]) padding bottom. pt-[calc(10vh-24px)] md:pt-[10vh]
        matches every other page header's top offset. -->
-  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-[10vh] pb-[108px] px-6 sm:px-12">
+  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-[calc(10vh-24px)] md:pt-[10vh] pb-[108px] px-6 sm:px-12">
     <!-- Main Box Container (Figma 1224px wide) -->
     <div class="w-full max-w-[1224px] flex flex-col select-none">
 
@@ -360,7 +360,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
          screen — with pagination dots inside the modal below the image) -->
     <div
       id="image-detail-overlay"
-      class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
+      class="fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
     >
       <!-- Modal Container: proportional to viewport height, true square aspect ratio, width
            follows from that. Bottom padding matches the other sides (pb-8) when there's no

@@ -189,7 +189,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
        112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
        smaller screens don't waste fixed pixel gaps. -->
-  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[10vh] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[calc(10vh-24px)] md:pt-[10vh] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
@@ -204,11 +204,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       </div>
     </div>
 
-    <!-- Toolbar: Slider & Controls. Solo pb (no pt): el hueco hasta la cabecera
-         lo da únicamente el gap-6 del contenedor padre — más ajustado, como en
-         el mockup de Figma (439:140952) donde el toolbar arranca pegado a la
-         cabecera. -->
-    <div class="flex flex-col gap-6 pb-4 shrink-0" style="view-transition-name: mel-toolbar;">
+    <!-- Toolbar: Slider & Controls. El hueco hasta la cabecera lo da el gap-6
+         del contenedor padre (24px). En móvil (Figma 439:140952 / 315:17658 el
+         toolbar arranca más pegado a la cabecera) lo recortamos a 16px con
+         -mt-2, restaurando 24px en desktop (md:mt-0). El pb-4 mantiene el hueco
+         hacia el contenido de abajo. Tailwind: gap-6=24px, -mt-2=-8px. -->
+    <div class="flex flex-col gap-6 pb-4 shrink-0 -mt-2 md:mt-0" style="view-transition-name: mel-toolbar;">
       <!-- Year Slider Bar (Removed text header label as requested). On mobile the
            slider runs full-bleed to the screen edges (negative margins cancel the
            page's px-6), per the mobile toolbar design (Figma 315:17658). -->
@@ -284,7 +285,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              lightbox de imagen del detalle de evento (le-950/80, D-022). -->
         <div
           id="map-side-panel-backdrop"
-          class="md:hidden fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[19] opacity-0 pointer-events-none transition-opacity duration-300"
+          class="md:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[19] opacity-0 pointer-events-none transition-opacity duration-300"
           aria-hidden="true"
         ></div>
 
@@ -478,7 +479,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <!-- Image frame with figma-like stripes background & Carousel Navigation -->
       <div class="relative max-h-[75vh] md:w-3/5 overflow-hidden border border-mel-border shadow-2xl flex items-center justify-center p-4 bg-white/40">
         <div class="absolute inset-0 striped-bg opacity-10 z-0"></div>
-        <img id="lightbox-image" src="" alt="" referrerpolicy="no-referrer" class="max-h-[70vh] max-w-full object-contain z-10 shadow-md" />
+        <img id="lightbox-image" src="" alt="" referrerpolicy="no-referrer" class="max-h-[70vh] max-w-full object-contain z-10 shadow-[var(--mel-shadow-md)]" />
         
         <!-- Carousel buttons (Hidden by default, shown for multiple images) -->
         <IconButton 
@@ -520,7 +521,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   </div>
 
   <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
-  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-[10vh] pb-[108px] px-6 sm:px-12 select-none">
+  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-[calc(10vh-24px)] md:pt-[10vh] pb-[108px] px-6 sm:px-12 select-none">
     <div class="w-full max-w-[1224px] flex flex-col relative" id="overlay-content-wrapper">
       
       <!-- Close Button (X) at Top Left -->
@@ -646,7 +647,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
        modal, photo object-contained inside, pagination dots below) -->
   <div
     id="overlay-image-lightbox"
-    class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
+    class="fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
   >
     <div
       id="overlay-lightbox-modal"
@@ -654,7 +655,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     >
       <button
         id="overlay-lightbox-close"
-        class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
+        class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[var(--mel-shadow-button)] border-none cursor-pointer z-50 transition-colors"
         aria-label="Cerrar vista grande"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -823,11 +824,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   .gallery-item:hover {
     transform: scale(1.025) !important;
     z-index: 30 !important;
-    box-shadow: 0 239px 67px 0 rgba(38, 32, 32, 0.00), 
-                0 153px 61px 0 rgba(38, 32, 32, 0.01), 
-                0 86px 52px 0 rgba(38, 32, 32, 0.05), 
-                0 38px 38px 0 rgba(38, 32, 32, 0.09), 
-                0 10px 21px 0 rgba(38, 32, 32, 0.10) !important;
+    box-shadow: 0 239px 67px 0 rgb(var(--mel-shadow-rgb) / 0.00),
+                0 153px 61px 0 rgb(var(--mel-shadow-rgb) / 0.01),
+                0 86px 52px 0 rgb(var(--mel-shadow-rgb) / 0.05),
+                0 38px 38px 0 rgb(var(--mel-shadow-rgb) / 0.09),
+                0 10px 21px 0 rgb(var(--mel-shadow-rgb) / 0.10) !important;
   }
 
   @keyframes marker-fade-in {
@@ -927,7 +928,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    filter: drop-shadow(0px 4px 8px rgba(38,31,31,0.32));
+    filter: drop-shadow(0px 4px 8px rgb(var(--mel-shadow-rgb) / 0.32));
     cursor: pointer;
     transition: transform 0.15s ease-out;
     animation: marker-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -940,7 +941,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   .mel-marker-wrapper:hover {
     transform: scale(1.05);
-    filter: drop-shadow(0px 6px 16px rgba(38,31,31,0.42));
+    filter: drop-shadow(0px 6px 16px rgb(var(--mel-shadow-rgb) / 0.42));
     z-index: 99999 !important;
   }
 
@@ -1009,7 +1010,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     -webkit-backdrop-filter: blur(12px) !important;
     border: 2px solid var(--mel-border) !important;
     border-radius: 0 !important;
-    box-shadow: 0px 10px 10.5px rgba(38,32,32,0.1), 0px 38px 19px rgba(38,32,32,0.09) !important;
+    box-shadow: 0px 10px 10.5px rgb(var(--mel-shadow-rgb) / 0.1), 0px 38px 19px rgb(var(--mel-shadow-rgb) / 0.09) !important;
     padding: 0 !important;
     max-width: 360px !important;
   }
@@ -1262,20 +1263,32 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   @media (max-width: 767px) {
     #map-side-panel {
       /* fixed (no absolute): relativo al VIEWPORT real, no a #view-mapa —
-         así llega a los bordes reales de pantalla (izq/der/abajo) y su
-         borde superior queda exactamente a 64px del techo de pantalla,
-         por encima incluso de la cabecera + toolbar del sitio si hace
-         falta (D-023: un `absolute` dentro de #view-mapa sumaba ese
-         hueco AL offset ya existente de #view-mapa, dejando el sheet
-         mucho más abajo de lo pedido). */
+         así llega a los bordes reales de pantalla (izq/der/abajo). Su borde
+         superior queda a 88px del techo de pantalla (D-024: bajado 24px
+         respecto a los 64px de D-023, a petición del propietario). Un
+         `absolute` dentro de #view-mapa sumaría ese hueco al offset ya
+         existente del contenedor, dejando el sheet mucho más abajo. */
       position: fixed;
-      inset: 64px 0 0 0;
+      inset: 88px 0 0 0;
       width: 100% !important;
       height: auto !important;
+      /* Nada redondeado: el único recurso del borde superior es el pliegue
+         diagonal de la esquina (clip-path). Sin border, sin radius, sin
+         box-shadow — el dim ya separa el sheet del mapa. El clip-path
+         recorta la esquina superior derecha (pliegue) y de paso enmascara
+         la sombra del pliegue que pinta BottomSheetHeader dentro. */
       border-left-width: 0 !important;
-      border-top: 1px solid var(--mel-border);
-      border-radius: 20px 20px 0 0;
-      box-shadow: 0 -12px 32px rgba(25, 6, 9, 0.12);
+      border-top: 0 !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      --mel-sheet-notch: 40px;
+      clip-path: polygon(
+        0 0,
+        calc(100% - var(--mel-sheet-notch)) 0,
+        100% var(--mel-sheet-notch),
+        100% 100%,
+        0 100%
+      );
       transform: translate3d(0, 100%, 0);
       transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
@@ -1498,7 +1511,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
     const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
-    card.className = 'gallery-item unsized relative overflow-hidden shadow-sm group bg-white transition-all duration-300 cursor-pointer';
+    card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] group bg-white transition-all duration-300 cursor-pointer';
     card.dataset.id = item.idMel;
     card.innerHTML = `
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
@@ -1508,7 +1521,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
 
       <!-- Overlay info on hover -->
-      <div class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[0px_-4px_10px_rgba(38,31,31,0.15)]">
+      <div class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
         <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">${item.evento}</p>
       </div>
     `;

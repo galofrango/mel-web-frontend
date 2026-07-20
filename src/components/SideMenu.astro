@@ -5,23 +5,23 @@ import IconButton from './IconButton.astro';
 <!-- Side Menu Backdrop Overlay (Dimming) -->
 <div 
   id="side-menu-backdrop" 
-  class="fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[190] opacity-0 pointer-events-none transition-opacity duration-300 hidden"
+  class="fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[190] opacity-0 pointer-events-none transition-opacity duration-300 hidden"
 ></div>
 
 <!-- Side Menu Overlay Container -->
 <div 
   id="side-menu-container" 
-  class="fixed inset-y-0 right-0 w-full max-w-[496px] h-screen bg-mel-bg-primary border-l border-mel-border shadow-[0px_8px_32px_0px_rgba(38,31,31,0.24)] z-[200] flex flex-col justify-between transition-all duration-300 transform translate-x-full hidden"
+  class="fixed inset-y-0 right-0 w-full max-w-[496px] h-screen bg-mel-bg-primary border-l border-mel-border shadow-[var(--mel-shadow-menu)] z-[200] flex flex-col justify-between transition-all duration-300 transform translate-x-full hidden"
   data-node-id="562:70168"
   data-name="Side Menu"
 >
   <!-- Top Content Section -->
   <div class="flex flex-col w-full">
-    <!-- Header / Close button (No border). pt-[10vh] matches every page header's
+    <!-- Header / Close button (No border). pt-[calc(10vh-24px)] md:pt-[10vh] matches every page header's
          own top offset, and the min-h reserves the same 48px row height the page
          headers have (their 40px menu button sits centered in it), so this close
          button lands at exactly the same height as the button that opened it. -->
-    <div class="flex items-center pb-[16px] px-[16px] pt-[10vh] min-h-[calc(10vh+64px)] shrink-0 w-full">
+    <div class="flex items-center pb-[16px] px-[16px] pt-[calc(10vh-24px)] md:pt-[10vh] min-h-[calc(10vh+40px)] md:min-h-[calc(10vh+64px)] shrink-0 w-full">
       <IconButton 
         id="close-side-menu" 
         icon="x"
@@ -126,7 +126,7 @@ import IconButton from './IconButton.astro';
     <!-- Color Mode Toggle Button (Moon/Sun) -->
     <button 
       id="color-mode-toggle"
-      class="w-10 h-10 bg-mel-action-secondary text-mel-text-on-action flex items-center justify-center cursor-pointer hover:bg-mel-action-primary transition-colors shrink-0 shadow-sm border-none"
+      class="w-10 h-10 bg-mel-action-secondary text-mel-text-on-action flex items-center justify-center cursor-pointer hover:bg-mel-action-primary transition-colors shrink-0 shadow-[var(--mel-shadow-sm)] border-none"
       aria-label="Cambiar modo color"
       data-node-id="550:69887"
     >

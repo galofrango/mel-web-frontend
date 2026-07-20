@@ -20,7 +20,7 @@ const { title, date, location, imageUrl } = Astro.props;
   </div>
 
   {imageUrl && (
-    <div class="relative w-full aspect-[16/9] overflow-hidden border border-mel-border/60 shadow-xl bg-mel-bg-secondary/40">
+    <div class="relative w-full aspect-[16/9] overflow-hidden border border-mel-border/60 shadow-[var(--mel-shadow-xl)] bg-mel-bg-secondary/40">
       <div class="absolute inset-0 striped-bg opacity-10 z-0"></div>
       <img
         src={imageUrl}

@@ -32,7 +32,7 @@ const bgColor = isHoverOrActive ? 'var(--mel-action-primary)' : 'var(--mel-actio
 <div 
   class:list={[
     "map-marker flex flex-col items-center justify-center relative",
-    isHoverOrActive ? "drop-shadow-[0px_4px_16px_rgba(38,31,31,0.32)]" : "drop-shadow-[0px_4px_8px_rgba(38,31,31,0.32)]",
+    isHoverOrActive ? "drop-shadow-[var(--mel-shadow-marker-active)]" : "drop-shadow-[var(--mel-shadow-button)]",
     className
   ]}
   data-node-id="Map Marker"

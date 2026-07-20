@@ -36,6 +36,33 @@
   --mel-primitive-yellow: hsla(60, 100%, 50%, 1);
   --mel-primitive-cian: hsla(180, 100%, 50%, 1);
 
+  /* ==========================================================================
+     SOMBRAS Y DIMS — un ÚNICO primitivo (Tinted 950) para todas las sombras,
+     elevaciones y scrims del sitio. Canales separados por espacio para poder
+     variar la opacidad por uso con la sintaxis rgb(... / alpha).
+     Es un primitivo FIJO: no se sobrescribe en .dark, así el color es idéntico
+     en ambos temas. Las capas que deben "verse" en oscuro (dims, pliegue del
+     bottom sheet) se pintan con mix-blend-multiply. Ver docs/design-system.md.
+     ========================================================================= */
+  --mel-shadow-rgb: 24 16 18;   /* = Tinted 950 (hsla(345,20%,8%) ≈ #181012) */
+
+  /* Elevaciones nombradas (todas derivan de --mel-shadow-rgb) */
+  --mel-shadow-button: 0px 4px 8px rgb(var(--mel-shadow-rgb) / 0.32);
+  --mel-shadow-handle: 0px 4px 4px rgb(var(--mel-shadow-rgb) / 0.32);
+  --mel-shadow-menu: 0px 8px 32px rgb(var(--mel-shadow-rgb) / 0.24);
+  --mel-shadow-marker-active: 0px 4px 16px rgb(var(--mel-shadow-rgb) / 0.32);
+  --mel-shadow-toggle-inset: inset 0 0 8px rgb(var(--mel-shadow-rgb) / 0.16);
+  --mel-shadow-flyer-label: 0px -4px 10px rgb(var(--mel-shadow-rgb) / 0.15);
+
+  /* Equivalentes a las utilidades genéricas de Tailwind (misma geometría),
+     recoloreadas al primitivo del sitio en vez del negro por defecto. */
+  --mel-shadow-sm: 0 1px 3px 0 rgb(var(--mel-shadow-rgb) / 0.1), 0 1px 2px -1px rgb(var(--mel-shadow-rgb) / 0.1);
+  --mel-shadow-md: 0 4px 6px -1px rgb(var(--mel-shadow-rgb) / 0.1), 0 2px 4px -2px rgb(var(--mel-shadow-rgb) / 0.1);
+  --mel-shadow-xl: 0 20px 25px -5px rgb(var(--mel-shadow-rgb) / 0.1), 0 8px 10px -6px rgb(var(--mel-shadow-rgb) / 0.1);
+
+  /* Dim / scrim de overlays (sobre el que además se aplica mix-blend-multiply) */
+  --mel-dim: rgb(var(--mel-shadow-rgb) / 0.8);
+
   /* Spacing */
   --mel-spacing-xs: 4px;
   --mel-spacing-s: 8px;

@@ -2,6 +2,29 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-20] — Sesión: Bottom sheet fiel a Figma (sin redondeos), unificación de sombras/dims a Tinted 950 y subida de contenido en móvil
+
+### Objetivo de la Sesión
+Tras la insistencia del propietario (con capturas de Figma), rehacer de verdad la cabecera del bottom sheet, unificar el "kilombo" de colores de sombras/dims a un único primitivo, y ajustar espaciados en móvil.
+
+### Cambios Realizados
+1. **Bottom sheet fiel a Figma (D-024)**: mirando por fin la captura de `269:11222` al detalle (descargada y ampliada píxel a píxel), se confirmó que **nada lleva esquinas redondeadas**. Eliminados `border-radius` del sheet y `rounded-full` del tirador. El sheet ahora recorta su esquina superior derecha con `clip-path` (pliegue diagonal) y `BottomSheetHeader.astro` se reescribió: tirador rectangular 80×5 + sombra del pliegue como SVG con `feGaussianBlur` real (el intento anterior con `filter:blur()`+`clip-path` de CSS dejaba un triángulo sólido). Sheet bajado de 64 a 88px.
+2. **Contenido móvil subido 24px (D-024)**: `pt-[10vh]` → `pt-[calc(10vh-24px)] md:pt-[10vh]` en las 6 apariciones del header común. `SideMenu` ajusta su `min-h` en paralelo.
+3. **Hueco cabecera↔toolbar en móvil**: recortado de 24px a 16px con `-mt-2 md:mt-0` en el toolbar (Tailwind: gap-6=24px, -mt-2=−8px), acercándolo al mockup de Figma.
+4. **Unificación de sombras/dims (D-025)**: creado el primitivo `--mel-shadow-rgb: 24 16 18` (Tinted 950) y tokens de elevación nombrados en `global.css`. Migrados los ~12 sitios con `rgba()` sueltos (38,31,31 / 38,32,32 / 25,6,9 / 33,24,26) y los `shadow-sm/md/xl` de Tailwind. Los dims (SideMenu, lightbox, bottom sheet) pasan a `--mel-dim` + `mix-blend-multiply` para notarse en oscuro. Registrado en `design-system.md` (nueva sección + reglas UX 5–7).
+
+### Problemas Encontrados y Resueltos
+- La cabecera del sheet era "una ruina" en el intento previo por dos motivos concretos: (a) `border-radius`+`rounded-full` (esquinas redondeadas prohibidas), y (b) la sombra del pliegue hecha con `filter:blur()`+`clip-path` en CSS, que recorta el degradado en seco. Ambos corregidos; la clave fue **descargar la captura de Figma y ampliarla** para leer la geometría real (tirador rectangular, pliegue diagonal, sombra suave).
+- El dim invisible en oscuro se resolvió con `mix-blend-multiply` sobre el primitivo Tinted 950 (verificado en `.dark`: el área sobre el sheet se oscurece de forma perceptible).
+- Verificado que las `box-shadow` con `rgb(var(--mel-shadow-rgb) / α)` compilan y resuelven (`rgba(24,16,18,0.32)…`), y que el desktop del panel del mapa sigue empujando el mapa (393px, sin pliegue).
+
+### Tareas Pendientes
+- Verificar el bottom sheet completo (gesto de arrastre incluido) en un dispositivo móvil real.
+- Decidir hasta qué ancho horizontal debe estirarse `BottomSheetHeader` cuando se reutilice en otros sheets (pendiente explícito del propietario).
+- `box-shadow` en modo oscuro quedan sutiles (no admiten blend mode): si en el futuro se quiere que "aparezcan" más, habría que rehacerlas como capas con multiply (pseudo-elementos), evaluado y descartado por ahora.
+
+---
+
 ## [2026-07-20] — Sesión: Corrección del bottom sheet (fixed real, dim, cabecera Figma completa) y lista móvil sin doble margen
 
 ### Objetivo de la Sesión

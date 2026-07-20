@@ -49,6 +49,35 @@ El modo oscuro se activa mediante la clase `.dark` en la etiqueta `<html>`, pers
 
 ---
 
+## Sombras, Dims y Elevaciones
+
+**Un único primitivo para TODAS las sombras y scrims del sitio: Tinted 950** (`hsla(345,20%,8%)` ≈ `#181012`). No se usan negros sueltos (`rgba(0,0,0,…)`) ni granates ad-hoc (`rgba(38,31,31,…)`, `rgba(25,6,9,…)`, etc.): quedaron unificados. Definido en `global.css` como canales separados por espacio para poder variar la opacidad con la sintaxis `rgb(… / alpha)`:
+
+```css
+--mel-shadow-rgb: 24 16 18;   /* Tinted 950 */
+```
+
+Es un **primitivo fijo** (no se sobrescribe en `.dark`): el color de sombra es idéntico en ambos temas. Para que una sombra/dim **se note también en modo oscuro** (donde una sombra oscura sobre fondo oscuro sería invisible) la capa se pinta con `mix-blend-multiply`. Esto solo es aplicable a **capas independientes** (dims, sombra del pliegue del bottom sheet); las `box-shadow` normales de botones/tarjetas no admiten blend mode, así que unifican el color pero en oscuro quedan sutiles (comportamiento estándar).
+
+### Tokens de elevación (todos derivan de `--mel-shadow-rgb`)
+
+| Token | Valor | Uso |
+| --- | --- | --- |
+| `--mel-shadow-sm` / `--mel-shadow-md` / `--mel-shadow-xl` | equivalentes a las utilidades de Tailwind, recoloreados | Tarjeta de galería, miniaturas, botones menores |
+| `--mel-shadow-button` | `0 4px 8px / .32` | `IconButton` primario, botón cerrar, indicador del toggle, marcador de mapa |
+| `--mel-shadow-handle` | `0 4px 4px / .32` | Handles del `TimeSlider` |
+| `--mel-shadow-marker-active` | `0 4px 16px / .32` | Marcador de mapa en hover/activo |
+| `--mel-shadow-menu` | `0 8px 32px / .24` | Panel del `SideMenu` |
+| `--mel-shadow-toggle-inset` | `inset 0 0 8px / .16` | Grabado interior del `ToggleSelector` |
+| `--mel-shadow-flyer-label` | `0 -4px 10px / .15` | Barra inferior informativa de `FlyerCard` |
+| `--mel-dim` | `rgb(var(--mel-shadow-rgb) / .8)` | Scrim de overlays (SideMenu, lightbox, bottom sheet). **Siempre con `mix-blend-multiply`.** |
+
+Uso: `shadow-[var(--mel-shadow-button)]` (Tailwind) o `box-shadow: var(--mel-shadow-menu)` (CSS). Para un color puntual con otra opacidad: `rgb(var(--mel-shadow-rgb) / 0.10)`.
+
+> **Excepción — Duotono fotográfico:** el tinte de `EmptyState`/`/info` NO es una sombra; usa `bg-[var(--mel-primitive-le-900)]` + `mix-blend-screen` (regla propia, ver D-016). No lo mezcles con el sistema de sombras.
+
+---
+
 ## Tipografía
 
 Fuentes del proyecto:
@@ -90,6 +119,8 @@ Tokens de espaciado: `--mel-spacing-xs/s/sm/m/l/xl` = 4 / 8 / 12 / 16 / 24 / 32p
 | `<LikeButton />` | Resting / Active | Botón *"Me presta"* con borde `action-secondary` y animación de despliegue de checkmark. |
 | `<SideMenu />` | Abierto / Cerrado | Panel lateral deslizable (496px) con selector de tema, disparo de intro y badge *"Nuevo"*. |
 | `<FlyerCard />` | Resting / Hover | Tarjeta de la galería con escala ligera `scale-[1.02]` en reposo → `1.04` en hover, overlay de rayas y barra inferior informativa. |
+| `<EventCardList />` | Default / Hover | Fila compacta de evento (miniatura 56×56 en fit sobre fondo secundario, título, fecha, chevron). Réplica JS en `buildEventCardListHtml()`. Usada en el panel del mapa y en la Lista en móvil. |
+| `<BottomSheetHeader />` | — | Cabecera decorativa reutilizable de bottom sheets (Figma `269:11222`): tirador **rectangular** (80×5, sin redondear) + pliegue diagonal en la esquina superior derecha. El recorte del pliegue lo aporta el `clip-path` del contenedor del sheet; el componente pinta el tirador y la sombra del pliegue (SVG `feGaussianBlur`, `mix-blend-multiply`). Escala en horizontal sin límite. **Nada redondeado.** |
 
 ---
 
@@ -99,3 +130,6 @@ Tokens de espaciado: `--mel-spacing-xs/s/sm/m/l/xl` = 4 / 8 / 12 / 16 / 24 / 32p
 2. **Tinte Fotográfico Duotono**: Toda fotografía decorativa en blanco y negro (EmptyState, acordeones `/info`) debe incorporar la capa de mezcla `bg-[var(--mel-primitive-le-900)] mix-blend-screen`.
 3. **Truncado de Celdas y Valores**: Ningún valor de tag o celda de lista debe realizar salto de línea; se fuerza el truncado con `ellipsis` y, en la tabla de la lista, efecto *marquee* al pasar el ratón.
 4. **Protección de Imágenes**: Atributo `select-none`, `-webkit-user-drag: none` y deshabilitación del menú contextual en toda la galería y visores.
+5. **Esquinas rectas (sin `border-radius`)**: **NADA en la web tiene bordes redondeados.** Botones, tarjetas, tiradores, sheets, badges, inputs… todo con esquinas rectas. El único recurso decorativo de borde es el **pliegue diagonal** del bottom sheet (`clip-path`, ver `BottomSheetHeader`). Si un mockup parece redondeado, es una ilusión del pliegue o un error de lectura.
+6. **Sombras y dims unificados**: Toda sombra/scrim usa el primitivo `--mel-shadow-rgb` (Tinted 950) vía los tokens de elevación; los dims llevan además `mix-blend-multiply` para notarse en oscuro (ver sección *Sombras, Dims y Elevaciones*).
+7. **Offset superior en móvil**: `pt-[10vh]` (header común de todas las páginas) se reduce 24px por debajo de `md` — `pt-[calc(10vh-24px)] md:pt-[10vh]` — para subir el contenido en pantallas pequeñas. El `SideMenu` ajusta su `min-h` en paralelo para alinear el botón de cerrar.
