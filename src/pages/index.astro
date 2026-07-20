@@ -281,11 +281,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <div id="view-mapa" class="view-panel hidden absolute top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
         <div id="map-container" class="flex-1 h-full"></div>
 
-        <!-- Dim: solo bottom sheet en móvil. Mismo color/opacidad que el
-             lightbox de imagen del detalle de evento (le-950/80, D-022). -->
+        <!-- Dim: solo cuando el panel es bottom sheet (bajo lg). Cubre el slider
+             de tiempo (que queda a la vista, atenuado) y todo lo de abajo. -->
         <div
           id="map-side-panel-backdrop"
-          class="md:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[19] opacity-0 pointer-events-none transition-opacity duration-300"
+          class="lg:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[19] opacity-0 pointer-events-none transition-opacity duration-500"
           aria-hidden="true"
         ></div>
 
@@ -299,7 +299,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           <!-- Tirador + pliegue decorativo: solo bottom sheet en móvil (Figma
                "Bottom Sheet Header", node 269:11222). Cerrar deslizando hacia
                abajo, ver setupSidePanelDrag(). -->
-          <BottomSheetHeader handleId="map-side-panel-handle" class="md:hidden" />
+          <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" />
 
           <!-- Header / Close button (Figma matches: pb-[8px] px-[16px] pt-[8px]) -->
           <div class="flex items-center pb-[8px] px-[16px] pt-[8px] shrink-0 w-full">
@@ -647,7 +647,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
        modal, photo object-contained inside, pagination dots below) -->
   <div
     id="overlay-image-lightbox"
-    class="fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
+    class="fixed inset-0 bg-[var(--mel-scrim)] z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
   >
     <div
       id="overlay-lightbox-modal"
@@ -1251,46 +1251,39 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     color: var(--mel-action-primary);
   }
 
-  /* Panel lateral del mapa: en escritorio empuja el mapa (ancho 0→393px,
-     ver JS classList 'side-panel-open'). En móvil se convierte en bottom
-     sheet superpuesto (Figma 439:142691) que se desliza desde abajo sin
-     comprimir el mapa — misma cabecera/tags/lista, solo cambia la
-     geometría y se añade el tirador de arrastre. */
-  #map-side-panel.side-panel-open {
-    width: 393px;
-    border-left-width: 1px;
+  /* Panel del mapa — se comporta como el ToggleSelector (D-026): a partir de
+     `lg` (≥1024px, donde el toggle ocupa 4 de 12 columnas) es un panel lateral
+     que empuja el mapa con ese MISMO ancho proporcional; por debajo de `lg`
+     (donde el toggle "se va para abajo") se convierte en bottom sheet inferior. */
+
+  /* Desktop (lg+): ancho = 4 columnas del grid de 12 con gap-6, idéntico al
+     toggle. 11 gaps de 24px = 264px; 4 cols = (100%−264)/3, +3 gaps internos
+     (72px). Así el panel se estrecha/ensancha con la pantalla en vez de un
+     393px fijo que ahogaba el mapa. */
+  @media (min-width: 1024px) {
+    #map-side-panel.side-panel-open {
+      width: calc((100% - 264px) / 3 + 72px);
+      border-left-width: 1px;
+    }
   }
-  @media (max-width: 767px) {
+
+  /* Bajo lg: bottom sheet. Su borde superior llega justo por debajo del slider
+     de tiempo (--mel-sheet-top, medido en JS), dejando el slider a la vista
+     bajo el DIM. Nada redondeado ni recortado: el pliegue de papel lo pinta
+     BottomSheetHeader como dog-ear claro (funciona sobre el dim oscuro sin
+     dejar ver un agujero). Animación 0.5s suave de entrada y salida. */
+  @media (max-width: 1023px) {
     #map-side-panel {
-      /* fixed (no absolute): relativo al VIEWPORT real, no a #view-mapa —
-         así llega a los bordes reales de pantalla (izq/der/abajo). Su borde
-         superior queda a 88px del techo de pantalla (D-024: bajado 24px
-         respecto a los 64px de D-023, a petición del propietario). Un
-         `absolute` dentro de #view-mapa sumaría ese hueco al offset ya
-         existente del contenedor, dejando el sheet mucho más abajo. */
       position: fixed;
-      inset: 88px 0 0 0;
+      inset: var(--mel-sheet-top, 180px) 0 0 0;
       width: 100% !important;
       height: auto !important;
-      /* Nada redondeado: el único recurso del borde superior es el pliegue
-         diagonal de la esquina (clip-path). Sin border, sin radius, sin
-         box-shadow — el dim ya separa el sheet del mapa. El clip-path
-         recorta la esquina superior derecha (pliegue) y de paso enmascara
-         la sombra del pliegue que pinta BottomSheetHeader dentro. */
       border-left-width: 0 !important;
       border-top: 0 !important;
       border-radius: 0 !important;
       box-shadow: none !important;
-      --mel-sheet-notch: 40px;
-      clip-path: polygon(
-        0 0,
-        calc(100% - var(--mel-sheet-notch)) 0,
-        100% var(--mel-sheet-notch),
-        100% 100%,
-        0 100%
-      );
       transform: translate3d(0, 100%, 0);
-      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
     }
     #map-side-panel.side-panel-open {
       transform: translate3d(0, 0, 0);
@@ -1456,7 +1449,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-[24px] right-[16px] border-b border-mel-border/60"></div>' : ''}
+      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-[24px] right-[24px] border-b border-mel-border/60"></div>' : ''}
     `;
   }
 
@@ -2002,15 +1995,29 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           if (img.complete) measureFlyerImg(img);
         });
 
-        // First-load entrance: stagger so the reveal sweeps in from the
-        // bottom-right — cards later in reading order (DOM order, which in a
-        // row-dense grid trends toward the bottom-right) start first,
-        // earlier ones (top-left) start last, so it reads as if the wave
-        // arrives from that corner.
+        // First-load entrance: SOLO las tarjetas que caen dentro del viewport
+        // inicial reproducen el intro escalonado. Las que nacen por debajo del
+        // pliegue pasan a reveal-pending (opacity 0) para animarse al llegar
+        // el scroll — antes se les ponía intro-in a todas, así que las de
+        // abajo "gastaban" su animación invisibles y nunca se revelaban al
+        // hacer scroll (bug reportado en móvil, donde casi todo nace fuera de
+        // vista). El observer (armado más abajo) revela las pendientes.
         if (!gallerySettled) {
-          const introCards = gridContainer.querySelectorAll('.gallery-item.intro-in');
-          const total = introCards.length;
-          introCards.forEach((card, idx) => {
+          const rootBottom = galleryViewEl ? galleryViewEl.getBoundingClientRect().bottom : window.innerHeight;
+          const visibleIntro = [];
+          gridContainer.querySelectorAll('.gallery-item.intro-in').forEach(card => {
+            if (card.getBoundingClientRect().top < rootBottom) {
+              visibleIntro.push(card);
+            } else {
+              card.classList.remove('intro-in');
+              card.style.animationDelay = '';
+              card.classList.add('reveal-pending');
+            }
+          });
+          // Escalonado sobre las visibles: las últimas en orden (abajo-derecha)
+          // arrancan primero para que la ola entre desde esa esquina.
+          const total = visibleIntro.length;
+          visibleIntro.forEach((card, idx) => {
             card.style.animationDelay = `${(total - 1 - idx) * 25}ms`;
           });
         } else if (isGalleryVisible && oldCardRects.size > 0) {
@@ -2273,7 +2280,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             mobileListContainer.innerHTML = '';
             paginated.forEach((item, idx) => {
               const row = document.createElement('div');
-              row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[16px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+              row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
               row.dataset.id = item.idMel;
               row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
               mobileListContainer.appendChild(row);
@@ -2732,8 +2739,20 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   function setSidePanelOpenState(open) {
     const sidePanel = document.getElementById('map-side-panel');
     const backdrop = document.getElementById('map-side-panel-backdrop');
+    if (open) syncSheetTop();
     if (sidePanel) sidePanel.classList.toggle('side-panel-open', open);
     if (backdrop) backdrop.classList.toggle('side-panel-open', open);
+  }
+
+  // El bottom sheet del mapa (bajo lg) arranca justo por debajo del slider de
+  // tiempo, dejándolo a la vista bajo el DIM. Su alto (top) no es fijo: se mide
+  // el borde inferior del slider y se publica en --mel-sheet-top (lo consume la
+  // media query del sheet). Se recalcula al abrir y en cada resize.
+  function syncSheetTop() {
+    const slider = document.getElementById('slider-track-wrapper');
+    if (!slider) return;
+    const bottom = Math.round(slider.getBoundingClientRect().bottom);
+    document.documentElement.style.setProperty('--mel-sheet-top', bottom + 'px');
   }
 
   // Populate side panel details dynamically
@@ -2784,7 +2803,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
       group.events.forEach((evt, idx) => {
         const card = document.createElement('div');
-        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[16px] py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
         card.addEventListener('click', () => {
@@ -3218,6 +3237,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       galleryResizePending = true;
       requestAnimationFrame(() => {
         galleryResizePending = false;
+        syncSheetTop(); // el top del bottom sheet depende de la posición del slider
         const cards = document.querySelectorAll('#gallery-grid .gallery-item');
         if (!cards.length) return;
         const colWidth = cards[0].clientWidth;
@@ -3364,7 +3384,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         dragCurrentY = 0;
       };
       const dragStart = (e) => {
-        if (window.innerWidth >= 768) return; // Bottom sheet solo en móvil
+        if (window.innerWidth >= 1024) return; // Bottom sheet solo bajo lg
         isDragging = true;
         dragCurrentY = dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
         sidePanel.classList.add('side-panel-dragging');

@@ -2,65 +2,46 @@
 /**
  * BottomSheetHeader.astro
  * Cabecera decorativa reutilizable para bottom sheets — Figma "Bottom Sheet
- * Header" (node 269:11222): un tirador de arrastre rectangular sobre un panel
- * cuya esquina superior derecha está DOBLADA (pliegue de papel).
+ * Header" (node 269:11222): un tirador de arrastre RECTANGULAR sobre un panel
+ * cuya esquina superior derecha está DOBLADA (pliegue de papel / dog-ear).
  *
- * IMPORTANTE — nada en este sitio tiene esquinas redondeadas: ni el tirador
- * ni el panel. El único recurso decorativo del borde superior es el pliegue
- * diagonal.
+ * IMPORTANTE — nada en este sitio tiene esquinas redondeadas: ni el tirador ni
+ * el panel. El único recurso decorativo del borde superior es este pliegue.
  *
- * Reparto de responsabilidades:
- *  - El RECORTE del pliegue (la esquina cortada en diagonal) lo hace el
- *    CONTENEDOR del sheet con su propio `clip-path`, porque ese corte debe
- *    atravesar el fondo del sheet para dejar ver lo que hay detrás. La receta
- *    (mobile): `--mel-sheet-notch: 40px; clip-path: polygon(0 0,
- *    calc(100% - var(--mel-sheet-notch)) 0, 100% var(--mel-sheet-notch),
- *    100% 100%, 0 100%)`. Este componente NO pinta fondo.
- *  - Este componente aporta el TIRADOR y la SOMBRA del pliegue. La sombra se
- *    recorta sola contra la diagonal gracias al mismo `clip-path` del sheet
- *    (por eso el `notch` de aquí debe coincidir con `--mel-sheet-notch`).
+ * El pliegue es una CAPA CLARA superpuesta (dog-ear), NO un recorte del sheet:
+ * si recortáramos la esquina se vería el DIM oscuro por el hueco (parecía un
+ * agujero, no papel). Al pintar un triángulo claro con la sombra del doblez,
+ * se lee como esquina de papel doblada sobre cualquier fondo.
  *
  * Escala en horizontal sin límite (`w-full`): el pliegue mantiene su tamaño
  * fijo en la esquina en vez de deformarse con el ancho.
  */
 interface Props {
-  notch?: number;      // px del pliegue (Figma: 40). Debe coincidir con --mel-sheet-notch del sheet.
+  notch?: number;      // px del pliegue en la esquina (Figma: 40)
   height?: number;     // px de alto de la franja (Figma: 56)
   handleId?: string;   // id del tirador para engancharle el gesto de arrastre
   class?: string;
 }
 
 const { notch = 40, height = 56, handleId, class: className = '' } = Astro.props;
-
-// Sombra del pliegue: triángulo exacto de Figma en una caja de notch*2, con
-// desenfoque gaussiano REAL (feGaussianBlur, como Figma) — un filter:blur de
-// CSS recortado por clip-path cortaría el degradado en seco y dejaría un
-// triángulo sólido en vez de una sombra. Escala desde la referencia de 40px.
-const s = notch / 40;
-const box = 80 * s;
-const shadowPath = `M${16 * s} ${64 * s}L${24 * s} ${16 * s}L${64 * s} ${56 * s}Z`;
-const filterId = `bsh-blur-${Math.round(notch)}`;
 ---
 
 <div
-  class:list={["relative w-full shrink-0 pointer-events-none isolate", className]}
+  class:list={["relative w-full shrink-0 pointer-events-none", className]}
   style={`height:${height}px`}
   data-node-id="269:11222"
   data-name="Bottom Sheet Header"
 >
-  <svg
-    class="absolute top-0 right-0 mix-blend-multiply"
-    style={`width:${box}px; height:${box}px; opacity:0.16;`}
-    viewBox={`0 0 ${box} ${box}`}
+  <!-- Pliegue (dog-ear): triángulo superior derecho, un punto más oscuro que
+       el panel (la cara doblada del papel) + sombra suave del doblez hacia
+       abajo-izquierda (el pliegue cae sobre el panel). `bg-secondary` funciona
+       en claro y oscuro por ser semántico. -->
+  <div
+    class="absolute top-0 right-0 bg-mel-bg-secondary"
+    style={`width:${notch}px; height:${notch}px; clip-path: polygon(0 0, 100% 0, 100% 100%); filter: drop-shadow(-2px 2px 3px rgb(var(--mel-shadow-rgb) / 0.22));`}
     aria-hidden="true"
-  >
-    <defs>
-      <filter id={filterId} x="0" y="0" width={box} height={box} filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
-        <feGaussianBlur stdDeviation={8 * s} />
-      </filter>
-    </defs>
-    <path d={shadowPath} fill="rgb(var(--mel-shadow-rgb))" filter={`url(#${filterId})`} />
-  </svg>
+    data-name="Pliegue"
+  ></div>
 
   <!-- Tirador: rectángulo recto (SIN redondear), color borde. -->
   <div

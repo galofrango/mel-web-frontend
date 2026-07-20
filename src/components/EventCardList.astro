@@ -23,7 +23,7 @@ const { title, date, imageUrl, showDivider = true, class: className = '' } = Ast
      in index.astro) — the structure below serves as reference. Ver AGENTS.md
      regla 7: si cambia el diseño aquí, actualiza también esa réplica JS. -->
 <div
-  class:list={["group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[16px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200", className]}
+  class:list={["group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200", className]}
   data-node-id="291:13479"
   data-name="Event Card List"
 >
@@ -51,6 +51,6 @@ const { title, date, imageUrl, showDivider = true, class: className = '' } = Ast
     </svg>
   </div>
   {showDivider && (
-    <div class="absolute bottom-[0.5px] h-0 left-[24px] right-[16px] border-b border-mel-border/60" data-name="Divider"></div>
+    <div class="absolute bottom-[0.5px] h-0 left-[24px] right-[24px] border-b border-mel-border/60" data-name="Divider"></div>
   )}
 </div>

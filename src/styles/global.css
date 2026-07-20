@@ -60,8 +60,12 @@
   --mel-shadow-md: 0 4px 6px -1px rgb(var(--mel-shadow-rgb) / 0.1), 0 2px 4px -2px rgb(var(--mel-shadow-rgb) / 0.1);
   --mel-shadow-xl: 0 20px 25px -5px rgb(var(--mel-shadow-rgb) / 0.1), 0 8px 10px -6px rgb(var(--mel-shadow-rgb) / 0.1);
 
-  /* Dim / scrim de overlays (sobre el que además se aplica mix-blend-multiply) */
+  /* Dim contextual (se ve lo de detrás atenuado) — SIEMPRE con mix-blend-multiply:
+     SideMenu, panel/bottom sheet del mapa. */
   --mel-dim: rgb(var(--mel-shadow-rgb) / 0.8);
+  /* Scrim opaco de visores de imagen ampliada (debe OCULTAR el fondo, no
+     transparentarlo) — sin blend mode, cubre en claro y oscuro. */
+  --mel-scrim: rgb(var(--mel-shadow-rgb) / 0.92);
 
   /* Spacing */
   --mel-spacing-xs: 4px;
