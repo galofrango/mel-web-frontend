@@ -203,8 +203,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       </div>
     </div>
 
-    <!-- Toolbar: Slider & Controls -->
-    <div class="flex flex-col gap-6 py-4 shrink-0" style="view-transition-name: mel-toolbar;">
+    <!-- Toolbar: Slider & Controls. Solo pb (no pt): el hueco hasta la cabecera
+         lo da únicamente el gap-6 del contenedor padre — más ajustado, como en
+         el mockup de Figma (439:140952) donde el toolbar arranca pegado a la
+         cabecera. -->
+    <div class="flex flex-col gap-6 pb-4 shrink-0" style="view-transition-name: mel-toolbar;">
       <!-- Year Slider Bar (Removed text header label as requested). On mobile the
            slider runs full-bleed to the screen edges (negative margins cancel the
            page's px-6), per the mobile toolbar design (Figma 315:17658). -->
@@ -285,8 +288,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         >
           <!-- Tirador de arrastre: solo bottom sheet en móvil (Figma "Handler",
                node 439:142691). Cerrar deslizando hacia abajo, ver setupSidePanelDrag(). -->
-          <div id="map-side-panel-handle" class="flex md:hidden items-center justify-center py-[8px] w-full shrink-0 cursor-grab active:cursor-grabbing touch-none">
-            <div class="w-[48px] h-[5px] rounded-full bg-mel-border"></div>
+          <div id="map-side-panel-handle" class="flex md:hidden items-center justify-center pt-[16px] pb-[12px] w-full shrink-0 cursor-grab active:cursor-grabbing touch-none">
+            <div class="w-[80px] h-[5px] rounded-full bg-mel-border"></div>
           </div>
 
           <!-- Header / Close button (Figma matches: pb-[8px] px-[16px] pt-[8px]) -->
@@ -1246,11 +1249,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
   @media (max-width: 767px) {
     #map-side-panel {
-      position: fixed;
-      inset: auto 0 0 0;
+      /* absolute (no fixed) anclado a #view-mapa — que ya arranca por debajo
+         de la cabecera + toolbar del sitio — así el sheet nunca los tapa sin
+         necesidad de medir su alto en JS. top:64px replica el "Spacer" de
+         Figma (Bottom Sheet Header, 269:11222); como #view-mapa ya empieza
+         más abajo que eso, el resultado siempre respeta el hueco real. */
+      position: absolute;
+      inset: 64px 0 0 0;
       width: 100% !important;
       height: auto !important;
-      max-height: 75vh;
       border-left-width: 0 !important;
       border-top: 1px solid var(--mel-border);
       border-radius: 20px 20px 0 0;

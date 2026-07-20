@@ -7,7 +7,7 @@ import SliderHandler from './SliderHandler.astro';
   <div class="h-2 w-full bg-mel-border absolute top-1/2 -translate-y-1/2 rounded-none"></div>
   
   <!-- Active Slider Bar Fill (8px height, rounded-none, action/secondary mel-action-secondary) -->
-  <div id="slider-active-fill" class="h-2 bg-mel-action-secondary absolute top-1/2 -translate-y-1/2 rounded-none" style="left: 104px; right: 104px;"></div>
+  <div id="slider-active-fill" class="h-2 bg-mel-action-secondary absolute top-1/2 -translate-y-1/2 rounded-none" style="left: 96px; right: 96px;"></div>
   
   <!-- Dual range input fields (Hidden visually but kept for state/accessibility) -->
   <input 
@@ -80,11 +80,18 @@ import SliderHandler from './SliderHandler.astro';
     };
 
     const render = () => {
-      minHandle.style.left = `calc(104px + (100% - 208px) * ${minPct / 100} - 72px)`;
-      maxHandle.style.left = `calc(104px + (100% - 208px) * ${maxPct / 100} + 12px)`;
-      
-      activeFill.style.left = `calc(104px + (100% - 208px) * ${minPct / 100} - 42px)`;
-      activeFill.style.right = `calc(104px + (100% - 208px) * ${(100 - maxPct) / 100} - 42px)`;
+      // 96px de margen reservado a cada lado = tirador (min-width 60px) + punta
+      // de flecha (12px) + 24px de aire real hasta el borde de pantalla (D-021).
+      // El tirador max se ancla por `right` (no `left`): su ancho real crece
+      // con el texto del año ("2019" > "2004" en px), así que anclar desde el
+      // lado contrario a su borde exterior es lo único que garantiza los 24px
+      // exactos sin depender de cuánto mida el contenido.
+      minHandle.style.left = `calc(96px + (100% - 192px) * ${minPct / 100} - 72px)`;
+      maxHandle.style.left = 'auto';
+      maxHandle.style.right = `calc(96px + (100% - 192px) * ${(100 - maxPct) / 100} - 72px)`;
+
+      activeFill.style.left = `calc(96px + (100% - 192px) * ${minPct / 100} - 42px)`;
+      activeFill.style.right = `calc(96px + (100% - 192px) * ${(100 - maxPct) / 100} - 42px)`;
 
       const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);
       const val2 = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
@@ -117,7 +124,7 @@ import SliderHandler from './SliderHandler.astro';
     window.addEventListener('pointermove', (e) => {
       if (!isDraggingMin && !isDraggingMax) return;
       const rect = trackWrapper.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 104) / (rect.width - 208)) * 100));
+      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
 
       if (isDraggingMin) {
         // Clamp: never exceed maxPct
@@ -169,7 +176,7 @@ import SliderHandler from './SliderHandler.astro';
       if (minHandle.contains(target) || maxHandle.contains(target)) return;
 
       const rect = trackWrapper.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 104) / (rect.width - 208)) * 100));
+      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
       const clickedYear = Math.round((pct / 100) * RANGE + MIN_YEAR);
 
       const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);

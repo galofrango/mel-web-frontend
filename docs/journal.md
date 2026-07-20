@@ -2,6 +2,32 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-20] — Sesión: Pulido del bottom sheet, extremos del slider a 24px y hueco cabecera↔toolbar
+
+### Objetivo de la Sesión
+Repaso de detalle sobre el trabajo de la sesión anterior (bottom sheet del mapa, D-020): posicionar su cabecera a 64px del techo de pantalla siguiendo Figma, verificar que las sombras/dim no se conviertan en resplandores en modo oscuro, corregir los extremos del slider de fecha para que queden siempre a 24px de los bordes, y ajustar el hueco entre la cabecera del sitio y el bloque de toolbar en escritorio.
+
+### Cambios Realizados
+1. **Slider de fecha (D-021)**: el tirador máximo se posicionaba por `left` con un offset que asumía una caja de 60px de ancho fijo; como el texto del año hace que la caja crezca (ej. "2019" ≠ "2004" en píxeles), su borde exterior real quedaba a 21.3px en vez de 24px. Cambiado a `style.right` (con `left:auto`), que ancla directamente el borde que importa sin depender del ancho del contenido. Margen base reservado ajustado de 104px a 96px. Verificado con `getBoundingClientRect()`: 24.0px exactos en escritorio y en el caso full-bleed de móvil.
+2. **Bottom sheet del mapa (D-022)**:
+   - Posición vertical: `max-height:75vh` sustituido por `top:64px` (equivalente al "Spacer" de Figma `269:11222`) sobre el `position:absolute` ya anclado a `#view-mapa` — como ese contenedor ya arranca bajo la cabecera+toolbar del sitio, el resultado respeta "no tapar la cabecera" sin medir nada en JS. Verificado: 64.0px exactos.
+   - Tirador de arrastre corregido a 80px de ancho (antes 48px, Figma especifica `393−157−156`) y `pt-16/pb-12` en vez de `py-8`.
+   - No se replicaron los adornos decorativos de "pliegue de papel" del header de Figma (SVGs con máscara) — fuera de proporción para el resto de la tarea.
+3. **Hueco cabecera↔toolbar en escritorio (D-022)**: el wrapper del toolbar tenía `py-4` además del `gap-6` del contenedor padre (40px totales). Quitado el padding superior (`pb-4` en vez de `py-4`), dejando solo el `gap-6` (24px) — más ajustado, sin tocar el hueco toolbar→contenido.
+4. **Auditoría de sombra/dim (D-022)**: revisados todos los `box-shadow`/`drop-shadow`/fondos de dim del proyecto. Ninguno usa una variable semántica que cambie entre `:root`/`.dark` — todos son `rgba(...)` fijos o primitivos estáticos (`--mel-primitive-le-900/950`, no sobrescritos en modo oscuro). Verificado visualmente forzando `.dark`: ninguna sombra se ve como resplandor. No hizo falta ningún `mix-blend-mode` adicional.
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-021 (slider) y D-022 (bottom sheet, hueco de toolbar, auditoría de sombras).
+
+### Problemas Encontrados y Resueltos
+- El bug del slider (21.3px en vez de 24px) solo era detectable midiendo en el navegador — el código "parecía" simétrico (mismo offset base para ambos tiradores) pero el eje de anclaje (`left` en un tirador cuyo borde relevante es el derecho) escondía la dependencia del ancho del texto. Confirmado con `getBoundingClientRect()` antes y después del fix.
+- Al verificar el bottom sheet, las primeras lecturas de `getBoundingClientRect()` devolvieron valores intermedios (la transición CSS de 300-350ms aún no había terminado) — hubo que releer tras un instante para obtener el valor final real, evitando diagnosticar un falso bug.
+
+### Tareas Pendientes
+- Ninguna nueva. Sigue pendiente verificar el bottom sheet completo (incluyendo el flujo real de click-en-marcador) en un dispositivo móvil real, per el `journal.md` de la sesión anterior.
+
+---
+
 ## [2026-07-20] — Sesión: Fix de galería amontonada, `EventCardList` compartido y bottom sheet móvil del mapa
 
 ### Objetivo de la Sesión
