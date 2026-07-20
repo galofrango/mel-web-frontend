@@ -2040,7 +2040,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               <td class="border-l border-r border-mel-border bg-mel-bg-primary p-2">
                 <div class="flex gap-[12px] h-[48px] items-center min-w-0">
                   <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0 border border-mel-border/30">
-                    ${firstImg ? `<img alt="" class="object-contain w-full h-full pointer-events-none" src="${firstImg}" />` : ''}
+                    ${firstImg ? `<img alt="" class="list-img-link object-fill w-full h-full cursor-pointer hover:brightness-110 transition-all duration-200" data-id="${item.idMel}" src="${firstImg}" referrerpolicy="no-referrer" />` : ''}
                   </div>
                   <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
                     <span class="marquee-inner">${escHtml(item.evento)}<span class="table-link-underline"></span></span>
@@ -2120,28 +2120,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             }
           }
 
-          // Bind title link clicks to open event details
-          listBody.querySelectorAll('.event-title-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const id = link.getAttribute('data-id');
-              const item = archives.find(x => x.idMel === id);
-              if (item) {
-                openLightbox(item);
-              }
-            });
-          });
-
-          // Bind search-cell-link clicks to trigger search
-          listBody.querySelectorAll('.search-cell-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-              e.stopPropagation();
-              const query = link.getAttribute('data-search');
-              if (query) {
-                window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query } }));
-              }
-            });
-          });
 
           // Setup marquee overflow detection. Force a synchronous layout
           // flush first — without it, cell.clientWidth below can read a
@@ -3222,6 +3200,48 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         closeDetailsOverlaySPA(false);
       }
     }, { signal: wSig });
+
+    // Register list table event delegation handler at document level (survives all DOM updates)
+    if (!window._melListClickHandlerBound) {
+      window._melListClickHandlerBound = true;
+      document.addEventListener('click', (e) => {
+        const listBody = document.getElementById('list-table-body');
+        if (!listBody || !listBody.contains(e.target)) return; // Only handle clicks within the list table
+
+        let target = e.target;
+
+        // Check if click is on thumbnail image
+        if (target.classList.contains('list-img-link') || target.closest('.list-img-link')) {
+          e.stopPropagation();
+          const img = target.classList.contains('list-img-link') ? target : target.closest('.list-img-link');
+          const id = img.getAttribute('data-id');
+          const item = archives.find(x => x.idMel === id);
+          if (item) openLightbox(item);
+          return;
+        }
+
+        // Check if click is on title link or its children (span, svg)
+        if (target.classList.contains('event-title-link') || target.closest('.event-title-link')) {
+          e.stopPropagation();
+          const link = target.classList.contains('event-title-link') ? target : target.closest('.event-title-link');
+          const id = link.getAttribute('data-id');
+          const item = archives.find(x => x.idMel === id);
+          if (item) openLightbox(item);
+          return;
+        }
+
+        // Check if click is on search cell link
+        if (target.classList.contains('search-cell-link') || target.closest('.search-cell-link')) {
+          e.stopPropagation();
+          const link = target.classList.contains('search-cell-link') ? target : target.closest('.search-cell-link');
+          const query = link.getAttribute('data-search');
+          if (query) {
+            window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query } }));
+          }
+          return;
+        }
+      });
+    }
 
     // Initialize state and render
     calculateDynamicBounds();
