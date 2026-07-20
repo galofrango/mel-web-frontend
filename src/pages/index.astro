@@ -173,6 +173,15 @@ const tags = [
   { label: "Promotores", count: initialPromoters.size }
 ];
 
+// Orden aleatorio de la galería (ver decisions.md D-015): cada visita baraja
+// el archivo entero (Fisher-Yates) — la galería es deliberadamente "random",
+// pensada para quien entra a mirar sin buscar nada concreto. El cliente
+// siembra sus claves aleatorias con este mismo orden al arrancar.
+const shuffledArchives = [...initialArchives];
+for (let i = shuffledArchives.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [shuffledArchives[i], shuffledArchives[j]] = [shuffledArchives[j], shuffledArchives[i]];
+}
 ---
 
 <Layout title="Galería de Diseño">
@@ -226,9 +235,11 @@ const tags = [
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
     <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px]">
 
-      <!-- 1. GALLERY VIEW (masonry 2.0: CSS multicolumna, cada flyer entero a
-           ancho de columna y ratio original — sin recortes; ver galeria-1.0
-           para la rejilla anterior de alturas fijas). -->
+      <!-- 1. GALLERY VIEW (masonry 2.1: CSS Grid + row-span medido por imagen,
+           cada flyer entero a ancho de columna y ratio original, sin recortes;
+           orden aleatorio, scroll infinito vía #gallery-sentinel. Ver
+           decisions.md D-014/D-015; galeria-1.0 es el tag de la rejilla
+           antigua de alturas fijas). -->
       <!-- Negative side margins + matching padding make the scroll container clip
            44px OUTSIDE the grid on the sides and 24px above it, so hovered cards
            (scale + shadow) aren't cut off at the edges while the grid stays
@@ -236,8 +247,8 @@ const tags = [
            a scroll container's own padding-bottom is dropped from the scrollable
            area, so it wouldn't reserve space at the end of the scroll. -->
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px]">
-        <div id="gallery-grid" class="columns-1 sm:columns-2 md:columns-3 gap-x-mel-xl w-full pb-[6vh]">
-          {initialArchives.slice(0, 32).map((item, i) => {
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
+          {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
             return (
@@ -252,6 +263,10 @@ const tags = [
             );
           })}
         </div>
+        <!-- Centinela del scroll infinito: cuando entra en el margen de
+             precarga del IntersectionObserver (~1200px antes de ser visible)
+             se añade el siguiente lote de tarjetas. -->
+        <div id="gallery-sentinel" class="h-px w-full" aria-hidden="true"></div>
       </div>
 
       <!-- 2. MAP VIEW (Real Google Map with sliding side panel). top-[24px] instead of
@@ -740,14 +755,43 @@ const tags = [
     display: block;
   }
 
-  /* Masonry multicolumna: cada tarjeta ocupa el ancho de su columna y crece
-     a la altura natural de la imagen (sin object-cover, sin recortes).
-     break-inside evita que una tarjeta se parta entre dos columnas; el hueco
-     vertical replica el column-gap del contenedor (mel-xl). */
+  /* Masonry por CSS Grid + row-span (D-015): cada tarjeta reserva tantas
+     filas de 4px (auto-rows del contenedor) como pide su imagen a ancho de
+     columna más el hueco de 24px — lo calcula sizeGalleryCard() cuando la
+     imagen publica su ratio (onload). align-self:start deja que la tarjeta
+     mida exactamente lo que mide su imagen: el resto del área reservada es
+     el hueco vertical. A diferencia del multicol, añadir tarjetas al final
+     NO recoloca las existentes (requisito del scroll infinito). */
   .gallery-item {
-    break-inside: avoid;
-    margin-bottom: var(--mel-spacing-xl);
+    align-self: start;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  /* Placeholder mientras la imagen aún no ha declarado su ratio: bloque
+     blanco de ~300px para que la rejilla no arranque colapsada. */
+  .gallery-item.unsized {
+    grid-row-end: span 75;
+    min-height: 280px;
+  }
+
+  /* Revelado al hacer scroll (a nivel de tarjeta, independiente de cómo se
+     alineen: sirve igual para cualquier layout futuro de la galería). Las
+     tarjetas que nacen fuera del viewport esperan ocultas (.reveal-pending)
+     y animan su entrada cuando el IntersectionObserver las ve llegar. */
+  .gallery-item.reveal-pending {
+    opacity: 0;
+  }
+  @keyframes gallery-reveal {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 32px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+  .gallery-item.reveal-in {
+    animation: gallery-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   .gallery-item:hover {
     transform: scale(1.025) !important;
@@ -1297,6 +1341,125 @@ const tags = [
     return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
   }
 
+  // -------------------------------------------------------
+  // Galería masonry 2.1 (ver decisions.md D-015): grid + row-span medido,
+  // orden aleatorio estable y scroll infinito.
+  // -------------------------------------------------------
+  const GALLERY_ROW = 4;   // grid-auto-rows del contenedor, en px
+  const GALLERY_GAP = 24;  // hueco entre tarjetas (mel-l), horizontal y vertical
+
+  // Cuántas tarjetas muestra la galería ahora mismo (crece por lotes de
+  // PAGE_SIZE con el scroll; los filtros/búsquedas lo resetean).
+  let galleryVisibleCount = PAGE_SIZE;
+  // `filtered` reordenado con las claves aleatorias — lo consume el append.
+  let galleryOrderedCache = [];
+  let revealObserver = null;
+  let sentinelObserver = null;
+
+  // Orden aleatorio ESTABLE por sesión: cada evento recibe una clave al azar
+  // la primera vez que se le ve y la conserva — así un cambio de filtro no
+  // rebaraja lo que ya está en pantalla (el FLIP puede seguir cada tarjeta)
+  // y añadir lotes nunca recoloca nada. Cada carga de página = orden nuevo.
+  const galleryRandomKeys = new Map();
+  function galleryRandKey(id) {
+    if (!galleryRandomKeys.has(id)) galleryRandomKeys.set(id, Math.random());
+    return galleryRandomKeys.get(id);
+  }
+
+  // Fija el row-span de una tarjeta a partir del ratio de su imagen y el
+  // ancho de columna actual. `width` es opcional (una pasada de resize lo
+  // lee una sola vez: todas las columnas miden lo mismo).
+  function sizeGalleryCard(card, width) {
+    const ratio = parseFloat(card.dataset.ratio);
+    const w = width || card.clientWidth;
+    if (!ratio || !w) return;
+    card.style.gridRowEnd = 'span ' + Math.max(1, Math.round((w / ratio + GALLERY_GAP) / GALLERY_ROW));
+    card.classList.remove('unsized');
+  }
+
+  // Llamado por el onload inline de cada <img> (y por la repesca de imágenes
+  // ya completas tras cada render): publica el ratio real en la tarjeta.
+  function measureFlyerImg(img) {
+    const card = img.closest('.gallery-item');
+    if (!card || !img.naturalWidth || !img.naturalHeight) return;
+    card.dataset.ratio = String(img.naturalWidth / img.naturalHeight);
+    sizeGalleryCard(card);
+  }
+  window.__melMeasureFlyer = measureFlyerImg;
+
+  // Única fábrica de tarjetas de galería (render completo Y lotes del scroll
+  // infinito) — réplica JS de FlyerCard.astro, ver regla 7 de CLAUDE.md.
+  function buildGalleryCard(item, i) {
+    const card = document.createElement('div');
+    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+    card.className = 'gallery-item unsized relative overflow-hidden shadow-sm group bg-white transition-all duration-300 cursor-pointer';
+    card.dataset.id = item.idMel;
+    card.innerHTML = `
+      <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
+      <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" />
+
+      <!-- Blending grid overlay (striped Figma style) -->
+      <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
+
+      <!-- Overlay info on hover -->
+      <div class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[0px_-4px_10px_rgba(38,31,31,0.15)]">
+        <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">${item.evento}</p>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      openLightbox(item);
+    });
+    return card;
+  }
+
+  // Revelado al scroll: primera visita de cada tarjeta al observer — si nace
+  // fuera del viewport se oculta (.reveal-pending) hasta que el scroll la
+  // trae, y entonces anima su entrada con un pequeño escalonado.
+  function handleRevealEntries(entries) {
+    let staggerIdx = 0;
+    entries.forEach(entry => {
+      const card = entry.target;
+      if (entry.isIntersecting) {
+        if (card.classList.contains('reveal-pending')) {
+          card.style.animationDelay = `${staggerIdx * 45}ms`;
+          staggerIdx++;
+          card.classList.remove('reveal-pending');
+          card.classList.add('reveal-in');
+        }
+        if (revealObserver) revealObserver.unobserve(card);
+      } else if (!card.classList.contains('reveal-pending') && !card.classList.contains('reveal-in')) {
+        // Fuera del viewport en su primera pasada: el intro de primera carga
+        // ya no le aplica (habría quedado "gastado" sin verse).
+        card.classList.remove('intro-in');
+        card.classList.add('reveal-pending');
+      }
+    });
+  }
+
+  // Scroll infinito: el centinela (#gallery-sentinel, hermano de la rejilla)
+  // entra en el margen de precarga y se añade el siguiente lote SIN tocar lo
+  // ya colocado. Búsquedas y filtros no interfieren: resetean
+  // galleryVisibleCount y pasan por el rebuild completo de performDOMUpdates.
+  function appendGalleryBatch() {
+    const gridContainer = document.getElementById('gallery-grid');
+    const galleryViewEl = document.getElementById('view-galería');
+    if (!gridContainer || !galleryViewEl || galleryViewEl.classList.contains('hidden')) return;
+    const next = galleryOrderedCache.slice(galleryVisibleCount, galleryVisibleCount + PAGE_SIZE);
+    if (next.length === 0) return;
+    const startIdx = galleryVisibleCount;
+    galleryVisibleCount += next.length;
+    next.forEach((item, i) => {
+      const card = buildGalleryCard(item, startIdx + i);
+      // Un lote nuevo nace siempre por debajo del viewport: directo a
+      // reveal-pending, sin esperar a la primera pasada del observer.
+      card.classList.add('reveal-pending');
+      gridContainer.appendChild(card);
+      if (revealObserver) revealObserver.observe(card);
+      const img = card.querySelector('img');
+      if (img && img.complete) measureFlyerImg(img);
+    });
+  }
+
   // Determine dynamic bounds
   function calculateDynamicBounds() {
     let min = Infinity;
@@ -1348,6 +1511,12 @@ const tags = [
 
     // Reset pagination to first page when filtering changes
     currentPage = 1;
+    // La galería vuelve a su primer lote de scroll infinito y al inicio del
+    // scroll: quedarse a media profundidad sobre un resultado recién
+    // encogido dejaba al usuario varado entre huecos.
+    galleryVisibleCount = PAGE_SIZE;
+    const galleryScroller = document.getElementById('view-galería');
+    if (galleryScroller) galleryScroller.scrollTop = 0;
 
     if (sliderUpdateScheduled) return;
     sliderUpdateScheduled = true;
@@ -1574,6 +1743,13 @@ const tags = [
       
       const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
+      // La galería va por libre (D-015): ignora la paginación (scroll
+      // infinito por lotes) y el orden de `filtered` (orden aleatorio
+      // estable por sesión). `paginated` sigue siendo el corte de la lista.
+      galleryOrderedCache = [...filtered].sort((a, b) => galleryRandKey(a.idMel) - galleryRandKey(b.idMel));
+      if (galleryVisibleCount < PAGE_SIZE) galleryVisibleCount = PAGE_SIZE;
+      const galleryShown = galleryOrderedCache.slice(0, galleryVisibleCount);
+
       // Update pagination UI controls
       if (paginationNumbers) {
         paginationNumbers.innerHTML = '';
@@ -1635,7 +1811,7 @@ const tags = [
       const oldCardRects = new Map();
       const exitingCardClones = [];
       if (isGalleryVisible && gallerySettled) {
-        const newIdsSet = new Set(paginated.map(item => item.idMel));
+        const newIdsSet = new Set(galleryShown.map(item => item.idMel));
         const gridRectForExit = gridContainer.getBoundingClientRect();
         Array.from(gridContainer.children).forEach(card => {
           if (!card.dataset || !card.dataset.id) return;
@@ -1648,6 +1824,9 @@ const tags = [
             // clone that would ignore that clipping and could show up
             // overlapping unrelated page chrome below the grid.
             const clone = card.cloneNode(true);
+            // El clon es puro atrezzo de salida: sin id, ni el FLIP del
+            // siguiente render ni el observer de revelado deben verlo.
+            delete clone.dataset.id;
             clone.style.position = 'absolute';
             clone.style.left = (cardRect.left - gridRectForExit.left) + 'px';
             clone.style.top = (cardRect.top - gridRectForExit.top) + 'px';
@@ -1661,9 +1840,12 @@ const tags = [
         });
       }
 
+      // Las tarjetas antiguas van a desaparecer: suelta sus observaciones de
+      // revelado antes de recrearlas (el rebuild vuelve a armar las nuevas).
+      if (revealObserver) revealObserver.disconnect();
       gridContainer.innerHTML = '';
 
-      if (paginated.length === 0) {
+      if (filtered.length === 0) {
         gridContainer.className = 'w-full flex items-center justify-center py-12 relative';
         gridContainer.innerHTML = `
           <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
@@ -1687,35 +1869,18 @@ const tags = [
         // it off immediately instead of letting it fade. The ancestor
         // #view-galería's own overflow-y-auto already contains everything
         // to the actual visible scroll area, which is what matters.
-        // Extra bottom padding when pagination is hidden (single page) — reserves roughly the
-        // space that module would take, so the scroll area doesn't run flush to the screen edge.
-        gridContainer.className = `columns-1 sm:columns-2 md:columns-3 gap-x-mel-xl w-full ${totalPages > 1 ? 'pb-[6vh]' : 'pb-[13vh]'} relative`;
-        paginated.forEach((item, i) => {
-          const card = document.createElement('div');
-          const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
-          const yr = getYear(item.fecha) || 2004;
-
-          card.className = `gallery-item relative overflow-hidden shadow-sm group bg-white transition-all duration-300 cursor-pointer`;
-          card.dataset.id = item.idMel;
+        // El pb fijo reserva el aire inferior: en galería ya no hay módulo de
+        // paginación (scroll infinito), así que siempre el hueco grande.
+        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh] relative`;
+        galleryShown.forEach((item, i) => {
+          const card = buildGalleryCard(item, i);
           if (!gallerySettled) card.classList.add('intro-in');
-          card.innerHTML = `
-            <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-            <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" />
-            
-            <!-- Blending grid overlay (striped Figma style) -->
-            <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
-
-            <!-- Overlay info on hover -->
-            <div class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[0px_-4px_10px_rgba(38,31,31,0.15)]">
-              <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">${item.evento}</p>
-            </div>
-          `;
-          
-          card.addEventListener('click', () => {
-            openLightbox(item);
-          });
-          
           gridContainer.appendChild(card);
+        });
+        // Repesca: las imágenes ya en caché pueden haber completado antes de
+        // que su onload inline llegara a registrarse tras el innerHTML.
+        gridContainer.querySelectorAll('img').forEach(img => {
+          if (img.complete) measureFlyerImg(img);
         });
 
         // First-load entrance: stagger so the reveal sweeps in from the
@@ -1782,6 +1947,16 @@ const tags = [
             setTimeout(() => {
               exitingCardClones.forEach(clone => clone.remove());
             }, 320);
+          });
+        }
+
+        // Arma el revelado al scroll para todas las tarjetas recién creadas:
+        // las que ya están a la vista quedan como están (intro/FLIP); las que
+        // nacen por debajo del viewport se ocultan y entran animadas al llegar
+        // el scroll (ver handleRevealEntries).
+        if (revealObserver) {
+          Array.from(gridContainer.children).forEach(card => {
+            if (card.dataset && card.dataset.id) revealObserver.observe(card);
           });
         }
       }
@@ -1992,15 +2167,13 @@ const tags = [
       // Pagination only makes sense with more than one page — otherwise, on
       // a short result set, it used to float below an empty gap since the
       // table/grid don't stretch to reach it. Hiding it here (on top of
-      // switchView()'s own view-based show/hide) covers that.
+      // switchView()'s own view-based show/hide) covers that. Desde D-015 la
+      // galería pagina por scroll infinito: el módulo es solo de la lista.
       const pagControls = document.getElementById('pagination-controls');
       if (pagControls) {
-        const galleryViewCheck = document.getElementById('view-galería');
         const listViewCheck = document.getElementById('view-lista');
-        const isGalleryOrListActive =
-          (galleryViewCheck && !galleryViewCheck.classList.contains('hidden')) ||
-          (listViewCheck && !listViewCheck.classList.contains('hidden'));
-        const shouldShowPagination = isGalleryOrListActive && totalPages > 1;
+        const isListActive = listViewCheck && !listViewCheck.classList.contains('hidden');
+        const shouldShowPagination = isListActive && totalPages > 1;
         pagControls.classList.toggle('hidden', !shouldShowPagination);
         pagControls.classList.toggle('flex', shouldShowPagination);
 
@@ -2153,9 +2326,10 @@ const tags = [
       }
     });
 
+    // Solo la lista pagina (la galería usa scroll infinito desde D-015).
     const pagControls = document.getElementById('pagination-controls');
     if (pagControls) {
-      if (viewName === 'galería' || viewName === 'lista') {
+      if (viewName === 'lista') {
         pagControls.classList.remove('hidden');
         pagControls.classList.add('flex');
       } else {
@@ -2880,6 +3054,52 @@ const tags = [
     window._melAbortCtrl = new AbortController();
     const wSig = window._melAbortCtrl.signal;
 
+    // --- Galería masonry 2.1 (D-015) ---
+    // Siembra las claves aleatorias con el orden que ya pintó el servidor
+    // (él también baraja): la primera pasada de filtros reproduce ese orden
+    // en vez de re-barajar visiblemente lo que ya está en pantalla.
+    if (galleryRandomKeys.size === 0) {
+      const ssrCards = document.querySelectorAll('#gallery-grid .gallery-item');
+      ssrCards.forEach((card, idx) => {
+        if (card.dataset.id) galleryRandomKeys.set(card.dataset.id, (idx + 0.5) / ssrCards.length);
+      });
+    }
+    galleryVisibleCount = PAGE_SIZE;
+
+    const galleryViewRoot = document.getElementById('view-galería');
+    if (revealObserver) revealObserver.disconnect();
+    revealObserver = galleryViewRoot
+      ? new IntersectionObserver(handleRevealEntries, { root: galleryViewRoot, rootMargin: '0px 0px 5% 0px', threshold: 0.01 })
+      : null;
+
+    if (sentinelObserver) sentinelObserver.disconnect();
+    sentinelObserver = null;
+    const gallerySentinel = document.getElementById('gallery-sentinel');
+    if (galleryViewRoot && gallerySentinel) {
+      // rootMargin inferior generoso = precarga: el siguiente lote se pide
+      // ~1200px antes de que el usuario llegue al final de la rejilla.
+      sentinelObserver = new IntersectionObserver((entries) => {
+        if (entries.some(e => e.isIntersecting)) appendGalleryBatch();
+      }, { root: galleryViewRoot, rootMargin: '0px 0px 1200px 0px' });
+      sentinelObserver.observe(gallerySentinel);
+    }
+
+    // Al cambiar el ancho de columna todos los row-span quedan viejos:
+    // recalcula en bloque (una sola lectura de ancho, luego solo escrituras),
+    // coalescido por rAF para no medir en cada evento de resize.
+    let galleryResizePending = false;
+    window.addEventListener('resize', () => {
+      if (galleryResizePending) return;
+      galleryResizePending = true;
+      requestAnimationFrame(() => {
+        galleryResizePending = false;
+        const cards = document.querySelectorAll('#gallery-grid .gallery-item');
+        if (!cards.length) return;
+        const colWidth = cards[0].clientWidth;
+        cards.forEach(card => sizeGalleryCard(card, colWidth));
+      });
+    }, { signal: wSig });
+
     // Bind all event listeners
     bindSliderEvents();
     bindLightboxEvents();
@@ -2935,6 +3155,11 @@ const tags = [
       }
       currentPage = 1;
       _s.currentPage = 1;
+      // La galería vuelve a su primer lote de scroll infinito y arriba
+      // (mismo motivo que en updateSlider).
+      galleryVisibleCount = PAGE_SIZE;
+      const galleryScroller = document.getElementById('view-galería');
+      if (galleryScroller) galleryScroller.scrollTop = 0;
       filterArchives(true);
     }, { signal: wSig });
 

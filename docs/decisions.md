@@ -147,7 +147,7 @@ reviertan (marca la reversión como una entrada nueva).
 - **Consecuencias**: si la hoja introduce un centinela nuevo, hay que añadirlo
   a los filtros (`getTagDisplay`, recuentos en index.astro).
 
-## D-014 · Galería 2.0: masonry CSS multicolumna sin recortes
+## D-014 · Galería 2.0: masonry CSS multicolumna sin recortes (sustituida por D-015)
 
 - **Contexto**: la galería 1.0 (tag git `galeria-1.0`) usaba una rejilla CSS
   de tarjetas con altura fija (408px) y `object-cover`, que recortaba los
@@ -167,3 +167,46 @@ reviertan (marca la reversión como una entrada nueva).
   columna se reequilibra al cargar (reflow visible en conexiones lentas). Las
   animaciones existentes (FLIP de reordenación, clones de salida, intro
   escalonada) siguen funcionando porque operan sobre `getBoundingClientRect`.
+
+## D-015 · Galería 2.1: la exploración, la elección y sus ajustes
+
+- **Contexto**: sobre la 2.0 (D-014) se construyeron dos alternativas
+  funcionales para valorar, cada una en su rama: `galeria/filas-justificadas`
+  (filas tipo salón que igualan altura y cierran al ancho exacto, orden
+  estricto de lectura) y `galeria/paseo-horizontal` (pared única de
+  exposición con scroll lateral). El propietario valoró positivamente las
+  filas justificadas —navegación visible y sin problemas de alineación con
+  imágenes a medio cargar— pero eligió el **masonry de tres columnas** por
+  ser más dinámico visualmente. Las ramas se conservan como referencia.
+- **Decisión** (los cinco ajustes pedidos sobre el masonry):
+  1. Huecos de **24px** (`mel-l`) entre columnas y entre tarjetas.
+  2. **Scroll infinito** en vez de paginación (el módulo de paginación pasa a
+     ser exclusivo de la vista Lista): un centinela (`#gallery-sentinel`)
+     observado con `rootMargin` inferior de ~1200px añade el siguiente lote
+     de 32 con antelación al scroll del usuario. Búsquedas y filtros por
+     fecha no interfieren: resetean el contador de lote, devuelven el scroll
+     arriba y pasan por el rebuild completo (con su FLIP).
+  3. **Orden totalmente aleatorio** — concepto de galería experimental para
+     quien entra a mirar sin buscar nada. Aleatorio pero **estable por
+     sesión**: cada evento recibe una clave `Math.random()` la primera vez
+     que se le ve (`galleryRandomKeys`); así cambiar filtros no rebaraja lo
+     visible (el FLIP puede seguir cada tarjeta) y añadir lotes no recoloca
+     nada. El servidor baraja también (Fisher-Yates por request) y el cliente
+     siembra sus claves con ese orden para no re-barajar el primer pintado.
+  4. **Revelado animado al scroll, a nivel de tarjeta** (independiente del
+     layout, reutilizable con cualquier alineación futura): las tarjetas que
+     nacen fuera del viewport esperan ocultas (`.reveal-pending`) y un
+     IntersectionObserver las anima al entrar (`.reveal-in`, escalonado).
+  5. Cambio de técnica interna: **CSS Grid + `row-span` medido por imagen**
+     en lugar de multicolumna. Motivo: multicol **rebalancea todas las
+     columnas** al añadir contenido al final — cada lote del scroll infinito
+     habría movido las tarjetas que el usuario está viendo. Con grid +
+     spans (contenedor `auto-rows: 4px`; cada imagen publica su ratio en
+     `onload` y `sizeGalleryCard()` fija su span) el append es estable, y
+     de regalo el orden visual pasa a ser por filas. Una pasada en `resize`
+     recalcula los spans al cambiar el ancho de columna.
+- **Consecuencias**: la galería ya no comparte la paginación con la lista
+  (`paginated` es solo de la lista; la galería corta `galleryOrderedCache`
+  por `galleryVisibleCount`). Mientras una imagen no ha cargado, su tarjeta
+  es un placeholder blanco (`.unsized`, ~300px). El hueco vertical real
+  oscila 24±4px por el redondeo del span a filas de 4px.

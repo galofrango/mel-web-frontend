@@ -79,6 +79,11 @@ Ver el árbol comentado en [README.md](README.md#estructura-general). Lo esencia
     (título/buscador + menú). En móvil el título colapsa a "M.E.L." y el menú a
     solo icono, con 16px de separación. Si creas una página nueva, replica el
     header de `exposiciones.astro`.
+11. **CSS multicolumna rebalancea TODAS las columnas al añadir contenido al
+    final** (`column-fill: balance` es obligatorio con altura libre): no sirve
+    para scroll infinito porque cada lote mueve lo que el usuario está viendo.
+    El masonry de la galería usa CSS Grid + `row-span` medido por imagen
+    (`sizeGalleryCard()` en index.astro), que hace el append estable.
 
 ## Qué evitar
 

@@ -11,7 +11,7 @@ interface Props {
 const { title, category, location, year, image, id } = Astro.props;
 ---
 <div
-  class="gallery-item relative overflow-hidden bg-white cursor-pointer transition-all duration-300 group hover:z-30"
+  class="gallery-item unsized relative overflow-hidden bg-white cursor-pointer transition-all duration-300 group hover:z-30"
   data-id={id}
   data-year={year}
   data-category={category}
@@ -20,13 +20,17 @@ const { title, category, location, year, image, id } = Astro.props;
   data-node-id="Grid Image V2"
 >
   <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers.
-       h-auto: la imagen entera a ancho de columna y ratio original (masonry 2.0, sin recortes). -->
+       h-auto: la imagen entera a ancho de columna y ratio original (sin recortes).
+       onload publica el ratio real y fija el row-span de la tarjeta en el grid
+       (masonry 2.1) — con guarda por si la imagen carga antes que el módulo JS
+       (initHomePage repesca las imágenes ya completas). -->
   <img
     src={image}
     alt={title}
     referrerpolicy="no-referrer"
     class="w-full h-auto block pointer-events-none"
     style={`view-transition-name: flyer-img-${id};`}
+    onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)"
   />
 
   <!-- Blending grid overlay (striped Figma style) -->
