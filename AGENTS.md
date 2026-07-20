@@ -2,6 +2,8 @@
 
 Este archivo es el punto de entrada para **cualquier** agente de IA (Claude, Gemini, ChatGPT, Copilot, Cursor, Windsurf u otros) que trabaje en este repositorio. No contiene instrucciones específicas de ningún modelo en particular y constituye la fuente de orientación operativa del proyecto.
 
+La documentación del repositorio es la **única fuente de verdad** del proyecto. Las conversaciones son temporales; la documentación es permanente.
+
 Lee este documento primero; después, consulta según la tarea:
 
 - Visión de producto y filosofía → [docs/product.md](docs/product.md)
@@ -10,6 +12,7 @@ Lee este documento primero; después, consulta según la tarea:
 - Convenciones y flujo de trabajo → [docs/development.md](docs/development.md)
 - Decisiones de diseño e ingeniería → [docs/decisions.md](docs/decisions.md)
 - Estado del proyecto y roadmap → [docs/roadmap.md](docs/roadmap.md)
+- Diario de sesiones del proyecto → [docs/journal.md](docs/journal.md)
 
 ---
 
@@ -36,6 +39,46 @@ Ver el árbol comentado en [README.md](README.md#estructura-general). Puntos cr�
 
 - `src/pages/index.astro` es un **monolito deliberado** (~3600 líneas): contiene las tres vistas de la home (Galería, Mapa, Lista), el buscador, los filtros, el mapa y el overlay SPA de detalle. **Nunca lo leas entero de golpe; usa `grep` para localizar secciones.**
 - `src/components/` contiene los componentes Astro de presentación, anotados con su nodo de Figma en `data-node-id`.
+
+---
+
+## Política de Actualización Continuada de la Documentación
+
+La documentación se mantiene de forma **proactiva y continua**. La documentación no es un paso opcional al final, sino parte integral del desarrollo.
+
+Cada vez que durante una sesión ocurra alguna de las siguientes situaciones:
+- Se toma una decisión de arquitectura o producto.
+- Cambia un flujo de usuario o se añade/elimina una funcionalidad.
+- Se introduce una convención, dependencia o limitación técnica.
+- Cambia el roadmap o el estado del proyecto.
+
+Debes aplicar los siguientes tres niveles de actualización:
+
+### NIVEL 1 — Actualización Automática
+Si los cambios son pequeños, objetivos y no modifican decisiones estratégicas, actualiza directamente la documentación sin preguntar.
+- *Ejemplos:* Registrar una decisión en `decisions.md`, mover tareas en `roadmap.md`, actualizar el `journal.md`, documentar una API/componente ya creado, o corregir textos desactualizados.
+- Al finalizar, indica qué archivos has actualizado.
+
+### NIVEL 2 — Solicitar Confirmación
+Si la actualización implica modificar decisiones estratégicas, reorganizar la estructura documental o cambiar sustancialmente el flujo de trabajo, solicita confirmación antes de aplicar los cambios:
+> *"Hemos tomado decisiones que probablemente deberían quedar reflejadas en la documentación del proyecto. ¿Quieres que la actualice ahora?"*
+
+### NIVEL 3 — Gestión de Conflictos
+Si detectas discrepancias entre la documentación, el código o conversaciones previas, **no modifiques nada automáticamente**. Explica el conflicto, propón la mejor solución justificada y espera instrucciones.
+
+---
+
+## Definition of Done (DoD) — Comprobación de Fin de Tarea
+
+Antes de dar cualquier tarea importante por finalizada, debes verificar internamente el siguiente checklist:
+
+- [ ] **El código funciona** y pasa la compilación (`npm run build`).
+- [ ] **No existen regresiones conocidas** en escritorio o móvil.
+- [ ] **La verificación manual se ha realizado** en navegador real.
+- [ ] **La documentación refleja los cambios** y sigue siendo la principal fuente de verdad.
+- [ ] **Las decisiones importantes han quedado registradas** en `docs/decisions.md`.
+- [ ] **El roadmap está actualizado** en `docs/roadmap.md` si procede.
+- [ ] **El diario del proyecto (`docs/journal.md`) se ha actualizado** si la sesión ha sido relevante.
 
 ---
 
@@ -81,6 +124,7 @@ Ver el árbol comentado en [README.md](README.md#estructura-general). Puntos cr�
    - Comprueba escritorio y móvil (375px; breakpoints `md: 768px` y `lg: 1024px`).
    - Verifica la navegación suave (`ClientRouter`) además de la recarga directa.
    - En entornos sandbox sin renderizado de pantalla, fuerza una captura de pantalla antes de diagnosticar errores de layout (evita falsos positivos con `getBoundingClientRect()` o `requestAnimationFrame`).
+6. **Aplicar Definition of Done (DoD)** antes de considerar la tarea finalizada.
 
 ---
 
@@ -91,3 +135,4 @@ Cualquier cambio de arquitectura, nuevo componente, regla o decisión de UX debe
 - Módulo / flujo de datos → [docs/architecture.md](docs/architecture.md)
 - Token / componente UI → [docs/design-system.md](docs/design-system.md)
 - Tareas completadas / pendientes → [docs/roadmap.md](docs/roadmap.md)
+- Registro cronológico de la sesión → [docs/journal.md](docs/journal.md)

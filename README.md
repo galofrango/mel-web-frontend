@@ -70,10 +70,11 @@ La documentación es la única fuente de verdad sobre el proyecto:
 
 | Documento | Contenido |
 | --- | --- |
-| [AGENTS.md](AGENTS.md) | Punto de entrada para cualquier agente de IA: reglas obligatorias, convenciones y flujo de trabajo |
+| [AGENTS.md](AGENTS.md) | Punto de entrada para cualquier agente de IA: reglas obligatorias, política de documentación continuada y checklist DoD |
 | [docs/product.md](docs/product.md) | Visión de producto, usuarios objetivo, filosofía de diseño y límites del proyecto (*Non-goals*) |
 | [docs/architecture.md](docs/architecture.md) | Arquitectura del sistema, flujo de datos SSR de Google Sheets, bus de eventos y componentes |
 | [docs/design-system.md](docs/design-system.md) | Tokens de diseño, tipografía, paletas de color, especificaciones de componentes y reglas de UX |
-| [docs/development.md](docs/development.md) | Convenciones de código, patrones obligatorios, checklist de verificación manual y workflow |
+| [docs/development.md](docs/development.md) | Convenciones de código, patrones obligatorios, política de actualización y flujo de desarrollo |
 | [docs/decisions.md](docs/decisions.md) | Registro histórico de decisiones técnicas e ingeniería (formato contexto → decisión → motivo) |
 | [docs/roadmap.md](docs/roadmap.md) | Estado actual del desarrollo, funcionalidades completadas, deuda técnica y backlog |
+| [docs/journal.md](docs/journal.md) | Diario del proyecto con la cronología de las sesiones de trabajo importantes |

@@ -8,6 +8,17 @@
 
 ---
 
+## Política de Desarrollo y Actualización Documental Continuada
+
+La documentación es un **componente vivo de primer nivel** en este proyecto. Todo modelo de IA que trabaje en el repositorio debe aplicar proactivamente los siguientes principios:
+
+### Tres Niveles de Actualización
+1. **NIVEL 1 — Actualización Automática**: Cambios pequeños y objetivos que no alteran decisiones estratégicas (añadir entradas a `decisions.md`, mover tareas en `roadmap.md`, actualizar `journal.md`, corregir textos obsoletos). Actualiza directamente e informa del resultado.
+2. **NIVEL 2 — Solicitar Confirmación**: Cambios que implican modificar decisiones estratégicas o reorganizar flujos de trabajo. Pregunta antes de aplicar: *"Hemos tomado decisiones que probablemente deberían quedar reflejadas en la documentación del proyecto. ¿Quieres que la actualice ahora?"*
+3. **NIVEL 3 — Gestión de Conflictos**: Ante discrepancias entre código, documentación o conversaciones, **no modifiques nada automáticamente**. Explica el conflicto, propón la mejor solución y espera confirmación.
+
+---
+
 ## Organización del Código
 
 - **Páginas (`src/pages/`)**: Cada página incluye su lógica de cliente dentro de etiquetas `<script>` al final del archivo.
@@ -40,32 +51,16 @@ Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir códig
 
 ---
 
-## Flujo Recomendado para Nuevas Funcionalidades
+## Flujo Recomendado y Definition of Done (DoD)
 
 1. **Revisar Figma**: Localiza el nodo de diseño (`data-node-id`) y extrae valores reales de tipografía, color y espaciado.
 2. **Reutilización de Componentes**: Comprueba si el patrón ya existe (`EmptyState`, `TagWithLink`, `Link`, duotono fotográfico).
 3. **Mantenimiento en Espejo**: Si modificas el detalle de un evento, aplica los cambios tanto en la página estática (`event/[id].astro`) como en el overlay SPA en `index.astro`. Si modificas un componente usado en cliente, actualiza su plantilla JS.
 4. **Desarrollo Responsive**: Implementa escritorio y móvil simultáneamente utilizando los breakpoints `md` (768px) y `lg` (1024px).
-5. **Verificación Manual en Navegador** (ver checklist abajo).
-6. **Actualización de Documentación**: Registra las decisiones en `docs/decisions.md`, cambios de arquitectura en `docs/architecture.md` y tareas en `docs/roadmap.md`.
-
----
-
-## Lista de Comprobación para Verificación Manual
-
-Dado que el proyecto no cuenta con tests automatizados, ejecuta esta verificación en navegador real antes de finalizar una tarea:
-
-- **Home y Filtrado**:
-  - Probar las 3 vistas (Galería, Mapa, Lista).
-  - Probar el buscador (escribir, fijar un término desde una celda de la lista, borrar término).
-  - Probar el slider de años y comprobar que las estadísticas se actualizan.
-  - Probar el comportamiento de **Sin Resultados**: filtrar por un término inexistente y verificar que el `EmptyState` variante `no-results` con su duotono fotográfico se muestra correctamente tanto en la Galería como en la tabla de la Lista.
-- **Intro Animada**:
-  - Disparar la intro desde el menú lateral o `?intro=true`.
-  - Probar la respuesta física del ratón sobre las letras CMYK.
-  - Hacer scroll o presionar Enter y verificar que el despegue se ejecuta con inercia ease-in sin desaceleración final y con la descomposición por palabras.
-- **Navegación SPA y View Transitions**:
-  - Navegar a otra página (`/info` o `/exposiciones`) y **volver** utilizando la navegación del navegador o enlaces. Verificar que no se producen doble bindings de eventos ni referencias DOM corruptas.
-- **Responsive y Modo Oscuro**:
-  - Probar la vista en 375px (móvil), 768px (tablet) y 1440px (escritorio).
-  - Alternar entre modo claro y oscuro desde el menú lateral.
+5. **Verificación Manual en Navegador**.
+6. **Comprobación de Definition of Done (DoD)**:
+   - [ ] Código funcionando sin regresiones.
+   - [ ] Verificación manual completada.
+   - [ ] Documentación actualizada (`decisions.md`, `architecture.md`, `roadmap.md`).
+   - [ ] Entrada de sesión registrada en `docs/journal.md`.
+7. **Commit descriptivo**.
