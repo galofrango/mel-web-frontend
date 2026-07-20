@@ -146,3 +146,24 @@ reviertan (marca la reversión como una entrada nueva).
   artistas/diseñadores/promotores.
 - **Consecuencias**: si la hoja introduce un centinela nuevo, hay que añadirlo
   a los filtros (`getTagDisplay`, recuentos en index.astro).
+
+## D-014 · Galería 2.0: masonry CSS multicolumna sin recortes
+
+- **Contexto**: la galería 1.0 (tag git `galeria-1.0`) usaba una rejilla CSS
+  de tarjetas con altura fija (408px) y `object-cover`, que recortaba los
+  flyers. El propietario quiere que los diseños se vean **enteros**, a ancho
+  de columna y con su ratio original (los diseños como protagonistas, tono de
+  exposición/institución).
+- **Decisión**: contenedor `columns-1 sm:columns-2 md:columns-3` (CSS
+  multicol) con `gap-x-mel-xl`; cada `.gallery-item` lleva `break-inside:
+  avoid` + `margin-bottom` igual al gap, y la imagen pasa a `w-full h-auto`
+  sin zoom interno. Se eliminaron los `gridSpans` y las clases `span-col-*`.
+- **Motivo**: multicol es la única técnica sin JS de medición que da masonry
+  real con alturas desconocidas (las dimensiones de los flyers no están en la
+  hoja). `grid-template-rows: masonry` aún no tiene soporte suficiente.
+- **Consecuencias**: (1) el orden de lectura fluye **de arriba abajo por
+  columna**, no por filas — aceptado; la vista Lista conserva el orden
+  estricto. (2) Hasta que una imagen carga, su tarjeta mide ~0px de alto y la
+  columna se reequilibra al cargar (reflow visible en conexiones lentas). Las
+  animaciones existentes (FLIP de reordenación, clones de salida, intro
+  escalonada) siguen funcionando porque operan sobre `getBoundingClientRect`.

@@ -173,22 +173,6 @@ const tags = [
   { label: "Promotores", count: initialPromoters.size }
 ];
 
-// Grid spans matching Figma specification
-const gridSpans = [
-  { col: 2, row: 2 },
-  { col: 1, row: 4 },
-  { col: 1, row: 3 },
-  { col: 2, row: 2 },
-  { col: 1, row: 2 },
-  { col: 1, row: 1 },
-  { col: 2, row: 4 },
-  { col: 1, row: 2 },
-  { col: 1, row: 1 },
-  { col: 1, row: 2 },
-  { col: 1, row: 3 },
-  { col: 3, row: 4 },
-  { col: 1, row: 2 }
-];
 ---
 
 <Layout title="Galería de Diseño">
@@ -242,7 +226,9 @@ const gridSpans = [
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
     <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px]">
 
-      <!-- 1. GALLERY VIEW (Grid Layout exactly matching Figma auto-rows and gaps) -->
+      <!-- 1. GALLERY VIEW (masonry 2.0: CSS multicolumna, cada flyer entero a
+           ancho de columna y ratio original — sin recortes; ver galeria-1.0
+           para la rejilla anterior de alturas fijas). -->
       <!-- Negative side margins + matching padding make the scroll container clip
            44px OUTSIDE the grid on the sides and 24px above it, so hovered cards
            (scale + shadow) aren't cut off at the edges while the grid stays
@@ -250,20 +236,18 @@ const gridSpans = [
            a scroll container's own padding-bottom is dropped from the scrollable
            area, so it wouldn't reserve space at the end of the scroll. -->
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px]">
-        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[6vh]">
+        <div id="gallery-grid" class="columns-1 sm:columns-2 md:columns-3 gap-x-mel-xl w-full pb-[6vh]">
           {initialArchives.slice(0, 32).map((item, i) => {
-            const span = gridSpans[i % gridSpans.length];
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
             return (
-              <FlyerCard 
+              <FlyerCard
                 id={item.idMel}
                 title={item.evento}
                 category={item.organiza || "Colectivo"}
                 location={`${item.lugar}. ${item.localidad}`}
                 year={yr}
                 image={imgSrc}
-                spanClass="span-col-1"
               />
             );
           })}
@@ -756,7 +740,13 @@ const gridSpans = [
     display: block;
   }
 
+  /* Masonry multicolumna: cada tarjeta ocupa el ancho de su columna y crece
+     a la altura natural de la imagen (sin object-cover, sin recortes).
+     break-inside evita que una tarjeta se parta entre dos columnas; el hueco
+     vertical replica el column-gap del contenedor (mel-xl). */
   .gallery-item {
+    break-inside: avoid;
+    margin-bottom: var(--mel-spacing-xl);
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   .gallery-item:hover {
@@ -767,32 +757,6 @@ const gridSpans = [
                 0 86px 52px 0 rgba(38, 32, 32, 0.05), 
                 0 38px 38px 0 rgba(38, 32, 32, 0.09), 
                 0 10px 21px 0 rgba(38, 32, 32, 0.10) !important;
-  }
-
-  @media (min-width: 768px) {
-    .span-col-1 {
-      grid-column: span 1 / span 1;
-      height: 408px;
-    }
-    .span-col-2 {
-      grid-column: span 2 / span 2;
-      height: 848px;
-    }
-    .span-col-3 {
-      grid-column: span 3 / span 3;
-      height: 1288px;
-    }
-    .span-col-4 {
-      grid-column: span 4 / span 4;
-      height: 1728px;
-    }
-  }
-
-  @media (max-width: 767px) {
-    .gallery-item {
-      height: 408px !important;
-      grid-column: span 1 / span 1 !important;
-    }
   }
 
   @keyframes marker-fade-in {
@@ -1281,23 +1245,6 @@ const gridSpans = [
     _s.currentDetailGroup = currentDetailGroup; _s.currentCarruselIndex = currentCarruselIndex;
   }
 
-  // Grid spans
-  const gridSpans = [
-    { col: 2, row: 2 },
-    { col: 1, row: 4 },
-    { col: 1, row: 3 },
-    { col: 2, row: 2 },
-    { col: 1, row: 2 },
-    { col: 1, row: 1 },
-    { col: 2, row: 4 },
-    { col: 1, row: 2 },
-    { col: 1, row: 1 },
-    { col: 1, row: 2 },
-    { col: 1, row: 3 },
-    { col: 3, row: 4 },
-    { col: 1, row: 2 }
-  ];
-
   // DOM Element refs — re-assigned in initHomePage()
   let sliderMin, sliderMax, minHandle, maxHandle, minVal, maxVal, activeFill;
   let lightbox, lightboxImg, lightboxTitle, lightboxLocation, lightboxCategory, lightboxDate, closeLightboxBtn;
@@ -1742,19 +1689,18 @@ const gridSpans = [
         // to the actual visible scroll area, which is what matters.
         // Extra bottom padding when pagination is hidden (single page) — reserves roughly the
         // space that module would take, so the scroll area doesn't run flush to the screen edge.
-        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense ${totalPages > 1 ? 'pb-[6vh]' : 'pb-[13vh]'} relative`;
+        gridContainer.className = `columns-1 sm:columns-2 md:columns-3 gap-x-mel-xl w-full ${totalPages > 1 ? 'pb-[6vh]' : 'pb-[13vh]'} relative`;
         paginated.forEach((item, i) => {
-          const span = gridSpans[i % gridSpans.length];
           const card = document.createElement('div');
           const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
           const yr = getYear(item.fecha) || 2004;
-          
-          card.className = `gallery-item relative overflow-hidden shadow-sm group bg-white transition-all duration-300 span-col-1 cursor-pointer`;
+
+          card.className = `gallery-item relative overflow-hidden shadow-sm group bg-white transition-all duration-300 cursor-pointer`;
           card.dataset.id = item.idMel;
           if (!gallerySettled) card.classList.add('intro-in');
           card.innerHTML = `
             <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-            <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-full object-cover scale-[1.02] group-hover:scale-[1.04] transition-transform duration-300 pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" />
+            <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" />
             
             <!-- Blending grid overlay (striped Figma style) -->
             <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>

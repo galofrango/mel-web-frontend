@@ -22,6 +22,10 @@
   highlights con scroll), detalle de evento reordenado según Figma.
 - Headers unificados en todas las páginas (misma distancia al borde superior).
 - Protección de imágenes (menú contextual y arrastre bloqueados).
+- Galería 2.0: masonry multicolumna (3 col. desktop / 2 tablet / 1 móvil) con
+  cada flyer entero a ancho de columna y ratio original, sin recortes (ver
+  decisions.md D-014). La 1.0 (rejilla de alturas fijas) queda como tag git
+  `galeria-1.0`.
 
 ## En progreso / pendiente de contenido
 
