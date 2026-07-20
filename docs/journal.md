@@ -2,6 +2,33 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-20] — Sesión: Corrección del bottom sheet (fixed real, dim, cabecera Figma completa) y lista móvil sin doble margen
+
+### Objetivo de la Sesión
+El propietario reportó que el ajuste de la sesión anterior (D-022) empeoró el bottom sheet: apenas alcanzaba la mitad de la pantalla en vez de quedar a 64px del techo real, la cabecera decorativa de Figma se había ignorado, y la lista de Lista en móvil se veía con un margen doble hasta los bordes. Corregir todo eso, auditar exhaustivamente sombras/dim, y documentar el esquema de distancias del toolbar fijo en móvil.
+
+### Cambios Realizados
+1. **Bottom sheet: `fixed` real, no `absolute` dentro de `#view-mapa`** (D-023): la sesión anterior anidó el sheet en `#view-mapa` con `top:64px`, sumando esos 64px al offset ya enorme de `#view-mapa` (~440px en un viewport de 812px) en vez de sustituirlo. Vuelto a `position:fixed` (relativo al viewport real) con `inset:64px 0 0 0`. Verificado con `getBoundingClientRect()`: 64px arriba, 0px en los otros tres lados — bordes reales de pantalla.
+2. **Dim añadido**: `#map-side-panel-backdrop`, mismo color que el lightbox de imagen del detalle de evento (`bg-[var(--mel-primitive-le-950)]/80`), con fundido de opacidad y clic-fuera-para-cerrar. Se encontró y corrigió un bug de `z-index` real en el camino: el dim (z-24) tapaba al propio panel (z-20) — bajado a z-19.
+3. **Cabecera del sheet, replicada de verdad**: nuevo componente `src/components/BottomSheetHeader.astro` (reutilizable, escala horizontalmente sin límite fijo de ancho). Incluye el recorte diagonal de la esquina (antes solo había un `border-radius` genérico) y la sombra de pliegue. Esta última se intentó primero con `filter:blur()` + `clip-path` de CSS en el mismo elemento — se veía como un triángulo gris sólido, no como una sombra, porque el clip-path corta el degradado del blur justo en el borde de la figura. Solucionado con un SVG real (`feGaussianBlur`, igual que Figma), que sí deja el desenfoque respirar dentro de su propia región de filtro. Requirió `isolation:isolate` (regla 12 de AGENTS.md) para que el `mix-blend-multiply` no se mezclara contra capas equivocadas.
+4. **Lista móvil sin doble margen**: `#list-mobile-cards` heredaba el `px-6`/`sm:px-12` de la página ADEMÁS del `pl-24/pr-16` propio de cada fila `EventCardList`. Añadido `-mx-6 sm:-mx-12` (mismo patrón que `TimeSlider` ya usa para su modo full-bleed) para cancelar el padding de la página. Verificado: 24px/16px exactos (asimetría de Figma intencionada, no un bug de esta sesión).
+5. **Auditoría de sombra/dim ampliada**: revisados también los `shadow-sm`/`shadow-md`/`shadow-xl` de Tailwind (no solo los `rgba(...)` a medida de la sesión anterior) — son los valores por defecto de Tailwind, `rgba(0,0,0,0.1)` fijo, tampoco semánticos. Verificado visualmente en modo oscuro forzado: tarjetas de galería en hover, menú lateral y bottom sheet, sin resplandores en ninguno.
+6. **Esquema de distancias del toolbar fijo en móvil**: documentado y entregado al propietario en el chat (ver también D-023 y este entry) — no se modificó ningún valor salvo los ya cubiertos en D-021/D-022 (24px de los tiradores, hueco cabecera↔toolbar).
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-023 (corrige D-022).
+
+### Problemas Encontrados y Resueltos
+- El bug de posición (absolute anidado vs. fixed real) solo se detectó releyendo con cuidado la petición original del propietario ("64px de la parte superior de la PANTALLA", no del contenedor) — la sesión anterior había asumido, sin verificarlo con el propietario, que bastaba con no tapar la cabecera del sitio.
+- El bug de `z-index` del dim (tapando al panel) se detectó por inspección visual — el panel entero se veía teñido de un marrón oscuro uniforme, sin que el título/tarjetas se distinguieran con claridad.
+- El bug del pliegue sólido (CSS blur+clip-path) se diagnosticó comparando el resultado renderizado contra el screenshot de Figma antes de intentar arreglarlo a ciegas.
+
+### Tareas Pendientes
+- Verificar el bottom sheet completo (incluyendo el gesto de arrastre) en un dispositivo móvil real.
+- Si se reutiliza `BottomSheetHeader.astro` en otro sheet del sitio, decidir entonces hasta qué ancho horizontal tiene sentido escalarlo (pendiente explícitamente, palabras del propietario: "luego veremos hasta dónde debería abarcar").
+
+---
+
 ## [2026-07-20] — Sesión: Pulido del bottom sheet, extremos del slider a 24px y hueco cabecera↔toolbar
 
 ### Objetivo de la Sesión

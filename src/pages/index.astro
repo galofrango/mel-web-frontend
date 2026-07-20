@@ -9,6 +9,7 @@ import ToggleSelector from '../components/ToggleSelector.astro';
 import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
 import IntroAnimation from '../components/IntroAnimation.astro';
+import BottomSheetHeader from '../components/BottomSheetHeader.astro';
 
 // Extract Year from Date String
 function getYear(dateStr) {
@@ -278,19 +279,26 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            content sat visibly closer to the toolbar than the gallery's first row of cards. -->
       <div id="view-mapa" class="view-panel hidden absolute top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
         <div id="map-container" class="flex-1 h-full"></div>
-        
+
+        <!-- Dim: solo bottom sheet en móvil. Mismo color/opacidad que el
+             lightbox de imagen del detalle de evento (le-950/80, D-022). -->
+        <div
+          id="map-side-panel-backdrop"
+          class="md:hidden fixed inset-0 bg-[var(--mel-primitive-le-950)]/80 z-[19] opacity-0 pointer-events-none transition-opacity duration-300"
+          aria-hidden="true"
+        ></div>
+
         <!-- Side Panel / Place Events Panel -->
-        <div 
-          id="map-side-panel" 
+        <div
+          id="map-side-panel"
           class="w-0 h-full bg-mel-bg-primary border-l-0 border-mel-border flex flex-col justify-start z-20 overflow-hidden shrink-0 transition-all duration-300"
           style="opacity: 1;"
           data-node-id="341:25563"
         >
-          <!-- Tirador de arrastre: solo bottom sheet en móvil (Figma "Handler",
-               node 439:142691). Cerrar deslizando hacia abajo, ver setupSidePanelDrag(). -->
-          <div id="map-side-panel-handle" class="flex md:hidden items-center justify-center pt-[16px] pb-[12px] w-full shrink-0 cursor-grab active:cursor-grabbing touch-none">
-            <div class="w-[80px] h-[5px] rounded-full bg-mel-border"></div>
-          </div>
+          <!-- Tirador + pliegue decorativo: solo bottom sheet en móvil (Figma
+               "Bottom Sheet Header", node 269:11222). Cerrar deslizando hacia
+               abajo, ver setupSidePanelDrag(). -->
+          <BottomSheetHeader handleId="map-side-panel-handle" class="md:hidden" />
 
           <!-- Header / Close button (Figma matches: pb-[8px] px-[16px] pt-[8px]) -->
           <div class="flex items-center pb-[8px] px-[16px] pt-[8px] shrink-0 w-full">
@@ -342,7 +350,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         <!-- Mobile: réplica compacta EventCardList (Figma 439:142691) sustituye
              la tabla ancha de escritorio — ver AGENTS.md regla 7 (JS replica el
              marcado de EventCardList.astro, poblado en performDOMUpdates()). -->
-        <div id="list-mobile-cards" class="md:hidden flex-1 overflow-y-auto border-t border-b border-mel-border relative">
+        <!-- -mx-6 sm:-mx-12 cancela el padding horizontal de la página (px-6 /
+             sm:px-12) en todo el rango en que esta lista es visible: las filas
+             ya traen su propio pl-24/pr-16 (EventCardList), así que sin esto
+             quedaban CON DOBLE margen hasta el borde de pantalla. -->
+        <div id="list-mobile-cards" class="md:hidden -mx-6 sm:-mx-12 flex-1 overflow-y-auto border-t border-b border-mel-border relative">
           <!-- Dynamically populated -->
         </div>
         <div id="list-table-wrapper" class="hidden md:block overflow-x-auto w-full flex-1 overflow-y-auto">
@@ -1249,12 +1261,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
   @media (max-width: 767px) {
     #map-side-panel {
-      /* absolute (no fixed) anclado a #view-mapa — que ya arranca por debajo
-         de la cabecera + toolbar del sitio — así el sheet nunca los tapa sin
-         necesidad de medir su alto en JS. top:64px replica el "Spacer" de
-         Figma (Bottom Sheet Header, 269:11222); como #view-mapa ya empieza
-         más abajo que eso, el resultado siempre respeta el hueco real. */
-      position: absolute;
+      /* fixed (no absolute): relativo al VIEWPORT real, no a #view-mapa —
+         así llega a los bordes reales de pantalla (izq/der/abajo) y su
+         borde superior queda exactamente a 64px del techo de pantalla,
+         por encima incluso de la cabecera + toolbar del sitio si hace
+         falta (D-023: un `absolute` dentro de #view-mapa sumaba ese
+         hueco AL offset ya existente de #view-mapa, dejando el sheet
+         mucho más abajo de lo pedido). */
+      position: fixed;
       inset: 64px 0 0 0;
       width: 100% !important;
       height: auto !important;
@@ -1270,6 +1284,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
     #map-side-panel.side-panel-dragging {
       transition: none;
+    }
+    #map-side-panel-backdrop.side-panel-open {
+      opacity: 1;
+      pointer-events: auto;
     }
   }
 </style>
@@ -2695,6 +2713,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
   }
 
+  // Abre/cierra el panel del mapa y su dim (D-022/D-023). Un único punto de
+  // entrada para las 5 llamadas que antes tocaban `side-panel-open` por su
+  // cuenta, así el backdrop nunca puede quedarse desincronizado del panel.
+  function setSidePanelOpenState(open) {
+    const sidePanel = document.getElementById('map-side-panel');
+    const backdrop = document.getElementById('map-side-panel-backdrop');
+    if (sidePanel) sidePanel.classList.toggle('side-panel-open', open);
+    if (backdrop) backdrop.classList.toggle('side-panel-open', open);
+  }
+
   // Populate side panel details dynamically
   function populateSidePanel(group) {
     const sidePanel = document.getElementById('map-side-panel');
@@ -2768,7 +2796,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // as a bottom sheet (móvil, ver media query de #map-side-panel).
       updateSidePanelDOM();
       sidePanel.style.opacity = '1';
-      sidePanel.classList.add('side-panel-open');
+      setSidePanelOpenState(true);
       if (googleMap) {
         setTimeout(() => {
           google.maps.event.trigger(googleMap, "resize");
@@ -2916,7 +2944,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       activeSidePanelKey = null;
       const sidePanel = document.getElementById('map-side-panel');
       if (sidePanel) {
-        sidePanel.classList.remove('side-panel-open');
+        setSidePanelOpenState(false);
         if (googleMap) {
           setTimeout(() => {
             google.maps.event.trigger(googleMap, "resize");
@@ -3272,7 +3300,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           url.searchParams.delete('location');
           window.history.replaceState({}, '', url.toString());
         } catch (e) {}
-        sidePanel.classList.remove('side-panel-open');
+        setSidePanelOpenState(false);
         if (googleMap) {
           setTimeout(() => {
             google.maps.event.trigger(googleMap, "resize");
@@ -3286,6 +3314,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // other non-active marker since activeSidePanelKey is cleared.
         updateMapMarkers(false);
       }, { signal: wSig });
+    }
+
+    // Tocar el dim (solo existe/es interactivo en móvil, ver su propia
+    // media query) cierra el sheet igual que el botón de cerrar.
+    const sidePanelBackdrop = document.getElementById('map-side-panel-backdrop');
+    if (sidePanelBackdrop && closePanelBtn) {
+      sidePanelBackdrop.addEventListener('click', () => closePanelBtn.click(), { signal: wSig });
     }
 
     // Bottom sheet en móvil: arrastrar el tirador hacia abajo lo cierra

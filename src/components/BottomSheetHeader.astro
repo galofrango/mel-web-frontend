@@ -1,0 +1,86 @@
+---
+/**
+ * BottomSheetHeader.astro
+ * Cabecera decorativa reutilizable para bottom sheets — Figma "Bottom Sheet
+ * Header" (node 269:11222): tirador de arrastre centrado sobre un panel cuya
+ * esquina superior derecha lleva un pliegue de papel recortado en diagonal,
+ * con una sombra suave (mix-blend-multiply) marcando el doblez.
+ *
+ * Se estira al ancho de su contenedor (`w-full`, sin límite fijo) — el
+ * pliegue se mantiene a `notchSize` px en la esquina sea cual sea ese ancho,
+ * en vez de deformarse proporcionalmente.
+ *
+ * No incluye el "Spacer" de 64px que Figma modela como capa aparte dentro
+ * del mismo componente: en este sitio esa distancia hasta el borde de
+ * pantalla la resuelve el propio contenedor del sheet (`top: 64px`), no
+ * este componente — así puede reutilizarse también en sheets que no
+ * necesiten ese hueco.
+ */
+interface Props {
+  notchSize?: number;   // px, tamaño del pliegue en la esquina (Figma: 40)
+  height?: number;      // px, alto del panel visible (Figma: 56)
+  handleId?: string;    // id del tirador, para engancharle un gesto de arrastre
+  showFold?: boolean;   // desactiva el pliegue decorativo si no aplica
+  class?: string;
+}
+
+const {
+  notchSize = 40,
+  height = 56,
+  handleId,
+  showFold = true,
+  class: className = '',
+} = Astro.props;
+
+// Todas las medidas del pliegue (recorte + sombra) escalan desde la
+// referencia de Figma (notch de 40px) para que notchSize siga siendo
+// coherente si algún consumidor futuro lo cambia.
+const scale = notchSize / 40;
+const shadowBox = Math.round(80 * scale);
+const shadowPath = `M${16*scale} ${64*scale}L${24*scale} ${16*scale}L${64*scale} ${56*scale}L${16*scale} ${64*scale}Z`;
+const filterId = `bsh-fold-blur-${Math.round(Math.random() * 1e6)}`;
+---
+
+<div
+  class:list={["relative w-full shrink-0 overflow-hidden isolate", className]}
+  style={`height:${height}px`}
+  data-node-id="269:11222"
+  data-name="Bottom Sheet Header"
+>
+  <!-- Panel: mismo fill que Background+Pliegue en Figma (los dos son el
+       mismo color; el recorte diagonal YA es el pliegue). -->
+  <div
+    class="absolute inset-0 bg-mel-bg-primary"
+    style={showFold ? `clip-path: polygon(0 0, calc(100% - ${notchSize}px) 0, 100% ${notchSize}px, 100% 100%, 0 100%);` : ''}
+  ></div>
+
+  <!-- SVG (no CSS filter+clip-path): feGaussianBlur difumina la propia forma
+       sin recortarla — un clip-path en el MISMO elemento que el blur corta
+       el degradado justo en el borde de la figura, dejando un triángulo
+       sólido en vez de una sombra suave. La región del filtro iguala el
+       viewBox (como en Figma) porque los puntos del triángulo ya dejan
+       margen de sobra para que el desenfoque se apague dentro. -->
+  {showFold && (
+    <svg
+      class="absolute pointer-events-none mix-blend-multiply"
+      style={`right:0; top:0; width:${shadowBox}px; height:${shadowBox}px; opacity:0.16;`}
+      viewBox={`0 0 ${shadowBox} ${shadowBox}`}
+      aria-hidden="true"
+    >
+      <defs>
+        <filter id={filterId} x="0" y="0" width={shadowBox} height={shadowBox} filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+          <feGaussianBlur stdDeviation={8 * scale} />
+        </filter>
+      </defs>
+      <path d={shadowPath} fill="#181012" filter={`url(#${filterId})`} />
+    </svg>
+  )}
+
+  <!-- Tirador de arrastre -->
+  <div
+    id={handleId}
+    class="absolute left-1/2 -translate-x-1/2 w-[80px] h-[5px] rounded-full bg-mel-border cursor-grab active:cursor-grabbing touch-none"
+    style="top:16px;"
+    data-name="Handler"
+  ></div>
+</div>
