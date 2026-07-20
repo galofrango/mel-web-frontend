@@ -192,31 +192,43 @@ const gridSpans = [
 ---
 
 <Layout title="Galería de Diseño">
-  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[112px] pb-8 flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
+       112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
+       smaller screens don't waste fixed pixel gaps. -->
+  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[10vh] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
-    <!-- Page Header: Search (Typing Title prompt) and Menu -->
-    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center shrink-0" style="view-transition-name: mel-header;">
-      <div class="col-span-12 md:col-span-6 w-full">
+    <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
+         breakpoint — on mobile the title collapses to "M.E.L." and the menu to
+         its icon (see HeaderTitle/MenuItem), the search stretches over all the
+         remaining width, and the gap to the menu button is exactly 16px. -->
+    <div class="flex items-center gap-4 md:grid md:grid-cols-12 md:gap-6 shrink-0" style="view-transition-name: mel-header;">
+      <div class="flex-1 min-w-0 md:col-span-6 w-full">
         <HeaderTitle hideDivider={true} />
       </div>
-      <div class="col-span-12 md:col-span-6 flex justify-end">
+      <div class="shrink-0 md:col-span-6 flex justify-end">
         <MenuItem id="menu-btn" />
       </div>
     </div>
 
     <!-- Toolbar: Slider & Controls -->
     <div class="flex flex-col gap-6 py-4 shrink-0" style="view-transition-name: mel-toolbar;">
-      <!-- Year Slider Bar (Removed text header label as requested) -->
-      <div class="flex flex-col gap-2">
+      <!-- Year Slider Bar (Removed text header label as requested). On mobile the
+           slider runs full-bleed to the screen edges (negative margins cancel the
+           page's px-6), per the mobile toolbar design (Figma 315:17658). -->
+      <div class="flex flex-col gap-2 -mx-6 sm:mx-0">
         <TimeSlider />
       </div>
 
       <!-- Filter Tags and View Switcher -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center mt-2">
-        <!-- Event Stats Tags (TagWithLink) -->
-        <div class="col-span-12 lg:col-span-8 flex items-center gap-0 w-full overflow-x-auto">
+        <!-- Event Stats Tags (TagWithLink). Desktop (lg+): an 8-column sub-grid
+             (matching the parent toolbar's own gap-6) so every tag is exactly 2
+             columns wide, one gap away from the view toggle. Mobile (Figma
+             369:31311): tags shrink to their content and the row scrolls
+             horizontally instead. -->
+        <div class="col-span-12 lg:col-span-8 flex lg:grid lg:grid-cols-8 gap-6 items-center w-full overflow-x-auto lg:overflow-visible no-scrollbar">
           {tags.map((tag) => (
-            <TagWithLink label={tag.label} count={tag.count} />
+            <TagWithLink label={tag.label} count={tag.count} class="shrink-0 lg:shrink lg:col-span-2 w-auto" />
           ))}
         </div>
 
@@ -238,7 +250,7 @@ const gridSpans = [
            a scroll container's own padding-bottom is dropped from the scrollable
            area, so it wouldn't reserve space at the end of the scroll. -->
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px]">
-        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[64px]">
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[6vh]">
           {initialArchives.slice(0, 32).map((item, i) => {
             const span = gridSpans[i % gridSpans.length];
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
@@ -258,8 +270,11 @@ const gridSpans = [
         </div>
       </div>
 
-      <!-- 2. MAP VIEW (Real Google Map with sliding side panel) -->
-      <div id="view-mapa" class="view-panel hidden absolute inset-0 overflow-hidden flex">
+      <!-- 2. MAP VIEW (Real Google Map with sliding side panel). top-[24px] instead of
+           inset-0's implicit top-0 matches the gallery's own pt-[24px], which it needed so
+           hovered cards' shadows didn't get clipped against the toolbar — without this, map/list
+           content sat visibly closer to the toolbar than the gallery's first row of cards. -->
+      <div id="view-mapa" class="view-panel hidden absolute top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
         <div id="map-container" class="flex-1 h-full"></div>
         
         <!-- Side Panel / Place Events Panel -->
@@ -307,17 +322,29 @@ const gridSpans = [
         </div>
       </div>
 
-      <!-- 3. LIST VIEW -->
-      <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0">
-        <div class="overflow-x-auto w-full flex-1 overflow-y-auto border border-mel-border">
-          <table class="w-full text-left text-sm border-collapse" style="table-layout:fixed;">
+      <!-- 3. LIST VIEW. pt-[24px] matches the gallery's own top padding (see the note on
+           view-mapa above) so the table sits at the same height as the gallery's first row. -->
+      <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0 pt-[24px]">
+        <!-- The border lives on the <table> itself (top+bottom), not this wrapper — the wrapper
+             is flex-1/stretches to fill whatever vertical space is available, so its own border
+             would sit at the wrapper's edge (often below the actual last row, with an empty gap,
+             whenever there are fewer rows than fit on screen) instead of hugging the table's real
+             content, which is what "closing" the table means. Cells already carry border-l/border-r
+             on every row, so no side borders needed here either. -->
+        <div id="list-table-wrapper" class="overflow-x-auto w-full flex-1 overflow-y-auto">
+          <table class="w-full text-left text-sm border-collapse border-t border-b border-mel-border" style="table-layout:fixed;">
+            <!-- Evento gets 2 "shares" of the space, Lugar/Localidad/Organiza/Diseño get 1 share
+                 each (6 shares total), Fecha gets just enough for a date. calc() inside <col>
+                 width doesn't reliably resolve per-column here (tested: every calc() column came
+                 out identical, ignoring the multiplier) — plain percentages, worked out by hand
+                 against a ~120px Fecha column, are what actually render correctly. -->
             <colgroup>
-              <col style="width:25%;" />
+              <col style="width:29%;" />
               <col style="width:12%;" />
-              <col style="width:18%;" />
-              <col style="width:15%;" />
-              <col style="width:15%;" />
-              <col style="width:15%;" />
+              <col style="width:14.75%;" />
+              <col style="width:14.75%;" />
+              <col style="width:14.75%;" />
+              <col style="width:14.75%;" />
             </colgroup>
             <thead class="sticky top-0 z-[2]">
               <tr class="h-[40px]">
@@ -379,25 +406,30 @@ const gridSpans = [
       </div>
     
       <!-- Pagination Controls matching Figma Carousel Navigation 481:234622 -->
-      <div id="pagination-controls" class="flex gap-4 items-center justify-center py-4 relative w-full select-none shrink-0 bg-mel-bg-primary border-t border-mel-border/30" style="view-transition-name: mel-pagination;">
-        <IconButton 
-          id="btn-prev-page" 
-          icon="chevron-left" 
-          size={40} 
+      <!-- pt-10 (40px) is deliberately more than the 24px gap the toolbar itself keeps above the
+           content (view-galería/view-lista's own pt-[24px]) — this module needs more breathing
+           room from whatever's above it than that, not just the same amount. -->
+      <div id="pagination-controls" class="flex gap-4 items-center justify-center pt-10 pb-6 relative w-full select-none shrink-0 bg-mel-bg-primary" style="view-transition-name: mel-pagination;">
+        <!-- invisible (not hidden/removed) — keeps the button's own layout space reserved so the
+             page numbers stay centered, but the arrows themselves aren't shown for now. -->
+        <IconButton
+          id="btn-prev-page"
+          icon="chevron-left"
+          size={40}
           type="phantom"
-          aria-label="Página anterior" 
-          class="disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+          aria-label="Página anterior"
+          class="invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
         />
         <div id="pagination-numbers" class="flex gap-4 items-center relative">
           <!-- Dynamically populated page buttons -->
         </div>
-        <IconButton 
-          id="btn-next-page" 
-          icon="chevron-right" 
-          size={40} 
+        <IconButton
+          id="btn-next-page"
+          icon="chevron-right"
+          size={40}
           type="phantom"
-          aria-label="Página siguiente" 
-          class="disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+          aria-label="Página siguiente"
+          class="invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
         />
       </div>
 
@@ -462,13 +494,13 @@ const gridSpans = [
   </div>
 
   <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
-  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-24 pb-[108px] px-6 sm:px-12 select-none">
+  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-[10vh] pb-[108px] px-6 sm:px-12 select-none">
     <div class="w-full max-w-[1224px] flex flex-col relative" id="overlay-content-wrapper">
       
       <!-- Close Button (X) at Top Left -->
-      <button 
+      <button
         id="event-details-overlay-close"
-        class="w-6 h-6 mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0 border-none bg-transparent outline-none self-start"
+        class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0 border-none bg-transparent outline-none self-start"
         aria-label="Cerrar detalles de evento"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -479,16 +511,31 @@ const gridSpans = [
 
       <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
       <div id="overlay-details-content" class="w-full transition-opacity duration-300">
-        <!-- Three-column content grid (Figma widths: 184px, 496px, 496px) -->
-        <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start w-full">
-          
-          <!-- Column 1: Tags Sidebar -->
-          <div class="flex flex-col gap-10 w-full" id="overlay-tags-sidebar">
+
+        <!-- Mobile-only Event Title (Figma 369:32751: title sits between the close
+             button and the image; on desktop it lives at the top of the Info column) -->
+        <h2 id="overlay-event-title-mobile" class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary mb-8"></h2>
+
+        <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). lg:h-[400px] pins the
+             row's own height to the image column's fixed height — without it, column 3's actual
+             content height (which shifts by a couple px depending on how the artist list wraps)
+             set the row's height instead, which in turn moved the Anterior/Siguiente nav below at
+             mt-[280px] by that same couple of pixels from one event to the next.
+             On mobile the same three blocks reflow per Figma 369:32751: image first (full-bleed),
+             then the tags as a horizontally scrollable row, then the info column. -->
+        <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start w-full lg:h-[400px]">
+
+          <!-- Column 1: Tags Sidebar. h-[400px]+justify-between matches the image column's own
+               fixed height and spreads the tags across it (see event/[id].astro for the full
+               rationale) instead of a flat 40px gap that left this column visibly shorter. -->
+          <div class="event-tags-row order-2 lg:order-none flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-6 lg:border-b-0 lg:pb-0" id="overlay-tags-sidebar">
             <!-- Populated dynamically via JS -->
           </div>
 
-          <!-- Column 2: Image Box -->
-          <div class="flex flex-col items-center w-full relative h-[400px]">
+          <!-- Column 2: Image Box. On mobile it comes first and runs full-bleed,
+               with the dots in normal flow below the image (h-auto) instead of
+               absolutely hanging over the tags row. -->
+          <div class="order-1 lg:order-none flex flex-col items-center relative h-auto lg:h-[400px] -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:mx-0 lg:w-full">
             <button 
               id="overlay-carousel-main"
               class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
@@ -507,15 +554,16 @@ const gridSpans = [
               </div>
             </button>
 
-            <!-- Dots -->
-            <div class="absolute top-[400px] left-0 right-0 flex gap-4 items-center justify-center py-6 w-full" id="overlay-carousel-dots">
+            <!-- Dots: in flow on mobile (below the image), floating absolute on
+                 desktop so they never shift the columns' fixed 400px height -->
+            <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="overlay-carousel-dots">
               <!-- Populated dynamically -->
             </div>
           </div>
 
           <!-- Column 3: Event Info -->
-          <div class="flex flex-col gap-10 w-full pl-6">
-            <h2 id="overlay-event-title" class="font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary"></h2>
+          <div class="order-3 lg:order-none flex flex-col gap-10 w-full pl-0 lg:pl-6">
+            <h2 id="overlay-event-title" class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary"></h2>
 
             <div class="flex flex-col gap-10">
               <div id="overlay-description-container" class="flex flex-col gap-6">
@@ -552,15 +600,16 @@ const gridSpans = [
 
         </div>
 
-        <!-- Navigation block -->
-        <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-[280px] shrink-0 items-center">
+        <!-- Navigation block. On mobile: 2-column row under a divider, with
+             Anterior/Siguiente side by side (Figma 575:83196). -->
+        <div class="grid grid-cols-2 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-12 lg:mt-[280px] pt-6 border-t border-mel-border lg:pt-0 lg:border-t-0 shrink-0 items-center">
           <div class="hidden lg:block"></div>
-          
+
           <!-- Anterior -->
           <div class="flex justify-end text-right items-center" id="overlay-nav-prev-container"></div>
 
           <!-- Siguiente -->
-          <div class="flex justify-start text-left pl-6 items-center" id="overlay-nav-next-container"></div>
+          <div class="flex justify-start text-left pl-0 lg:pl-6 items-center" id="overlay-nav-next-container"></div>
         </div>
       </div>
 
@@ -575,7 +624,7 @@ const gridSpans = [
   >
     <div
       id="overlay-lightbox-modal"
-      class="relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 pb-4 h-[68vh] max-w-[92vw] aspect-[808/864]"
+      class="relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 pb-4 h-[76vh] max-w-[92vw] aspect-square"
     >
       <button
         id="overlay-lightbox-close"
@@ -597,9 +646,10 @@ const gridSpans = [
         ></div>
       </div>
 
-      <!-- Pagination dots, populated per event by renderOverlayEvent(). Fixed height so the
-           modal's bottom whitespace looks identical whether or not there are dots to show. -->
-      <div id="overlay-lightbox-dots" class="flex gap-4 items-center justify-center pt-4 pb-1 shrink-0 h-[52px]"></div>
+      <!-- Pagination dots, populated per event by renderOverlayEvent(), which also toggles
+           #overlay-lightbox-modal between pb-4/pb-8 depending on whether this row ends up with
+           any dots in it — see the note on event/[id].astro's own (static) version of this. -->
+      <div id="overlay-lightbox-dots" class="flex gap-4 items-center justify-center pt-4 pb-1 shrink-0"></div>
     </div>
   </div>
 
@@ -758,6 +808,73 @@ const gridSpans = [
       opacity: 1;
       transform: scale(1) translateY(0);
     }
+  }
+
+  /* Gallery entrance on first load: each card drifts in from the
+     bottom-right, staggered so the sweep reads as starting from that
+     corner (see the JS in bindInitialCardClicks()). */
+  @keyframes gallery-item-intro {
+    from {
+      opacity: 0;
+      transform: translate3d(36px, 36px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  .gallery-item.intro-in {
+    animation: gallery-item-intro 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* List view: rows genuinely new to the visible page (not just reordered)
+     fade in — the FLIP reorder itself is driven inline via style.transform,
+     see performDOMUpdates(). */
+  @keyframes list-row-intro {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .list-row-intro {
+    animation: list-row-intro 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Map side panel / overlay sidebar tags (makeTagHtml()): value never wraps
+     to a second line or bleeds past the tag's box — always ellipsis. */
+  .tag-value-link {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .tag-value-text {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Event details SPA overlay: settle-in/out reveal shared by all entry
+     points (gallery card, list row, map panel), since they all open it
+     through the same openDetailsOverlaySPA(). */
+  #overlay-details-content {
+    transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  #overlay-details-content.overlay-content-enter {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  /* The overlay's own opaque background never faded on close — only the
+     content inside it did — so once the content finished fading out there
+     was a brief solid-color gap before the overlay actually hid and the
+     gallery/list underneath reappeared. Fading the overlay itself too (in
+     step with the content, same 0.5s the close timeout waits on) turns that
+     gap into a proper dissolve onto whatever's underneath. */
+  #event-details-overlay {
+    transition: opacity 0.5s ease;
+  }
+  #event-details-overlay.overlay-fading {
+    opacity: 0;
   }
 
   @keyframes marker-fade-out {
@@ -1010,17 +1127,60 @@ const gridSpans = [
   .marquee-cell {
     overflow: hidden;
     white-space: nowrap;
-    text-overflow: ellipsis;
     position: relative;
   }
+  /* text-overflow:ellipsis lives on the inline-block itself, not just the
+     parent .marquee-cell — a parent's ellipsis doesn't reliably truncate an
+     atomic inline-block child (the overflowing content isn't a text run the
+     browser can cut mid-way through, just one opaque box), which is why
+     resting cells were showing raw clipped text with no "…" at all instead
+     of a proper ellipsis. max-width caps it to the cell's own width at rest;
+     the :hover override below lifts that cap so the slide reveal can work. */
   .marquee-cell .marquee-inner {
     display: inline-block;
+    position: relative;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    vertical-align: bottom;
     transition: transform 0s linear;
     padding-right: 0;
+    /* Room for the underline below the text — it has to live *inside* this
+       box (not offset outside it) since marquee-inner's own overflow:hidden
+       above, needed for the ellipsis, would otherwise clip it invisible.
+       3px: a midpoint between Link.astro's own bottom-0 (touching the text)
+       and the 6px this had before, which read as too far. */
+    padding-bottom: 3px;
+  }
+
+  /* Table link cells (event title, lugar/localidad/organiza/diseño search
+     links): same animated underline as the Link.astro component — a
+     scaleX(0 -> 1) line from the left, instead of the browser's native
+     text-decoration:underline — with a bit more breathing room from the
+     text than Link.astro's own bottom-0. */
+  .table-link-underline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background-color: currentColor;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.2s ease;
+  }
+  .event-title-link:hover .table-link-underline,
+  .search-cell-link:hover .table-link-underline {
+    transform: scaleX(1);
   }
   .marquee-cell:hover .marquee-inner.is-overflowing {
-    animation: marquee-scroll var(--marquee-duration, 4s) linear 0.4s infinite;
+    max-width: none;
+    overflow: visible;
+    /* Plays once and holds (no `infinite`) — looping used to snap back to the
+       start mid-hover as soon as one pass finished, which read as a reset
+       before the visitor had even finished reading the full name. */
+    animation: marquee-scroll var(--marquee-duration, 2.2s) cubic-bezier(0.16, 1, 0.3, 1) 0.25s 1 forwards;
   }
   @keyframes marquee-scroll {
     0%   { transform: translateX(0); }
@@ -1050,11 +1210,9 @@ const gridSpans = [
     cursor: pointer;
     color: var(--mel-action-secondary);
     transition: color 0.2s ease;
-    text-decoration: none;
   }
   .search-cell-link:hover {
     color: var(--mel-action-primary);
-    text-decoration: underline;
   }
 </style>
 
@@ -1145,6 +1303,14 @@ const gridSpans = [
   let lightbox, lightboxImg, lightboxTitle, lightboxLocation, lightboxCategory, lightboxDate, closeLightboxBtn;
   let btnPrevPage, btnNextPage, paginationNumbers;
 
+  // Set false at the top of initHomePage() and flipped true once the initial
+  // load's synchronous cascade of filterArchives() calls (slider init, the
+  // search box's own startup dispatch, etc.) has settled — gallery cards
+  // only get the first-load stagger-in animation while this is false, so a
+  // later render triggered by that same cascade doesn't lose it, but a real
+  // user-driven filter/sort/search afterwards doesn't replay it either.
+  let gallerySettled = true;
+
   // Calculate year of event
   function getYear(dateStr) {
     if (dateStr === null || dateStr === undefined) return null;
@@ -1211,6 +1377,14 @@ const gridSpans = [
   }
 
   // Double Range Slider logic
+  // Dragging the slider handle fires 'input' dozens of times a second — each
+  // call used to run its own document.startViewTransition(), and starting a
+  // new one while a previous one is still pending supersedes it, which was
+  // exactly why the gallery's FLIP reorder never got to actually play during
+  // a drag (only a single discrete click, giving each call room to settle,
+  // worked). Coalescing into at most one filterArchives() per animation
+  // frame keeps the values live-updating but stops that thrash.
+  let sliderUpdateScheduled = false;
   function updateSlider() {
     if (!sliderMin || !sliderMax) return;
     let val1 = parseInt(sliderMin.value);
@@ -1227,7 +1401,13 @@ const gridSpans = [
 
     // Reset pagination to first page when filtering changes
     currentPage = 1;
-    filterArchives();
+
+    if (sliderUpdateScheduled) return;
+    sliderUpdateScheduled = true;
+    requestAnimationFrame(() => {
+      sliderUpdateScheduled = false;
+      filterArchives();
+    });
   }
 
   // Bind Slider Events — called from initHomePage()
@@ -1492,10 +1672,52 @@ const gridSpans = [
 
       // 3. Populate Gallery Grid View
       const gridContainer = document.getElementById('gallery-grid');
+
+      // FLIP reorder animation (same technique as the list view): record
+      // each card's current position before wiping the grid, so cards that
+      // persist across a filter/search/sort change can glide from their old
+      // spot to their new one instead of just popping into place — the date
+      // slider was the one thing that still didn't reorder with any motion.
+      // Cards that are about to disappear entirely (no longer in the new
+      // filtered set) don't just get wiped out instantly either — they get
+      // cloned into a fixed-in-place, fading placeholder first (see below),
+      // which is what made removals look abrupt next to the smooth entrance
+      // cards already had.
+      const galleryViewEl = document.getElementById('view-galería');
+      const isGalleryVisible = galleryViewEl && !galleryViewEl.classList.contains('hidden');
+      const oldCardRects = new Map();
+      const exitingCardClones = [];
+      if (isGalleryVisible && gallerySettled) {
+        const newIdsSet = new Set(paginated.map(item => item.idMel));
+        const gridRectForExit = gridContainer.getBoundingClientRect();
+        Array.from(gridContainer.children).forEach(card => {
+          if (!card.dataset || !card.dataset.id) return;
+          const cardRect = card.getBoundingClientRect();
+          oldCardRects.set(card.dataset.id, cardRect);
+          if (!newIdsSet.has(card.dataset.id)) {
+            // Positioned absolutely *relative to the grid itself* (not the
+            // viewport) so it stays inside the same overflow-clipped scroll
+            // container as everything else, instead of a position:fixed
+            // clone that would ignore that clipping and could show up
+            // overlapping unrelated page chrome below the grid.
+            const clone = card.cloneNode(true);
+            clone.style.position = 'absolute';
+            clone.style.left = (cardRect.left - gridRectForExit.left) + 'px';
+            clone.style.top = (cardRect.top - gridRectForExit.top) + 'px';
+            clone.style.width = cardRect.width + 'px';
+            clone.style.height = cardRect.height + 'px';
+            clone.style.margin = '0';
+            clone.style.zIndex = '1';
+            clone.style.pointerEvents = 'none';
+            exitingCardClones.push(clone);
+          }
+        });
+      }
+
       gridContainer.innerHTML = '';
-      
+
       if (paginated.length === 0) {
-        gridContainer.className = 'w-full flex items-center justify-center py-12';
+        gridContainer.className = 'w-full flex items-center justify-center py-12 relative';
         gridContainer.innerHTML = `
           <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
             <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
@@ -1509,7 +1731,18 @@ const gridSpans = [
           </div>
         `;
       } else {
-        gridContainer.className = 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense pb-[64px]';
+        // relative: anchors the absolutely-positioned exiting-card clones
+        // below to this element instead of the viewport. Deliberately not
+        // giving this its own overflow:hidden too — an exiting card is
+        // positioned using its *old* (pre-removal) coordinates, which can
+        // sit below the grid's new, possibly-shorter content height once
+        // other cards are gone, and clipping at the grid's own box would cut
+        // it off immediately instead of letting it fade. The ancestor
+        // #view-galería's own overflow-y-auto already contains everything
+        // to the actual visible scroll area, which is what matters.
+        // Extra bottom padding when pagination is hidden (single page) — reserves roughly the
+        // space that module would take, so the scroll area doesn't run flush to the screen edge.
+        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-mel-xl w-full grid-flow-row-dense ${totalPages > 1 ? 'pb-[6vh]' : 'pb-[13vh]'} relative`;
         paginated.forEach((item, i) => {
           const span = gridSpans[i % gridSpans.length];
           const card = document.createElement('div');
@@ -1518,9 +1751,10 @@ const gridSpans = [
           
           card.className = `gallery-item relative overflow-hidden shadow-sm group bg-white transition-all duration-300 span-col-1 cursor-pointer`;
           card.dataset.id = item.idMel;
+          if (!gallerySettled) card.classList.add('intro-in');
           card.innerHTML = `
             <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-            <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300 pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" />
+            <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-full object-cover scale-[1.02] group-hover:scale-[1.04] transition-transform duration-300 pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" />
             
             <!-- Blending grid overlay (striped Figma style) -->
             <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
@@ -1537,18 +1771,108 @@ const gridSpans = [
           
           gridContainer.appendChild(card);
         });
+
+        // First-load entrance: stagger so the reveal sweeps in from the
+        // bottom-right — cards later in reading order (DOM order, which in a
+        // row-dense grid trends toward the bottom-right) start first,
+        // earlier ones (top-left) start last, so it reads as if the wave
+        // arrives from that corner.
+        if (!gallerySettled) {
+          const introCards = gridContainer.querySelectorAll('.gallery-item.intro-in');
+          const total = introCards.length;
+          introCards.forEach((card, idx) => {
+            card.style.animationDelay = `${(total - 1 - idx) * 25}ms`;
+          });
+        } else if (isGalleryVisible && oldCardRects.size > 0) {
+          // FLIP "play" step — cards matched by id (both X and Y, since the
+          // dense grid can reshuffle a card into a completely different
+          // column, not just a different row) glide from old to new; cards
+          // genuinely new to the visible page fade in instead.
+          const newCards = Array.from(gridContainer.children).filter(c => c.dataset && c.dataset.id);
+          const toPlay = [];
+          newCards.forEach(card => {
+            const oldRect = oldCardRects.get(card.dataset.id);
+            if (oldRect) {
+              const newRect = card.getBoundingClientRect();
+              const deltaX = oldRect.left - newRect.left;
+              const deltaY = oldRect.top - newRect.top;
+              if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
+                card.style.transition = 'none';
+                card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+                toPlay.push(card);
+              }
+            } else {
+              card.classList.add('intro-in');
+              card.style.animationDelay = '0ms';
+            }
+          });
+          if (toPlay.length > 0) {
+            void gridContainer.offsetHeight;
+            requestAnimationFrame(() => {
+              toPlay.forEach(card => {
+                card.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                card.style.transform = '';
+              });
+              setTimeout(() => {
+                toPlay.forEach(card => { card.style.transition = ''; card.style.transform = ''; });
+              }, 420);
+            });
+          }
+        }
+
+        // Play the exit fade for cards that dropped out of the filtered
+        // set entirely — appended into the (now rebuilt) grid so they sit
+        // in the same clipped scroll container as everything else, then
+        // faded + shrunk away and removed once the transition finishes.
+        if (exitingCardClones.length > 0) {
+          exitingCardClones.forEach(clone => gridContainer.appendChild(clone));
+          void gridContainer.offsetHeight;
+          requestAnimationFrame(() => {
+            exitingCardClones.forEach(clone => {
+              clone.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+              clone.style.opacity = '0';
+              clone.style.transform = 'scale(0.94)';
+            });
+            setTimeout(() => {
+              exitingCardClones.forEach(clone => clone.remove());
+            }, 320);
+          });
+        }
       }
 
       // 4. Populate List view (matching the paginated dataset of size 32)
       const listBody = document.getElementById('list-table-body');
+      const listTable = listBody ? listBody.closest('table') : null;
       if (listBody) {
+        // FLIP reorder animation: record each row's current position (keyed
+        // by event id) before wiping the table, so we can slide rows from
+        // their old spot to their new one after rebuilding. This uses plain
+        // `transform`, not view-transition-name, specifically so it stays
+        // contained by the table's own overflow clipping instead of
+        // escaping it via the browser's top layer (see the NOTE below on
+        // why rows don't carry a view-transition-name).
+        const listViewEl = document.getElementById('view-lista');
+        const isListVisible = listViewEl && !listViewEl.classList.contains('hidden');
+        const oldRowRects = new Map();
+        if (isListVisible) {
+          Array.from(listBody.children).forEach(tr => {
+            if (tr.dataset && tr.dataset.id) oldRowRects.set(tr.dataset.id, tr.getBoundingClientRect());
+          });
+        }
+
         listBody.innerHTML = '';
-        
+
         if (paginated.length === 0) {
+          // height:100% on the table/row/cell chain — without it, this single
+          // short row only takes its own natural height, leaving a tall blank
+          // gap below it up to where the (now-hidden, since totalPages<=1)
+          // pagination module used to start. This makes it fill that same
+          // space instead, centered, matching the gallery/list's own no-results state.
+          listTable.style.height = '100%';
           listBody.innerHTML = `
-            <tr>
-              <td colspan="6" class="py-12 border-l border-r border-b border-mel-border bg-mel-bg-primary">
-                <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
+            <tr style="height:100%;">
+              <td colspan="6" class="border-l border-r border-b border-mel-border bg-mel-bg-primary" style="height:100%;">
+                <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto h-full justify-center" data-name="Empty State">
                   <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
                     <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
                     <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
@@ -1562,9 +1886,11 @@ const gridSpans = [
             </tr>
           `;
         } else {
+          listTable.style.height = '';
           paginated.forEach(item => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-mel-bg-secondary/10 transition-colors';
+            tr.dataset.id = item.idMel;
             // NOTE: rows must NOT get a per-row view-transition-name. Sorting
             // and pagination re-render inside document.startViewTransition,
             // and named elements get morphed from old to new position in the
@@ -1595,8 +1921,8 @@ const gridSpans = [
                   <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0 border border-mel-border/30">
                     ${firstImg ? `<img alt="" class="object-contain w-full h-full pointer-events-none" src="${firstImg}" />` : ''}
                   </div>
-                  <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary hover:underline transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
-                    <span class="marquee-inner">${escHtml(item.evento)}</span>
+                  <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
+                    <span class="marquee-inner">${escHtml(item.evento)}<span class="table-link-underline"></span></span>
                     <svg class="title-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                   </span>
                 </div>
@@ -1606,31 +1932,72 @@ const gridSpans = [
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
                 ${item.lugar && item.lugar.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.lugar)}">${escHtml(item.lugar)}</span>` 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`
                   : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
                 }
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
                 ${item.localidad && item.localidad.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}</span>` 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}<span class="table-link-underline"></span></span>`
                   : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
                 }
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
                 ${item.organiza && item.organiza.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}</span>` 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}<span class="table-link-underline"></span></span>`
                   : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
                 }
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] marquee-cell">
                 ${item.disenador && item.disenador.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}</span>` 
+                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}<span class="table-link-underline"></span></span>` 
                   : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
                 }
               </td>
             `;
             listBody.appendChild(tr);
           });
+
+          // FLIP "play" step: rows that existed before (matched by id) get
+          // slid from their old position to the new one; rows that are
+          // genuinely new to the visible page (revealed by a search/sort/
+          // filter change) get a small fade-in instead, since they have no
+          // "old" position to animate from.
+          if (isListVisible) {
+            const newRows = Array.from(listBody.children).filter(tr => tr.dataset && tr.dataset.id);
+            const toPlay = [];
+            newRows.forEach(tr => {
+              const oldRect = oldRowRects.get(tr.dataset.id);
+              if (oldRect) {
+                const newRect = tr.getBoundingClientRect();
+                const deltaY = oldRect.top - newRect.top;
+                if (Math.abs(deltaY) > 1) {
+                  tr.style.transition = 'none';
+                  tr.style.transform = `translateY(${deltaY}px)`;
+                  toPlay.push(tr);
+                }
+              } else if (oldRowRects.size > 0) {
+                // Only treat rows as "new" once we actually have a previous
+                // render to compare against — otherwise every row on the
+                // very first list render would replay the intro pointlessly.
+                tr.classList.add('list-row-intro');
+              }
+            });
+            if (toPlay.length > 0) {
+              // Force layout so the inverted transform above is committed
+              // before we transition it away, then let it glide to rest.
+              void listBody.offsetHeight;
+              requestAnimationFrame(() => {
+                toPlay.forEach(tr => {
+                  tr.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+                  tr.style.transform = '';
+                });
+                setTimeout(() => {
+                  toPlay.forEach(tr => { tr.style.transition = ''; tr.style.transform = ''; });
+                }, 340);
+              });
+            }
+          }
 
           // Bind title link clicks to open event details
           listBody.querySelectorAll('.event-title-link').forEach(link => {
@@ -1655,19 +2022,48 @@ const gridSpans = [
             });
           });
 
-          // Setup marquee overflow detection
+          // Setup marquee overflow detection. Force a synchronous layout
+          // flush first — without it, cell.clientWidth below can read a
+          // stale value (observed as 0) from before these rows existed,
+          // making scrollWidth > clientWidth true for every cell regardless
+          // of whether its text actually overflows, which is what made even
+          // short values like a date or "desconocido" get the hover-scroll
+          // treatment.
+          void listBody.offsetHeight;
           listBody.querySelectorAll('.marquee-cell').forEach(cell => {
             const inner = cell.querySelector('.marquee-inner');
             if (inner && inner.scrollWidth > cell.clientWidth) {
               inner.classList.add('is-overflowing');
               const overflow = inner.scrollWidth - cell.clientWidth + 32;
-              const duration = Math.max(2, overflow / 40);
+              const duration = Math.max(1, overflow / 85);
               cell.style.setProperty('--marquee-duration', duration + 's');
               cell.style.setProperty('--cell-width', cell.clientWidth + 'px');
             }
           });
         }
       }
+
+      // Pagination only makes sense with more than one page — otherwise, on
+      // a short result set, it used to float below an empty gap since the
+      // table/grid don't stretch to reach it. Hiding it here (on top of
+      // switchView()'s own view-based show/hide) covers that.
+      const pagControls = document.getElementById('pagination-controls');
+      if (pagControls) {
+        const galleryViewCheck = document.getElementById('view-galería');
+        const listViewCheck = document.getElementById('view-lista');
+        const isGalleryOrListActive =
+          (galleryViewCheck && !galleryViewCheck.classList.contains('hidden')) ||
+          (listViewCheck && !listViewCheck.classList.contains('hidden'));
+        const shouldShowPagination = isGalleryOrListActive && totalPages > 1;
+        pagControls.classList.toggle('hidden', !shouldShowPagination);
+        pagControls.classList.toggle('flex', shouldShowPagination);
+
+        // Same reserve-space idea as the gallery grid's own pb toggle above,
+        // for the list table's scroll wrapper.
+        const listWrapper = document.getElementById('list-table-wrapper');
+        if (listWrapper) listWrapper.classList.toggle('pb-[7vh]', totalPages <= 1);
+      }
+
       updateMapMarkers(shouldFitBounds);
     };
 
@@ -1722,15 +2118,38 @@ const gridSpans = [
   let overlayAutoplayInterval = _s.overlayAutoplayInterval;
   let overlayCurrentIndex     = _s.overlayCurrentIndex;
 
-  // Left/right arrow keys navigate the open lightbox. Bound once (this script block only runs
-  // once), and always dispatches to whichever event's showLightboxImage is currently active.
+  // Left/right arrow keys: if the image lightbox is open, they step through
+  // that event's photos; otherwise, if the event details overlay itself is
+  // open, they step to the previous/next event (same navigation as the
+  // Anterior/Siguiente links). Bound once (this script block only runs
+  // once), and always dispatches to whichever event's state is currently
+  // active via window._melState, kept up to date by renderOverlayEvent()/
+  // the lightbox's own show functions.
   document.addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+
     const lb = document.getElementById('overlay-image-lightbox');
-    if (!lb || lb.classList.contains('hidden')) return;
-    const active = window._melState && window._melState.activeLightbox;
-    if (!active) return;
-    if (e.key === 'ArrowLeft') { e.preventDefault(); active.showImage(active.getIndex() - 1); }
-    else if (e.key === 'ArrowRight') { e.preventDefault(); active.showImage(active.getIndex() + 1); }
+    if (lb && !lb.classList.contains('hidden')) {
+      const activeLb = window._melState && window._melState.activeLightbox;
+      if (!activeLb) return;
+      e.preventDefault();
+      if (e.key === 'ArrowLeft') activeLb.showImage(activeLb.getIndex() - 1);
+      else activeLb.showImage(activeLb.getIndex() + 1);
+      return;
+    }
+
+    const overlay = document.getElementById('event-details-overlay');
+    if (overlay && !overlay.classList.contains('hidden')) {
+      const nav = window._melState && window._melState.activeOverlayNav;
+      if (!nav) return;
+      if (e.key === 'ArrowLeft' && nav.prevItem) {
+        e.preventDefault();
+        transitionToOverlayEvent(nav.prevItem, nav.panelEvents);
+      } else if (e.key === 'ArrowRight' && nav.nextItem) {
+        e.preventDefault();
+        transitionToOverlayEvent(nav.nextItem, nav.panelEvents);
+      }
+    }
   });
 
   function switchView(viewName) {
@@ -2452,6 +2871,13 @@ const gridSpans = [
   // initHomePage — re-runs on every astro:page-load
   // -------------------------------------------------------
   function initHomePage() {
+    // Let the gallery replay its first-load entrance animation for whichever
+    // render actually settles out of the several that happen synchronously
+    // below (slider init, the search box's own startup dispatch...) — see
+    // the flag's declaration for why this can't just live in
+    // bindInitialCardClicks().
+    gallerySettled = false;
+
     // Re-sync local aliases from persisted state
     archives           = _s.archives;
     filtered           = _s.filtered;
@@ -2654,6 +3080,21 @@ const gridSpans = [
         openDetailsOverlaySPA(targetEvent, filtered.length ? filtered : archives);
       }
     }
+
+    // Everything above runs synchronously, including any filterArchives()
+    // calls triggered along the way (e.g. the search box's own startup
+    // dispatch) — deferring to a macrotask means gallerySettled only flips
+    // once all of those have actually happened, so a genuine later render
+    // still gets the intro, but a real user interaction afterwards won't.
+    // Two filterArchives() calls happen synchronously above (this function's
+    // own updateSlider() call, and the search box's own startup dispatch),
+    // each wrapped in document.startViewTransition() — starting a second
+    // transition while one is still pending defers/supersedes the first, so
+    // their performDOMUpdates() callbacks don't necessarily settle in the
+    // same tick a plain setTimeout(…, 0) would catch. A short, generous delay
+    // covers that without risking a real (much later) user interaction ever
+    // seeing gallerySettled still false.
+    setTimeout(() => { gallerySettled = true; }, 200);
   }
 
   // ----------------------------------------------------
@@ -2664,20 +3105,26 @@ const gridSpans = [
     const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
     const displayVal = isUnknown ? 'desconocido' : value;
 
+    // The value link/text must never wrap to a second line or bleed past the
+    // tag's box — always ellipsis instead (tag-value-link/-text below get
+    // matching global CSS for that; see the min-width:0 chain needed to make
+    // ellipsis actually work inside nested flex containers).
     return `
-      <div class="flex flex-col items-start gap-1 w-full select-none">
+      <div class="flex flex-col items-start gap-1 w-full min-w-0 select-none">
         <span class="font-sans text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">${label}</span>
         ${(!isUnknown && href)
-          ? `<a href="${href}" class="group/tag font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative inline-flex items-center gap-1 no-underline"><span class="relative inline-block text-inherit">${displayVal}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover/tag:scale-x-100 transition-transform duration-200 origin-left"></span></span><svg class="w-3 h-3 text-inherit opacity-0 group-hover/tag:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover/tag:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></a>`
-          : `<span class="font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] ${isUnknown ? 'text-mel-text-tertiary' : 'text-mel-text-secondary'}">${displayVal}</span>`
+          ? `<a href="${href}" class="tag-value-link group/tag font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative inline-flex items-center gap-1 no-underline min-w-0 max-w-full"><span class="tag-value-text relative text-inherit">${displayVal}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover/tag:scale-x-100 transition-transform duration-200 origin-left"></span></span><svg class="w-3 h-3 text-inherit opacity-0 group-hover/tag:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover/tag:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></a>`
+          : `<span class="tag-value-text block w-full font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] ${isUnknown ? 'text-mel-text-tertiary' : 'text-mel-text-secondary'}">${displayVal}</span>`
         }
       </div>
     `;
   }
 
   function renderOverlayEvent(eventItem, panelEvents) {
-    // 1. Text & Basic Details
+    // 1. Text & Basic Details (desktop title + its mobile twin above the grid)
     document.getElementById('overlay-event-title').textContent = eventItem.evento;
+    const mobileTitle = document.getElementById('overlay-event-title-mobile');
+    if (mobileTitle) mobileTitle.textContent = eventItem.evento;
     
     const desc = eventItem.descripcion || '';
     const descContainer = document.getElementById('overlay-description-container');
@@ -2816,6 +3263,16 @@ const gridSpans = [
       getIndex: () => lightboxIndex,
     };
 
+    // Bottom padding matches the other sides (pb-8) when there's no pagination row to show —
+    // with dots, pb-4 plus their own padding reads as the same visual weight, so it stays
+    // smaller there on purpose (mirrors the static logic in event/[id].astro). The dots
+    // container itself must also be fully hidden (not just emptied) when there's nothing to
+    // show in it — its own pt-4/pb-1 padding still occupies height even with zero children,
+    // which is what made the bottom edge read as bigger than the other three sides.
+    lightboxModal.classList.toggle('pb-4', imageUrls.length > 1);
+    lightboxModal.classList.toggle('pb-8', imageUrls.length <= 1);
+    lightboxDotsContainer.classList.toggle('hidden', imageUrls.length <= 1);
+
     // Rebuild the lightbox pagination for THIS event's images
     lightboxDotsContainer.innerHTML = '';
     if (imageUrls.length > 1) {
@@ -2885,6 +3342,10 @@ const gridSpans = [
     const prevItem = curIdx > 0 ? panelEvents[curIdx - 1] : null;
     const nextItem = curIdx < panelEvents.length - 1 ? panelEvents[curIdx + 1] : null;
 
+    // Lets the page-level keydown listener step to the prev/next event with
+    // the arrow keys, same as clicking Anterior/Siguiente.
+    window._melState.activeOverlayNav = { prevItem, nextItem, panelEvents };
+
     const prevNav = document.getElementById('overlay-nav-prev-container');
     const nextNav = document.getElementById('overlay-nav-next-container');
 
@@ -2950,13 +3411,66 @@ const gridSpans = [
     setDetailParam(newEvent.idMel);
 
     const content = document.getElementById('overlay-details-content');
-    if (content) {
-      content.style.opacity = '0';
-      setTimeout(() => {
-        renderOverlayEvent(newEvent, panelEvents);
-        content.style.opacity = '1';
-      }, 250); // 250ms fade out, 250ms fade in = 500ms total dissolve transition!
+    if (!content) { renderOverlayEvent(newEvent, panelEvents); return; }
+
+    // Sections that persist in the same slot (title, tags, image, artist
+    // list) just get their content rewritten in place — same idea as the map
+    // cluster's own count updating directly rather than the whole bubble
+    // redrawing — instead of the old blanket 500ms fade-to-blank-and-back.
+    // Only the sections whose *visibility* can toggle (description, artists)
+    // get a FLIP: if one collapses/expands, whatever comes after glides into
+    // its new position instead of snapping.
+    const flipEls = ['overlay-description-container', 'overlay-artists-container', 'overlay-btn-me-presta']
+      .map(id => document.getElementById(id))
+      .filter(Boolean);
+    const oldRects = flipEls.map(el => el.getBoundingClientRect());
+
+    // Photo dissolve: snapshot the carousel exactly as it looks right now
+    // into a fixed-position clone stacked on top of the real one, let
+    // renderOverlayEvent() swap the real carousel to the new event's photo
+    // underneath, then fade the snapshot away — so the old photo visibly
+    // dissolves into the new one instead of popping.
+    const carouselBox = document.getElementById('overlay-carousel-main');
+    let dissolveClone = null;
+    if (carouselBox) {
+      const rect = carouselBox.getBoundingClientRect();
+      dissolveClone = carouselBox.cloneNode(true);
+      dissolveClone.removeAttribute('id');
+      dissolveClone.style.position = 'fixed';
+      dissolveClone.style.left = rect.left + 'px';
+      dissolveClone.style.top = rect.top + 'px';
+      dissolveClone.style.width = rect.width + 'px';
+      dissolveClone.style.height = rect.height + 'px';
+      dissolveClone.style.margin = '0';
+      dissolveClone.style.zIndex = '9999';
+      dissolveClone.style.pointerEvents = 'none';
+      dissolveClone.style.transition = 'opacity 0.5s ease';
+      document.body.appendChild(dissolveClone);
     }
+
+    renderOverlayEvent(newEvent, panelEvents);
+
+    if (dissolveClone) {
+      requestAnimationFrame(() => {
+        dissolveClone.style.opacity = '0';
+        setTimeout(() => { dissolveClone.remove(); }, 520);
+      });
+    }
+
+    flipEls.forEach((el, i) => {
+      const oldRect = oldRects[i];
+      const newRect = el.getBoundingClientRect();
+      const deltaY = oldRect.top - newRect.top;
+      if (Math.abs(deltaY) > 1) {
+        el.style.transition = 'none';
+        el.style.transform = `translateY(${deltaY}px)`;
+        requestAnimationFrame(() => {
+          el.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+          el.style.transform = '';
+          setTimeout(() => { el.style.transition = ''; el.style.transform = ''; }, 420);
+        });
+      }
+    });
   }
 
   function openDetailsOverlaySPA(eventItem, panelEvents) {
@@ -2966,20 +3480,37 @@ const gridSpans = [
 
     // Show overlay
     const overlay = document.getElementById('event-details-overlay');
+    const content = document.getElementById('overlay-details-content');
     if (overlay) {
+      overlay.classList.remove('overlay-fading');
       overlay.classList.remove('hidden');
       overlay.classList.add('flex');
     }
+    // Start offset/hidden — renderOverlayEvent() below populates it while
+    // still invisible, then the next step reveals it with a settle-in motion
+    // shared by all three entry points (gallery card, list row, map panel),
+    // since they all funnel through this same function.
+    if (content) content.classList.add('overlay-content-enter');
 
     renderOverlayEvent(eventItem, panelEvents);
+
+    // Double rAF: the first frame just commits the "enter" (offset) state so
+    // the browser actually paints it — removing the class immediately after
+    // adding it (single frame) risks the two style changes getting coalesced
+    // into a no-op, skipping the transition entirely.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (content) content.classList.remove('overlay-content-enter');
+      });
+    });
   }
 
   function closeDetailsOverlaySPA(shouldRestoreUrl = true) {
     const overlay = document.getElementById('event-details-overlay');
-    if (overlay) {
-      overlay.classList.add('hidden');
-      overlay.classList.remove('flex');
-    }
+    const content = document.getElementById('overlay-details-content');
+
+    if (content) content.classList.add('overlay-content-enter');
+    if (overlay) overlay.classList.add('overlay-fading');
 
     if (overlayAutoplayInterval) {
       clearInterval(overlayAutoplayInterval);
@@ -2992,6 +3523,18 @@ const gridSpans = [
     // visitor was in (view, search, panel…) — and also covers the
     // deep-link case, where there was no "previous" URL to restore.
     if (shouldRestoreUrl) setDetailParam(null);
+
+    // Let the shrink-and-fade play out before actually hiding the overlay —
+    // hiding it immediately would just cut the animation off. Matches the
+    // 0.55s transition on #overlay-details-content.
+    setTimeout(() => {
+      if (overlay) {
+        overlay.classList.remove('overlay-fading');
+        overlay.classList.add('hidden');
+        overlay.classList.remove('flex');
+      }
+      if (content) content.classList.remove('overlay-content-enter');
+    }, 500);
   }
 
   // Overlay close buttons are bound in initHomePage()

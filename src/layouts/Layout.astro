@@ -49,6 +49,30 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       }
       applyTheme();
       document.addEventListener('astro:after-swap', applyTheme);
+
+      // Defensive reset: EmptyState's "De acuerdo" button fades document.body
+      // to opacity 0 before navigating back — if Astro's own transition ever
+      // reuses this same body element across the swap, that inline style
+      // would otherwise stick around and leave the destination page blank.
+      document.addEventListener('astro:page-load', () => {
+        document.body.style.opacity = '';
+        document.body.style.transition = '';
+      });
+
+      // Hide the browser's native "Save image as…"/"Copy image" context menu
+      // on every photo site-wide. This doesn't actually stop someone from
+      // getting the file (dev tools, drag-and-drop elsewhere still work),
+      // just removes the obvious one-click way.
+      document.addEventListener('contextmenu', (e) => {
+        if (e.target && e.target.tagName === 'IMG') e.preventDefault();
+      });
+
+      // Firefox doesn't support the -webkit-user-drag CSS property (see the
+      // global stylesheet), so it needs this JS fallback to actually block
+      // dragging a photo out of the page.
+      document.addEventListener('dragstart', (e) => {
+        if (e.target && e.target.tagName === 'IMG') e.preventDefault();
+      });
     </script>
 
     <!-- Enable Astro View Transitions for dynamic premium navigation page swaps -->
@@ -62,5 +86,14 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
 <style is:global>
   body {
     font-family: 'Space Grotesk', sans-serif;
+  }
+
+  /* Blocks the browser's native "drag this image out" gesture site-wide,
+     alongside the contextmenu prevention above (drag was still possible
+     with just that). -webkit-user-drag covers Chrome/Safari; the dragstart
+     listener below covers Firefox, which doesn't support that property. */
+  img {
+    -webkit-user-drag: none;
+    user-drag: none;
   }
 </style>

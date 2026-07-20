@@ -85,10 +85,14 @@ const imgFitClass = variant === "construction" ? "object-cover" : "object-bottom
     </p>
   </div>
 
-  <!-- Action Button -->
+  <!-- Action Button. In the "construction" variant this goes back to wherever
+       the visitor came from (not just buttonLink) with a fade — see the
+       script below — matching the dissolve used when closing an event's
+       details overlay. -->
   {showButton && (
-    <a 
+    <a
       href={buttonLink}
+      id={variant === "construction" ? "empty-state-back-btn" : undefined}
       class="inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary transition-colors duration-200 cursor-pointer shadow-sm"
       data-node-id="821:72737"
       data-name="Button"
@@ -99,3 +103,31 @@ const imgFitClass = variant === "construction" ? "object-cover" : "object-bottom
     </a>
   )}
 </div>
+
+{/* Unconditional so Astro reliably hoists/bundles it — the #empty-state-back-btn
+    id only exists in the DOM for the "construction" variant, so this safely
+    no-ops for the other variants (which don't show this button at all). */}
+<script>
+  function initEmptyStateBackButton() {
+    const btn = document.getElementById('empty-state-back-btn');
+    if (!btn) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      // Always back to the gallery (not document.referrer — that was
+      // occasionally empty/unusable and left the button looking stuck with
+      // nowhere to go). history.back() would also go through Astro's own
+      // ClientRouter transition *on top of* this fade — two overlapping
+      // transitions, which is what caused the earlier stutter/hiccup. A hard
+      // reload skips ClientRouter entirely for this one navigation.
+      //
+      // The navigation starts immediately (not after the fade finishes) so
+      // the destination starts loading right away, in parallel with the
+      // fade — waiting first just meant staring at a blank faded page while
+      // the actual load hadn't even begun yet.
+      document.body.style.transition = 'opacity 0.5s ease';
+      document.body.style.opacity = '0';
+      window.location.href = '/';
+    });
+  }
+  document.addEventListener('astro:page-load', initEmptyStateBackButton);
+</script>

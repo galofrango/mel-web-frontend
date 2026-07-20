@@ -17,8 +17,11 @@ import IconButton from './IconButton.astro';
 >
   <!-- Top Content Section -->
   <div class="flex flex-col w-full">
-    <!-- Header / Close button (No border, Figma matches: pb-[16px] px-[16px] pt-[56px]) -->
-    <div class="flex items-center pb-[16px] px-[16px] pt-[56px] shrink-0 w-full">
+    <!-- Header / Close button (No border). pt-[10vh] matches every page header's
+         own top offset, and the min-h reserves the same 48px row height the page
+         headers have (their 40px menu button sits centered in it), so this close
+         button lands at exactly the same height as the button that opened it. -->
+    <div class="flex items-center pb-[16px] px-[16px] pt-[10vh] min-h-[calc(10vh+64px)] shrink-0 w-full">
       <IconButton 
         id="close-side-menu" 
         icon="x"
@@ -58,12 +61,15 @@ import IconButton from './IconButton.astro';
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>
       </a>
       
-      <!-- Item: Sala de exposiciones -->
+      <!-- Item: Sala de exposiciones (Figma 562:70116, "Nuevo" tag) -->
       <a href="/exposiciones" id="menu-item-exhibitions" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200 no-underline relative">
         <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
           <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary group-hover:text-mel-action-primary truncate">
             Sala de exposiciones
           </p>
+        </div>
+        <div class="bg-mel-action-primary flex items-center gap-1 px-2 py-0.5 shrink-0">
+          <span class="font-sans font-medium text-[16px] leading-[20px] text-mel-text-on-action">Nuevo</span>
         </div>
         <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary pointer-events-none" />
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border/30"></div>

@@ -16,7 +16,7 @@ import IconButton from './IconButton.astro';
   >
     <div class="flex items-center relative shrink-0">
       <span class="font-sans font-bold text-[22px] leading-[28px] text-mel-text-primary tracking-[-0.44px] whitespace-nowrap select-none transition-colors duration-200">
-        Memoria Electrónica Leonesa
+        <span class="md:hidden">M.E.L.</span><span class="hidden md:inline">Memoria Electrónica Leonesa</span>
       </span>
       <Pica class="ml-1 group-hover:bg-mel-action-primary transition-colors duration-200" />
     </div>
@@ -151,6 +151,26 @@ import IconButton from './IconButton.astro';
 
     function setState(state: 'default' | 'placeholder' | 'filling' | 'filled', val = "") {
       if (!container) return;
+
+      // Switching directly from one filled term to a different one (e.g.
+      // clicking another search-cell-link while a search is already active):
+      // retract the underline and briefly fade the text, swap it while
+      // retracted, then let it reappear — instead of just snapping the new
+      // term in place instantly.
+      const prevState = container.getAttribute('data-state');
+      if (state === 'filled' && prevState === 'filled' && filledText && filledText.textContent !== val) {
+        container.classList.add('search-retracting');
+        if (filledText) filledText.style.opacity = '0';
+        setTimeout(() => {
+          if (filledText) filledText.textContent = val;
+          if (activeInput) activeInput.value = val;
+          container?.classList.remove('search-retracting');
+          if (filledText) filledText.style.opacity = '1';
+          dispatchSearch(val);
+        }, 180);
+        return;
+      }
+
       container.setAttribute('data-state', state);
       applyContainerWidth();
 
@@ -323,5 +343,19 @@ import IconButton from './IconButton.astro';
   #search-box-container[data-state="filled"]::after {
     transform: scaleX(1);
     transform-origin: left center;
+  }
+
+  /* Switching between two filled search terms: retract toward the right
+     first (overriding the rule above), then falls back to it — which grows
+     from the left — once the class is removed, giving a retract-then-regrow
+     swipe instead of an instant snap. */
+  #search-box-container.search-retracting::after {
+    transform: scaleX(0) !important;
+    transform-origin: right center !important;
+    transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #search-filled-text {
+    transition: opacity 0.18s ease;
   }
 </style>

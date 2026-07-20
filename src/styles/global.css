@@ -221,6 +221,11 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
 }
+@media (min-width: 768px) {
+  .typo-overline {
+    font-size: 12px;
+  }
+}
 
 .typo-button {
   font-family: var(--font-sans);
@@ -250,4 +255,27 @@ body {
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Event details tags on mobile (Figma 369:32751): the desktop sidebar becomes a
+   horizontally scrollable row where each tag shrinks to its content and gets a
+   vertical divider on its left (except the first). Applies to both the static
+   event page's TagWithLink instances (.filter-tag) and the SPA overlay's
+   JS-templated tags (direct children of the row). */
+@media (max-width: 1023px) {
+  .event-tags-row > * {
+    flex-shrink: 0;
+    width: auto;
+  }
+  .event-tags-row > *:not(:first-child) {
+    border-left: 1px solid var(--mel-border);
+    padding-left: 24px;
+  }
+  /* Values never wrap in the row layout — each tag is exactly as wide as its
+     content and the row itself scrolls instead. */
+  .event-tags-row .tag-value-text,
+  .event-tags-row .tag-count-val {
+    white-space: nowrap;
+    width: auto;
+  }
 }

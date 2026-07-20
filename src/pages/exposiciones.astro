@@ -8,17 +8,19 @@ import EmptyState from '../components/EmptyState.astro';
 <Layout title="Sala de Exposiciones">
   <div class="w-full max-w-[1440px] min-h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pb-16 flex flex-col items-center">
     
-    <!-- Header (Solid background, no transparency) -->
-    <div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border/30 pb-4 pt-[32px] md:pt-[112px]">
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center w-full">
-        <div class="col-span-12 md:col-span-6 w-full">
-          <a href="/" class="flex items-center no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
+    <!-- Header (Solid background, no transparency). pt-[10vh] and the row layout
+         mirror the home page header exactly so the title/menu never shift between
+         pages; on mobile the title collapses to "M.E.L." and the menu to its icon. -->
+    <div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border/30 pb-4 pt-[10vh]">
+      <div class="flex items-center gap-4 md:grid md:grid-cols-12 md:gap-6 w-full">
+        <div class="flex-1 min-w-0 md:col-span-6 w-full">
+          <a href="/" class="flex items-center h-[48px] no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
             <span class="font-sans font-bold text-[22px] leading-[28px] tracking-[-0.44px] whitespace-nowrap select-none">
-              Memoria Electrónica Leonesa
+              <span class="md:hidden">M.E.L.</span><span class="hidden md:inline">Memoria Electrónica Leonesa</span>
             </span>
           </a>
         </div>
-        <div class="col-span-12 md:col-span-6 flex justify-end">
+        <div class="shrink-0 md:col-span-6 flex justify-end">
           <MenuItem id="menu-btn" />
         </div>
       </div>

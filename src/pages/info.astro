@@ -125,7 +125,17 @@ try {
       const type = c[2] ? c[2].v : '';
       const moduleTitle = c[3] ? c[3].v : '';
       const moduleOrder = c[4] && c[4].v != null ? Number(c[4].v) : 999;
-      const imageUrl = c[5] && c[5].v ? String(c[5].v).trim() : '';
+      const rawImage = c[5] && c[5].v ? String(c[5].v).trim() : '';
+      // Google Drive share links can't load in an <img> directly — convert
+      // them to the thumbnail endpoint (same trick as the event flyers).
+      // Non-Drive URLs pass through untouched.
+      let imageUrl = rawImage;
+      if (rawImage.includes('drive.google.com')) {
+        let fileId = '';
+        if (rawImage.includes('id=')) fileId = rawImage.split('id=')[1].split('&')[0];
+        else if (rawImage.includes('/d/')) fileId = rawImage.split('/d/')[1].split('/')[0];
+        imageUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : rawImage;
+      }
       const textVal = c[6] ? String(c[6].v) : '';
 
       if (!sectionsMap[sectionName]) {
@@ -170,36 +180,47 @@ if (sectionsData.length === 0) {
 function escapeHtml(s) {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+// Same style as Link.astro's default state (Body Roman Lora): serif font,
+// text-secondary that turns action-primary on hover, with a scaleX(0->1)
+// underline instead of the browser's native text-decoration. The font is
+// set explicitly here (not inherited) since these links sit inline inside
+// sans body text but must render in Lora regardless.
 function linkify(s) {
-  const linkClass = 'text-mel-action-secondary hover:text-mel-action-primary underline underline-offset-4 transition-colors';
+  const wrap = (href, label, extraAttrs = '') =>
+    `<a href="${href}" ${extraAttrs} class="group font-serif text-[16px] font-medium leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative no-underline"><span class="relative inline-block text-inherit">${label}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
   return escapeHtml(s)
-    .replace(/([\w.+-]+@[\w-]+\.[\w.-]*\w)/g, `<a href="mailto:$1" class="${linkClass}">$1</a>`)
-    .replace(/(^|\s)@([\w.]*\w)/g, `$1<a href="https://instagram.com/$2" target="_blank" rel="noopener" class="${linkClass}">@$2</a>`);
+    .replace(/([\w.+-]+@[\w-]+\.[\w.-]*\w)/g, (_m, email) => wrap(`mailto:${email}`, email))
+    .replace(/(^|\s)@([\w.]*\w)/g, (_m, pre, handle) => `${pre}${wrap(`https://instagram.com/${handle}`, `@${handle}`, 'target="_blank" rel="noopener"')}`);
 }
 ---
 
 <Layout title="Proyecto, Equipo y Contacto">
   <div class="w-full max-w-[1440px] min-h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pb-16 flex flex-col items-center">
     
-    <!-- Static Header matching the Page Header layout of home page (No blur, no opacity) -->
-    <div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border/30 pb-4 pt-[32px] md:pt-[112px]">
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center w-full">
-        <div class="col-span-12 md:col-span-6 w-full">
+    <!-- Static Header matching the Page Header layout of home page (No blur, no
+         opacity). pt-[10vh] and the row layout mirror the home header exactly so
+         the title/menu never shift between pages; on mobile the title collapses
+         to "M.E.L." and the menu to its icon. -->
+    <div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border/30 pb-4 pt-[10vh]">
+      <div class="flex items-center gap-4 md:grid md:grid-cols-12 md:gap-6 w-full">
+        <div class="flex-1 min-w-0 md:col-span-6 w-full">
           <!-- Static link back to homepage with identical styles -->
-          <a href="/" class="flex items-center no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
+          <a href="/" class="flex items-center h-[48px] no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
             <span class="font-sans font-bold text-[22px] leading-[28px] tracking-[-0.44px] whitespace-nowrap select-none">
-              Memoria Electrónica Leonesa
+              <span class="md:hidden">M.E.L.</span><span class="hidden md:inline">Memoria Electrónica Leonesa</span>
             </span>
           </a>
         </div>
-        <div class="col-span-12 md:col-span-6 flex justify-end">
+        <div class="shrink-0 md:col-span-6 flex justify-end">
           <MenuItem id="menu-btn" />
         </div>
       </div>
     </div>
 
-    <!-- Menú Sections body container (12-column layout, sections LEFT-aligned to cols 1-8) -->
-    <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-6 pt-4 relative">
+    <!-- Menú Sections body container (12-column layout, sections LEFT-aligned to cols 1-8).
+         pt-[40px] matches the same 40px gap already used between modules further down (gap-[40px]
+         on the sections column below) — the 80px tried before was double that, too much. -->
+    <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-6 pt-[40px] relative">
       <div class="col-span-12 md:col-span-8 flex flex-col gap-[40px] pb-[80px]">
         
         {sectionsData.map((section) => (
@@ -212,7 +233,7 @@ function linkify(s) {
                 {section.title}
               </h2>
               {section.subtitle && (
-                <p class="font-sans font-normal text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-secondary" set:html={linkify(section.subtitle)} />
+                <p class="font-sans font-normal text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-primary" set:html={linkify(section.subtitle)} />
               )}
             </div>
 
@@ -242,11 +263,12 @@ function linkify(s) {
                     <div class="overflow-hidden">
                       <div class="content-start flex flex-wrap gap-[24px_32px] items-start pt-[16px] w-full">
                         {item.photo && (
-                          <div class="h-[320px] max-h-[320px] overflow-clip relative shrink-0 w-[288px] bg-[#d4c4c7] dark:bg-[#3d2f32] mix-blend-multiply rounded-sm" data-node-id="600:91789">
-                            <div aria-hidden class="absolute inset-0 pointer-events-none">
-                              <div class="absolute bg-[#d4c4c7] dark:bg-[#3d2f32] inset-0" />
-                              <img src={item.photo} alt="" class="absolute max-w-none mix-blend-multiply object-cover size-full" />
-                            </div>
+                          // Same tint-overlay technique as EmptyState.astro (image behind, a
+                          // mix-blend-screen tint layer on top) — this component's own scale
+                          // (h-[320px]/w-[288px]) is kept as-is, only the tinting layer changed.
+                          <div class="h-[320px] max-h-[320px] overflow-hidden relative shrink-0 w-[288px] rounded-sm select-none" data-node-id="600:91789">
+                            <img src={item.photo} alt="" referrerpolicy="no-referrer" class="absolute inset-0 size-full object-cover pointer-events-none" />
+                            <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
                           </div>
                         )}
                         <div class="flex-1 min-w-[280px] text-[17px] leading-[24px] tracking-[-0.17px] text-mel-text-primary font-sans font-normal">
@@ -283,16 +305,24 @@ function linkify(s) {
   .accordion-item[data-open="true"] {
     padding-top: 16px;
     padding-bottom: 24px;
-    padding-left: 16px;
+    padding-left: 24px;
     padding-right: 16px;
     background-color: #e9e0e2;
   }
   :global(.dark) .accordion-item[data-open="true"] {
     background-color: rgba(44, 29, 32, 0.8);
   }
-  
+  /* Chevron turns action-primary when hovering the header of an already-open
+     accordion (the same click target that would close it). */
+  .accordion-item[data-open="true"] .accordion-header:hover .accordion-icon {
+    color: var(--mel-action-primary);
+  }
+
   .accordion-item[data-open="false"] {
-    padding: 16px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    padding-left: 24px;
+    padding-right: 16px;
     background-color: #e9e0e2;
     cursor: pointer;
   }

@@ -3,12 +3,14 @@
 // Premium interactive chromatic aberration offset hover & scroll/Enter triggered split ascension animation.
 ---
 
-<div 
-  id="intro-animation-overlay" 
-  class="fixed inset-0 bg-[#f7f3f5] z-[300] flex items-center justify-center overflow-hidden transition-opacity duration-[1000ms] ease-in-out opacity-0 pointer-events-none hidden"
+<div
+  id="intro-animation-overlay"
+  class="fixed inset-0 bg-[#f7f3f5] z-[300] flex items-end justify-center overflow-hidden transition-opacity duration-[1000ms] ease-in-out opacity-0 pointer-events-none hidden"
 >
-  <!-- Animated container keeping a fixed aspect ratio of 1440x1024 to match Figma coordinate space perfectly -->
-  <div class="relative w-full max-w-[1440px] h-full max-h-[1024px] aspect-[1440/1024] flex flex-col justify-end p-[108px] select-none">
+  <!-- Animated container keeping a fixed aspect ratio of 1440x1024 to match Figma
+       coordinate space perfectly. Padding is a percentage of the container width
+       (108/1440 = 7.5%) so mobile doesn't inherit the huge fixed desktop inset. -->
+  <div class="relative w-full max-w-[1440px] h-full max-h-[1024px] aspect-[1440/1024] flex flex-col justify-end p-[7.5%] select-none">
     
     <!-- Flex column layout to perfectly control spacing and bring elements closer together -->
     <div class="flex flex-col items-start w-full">
@@ -50,32 +52,22 @@
 
       </div>
 
-      <!-- Divider Line: 2px thickness, action secondary color, my-[48px] spacing -->
-      <div 
+      <!-- Divider Line: 2px thickness, action secondary color. Vertical margins are
+           width-relative (48/1440 = 3.3%) so the title/divider/subtitle stack sits
+           much tighter on narrow screens instead of keeping the fixed 48px gaps. -->
+      <div
         id="intro-divider"
-        class="w-full h-[2px] bg-[var(--mel-action-secondary)] my-[48px] transition-all duration-[1200ms] ease-out opacity-100 scale-x-100 origin-left"
+        class="w-full h-[2px] bg-[var(--mel-action-secondary)] my-[3.3%] transition-all duration-[1200ms] ease-out opacity-100 scale-x-100 origin-left"
       ></div>
 
       <!-- Subtitle Container: Equidistant from the divider, dynamic word-by-word split container -->
-      <div 
+      <div
         id="intro-subtitle-container"
-        class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[2.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full"
+        class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[4.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full"
       >
         <!-- Populated dynamically via JS -->
       </div>
 
-    </div>
-
-    <!-- Scroll / Enter Action Callout Indicator -->
-    <div 
-      id="intro-scroll-indicator" 
-      class="absolute bottom-[32px] left-[108px] flex items-center gap-2 font-sans font-medium text-[15px] text-mel-text-secondary opacity-60 transition-opacity duration-500 animate-pulse pointer-events-none"
-    >
-      <span>Scroll o presiona Enter para comenzar</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <polyline points="19 12 12 19 5 12"></polyline>
-      </svg>
     </div>
 
   </div>
@@ -99,7 +91,7 @@
   let magentaX = 0, magentaY = 0;
 
   // Dom refs
-  let overlay, titleContainer, layerCian, layerYellow, layerMagenta, divider, subContainer, scrollIndicator;
+  let overlay, titleContainer, layerCian, layerYellow, layerMagenta, divider, subContainer;
   let animationFrameId = null;
 
   const subtitleText = "A través del diseño gráfico";
@@ -112,7 +104,6 @@
     layerMagenta = document.getElementById('intro-layer-magenta');
     divider = document.getElementById('intro-divider');
     subContainer = document.getElementById('intro-subtitle-container');
-    scrollIndicator = document.getElementById('intro-scroll-indicator');
 
     if (!overlay) return;
 
@@ -132,9 +123,11 @@
 
     // Populate subtitle words dynamically
     if (subContainer) {
+      // Word gap is em-based (12px at the 38px desktop size ≈ 0.32em) so it
+      // scales down with the font on mobile instead of staying a fixed 12px.
       subContainer.innerHTML = subtitleText.split(' ').map((word, idx) => {
-        return `<span class="intro-word inline-block mr-[12px] last:mr-0" style="will-change: transform, opacity; transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);" data-index="${idx}">${word}</span>`;
-      }).join(' ');
+        return `<span class="intro-word inline-block mr-[0.32em] last:mr-0" style="will-change: transform, opacity; transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);" data-index="${idx}">${word}</span>`;
+      }).join('');
     }
 
     overlay.classList.remove('hidden');
@@ -152,10 +145,6 @@
       divider.style.transform = 'scaleX(1)';
     }
 
-    if (scrollIndicator) {
-      scrollIndicator.style.opacity = '0.6';
-    }
-
     // Set up mouse offset listeners
     if (titleContainer) {
       titleContainer.addEventListener('mousemove', handleTitleMouseMove);
@@ -163,11 +152,14 @@
       titleContainer.addEventListener('mouseenter', handleTitleMouseEnter);
     }
 
-    // Set up trigger listeners (scroll down, keydown Enter, touch swipe up)
+    // Set up trigger listeners (scroll down, keydown Enter, touch swipe up,
+    // and any click/tap anywhere on the overlay)
     window.addEventListener('wheel', handleScrollTrigger, { passive: false });
     window.addEventListener('keydown', handleKeyTrigger);
     window.addEventListener('touchstart', handleTouchStart, { passive: true });
     window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    overlay.addEventListener('click', handleClickTrigger);
+    window.addEventListener('touchend', handleTouchEndTrigger);
 
     // Start physical simulation loop
     animationFrameId = requestAnimationFrame(updatePhysicsLoop);
@@ -308,6 +300,18 @@
     }
   }
 
+  // A plain click (desktop) or tap (mobile: touchend without enough drag to
+  // have already triggered via touchmove) also dismisses the intro.
+  function handleClickTrigger() {
+    if (animationStarted) return;
+    startAscension();
+  }
+
+  function handleTouchEndTrigger() {
+    if (animationStarted) return;
+    startAscension();
+  }
+
   // Animation timeline trigger
   function startAscension() {
     animationStarted = true;
@@ -317,6 +321,8 @@
     window.removeEventListener('keydown', handleKeyTrigger);
     window.removeEventListener('touchstart', handleTouchStart);
     window.removeEventListener('touchmove', handleTouchMove);
+    window.removeEventListener('touchend', handleTouchEndTrigger);
+    if (overlay) overlay.removeEventListener('click', handleClickTrigger);
 
     if (titleContainer) {
       titleContainer.removeEventListener('mousemove', handleTitleMouseMove);
@@ -357,11 +363,6 @@
     if (divider) {
       divider.style.transform = 'scaleX(0)';
       divider.style.opacity = '0';
-    }
-
-    // Scroll hint indicator fades out
-    if (scrollIndicator) {
-      scrollIndicator.style.opacity = '0';
     }
 
     // Dissolve Phase: reduced by 0.5s (from 1800ms to 1300ms)
