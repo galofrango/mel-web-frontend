@@ -1,0 +1,56 @@
+---
+/**
+ * EventCardList.astro
+ * Fila compacta de evento matching Figma "Event Card List" (node 291:13479)
+ * y "Bottom Sheet / Mobile / Place Events List" (node 439:142691).
+ *
+ * Miniatura 56x56 en fit (object-contain) sobre fondo secundario, título,
+ * fecha y chevron. Usada en el panel lateral del mapa y, en móvil, como
+ * sustituto de la tabla ancha de la vista Lista.
+ */
+interface Props {
+  title: string;
+  date: string;
+  imageUrl?: string;
+  showDivider?: boolean;
+  class?: string;
+}
+
+const { title, date, imageUrl, showDivider = true, class: className = '' } = Astro.props;
+---
+
+<!-- This component is rendered client-side as HTML (buildEventCardListHtml()
+     in index.astro) — the structure below serves as reference. Ver AGENTS.md
+     regla 7: si cambia el diseño aquí, actualiza también esa réplica JS. -->
+<div
+  class:list={["group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[16px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200", className]}
+  data-node-id="291:13479"
+  data-name="Event Card List"
+>
+  <div class="bg-mel-bg-secondary overflow-clip relative shrink-0 size-[56px]" data-name="Image Preview">
+    {imageUrl && (
+      <img
+        src={imageUrl}
+        alt=""
+        referrerpolicy="no-referrer"
+        class="absolute inset-0 max-w-none object-contain pointer-events-none size-full"
+      />
+    )}
+  </div>
+  <div class="flex flex-col flex-1 min-w-0 gap-[4px] items-start" data-name="Info">
+    <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary truncate w-full">
+      {title}
+    </p>
+    <p class="font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary">
+      {date}
+    </p>
+  </div>
+  <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200" data-name="Icon Button">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  {showDivider && (
+    <div class="absolute bottom-[0.5px] h-0 left-[24px] right-[16px] border-b border-mel-border/60" data-name="Divider"></div>
+  )}
+</div>

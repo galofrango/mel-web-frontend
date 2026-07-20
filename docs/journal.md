@@ -2,6 +2,34 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-20] — Sesión: Fix de galería amontonada, `EventCardList` compartido y bottom sheet móvil del mapa
+
+### Objetivo de la Sesión
+Corregir la miniatura de la tabla de Lista (debía usar fit + fondo secundario, no recortar), crear el componente `EventCardList` que faltaba y reutilizarlo en la Lista en móvil, convertir el panel lateral del mapa en un bottom sheet en móvil reutilizando sus mismos elementos, e investigar un bug reportado de la galería ("las cards se quedan amontonadas" al volver de la pestaña Lista).
+
+### Cambios Realizados
+1. **Fix de la galería (D-019)**: diagnosticado en vivo con el navegador — al reconstruir la galería mientras `#view-galería` está `display:none`, `sizeGalleryCard()` mide `clientWidth=0` y no fija `grid-row-end`; como el grid usa `align-self:start`, la tarjeta se dimensiona por su contenido real, más alto que el placeholder `.unsized` (~300px), solapándose con la fila siguiente. `switchView()` ahora remide cualquier tarjeta `.unsized` restante al activar la vista Galería.
+2. **Miniatura de la tabla de Lista**: revertida de `object-fill` a `object-contain` (fit, sin recortar) sobre `bg-mel-bg-secondary` sin borde, corrigiendo una confusión de la sesión anterior.
+3. **Componente `EventCardList.astro`** (nuevo, `src/components/`): réplica del diseño Figma "Event Card List" (node `291:13479`) — miniatura 56×56 fit sobre fondo secundario, título, fecha, chevron con hover.
+4. **`buildEventCardListHtml()`** (index.astro): réplica JS única de ese componente (regla 7 de AGENTS.md), usada tanto por el panel lateral del mapa (`populateSidePanel()`, antes con marcado propio y `object-cover`) como por la nueva lista de tarjetas en móvil.
+5. **Lista en móvil**: nuevo contenedor `#list-mobile-cards` (visible `<md`) con tarjetas `EventCardList`, sustituyendo la tabla ancha (`#list-table-wrapper`, ahora `hidden md:block`). Mismo dataset paginado; el listener de click delegado a nivel de `document` se extendió para cubrir ambos contenedores.
+6. **Bottom sheet del panel del mapa (D-020)**: `#map-side-panel` gana un único estado CSS (`.side-panel-open`) que en escritorio sigue empujando el mapa (ancho 0→393px) y en móvil (`@media max-width:767px`) lo convierte en `position:fixed` anclado abajo, esquinas redondeadas, `max-height:75vh` y `transform: translateY()`. Se añadió un tirador (`#map-side-panel-handle`, solo móvil) con gesto de arrastre (soltar >120px cierra el sheet). Las 5 llamadas JS que antes alternaban clases `w-0`/`w-[393px]`/`w-[360px]` (una de ellas con un valor inconsistente) se unificaron a `classList.add/remove('side-panel-open')`.
+7. **Helpers compartidos**: `escHtml()` y `formatFechaDMY()` (antes redeclarados dentro del `forEach` de cada fila de tabla) se elevaron a funciones de módulo, reutilizadas por `buildEventCardListHtml()`.
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-019 (fix de reflow de la galería) y D-020 (`EventCardList` compartido + bottom sheet).
+
+### Problemas Encontrados y Resueltos
+- Bug de galería reproducido intencionadamente en el navegador (búsqueda disparada mientras la vista estaba oculta) antes de tocar código, confirmando la causa exacta vía `getComputedStyle`/`getBoundingClientRect` en vez de asumirla.
+- El entorno sandbox de este agente no renderiza los tiles vectoriales de Google Maps (pantalla gris con solo el icono de clúster) — limitación del entorno de previsualización, no del código; verificado que no es una regresión comparando con el estado anterior a esta sesión. La apertura/cierre del panel y el bottom sheet se verificaron invocando `populateSidePanel()`-equivalentes directamente vía JS.
+- Detectado (no corregido, fuera de alcance): `window.showLocationOnMap` referencia `locationGroups`, variable local de `updateMapMarkers()` fuera de su ámbito — bug preexistente a esta sesión; la función no tiene llamadas activas en el resto del código.
+
+### Tareas Pendientes
+- Verificar el bottom sheet y el gesto de arrastre en un dispositivo móvil real (el entorno de desarrollo no pudo probar el flujo completo de click-en-marcador por la limitación de renderizado de mapas del sandbox).
+- Si en el futuro se retoma `window.showLocationOnMap`, corregir su referencia a `locationGroups`.
+
+---
+
 ## [2026-07-20] — Sesión: Prototipado e interacción analógica/CRT en la animación de Intro
 
 ### Objetivo de la Sesión

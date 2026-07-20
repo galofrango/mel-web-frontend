@@ -127,3 +127,31 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
   - **Descomposición del subtítulo por palabras**: la frase `"A través del diseño gráfico"` se divide palabra por palabra en una ola ascendente con 150ms de retardo acotada a `-90vh` (manteniéndose siempre por debajo de la capa Cian a `-135vh` para evitar solapamientos).
 - **Motivo**: lograr un microefecto tipográfico refinado y fluido aprobado en diseño.
 - **Consecuencias**: los tiempos de inicio del desvanecimiento (1300ms) y cambio de vista (2300ms) están ajustados en sincronía exacta con esta duración de 2.1s.
+
+## D-018 · Estudio de Animación, Timeline Editor & Pilote de FX (`intro-lab.astro`)
+
+- **Contexto**: Se requiere persistir las ediciones al navegar entre presets, permitir renombrar y crear snapshots personalizados de las versiones, e integrar la técnica de tramas de puntos CSS-IRL con control de ángulo de pantalla (`Screen Angle`) independiente por capa de color.
+- **Decisión**: Se actualiza `src/pages/intro-lab.astro` (v4):
+  - **Snapshots & Persistencia Local**: Guardado automático del estado de keyframes en `localStorage` y creación de snapshots personalizados con botón `📸 Snapshot`.
+  - **Renombrado**: Edición del nombre de cualquier versión activa con `✏️ Renombrar`.
+  - **Halftone CSS-IRL & Angulación CMYK**: Basado en `css-irl.info/css-halftone-patterns/`, cada capa de color (Cian, Amarillo, Magenta) tiene un overlay interno de trama de puntos radiales con inclinación de ángulo regulable (0° a 360°), tamaño de punto y dureza.
+- **Motivo**: Recrear la técnica de fotomecánica de imprenta offset con angulación de planchas evitando patrones muaré indeseados.
+- **Consecuencias**: Disponible en `http://localhost:4326/intro-lab`.
+
+## D-019 · Corrección de reflow: la galería se queda "amontonada" al volver de otra pestaña
+
+- **Contexto**: Si un filtro/búsqueda reconstruye la galería (D-015) mientras `#view-galería` está oculta (`display:none`, tras cambiar a Mapa o Lista), `sizeGalleryCard()` mide `card.clientWidth === 0` y aborta sin fijar `grid-row-end`. La tarjeta queda con la clase `.unsized` (placeholder de ~300px), pero como el grid usa `align-self:start` (no `stretch`), la caja se dimensiona por su propio contenido, no por el área reservada: una imagen real más alta que el placeholder se solapa visualmente con la fila siguiente ("amontonadas").
+- **Decisión**: en `switchView()`, al activar la vista `galería`, remedir con `sizeGalleryCard()` cualquier tarjeta que siga con la clase `.unsized`, usando el `clientWidth` de una tarjeta cualquiera ya visible como ancho de columna.
+- **Motivo**: la única vía fiable de detectar "medición fallida por estar oculto" es la propia clase `.unsized` que `sizeGalleryCard()` no llega a quitar; recalcular solo esas tarjetas (no todas) es barato y evita reintroducir el coste que ya evita el resize handler existente.
+- **Consecuencias**: sin cambios visibles cuando no hay tarjetas afectadas (caso común); en el caso afectado, el fix corre una vez por cada vuelta a la Galería, después de que el `.hidden` ya se ha quitado (lectura de `clientWidth` fuerza el reflow necesario de forma síncrona, sin necesitar `requestAnimationFrame`).
+
+## D-020 · Componente `EventCardList` compartido (tabla móvil + panel del mapa) y bottom sheet en móvil
+
+- **Contexto**: la miniatura de la tabla de Lista usaba `object-fill` (recortando el diseño) en vez de `object-contain` sobre fondo secundario, tal y como especifica Figma "Event Card List" (node `291:13479`). Además, la tabla ancha de escritorio no es usable en móvil, y el panel lateral del mapa (`#map-side-panel`) no tenía versión móvil: al abrirse comprimía el mapa contra el borde de una pantalla de 375px.
+- **Decisión**:
+  1. **Miniatura de tabla**: revertida a `object-contain` (fit, sin recortar) sobre `bg-mel-bg-secondary`, sin borde — igual que el resto de miniaturas "Image Preview" del design system.
+  2. **`buildEventCardListHtml()`** (index.astro): réplica JS única de `EventCardList.astro` (nuevo componente de referencia, ver regla 7 de AGENTS.md) — miniatura 56×56 en fit sobre fondo secundario, título, fecha y chevron. La usan tanto el panel lateral del mapa (`populateSidePanel()`) como la nueva lista de tarjetas en móvil.
+  3. **Lista en móvil**: `#list-mobile-cards` (visible `<md`) sustituye a la tabla ancha (`#list-table-wrapper`, ahora `hidden md:block`) con el mismo dataset paginado, usando `buildEventCardListHtml()`. El click en toda la fila abre el detalle (`openLightbox`, mismo contexto de carrusel que la tabla de escritorio — no el contexto acotado por ubicación del panel del mapa).
+  4. **Bottom sheet en `#map-side-panel` (móvil)**: mismo contenido/JS que el panel de escritorio (`populateSidePanel()` sin cambios de datos), pero bajo `@media (max-width:767px)` se convierte en `position:fixed` anclado abajo, ancho completo, esquinas superiores redondeadas, `max-height:75vh` y una transición de `transform` (desliza desde `translateY(100%)`) en vez del `width` que empuja el mapa en escritorio. Un único estado (`classList.add/remove('side-panel-open')`) gobierna ambos comportamientos vía CSS — el JS de apertura/cierre no necesita saber en qué breakpoint está. Se añade un tirador (`#map-side-panel-handle`, solo visible `<md`) con gesto de arrastre: soltar por debajo de 120px de recorrido cierra el sheet (reutiliza el mismo botón de cerrar).
+- **Motivo**: reutilizar el marcado y la lógica ya validados del panel del mapa (petición explícita del propietario) en vez de duplicar una tercera implementación del detalle compacto de evento.
+- **Consecuencias**: cualquier cambio futuro en el diseño de `EventCardList` debe aplicarse en `EventCardList.astro` **y** en `buildEventCardListHtml()` (regla 7). El bug conocido y no relacionado en `window.showLocationOnMap` (referencia a `locationGroups`, variable local de `updateMapMarkers()`, fuera de su alcance) queda sin tocar por ser código sin llamadas activas en el resto del proyecto.

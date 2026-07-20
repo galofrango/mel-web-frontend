@@ -283,6 +283,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           style="opacity: 1;"
           data-node-id="341:25563"
         >
+          <!-- Tirador de arrastre: solo bottom sheet en móvil (Figma "Handler",
+               node 439:142691). Cerrar deslizando hacia abajo, ver setupSidePanelDrag(). -->
+          <div id="map-side-panel-handle" class="flex md:hidden items-center justify-center py-[8px] w-full shrink-0 cursor-grab active:cursor-grabbing touch-none">
+            <div class="w-[48px] h-[5px] rounded-full bg-mel-border"></div>
+          </div>
+
           <!-- Header / Close button (Figma matches: pb-[8px] px-[16px] pt-[8px]) -->
           <div class="flex items-center pb-[8px] px-[16px] pt-[8px] shrink-0 w-full">
             <IconButton 
@@ -330,7 +336,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              whenever there are fewer rows than fit on screen) instead of hugging the table's real
              content, which is what "closing" the table means. Cells already carry border-l/border-r
              on every row, so no side borders needed here either. -->
-        <div id="list-table-wrapper" class="overflow-x-auto w-full flex-1 overflow-y-auto">
+        <!-- Mobile: réplica compacta EventCardList (Figma 439:142691) sustituye
+             la tabla ancha de escritorio — ver AGENTS.md regla 7 (JS replica el
+             marcado de EventCardList.astro, poblado en performDOMUpdates()). -->
+        <div id="list-mobile-cards" class="md:hidden flex-1 overflow-y-auto border-t border-b border-mel-border relative">
+          <!-- Dynamically populated -->
+        </div>
+        <div id="list-table-wrapper" class="hidden md:block overflow-x-auto w-full flex-1 overflow-y-auto">
           <table class="w-full text-left text-sm border-collapse border-t border-b border-mel-border" style="table-layout:fixed;">
             <!-- Evento gets 2 "shares" of the space, Lugar/Localidad/Organiza/Diseño get 1 share
                  each (6 shares total), Fecha gets just enough for a date. calc() inside <col>
@@ -1222,6 +1234,37 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   .search-cell-link:hover {
     color: var(--mel-action-primary);
   }
+
+  /* Panel lateral del mapa: en escritorio empuja el mapa (ancho 0→393px,
+     ver JS classList 'side-panel-open'). En móvil se convierte en bottom
+     sheet superpuesto (Figma 439:142691) que se desliza desde abajo sin
+     comprimir el mapa — misma cabecera/tags/lista, solo cambia la
+     geometría y se añade el tirador de arrastre. */
+  #map-side-panel.side-panel-open {
+    width: 393px;
+    border-left-width: 1px;
+  }
+  @media (max-width: 767px) {
+    #map-side-panel {
+      position: fixed;
+      inset: auto 0 0 0;
+      width: 100% !important;
+      height: auto !important;
+      max-height: 75vh;
+      border-left-width: 0 !important;
+      border-top: 1px solid var(--mel-border);
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -12px 32px rgba(25, 6, 9, 0.12);
+      transform: translate3d(0, 100%, 0);
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #map-side-panel.side-panel-open {
+      transform: translate3d(0, 0, 0);
+    }
+    #map-side-panel.side-panel-dragging {
+      transition: none;
+    }
+  }
 </style>
 
 <!-- Client Side Scripting for complete interactivity -->
@@ -1339,6 +1382,44 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       fileId = url.split('/d/')[1].split('/')[0];
     }
     return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+  }
+
+  // Escapa HTML para insertarlo de forma segura en innerHTML — usado por
+  // todas las réplicas JS de componentes (filas de tabla, Event Card List...).
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // DD/MM/AAAA a partir del AAAA-MM-DD tal cual llega de la hoja (columna Fecha).
+  function formatFechaDMY(fecha) {
+    let formatted = fecha || '';
+    if (formatted && formatted.includes('-')) {
+      const parts = formatted.split('-');
+      if (parts.length === 3) formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return formatted;
+  }
+
+  // Réplica JS de EventCardList.astro (Figma "Event Card List", node
+  // 291:13479 / Bottom Sheet Mobile Place Events List 439:142691): fila
+  // compacta con miniatura 56x56 en fit (object-contain) sobre fondo
+  // secundario, título, fecha y chevron. Compartida por el panel lateral
+  // del mapa y la lista en móvil — ver AGENTS.md regla 7 si cambia el diseño.
+  function buildEventCardListHtml(evt, { showDivider = true } = {}) {
+    const imgSrc = extractDriveImage(evt.carruselItems?.[0]?.urlDrive) || `/flyers/flyer-1.png`;
+    return `
+      <div class="bg-mel-bg-secondary overflow-clip relative shrink-0 size-[56px]">
+        <img src="${imgSrc}" alt="" referrerpolicy="no-referrer" class="absolute inset-0 max-w-none object-contain pointer-events-none size-full" />
+      </div>
+      <div class="flex flex-col flex-1 min-w-0 gap-[4px] items-start">
+        <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary truncate w-full">${escHtml(evt.evento)}</p>
+        <p class="font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary">${escHtml(formatFechaDMY(evt.fecha))}</p>
+      </div>
+      <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-[24px] right-[16px] border-b border-mel-border/60"></div>' : ''}
+    `;
   }
 
   // -------------------------------------------------------
@@ -2020,13 +2101,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             // rows just take part in the root cross-fade, which stays put.
             
             // Format date nicely to DD/MM/YYYY
-            let formattedDate = item.fecha || '';
-            if (formattedDate && formattedDate.includes('-')) {
-              const parts = formattedDate.split('-');
-              if (parts.length === 3) {
-                formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-              }
-            }
+            const formattedDate = formatFechaDMY(item.fecha);
 
             // Get first image for preview thumbnail via extractDriveImage
             let firstImg = '';
@@ -2034,13 +2109,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               firstImg = extractDriveImage(item.carruselItems[0].urlDrive);
             }
 
-            const escHtml = (s) => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-
             tr.innerHTML = `
               <td class="border-l border-r border-mel-border bg-mel-bg-primary p-2">
                 <div class="flex gap-[12px] h-[48px] items-center min-w-0">
-                  <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0 border border-mel-border/30">
-                    ${firstImg ? `<img alt="" class="list-img-link object-fill w-full h-full cursor-pointer hover:brightness-110 transition-all duration-200" data-id="${item.idMel}" src="${firstImg}" referrerpolicy="no-referrer" />` : ''}
+                  <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0">
+                    ${firstImg ? `<img alt="" class="list-img-link object-contain w-full h-full cursor-pointer hover:brightness-110 transition-all duration-200" data-id="${item.idMel}" src="${firstImg}" referrerpolicy="no-referrer" />` : ''}
                   </div>
                   <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
                     <span class="marquee-inner">${escHtml(item.evento)}<span class="table-link-underline"></span></span>
@@ -2139,6 +2212,35 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               cell.style.setProperty('--cell-width', cell.clientWidth + 'px');
             }
           });
+        }
+
+        // Móvil: mismo dataset paginado, tarjetas EventCardList compactas
+        // (Figma 439:142691) en vez de la tabla ancha de escritorio.
+        const mobileListContainer = document.getElementById('list-mobile-cards');
+        if (mobileListContainer) {
+          if (paginated.length === 0) {
+            mobileListContainer.innerHTML = `
+              <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto h-full justify-center" data-name="Empty State">
+                <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
+                  <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
+                  <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
+                </div>
+                <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
+                  <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
+                  <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Comprueba los filtros y prueba buscando otra cosa.</p>
+                </div>
+              </div>
+            `;
+          } else {
+            mobileListContainer.innerHTML = '';
+            paginated.forEach((item, idx) => {
+              const row = document.createElement('div');
+              row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[16px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+              row.dataset.id = item.idMel;
+              row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
+              mobileListContainer.appendChild(row);
+            });
+          }
         }
       }
 
@@ -2303,6 +2405,22 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         panel.classList.remove('active');
       }
     });
+
+    // Tarjetas reconstruidas (búsqueda/filtro/orden) mientras la galería
+    // estaba oculta tras otra pestaña miden clientWidth=0 en ese momento:
+    // sizeGalleryCard() no puede calcular su row-span y se quedan
+    // "unsized" (placeholder de ~300px). Como el grid no recorta la caja a
+    // su área reservada (align-self:start), una imagen real más alta que
+    // ese placeholder se solapa con la fila siguiente. Al volver a mostrar
+    // la galería, remide solo las que se quedaron a medias.
+    if (viewName === 'galería') {
+      const unsizedCards = document.querySelectorAll('#gallery-grid .gallery-item.unsized');
+      if (unsizedCards.length > 0) {
+        const anyCard = document.querySelector('#gallery-grid .gallery-item');
+        const colWidth = anyCard ? anyCard.clientWidth : 0;
+        unsizedCards.forEach(card => sizeGalleryCard(card, colWidth));
+      }
+    }
 
     // Solo la lista pagina (la galería usa scroll infinito desde D-015).
     const pagControls = document.getElementById('pagination-controls');
@@ -2575,7 +2693,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const sidePanel = document.getElementById('map-side-panel');
     if (!sidePanel) return;
 
-    const isAlreadyOpen = sidePanel.classList.contains('w-[393px]');
+    const isAlreadyOpen = sidePanel.classList.contains('side-panel-open');
 
     const updateSidePanelDOM = () => {
       // Populate side panel fields
@@ -2618,27 +2736,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
       group.events.forEach((evt, idx) => {
         const card = document.createElement('div');
-        card.className = 'content-stretch cursor-pointer flex gap-4 items-center pl-6 pr-4 py-4 relative shrink-0 w-full hover:bg-mel-bg-secondary/40 transition-colors duration-200';
-        
-        const imgSrc = extractDriveImage(evt.carruselItems[0]?.urlDrive) || `/flyers/flyer-1.png`;
-        const hasDivider = idx < group.events.length - 1;
-        
-        card.innerHTML = `
-          <div class="bg-mel-bg-secondary overflow-hidden shrink-0 w-[56px] h-[56px] border border-mel-border">
-            <img src="${imgSrc}" alt="${evt.evento}" referrerpolicy="no-referrer" class="w-full h-full object-cover" />
-          </div>
-          <div class="flex flex-col min-w-0 flex-1 gap-1">
-            <p class="font-sans font-medium text-[16px] leading-[24px] tracking-[-0.32px] text-mel-text-primary truncate">${evt.evento}</p>
-            <p class="font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] text-mel-text-secondary">${evt.fecha}</p>
-          </div>
-          <div class="w-6 h-6 flex items-center justify-center text-mel-action-secondary shrink-0">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          ${hasDivider ? '<div class="absolute bottom-[0.5px] h-0 left-[24px] right-[24px] border-b border-mel-border/30"></div>' : ''}
-        `;
-        
+        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[16px] py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+        card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
+
         card.addEventListener('click', () => {
           openDetailsOverlaySPA(evt, group.events);
         });
@@ -2657,11 +2757,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         }
       }, 150);
     } else {
-      // Update and open dynamically, pushing the map
+      // Update and open dynamically, pushing the map (desktop) or sliding up
+      // as a bottom sheet (móvil, ver media query de #map-side-panel).
       updateSidePanelDOM();
       sidePanel.style.opacity = '1';
-      sidePanel.classList.remove('w-0', 'border-l-0');
-      sidePanel.classList.add('w-[393px]', 'border-l');
+      sidePanel.classList.add('side-panel-open');
       if (googleMap) {
         setTimeout(() => {
           google.maps.event.trigger(googleMap, "resize");
@@ -2809,8 +2909,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       activeSidePanelKey = null;
       const sidePanel = document.getElementById('map-side-panel');
       if (sidePanel) {
-        sidePanel.classList.remove('w-[393px]', 'border-l');
-        sidePanel.classList.add('w-0', 'border-l-0');
+        sidePanel.classList.remove('side-panel-open');
         if (googleMap) {
           setTimeout(() => {
             google.maps.event.trigger(googleMap, "resize");
@@ -3166,8 +3265,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           url.searchParams.delete('location');
           window.history.replaceState({}, '', url.toString());
         } catch (e) {}
-        sidePanel.classList.remove('w-[393px]', 'border-l');
-        sidePanel.classList.add('w-0', 'border-l-0');
+        sidePanel.classList.remove('side-panel-open');
         if (googleMap) {
           setTimeout(() => {
             google.maps.event.trigger(googleMap, "resize");
@@ -3181,6 +3279,48 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // other non-active marker since activeSidePanelKey is cleared.
         updateMapMarkers(false);
       }, { signal: wSig });
+    }
+
+    // Bottom sheet en móvil: arrastrar el tirador hacia abajo lo cierra
+    // (por encima de un umbral) o lo suelta de vuelta a su sitio. Solo
+    // actúa bajo el breakpoint md (ver media query de #map-side-panel);
+    // en escritorio el tirador ni siquiera es visible.
+    const sidePanelHandle = document.getElementById('map-side-panel-handle');
+    if (sidePanelHandle && sidePanel) {
+      let dragStartY = 0;
+      let dragCurrentY = 0;
+      let isDragging = false;
+
+      const dragMove = (e) => {
+        if (!isDragging) return;
+        dragCurrentY = e.touches ? e.touches[0].clientY : e.clientY;
+        const delta = Math.max(0, dragCurrentY - dragStartY);
+        sidePanel.style.transform = `translate3d(0, ${delta}px, 0)`;
+      };
+      const dragEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        sidePanel.classList.remove('side-panel-dragging');
+        sidePanel.style.transform = '';
+        const delta = Math.max(0, dragCurrentY - dragStartY);
+        // Umbral de cierre: una cuarta parte del tirón habitual de un sheet.
+        if (delta > 120 && closePanelBtn) closePanelBtn.click();
+        dragStartY = 0;
+        dragCurrentY = 0;
+      };
+      const dragStart = (e) => {
+        if (window.innerWidth >= 768) return; // Bottom sheet solo en móvil
+        isDragging = true;
+        dragCurrentY = dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
+        sidePanel.classList.add('side-panel-dragging');
+      };
+
+      sidePanelHandle.addEventListener('touchstart', dragStart, { passive: true, signal: wSig });
+      sidePanelHandle.addEventListener('touchmove', dragMove, { passive: true, signal: wSig });
+      sidePanelHandle.addEventListener('touchend', dragEnd, { signal: wSig });
+      sidePanelHandle.addEventListener('mousedown', dragStart, { signal: wSig });
+      window.addEventListener('mousemove', dragMove, { signal: wSig });
+      window.addEventListener('mouseup', dragEnd, { signal: wSig });
     }
 
     // Bind overlay close
@@ -3206,7 +3346,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       window._melListClickHandlerBound = true;
       document.addEventListener('click', (e) => {
         const listBody = document.getElementById('list-table-body');
-        if (!listBody || !listBody.contains(e.target)) return; // Only handle clicks within the list table
+        const mobileCards = document.getElementById('list-mobile-cards');
+        const inTable = listBody && listBody.contains(e.target);
+        const inMobileCards = mobileCards && mobileCards.contains(e.target);
+        if (!inTable && !inMobileCards) return; // Only handle clicks within the list view (table or mobile cards)
+
+        // Mobile: the whole EventCardList row is clickable, same target as
+        // the table's thumbnail+title (openLightbox with the full filtered
+        // list as carousel context, unlike the map panel's location-scoped
+        // openDetailsOverlaySPA).
+        if (inMobileCards) {
+          const row = e.target.closest('.mobile-event-card-list');
+          if (row) {
+            e.stopPropagation();
+            const id = row.getAttribute('data-id');
+            const item = archives.find(x => x.idMel === id);
+            if (item) openLightbox(item);
+          }
+          return;
+        }
 
         let target = e.target;
 
@@ -3739,13 +3897,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     });
     if (matchKey) {
       activeSidePanelKey = matchKey;
-      populateSidePanel(locationGroups[matchKey]);
-      const sidePanel = document.getElementById('map-side-panel');
-      if (sidePanel) {
-        sidePanel.classList.remove('w-0', 'border-l-0');
-        sidePanel.classList.add('w-[360px]', 'border-l');
-        sidePanel.style.opacity = '1';
-      }
+      populateSidePanel(locationGroups[matchKey]); // ya añade 'side-panel-open' y opacity
       const group = locationGroups[matchKey];
       if (group && googleMap) {
         googleMap.setCenter(group.coords);
