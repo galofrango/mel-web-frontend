@@ -2,6 +2,16 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-20] — Sesión: Prototipado e interacción analógica/CRT en la animación de Intro
+
+### Objetivo de la Sesión
+Diseñar y prototipar 4 variantes interactivas de la animación de entrada para transformar progresivamente el efecto de papel impreso CMYK analógico inicial a un estado digital macro de subpíxeles CRT/RGB basado en la referencia fotográfica del usuario.
+
+### Cambios Realizados
+1. **Evolución de `src/pages/intro-lab.astro` (Timeline Studio v4.2 - Fix Inspector Controls Sync)**:
+   - **Controles del Panel Lateral Reparados**: Se corrigió el conflicto en `seekTo()` que sobreescribía los deslizadores del inspector lateral mientras el usuario los ajustaba. Ahora cualquier cambio en los controles laterales actualiza el canvas inmediatamente en tiempo real y registra el keyframe.
+   - **Servidor Único**: Limpieza de procesos secundarios de desarrollo para mantener un único servidor dev activo. All laboratorio está ubicado única y exclusivamente en la página de pruebas `src/pages/intro-lab.astro`.
+
 ---
 
 ## [2026-07-20] — Sesión: Política de desarrollo, auditoría y unificación de conocimiento
@@ -37,6 +47,45 @@ Establecer una política de desarrollo permanente e independiente de los modelos
 - Definir el contenido final para la Sala de Exposiciones (`/exposiciones.astro`).
 - Restringir la clave de Google Maps en la consola de Google Cloud por dominio HTTP Referrer.
 - Asignar URLs válidas en la hoja para las fotos del equipo en `/info`.
+
+---
+
+## [2026-07-20] — Sesión: Mejora de tabla de Lista (thumbnails clickables)
+
+### Objetivo de la Sesión
+Enhancer la tabla de lista para que las miniaturas de diseños sean clickables y abran el overlay de detalles del evento, manteniendo coherencia con el comportamiento de la vista de mapa.
+
+### Cambios Realizados
+1. **Modificación de `src/pages/index.astro` (Generación de tabla de lista)**:
+   - Cambio de cropping en thumbnails: `object-contain` → `object-fill` (recorte tipo fill, consistente con list-item del mapa)
+   - Thumbnails ahora tienen clase `list-img-link`, atributo `data-id`, y estilos interactivos: `cursor-pointer`, `hover:brightness-110`, `transition-all duration-200`
+   - Añadido atributo `referrerpolicy="no-referrer"` a las imágenes remotas
+
+2. **Refactorización de Event Binding**:
+   - Removido el binding de listeners directo en cada elemento dentro de `performDOMUpdates()` (causaba problemas de duplicación y pérdida en actualizaciones de transiciones de vista)
+   - Implementado Event Delegation a nivel de `document` con un check `listBody.contains(e.target)` para filtrar clicks dentro de la tabla
+   - El listener persiste durante toda la navegación mediante flag `window._melListClickHandlerBound`
+   - Soporta clicks en: thumbnails (`list-img-link`), títulos de eventos (`event-title-link`), y celdas de búsqueda (`search-cell-link`)
+
+3. **Comportamiento Implementado**:
+   - Thumbnail click: Abre overlay de detalles del evento (llamada a `openLightbox()`)
+   - Título del evento click: Abre overlay de detalles del evento
+   - Celdas de búsqueda: Disparan filtrado por criterio (Lugar, Localidad, Organizador, Diseñador)
+
+### Decisiones Técnicas
+- Event Delegation (bubbling phase) a nivel de `document` en lugar de listeners directos, porque:
+  - Los listeners directos se perdían durante `performDOMUpdates()` (la tabla se reconstruye en cada filtro/búsqueda)
+  - El binding debe sobrevivir a view transitions (document siempre está presente)
+  - Mejor rendimiento: un listener global vs. 32+ listeners individuales por página
+
+### Problemas Encontrados y Resueltos
+- **Pérdida de listeners en view transitions**: Solucionado moviendo el binding a `initHomePage()` y al nivel de `document`
+- **Multiplicación de listeners**: Resuelto con flag `_melListClickHandlerBound` para registrar el listener una sola vez
+- **Cropping inconsistente**: Se unificó con el comportamiento del mapa (`object-fill`)
+
+### Tareas Pendientes
+- Verificar que el event delegation funciona correctamente en todas las resoluciones (375px, 768px, 1280px)
+- Confirmar no hay regressions en la navegación por teclado dentro de la tabla
 
 ---
 
