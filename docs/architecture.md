@@ -1,183 +1,133 @@
 # Arquitectura
 
-## Visión general
+## Visión General
 
-MEL es una web Astro en modo **SSR** (`output: 'server'`, adapter
-`@astrojs/vercel`). No hay backend propio ni base de datos: cada página que
-necesita datos hace `fetch` a una hoja pública de Google Sheets en el frontmatter
-(en el servidor, en cada request) y renderiza HTML con esos datos. El navegador
-recibe la página ya poblada; el JavaScript de cliente (vanilla) añade la
-interactividad (filtros, vistas, mapa, overlays, animaciones).
+MEL es una aplicación web construida con **Astro** en modo **SSR** (`output: 'server'`, adapter `@astrojs/vercel`). No existe backend propio ni base de datos convencional: cada página que requiere datos ejecuta un `fetch` a una hoja pública de Google Sheets en su frontmatter (en el servidor, durante cada request) y genera HTML estático poblado. El navegador recibe la página lista para renderizar; el JavaScript de cliente (vanilla) añade la interactividad (filtros, conmutación de vistas, Google Maps, overlays SPA y animaciones).
 
 ```
-Google Sheets (gviz JSON) ──fetch SSR──▶ frontmatter Astro ──▶ HTML servido
+Google Sheets (gviz JSON) ──fetch SSR──▶ Frontmatter Astro ──▶ HTML Servido
 Google Drive (imágenes)  ──thumbnail──▶ <img referrerpolicy="no-referrer">
-Google Maps JS API       ──script────▶ vista Mapa (cliente)
+Google Maps JS API       ──script────▶ Vista Mapa (cliente)
 ```
 
-La navegación entre páginas usa el `ClientRouter` de Astro (View Transitions),
-salvo excepciones deliberadas que fuerzan recarga dura (ver decisions.md).
+La navegación interna entre páginas utiliza el `ClientRouter` de Astro (View Transitions), salvando excepciones deliberadas que ejecutan recargas duras para mantener transiciones limpias (ver `decisions.md`).
 
-## Fuente de datos: la hoja de Google Sheets
+---
+
+## Fuente de Datos: Hoja de Google Sheets
 
 `SHEET_ID = 1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E`
 
-Se lee con el endpoint gviz:
+Se consulta mediante el endpoint `gviz`:
 `https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:json[&sheet=NOMBRE]`
-La respuesta es JSONP; se extrae con la regex
-`google\.visualization\.Query\.setResponse\((…)\);` y se parsea como JSON.
 
-### Pestaña principal (archivo de eventos; por defecto, sin `sheet=`)
+La respuesta es una cadena JSONP que se parsea mediante regex (`google\.visualization\.Query\.setResponse\((…)\);`) y se transforma en objetos JSON estructurados.
 
-Cada **fila = una imagen** de un evento. Columnas usadas (índice → campo):
+### Pestaña Principal (Archivo de Eventos)
 
-| Índice | Campo | Notas |
+Cada **fila = una imagen** de un evento. Columnas mapeadas (índice → campo):
+
+| Índice | Campo | Descripción |
 | --- | --- | --- |
 | 0 | `evento` | Nombre del evento |
-| 2 | `urlDrive` | Enlace de Google Drive a la imagen |
-| 3 | `fecha` | `d/m/aaaa` (se usa `.f` formateado si existe) |
-| 4 | `lugar` | Sala/lugar ("Desconocido" = sin dato) |
-| 5 | `localidad` | Municipio |
+| 2 | `urlDrive` | Enlace a la imagen en Google Drive |
+| 3 | `fecha` | `d/m/aaaa` (extraído del formato `.f` si está disponible) |
+| 4 | `lugar` | Sala/Recinto ("Desconocido" = sin dato) |
+| 5 | `localidad` | Municipio / Ciudad |
 | 6 | `coordenadas` | Coordenadas DMS o enlace de Google Maps |
-| 7 | `artistas` | Lista separada por `,`, `;` o `/` |
-| 8 | `organiza` | Promotor |
-| 9 | `descripcion` | Texto libre |
-| 10 | `idMel` | Identificador `MEL-XXXXX` (obligatorio; filtra filas válidas) |
+| 7 | `artistas` | Lista de artistas (separadores `,`, `;`, `/`) |
+| 8 | `organiza` | Promotor u organizador |
+| 9 | `descripcion` | Texto descriptivo del evento |
+| 10 | `idMel` | Identificador único `MEL-XXXXX` (filtra filas válidas) |
 | 11 | `carruselOrder` | Orden de la imagen dentro del carrusel del evento |
-| 13 | `disenador` | Diseñador del flyer |
-| 16 | `existeOriginal` | — |
-| 21 | `formato` | PNG, Flyer… |
-| 24 | `notasArchivo` | — |
-| 25 | `ocr` | Texto OCR de la pieza |
+| 13 | `disenador` | Autor / Diseñador del flyer |
+| 21 | `formato` | Tipo de pieza (PNG, Flyer, Cartel...) |
+| 25 | `ocr` | Texto extraído por OCR |
 
-Las filas se **agrupan por `evento + fecha`** en objetos evento con
-`carruselItems[]` (ordenados por `carruselOrder`), y se ordenan por fecha
-ascendente. Valores centinela tratados como "sin dato": `desconocido`,
-`no detallados`, `varios`, `SIN FECHA`.
+Las filas se **agrupan por `evento + fecha`** formando objetos de evento con una lista de imágenes en `carruselItems[]` (ordenadas por `carruselOrder`), y se ordenan cronológicamente. Valores centinela tratados como deshabilitados/sin dato: `desconocido`, `no detallados`, `varios`, `SIN FECHA`.
 
 ### Pestaña "Página de Información" (`sheet=Página de Información`)
 
-Mini-CMS de la página `/info`. Columnas: A nombre de sección, B orden de
-sección, C tipo de módulo (`Párrafo` = subtítulo de sección, `Acordeón` = item),
-D título del módulo, E orden del módulo, F imagen (URL; los enlaces de Drive se
-convierten a thumbnail), G contenido (saltos de línea = párrafos). Añadir una
-fila con una sección nueva crea la sección en la web sin tocar código. En el
-contenido, los emails se convierten en `mailto:` y los `@handle` en enlaces a
-Instagram (función `linkify` en info.astro).
+Actúa como mini-CMS de la página `/info`. Columnas:
+- **A**: Sección
+- **B**: Orden de sección
+- **C**: Tipo de módulo (`Párrafo` = subtítulo, `Acordeón` = elemento desplegable)
+- **D**: Título del módulo
+- **E**: Orden del módulo
+- **F**: Imagen (URL de Google Drive convertida a thumbnail)
+- **G**: Contenido (los saltos de línea se convierten en párrafos; emails y menciones `@handle` se transforman automáticamente en enlaces `mailto:` e Instagram vía la función `linkify`).
 
-### Imágenes (Google Drive)
+### Procesamiento de Imágenes (Google Drive)
 
-`extractDriveImage(url)` convierte cualquier enlace de Drive
-(`/file/d/ID/view` o `?id=ID`) en
-`https://drive.google.com/thumbnail?id=ID&sz=w1000`, único formato que carga en
-un `<img>`. Todos los `<img>` remotos llevan `referrerpolicy="no-referrer"`.
-Requisito: el archivo en Drive debe ser público ("cualquiera con el enlace").
+`extractDriveImage(url)` convierte cualquier enlace de Drive (`/file/d/ID/view` o `?id=ID`) al endpoint optimizado:
+`https://drive.google.com/thumbnail?id=ID&sz=w1000`
 
-### Coordenadas
+Este es el único formato que permite la carga nativa en etiquetas `<img>`. Todos los elementos `<img>` remotos incluyen `referrerpolicy="no-referrer"`.
 
-`parseCoords()` (index.astro) acepta coordenadas DMS
-(`42° 52' 46.5" N 5° 23' 52.9" W`) y enlaces de Google Maps. Para los enlaces,
-`scripts/fetch_sheet.py` los resuelve offline (siguiendo redirecciones) y
-guarda el resultado en `src/data/resolved_coordinates.json`, con un diccionario
-de fallback por localidad. Ese JSON se importa en build; si se añaden lugares
-nuevos con enlace de Maps hay que volver a ejecutar el script.
-<!-- TODO: documentar la invocación exacta del script (¿python3 scripts/fetch_sheet.py sin args?) y automatizarla si se añade contenido a menudo -->
+### Coordenadas y Geocodificación
 
-## Páginas y responsabilidades
+`parseCoords()` procesa coordenadas DMS (`42° 52' 46.5" N 5° 23' 52.9" W`) y enlaces de Google Maps. Los enlaces a Google Maps se resuelven offline mediante el script `scripts/fetch_sheet.py` y se almacenan en `src/data/resolved_coordinates.json` como caché estática de geocodificación.
+
+---
+
+## Páginas y Responsabilidades
 
 ### `src/layouts/Layout.astro`
-`<head>` común: fuentes (Space Grotesk, Lora), bootstrap de Google Maps (clave
-incrustada) + MarkerClusterer, inicialización del tema claro/oscuro **antes del
-primer pintado** (lee `localStorage['mel-color-scheme']`, aplica `.dark` en
-`<html>`), `ClientRouter`, y protecciones globales de imágenes (bloqueo de menú
-contextual y de arrastre). También resetea `document.body.style.opacity` en cada
-`astro:page-load` (defensa frente al fade del EmptyState).
+- `<head>` global, fuentes (`Space Grotesk`, `Lora`), scripts de Google Maps y MarkerClusterer.
+- Inicialización inmediata del tema claro/oscuro antes del primer pintado (evita destellos leyendo `localStorage['mel-color-scheme']` y aplicando la clase `.dark` en `<html>`).
+- Incorpora `<ClientRouter />` y protecciones globales contra copia/arrastre de imágenes.
+- Restablece la opacidad del `body` en cada `astro:page-load`.
 
-### `src/pages/index.astro` — la home (monolito, ~3600 líneas)
-Contiene:
-
-- **Fetch SSR** + agrupación de eventos (frontmatter).
-- **Header** con buscador de estados (`HeaderTitle`) y menú lateral.
-- **Toolbar**: `TimeSlider` (rango de años), highlights (`TagWithLink` ×4) y
-  `ToggleSelector` (Galería/Mapa/Lista).
-- **Estado global de cliente** en `window._melState` (archives, filtros, página,
-  orden, instancias del mapa, overlay activo…). El estado sobrevive a las
-  navegaciones suaves.
-- **`filterArchives()` → `performDOMUpdates()`**: pipeline central de filtrado y
-  re-render de la vista activa (galería/lista/mapa), envuelto en
-  `document.startViewTransition` cuando está disponible. La galería usa FLIP +
-  clones absolutos para animar reordenaciones y salidas.
-- **Vista Mapa**: Google Maps + clustering por localización; los updates hacen
-  diff de marcadores en lugar de reconstruir; panel lateral con los eventos del
-  lugar seleccionado.
-- **Vista Lista**: tabla `table-layout:fixed` con `<colgroup>` porcentual,
-  ordenación por columnas, celdas con marquee/ellipsis y enlaces que fijan el
-  buscador.
-- **Overlay SPA de detalle** (`#event-details-overlay`): réplica del diseño de
-  `event/[id].astro` renderizada por JS (`renderOverlayEvent()`); escribe
-  `?detail=MEL-XXXX` en la URL para que sea compartible; navegación
-  anterior/siguiente con crossfade del carrusel y FLIP de las secciones;
-  flechas del teclado navegan entre eventos, y dentro del lightbox entre fotos.
-- **Lightbox** de imagen (modal cuadrado 76vh, padding uniforme, dots).
-- **Deep links soportados**: `?view=galería|mapa|lista`, `?search=…`,
-  `?detail=MEL-XXXX`, `?intro=true`.
+### `src/pages/index.astro` (Home Monolítica)
+Contiene la vista principal del proyecto:
+- **SSR Frontmatter**: Descarga de datos y agrupación por eventos.
+- **Estado Global Persistente (`window._melState`)**: Almacena archivos, filtros activos, estado de vistas, mapa y overlays. Sobrevive a las navegaciones de View Transitions.
+- **Pipeline de Filtrado (`filterArchives` → `performDOMUpdates`)**: Filtra datos por texto y rango de años, recalcula estadísticas dinámicas y actualiza la vista activa (Galería, Mapa o Lista).
+- **Vista Galería**: Grid adaptativo con calculador de altura por imagen (`sizeGalleryCard`), orden aleatorio estable por sesión, scroll infinito precargado y animación de entrada al scroll (*IntersectionObserver*). Si el resultado es vacío, inyecta dinámicamente el `EmptyState` variante `no-results`.
+- **Vista Mapa**: Instancia de Google Maps con *clustering* de marcadores por ubicación y panel lateral interactivo por recinto.
+- **Vista Lista**: Tabla HTML `table-layout:fixed` con columnas porcentuales, ordenación por encabezados y celdas con *marquee*. Si no hay resultados, renderiza una fila completa `<tr><td colspan="6">` con el componente `EmptyState`.
+- **Overlay SPA de Detalle (`#event-details-overlay`)**: Modal interactivo que simula la página de detalle sin recargar la web. Actualiza la URL a `?detail=MEL-XXXX` para permitir enlaces compartibles.
 
 ### `src/pages/event/[id].astro`
-Página SSR de detalle por `idMel` (busca el evento en la hoja en cada request).
-Mismo diseño que el overlay SPA pero renderizado en servidor. En desktop: grid
-`184px / 496px / 496px` (tags / imagen / info) con navegación
-Anterior/Siguiente 280px por debajo. En móvil se reordena (título → imagen a
-sangre → tags en fila con scroll horizontal → info → nav en dos columnas)
-mediante utilidades responsive `order-*` sobre los mismos bloques.
-
-**Importante**: cualquier cambio de diseño aquí debe replicarse en el overlay
-SPA de index.astro (y viceversa). Son dos implementaciones del mismo diseño.
+Página estática SSR para enlaces directos por ID de evento (`/event/MEL-XXXX`). Reutiliza la misma estructura visual que el overlay SPA (diseño responsive adaptativo: grid de 3 columnas en escritorio y reordenación con `order-*` en móvil).
 
 ### `src/pages/info.astro`
-Página Proyecto/Equipo/Contacto alimentada por la pestaña "Página de
-Información". Acordeones con foto (tinte fotográfico `mix-blend-screen`),
-enlaces con estilo Body Roman (Lora).
+Página informativa (*Proyecto / Equipo / Contacto*) poblada desde la hoja. Acordeones desplegables con tinte fotográfico duotono en imágenes.
 
 ### `src/pages/exposiciones.astro`
-"Sala de Exposiciones": actualmente solo `EmptyState` variante construcción,
-cuyo botón "De acuerdo" vuelve a la home con fade + recarga dura.
+Página de la Sala de Exposiciones. Implementa el componente `<EmptyState variant="construction" />` avisando de que la sección está en desarrollo.
 
-## Componentes de cliente destacados
+---
 
-| Componente | Rol |
+## Componentes Destacados y Arquitectura Interna
+
+| Componente | Responsabilidad y Mecánica |
 | --- | --- |
-| `HeaderTitle` | Buscador de 4 estados (título / placeholder / escribiendo / fijado) con anchura animada en px medidos y evento `mel-search` |
-| `TimeSlider` + `SliderHandler` | Doble range 2004–2019 con handles arrastrables |
-| `ToggleSelector` / `ToggleButton` | Conmutador Galería/Mapa/Lista con indicador deslizante |
-| `TagWithLink` | Etiqueta título+valor (con `Link` opcional); se usa en highlights, sidebar de evento y navegación Anterior/Siguiente |
-| `Link` | Enlace estilo Body Roman (Lora) con subrayado scaleX en hover y chevron opcional |
-| `SideMenu` | Menú lateral (navegación, toggle de tema, disparo de la intro) |
-| `IntroAnimation` | Intro CMYK; se dispara con `?intro=true` o el evento `mel-trigger-intro` |
-| `EmptyState` | Estados vacíos (construcción / sin resultados) con tinte fotográfico |
+| `<EmptyState />` | Sistema de estados vacíos (variantes `construction` y `no-results`). Utiliza una imagen en B/N combinada con una capa superior `bg-[var(--mel-primitive-le-900)]` en modo `mix-blend-screen` para lograr un tinte fotográfico duotono. |
+| `<IntroAnimation />` | Pantalla de inicio con 3 capas CMYK (`mix-blend-multiply`). Utiliza un contenedor con `isolation: isolate` para un blend correcto, física del ratón mediante `requestAnimationFrame` (desplazamientos de capa: Amarilla máx 16px, Magenta máx 8px, Cian 0px estática), y ascensión ease-in (`cubic-bezier(0.55, 0.085, 0.68, 0.53)`) de 2100ms con descomposición del subtítulo palabra por palabra (retardo de 150ms). |
+| `<HeaderTitle />` | Buscador tipográfico de 4 estados (*default*, *placeholder*, *filling*, *filled*) con animación de ancho en píxeles medidos y emisión del evento `mel-search`. |
+| `<TimeSlider />` | Selector de rango de años (2004–2019) con dos tiradores arrastrables. Los eventos de ventana se gestionan con `AbortController` para una desvinculación limpia. |
+| `<ToggleSelector />` | Selector de vistas (*Galería / Mapa / Lista*) con indicador deslizante mediante `transform`. |
+| `<SideMenu />` | Menú lateral deslizable con selector de tema, disparo de la intro y enlaces de navegación. |
+| `<TagWithLink />` | Etiqueta de metadata (*OVERLINE + Valor*) con truncado mediante `ellipsis` indispensable. |
 
-## Comunicación entre módulos (eventos custom en `window`)
+---
 
-| Evento | Emisor → Receptor |
-| --- | --- |
-| `mel-search` | HeaderTitle → filtros de la home |
-| `mel-set-search` | celdas de la lista / tags → HeaderTitle |
-| `mel-switch-view` | SideMenu / IntroAnimation → conmutador de vistas |
-| `mel-trigger-intro` | SideMenu → IntroAnimation |
-| `mel-open-lightbox` | popups del mapa → lightbox |
-| `mel-color-scheme-change` | SideMenu → reconstrucción del mapa (basemap claro/oscuro) |
+## Bus de Eventos (Eventos Personalizados en `window`)
 
-## Patrones técnicos clave
+| Evento | Emisor → Receptor | Propósito |
+| --- | --- | --- |
+| `mel-search` | `HeaderTitle` → `index.astro` | Notifica cambios en el término de búsqueda |
+| `mel-set-search` | Celdas de tabla / Tags → `HeaderTitle` | Fija un texto de búsqueda desde una etiqueta o celda |
+| `mel-switch-view` | `SideMenu` / `IntroAnimation` → `ToggleSelector` | Cambia la vista activa (Galería/Mapa/Lista) |
+| `mel-trigger-intro` | `SideMenu` → `IntroAnimation` | Lanza la animación de intro bajo demanda |
+| `mel-open-lightbox` | Marcadores del Mapa → Lightbox | Abre el visor de imagen desde un punto del mapa |
+| `mel-color-scheme-change` | `SideMenu` → Google Maps | Reconstruye los estilos del mapa claro/oscuro |
 
-- **Init idempotente**: todo se engancha en `astro:page-load`; los listeners de
-  `window` usan `AbortController` para poder cancelarse en re-inits.
-- **FLIP con transforms** para animaciones contenidas (nunca
-  `view-transition-name` dentro de contenedores con overflow).
-- **Coalescing con rAF** para no apilar `startViewTransition` en eventos de
-  alta frecuencia (drag del slider).
-- **Clones para animar salidas**: tarjetas que salen del filtro se clonan en
-  `position:absolute` ancladas al grid (no `fixed`, para respetar el clipping
-  del contenedor de scroll); el crossfade del carrusel del overlay sí usa un
-  clon `fixed` (debe verse por encima de todo).
-- **Espaciados de página en `vh`** (`pt-[10vh]`, reservas de paginación
-  `6vh/13vh/7vh`) y de la intro en `%` del ancho, calibrados contra la pantalla
-  4K del propietario.
+---
+
+## Patrones Técnicos Obligatorios
+
+1. **Gestión de Ciclo de Vida Idempotente**: Todo el código de cliente se inicializa en el evento `astro:page-load`. Los event listeners de `window` utilizan `AbortController` para ser destruidos y recreados en cada navegación SPA sin acumular bindings.
+2. **Aislamiento de Blend Modes (`isolation: isolate`)**: Todo contenedor que agrupe capas con `mix-blend-multiply` o `mix-blend-screen` debe incluir `isolation: isolate` para evitar artefactos de renderizado en el lienzo del navegador.
+3. **Coalescing con `requestAnimationFrame`**: Transiciones pesadas o actualizaciones de vista durante operaciones de arrastre (como el slider de tiempo) se agrupan en ciclos de rAF para no saturar `document.startViewTransition`.

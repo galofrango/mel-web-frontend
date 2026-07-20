@@ -1,101 +1,71 @@
-# Desarrollo
+# Guía de Desarrollo y Convenciones
 
-## Entorno
+## Entorno de Trabajo
 
-- Node >= 22.12.0, `npm install`, `npm run dev` (localhost:4321).
-- No hay variables de entorno ni secretos locales (ver README).
-- Editor: cualquier; no hay linter ni formateador configurados — respeta el
-  estilo del archivo que tocas.
+- **Node.js**: >= 22.12.0 (`npm install`, `npm run dev` para el servidor en `http://localhost:4321`).
+- **Variables de entorno**: No se utilizan secretos ni variables de entorno locales (la hoja de Google Sheets es pública vía `gviz` y la clave de Google Maps está inicializada en `src/layouts/Layout.astro`).
+- **Estilo de código**: No existe un linter o formateador automático restrictivo — mantén el estilo y las convenciones del archivo que estés modificando.
 
-## Organización del código
+---
 
-- **Páginas** en `src/pages/`; cada página incluye su lógica de cliente en
-  `<script>` al final del archivo. La home (`index.astro`) concentra toda la
-  lógica de vistas/filtros/mapa/overlay (decisión consciente, ver
-  decisions.md D-003): navégala con `grep` por ids (`#overlay-…`,
-  `#gallery-grid`, `#pagination-controls`), nombres de función
-  (`filterArchives`, `performDOMUpdates`, `renderOverlayEvent`, `switchView`,
-  `makeTagHtml`) o `data-name`.
-- **Componentes** en `src/components/`: presentacionales, con props tipadas en
-  el frontmatter (`interface Props`). Los estilos van en clases Tailwind
-  inline; `<style>` scoped solo cuando hace falta alcanzar hijos de otros
-  componentes (`:global(…)`) o estados complejos.
-- **CSS global** (`src/styles/global.css`): tokens, clases `typo-*`,
-  utilidades compartidas (`.no-scrollbar`, `.event-tags-row`). Añade aquí solo
-  lo que de verdad comparten varias páginas.
+## Organización del Código
 
-## Convenciones
+- **Páginas (`src/pages/`)**: Cada página incluye su lógica de cliente dentro de etiquetas `<script>` al final del archivo.
+  - `index.astro` es el **monolito principal** (~3600 líneas) que gestiona el estado global de la home, el filtrado, las vistas de Galería/Mapa/Lista y el overlay SPA de detalle. **Navega mediante `grep`** por ids (`#overlay-…`, `#gallery-grid`), funciones (`filterArchives`, `performDOMUpdates`, `renderOverlayEvent`, `switchView`) o atributos `data-name`.
+  - `event/[id].astro` renderiza la vista estática SSR para enlaces directos por evento.
+  - `exposiciones.astro` implementa el componente `<EmptyState variant="construction" />`.
+  - `info.astro` genera el contenido narrativo desplegable desde la hoja de Google Sheets.
+- **Componentes (`src/components/`)**: Componentes Astro de presentación con props tipadas (`interface Props`). Estilos en Tailwind inline; bloques `<style>` scoped solo cuando se requiera `:global(...)` o animaciones complejas.
+- **CSS Global (`src/styles/global.css`)**: Tokens de diseño, utilidades `typo-*` y clases compartidas (`.event-tags-row`, `.no-scrollbar`, `.striped-bg`).
 
-- **Idiomas**: UI y contenido en español; código (nombres de variables,
-  funciones) en inglés o español descriptivo — sigue lo que ya haya en el
-  archivo; mensajes de commit en inglés (estilo `feat:`/`fix:` o imperativo).
-- **Naming de ids DOM**: kebab-case con prefijo de zona (`overlay-…`,
-  `search-…`, `slider-…`, `lightbox-…`, `nav-…`). Los elementos que replican
-  Figma llevan `data-node-id` y/o `data-name`.
-- **Comentarios**: se usan para dejar constancia de *por qué* algo se hace de
-  una forma no obvia (workarounds, bugs históricos). Mantén esa práctica: si
-  arreglas algo sutil, deja el porqué en un comentario.
-- **Eventos custom** en `window` con prefijo `mel-` (ver la tabla en
-  architecture.md) para comunicar componentes sin acoplarlos.
+---
 
-## Patrones obligatorios
+## Convenciones de Código y Naming
 
-Son las reglas 1–10 de [AGENTS.md](../AGENTS.md) (init vía `astro:page-load`,
-FLIP en contenedores con overflow, coalescing de view transitions, recarga dura
-para fades manuales, porcentajes en `<colgroup>`, cadena de ellipsis/min-w-0,
-réplicas JS de componentes, thumbnails de Drive, espaciados en vh/%, header
-unificado). No se repiten aquí; considéralas parte de este documento.
+- **Idioma**: La interfaz y los contenidos están redactados exclusivamente en **español**. El código (variables, funciones) utiliza inglés o español descriptivo siguiendo el contexto local del archivo. Los mensajes de commit se escriben en inglés (estilo `feat:`, `fix:` o modo imperativo).
+- **Naming de elementos DOM**: Identificadores en `kebab-case` con prefijo de módulo (`overlay-…`, `search-…`, `slider-…`, `lightbox-…`). Los elementos que replican Figma llevan atributos `data-node-id` y `data-name`.
+- **Eventos Personalizados**: Los eventos del bus global en `window` utilizan el prefijo `mel-` (`mel-search`, `mel-switch-view`, `mel-trigger-intro`, etc.).
+- **Comentarios en el Código**: Obligatorios para justificar soluciones a bugs históricos o comportamientos no triviales del navegador (p. ej., workarounds de View Transitions, clipping o blend modes).
 
-## Flujo recomendado para una funcionalidad nueva
+---
 
-1. **Figma primero** si es visual: localiza el nodo (los `data-node-id`
-   existentes ayudan a orientarse) y extrae medidas/tokens reales.
-2. **Busca lo ya construido**: casi todo patrón (tags, enlaces, dots, empty
-   states, tinte fotográfico, fila con scroll) ya existe; reutiliza el
-   componente o su CSS compartido antes de crear variantes.
-3. **Identifica los espejos**: ¿el cambio afecta al detalle de evento? →
-   página estática **y** overlay SPA. ¿A un componente replicado en JS? →
-   componente **y** plantilla JS.
-4. Implementa **desktop y móvil** en el mismo cambio (breakpoints `md`/`lg`).
-5. **Verifica en navegador** (ver abajo).
-6. **Documenta**: decisión nueva → decisions.md; módulo nuevo →
-   architecture.md; regla nueva aprendida → AGENTS.md; estado → roadmap.md.
-7. Commit descriptivo.
+## Patrones de Ingeniería Obligatorios
 
-## Cómo verificar cambios (no hay tests automatizados)
+Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir código nuevo:
+1. Lifecycle idempotente vía `astro:page-load`.
+2. `AbortController` (`window._melAbortCtrl`) para limpiar event listeners de `window`.
+3. Animaciones de reordenamiento con FLIP (`transform`), evitando `view-transition-name` en contenedores con overflow.
+4. Uso de `isolation: isolate` en contenedores con capas `mix-blend-multiply` o `mix-blend-screen`.
+5. Replicación estricta del marcado HTML de componentes Astro en renderers dinámicos de JavaScript de cliente (como en `index.astro` para filas de tabla y estados vacíos).
 
-Lista de comprobación mínima según la zona tocada:
+---
 
-- **Home**: las tres vistas (Galería/Mapa/Lista), buscador (fijar un término
-  desde una celda de la lista, limpiarlo), slider de años, paginación (con 1
-  página y con varias), abrir/cerrar el overlay de detalle, deep links
-  (`?view=`, `?search=`, `?detail=`).
-- **Detalle de evento**: página estática y overlay; carrusel; lightbox (evento
-  con 1 imagen y con varias — el padding inferior debe ser igual al resto);
-  Anterior/Siguiente con click y con flechas del teclado.
-- **Navegación suave**: ir a otra página y **volver** con el ClientRouter;
-  históricamente la mitad de los bugs aparecían solo ahí (listeners dobles,
-  referencias DOM obsoletas, estado del mapa).
-- **Responsive**: 375px (móvil), ~768 y ≥1024. Tema claro y oscuro.
-- **Datos raros**: eventos con `Desconocido`/`No detallados`, sin descripción,
-  con muchos artistas (FIV VI es el caso de prueba habitual: 5 imágenes,
-  20 artistas), con una sola imagen ("Trip With Us").
+## Flujo Recomendado para Nuevas Funcionalidades
 
-### Aviso para agentes con navegador sandbox
+1. **Revisar Figma**: Localiza el nodo de diseño (`data-node-id`) y extrae valores reales de tipografía, color y espaciado.
+2. **Reutilización de Componentes**: Comprueba si el patrón ya existe (`EmptyState`, `TagWithLink`, `Link`, duotono fotográfico).
+3. **Mantenimiento en Espejo**: Si modificas el detalle de un evento, aplica los cambios tanto en la página estática (`event/[id].astro`) como en el overlay SPA en `index.astro`. Si modificas un componente usado en cliente, actualiza su plantilla JS.
+4. **Desarrollo Responsive**: Implementa escritorio y móvil simultáneamente utilizando los breakpoints `md` (768px) y `lg` (1024px).
+5. **Verificación Manual en Navegador** (ver checklist abajo).
+6. **Actualización de Documentación**: Registra las decisiones en `docs/decisions.md`, cambios de arquitectura en `docs/architecture.md` y tareas en `docs/roadmap.md`.
 
-En navegadores embebidos sin foco/pintado real: `getBoundingClientRect()` y
-`clientWidth` pueden devolver 0/valores obsoletos hasta forzar un pintado
-(captura de pantalla), y `requestAnimationFrame` puede no ejecutarse con
-`document.hidden` (las animaciones/reveals parecen "congelados" en opacity 0
-sin estarlo). Verifica con un pintado real antes de diagnosticar un bug de
-layout; esto ya ha producido falsos positivos en el pasado.
+---
 
-## Datos y contenido
+## Lista de Comprobación para Verificación Manual
 
-- El contenido se edita en la hoja de Google Sheets (estructura en
-  architecture.md). Para imágenes nuevas: subir a Drive, hacer el archivo
-  público y pegar el enlace `…/file/d/ID/view` en la hoja — el código lo
-  convierte a thumbnail automáticamente.
-- Lugares nuevos con enlace de Google Maps en la columna de coordenadas
-  requieren regenerar `src/data/resolved_coordinates.json` con
-  `scripts/fetch_sheet.py`.
+Dado que el proyecto no cuenta con tests automatizados, ejecuta esta verificación en navegador real antes de finalizar una tarea:
+
+- **Home y Filtrado**:
+  - Probar las 3 vistas (Galería, Mapa, Lista).
+  - Probar el buscador (escribir, fijar un término desde una celda de la lista, borrar término).
+  - Probar el slider de años y comprobar que las estadísticas se actualizan.
+  - Probar el comportamiento de **Sin Resultados**: filtrar por un término inexistente y verificar que el `EmptyState` variante `no-results` con su duotono fotográfico se muestra correctamente tanto en la Galería como en la tabla de la Lista.
+- **Intro Animada**:
+  - Disparar la intro desde el menú lateral o `?intro=true`.
+  - Probar la respuesta física del ratón sobre las letras CMYK.
+  - Hacer scroll o presionar Enter y verificar que el despegue se ejecuta con inercia ease-in sin desaceleración final y con la descomposición por palabras.
+- **Navegación SPA y View Transitions**:
+  - Navegar a otra página (`/info` o `/exposiciones`) y **volver** utilizando la navegación del navegador o enlaces. Verificar que no se producen doble bindings de eventos ni referencias DOM corruptas.
+- **Responsive y Modo Oscuro**:
+  - Probar la vista en 375px (móvil), 768px (tablet) y 1440px (escritorio).
+  - Alternar entre modo claro y oscuro desde el menú lateral.

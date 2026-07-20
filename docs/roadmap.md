@@ -1,73 +1,48 @@
-# Roadmap y estado
+# Roadmap y Estado del Proyecto
 
-Última actualización: 2026-07-20 (commit `a58ba94`).
+Última actualización: 2026-07-20.
 
-## Hecho
+## Funcionalidades Completadas
 
-- Home con tres vistas (Galería / Mapa / Lista) sobre datos vivos de Google
-  Sheets, con filtros combinados (búsqueda + rango de años), paginación y
-  estadísticas (highlights).
-- Vista Mapa con clustering por localización, panel lateral de eventos por
-  lugar y actualización por diff de marcadores.
-- Vista Lista con ordenación por columnas, ellipsis/marquee en celdas y
-  enlaces que alimentan el buscador.
-- Detalle de evento por partida doble (página `/event/[id]` y overlay SPA con
-  URL compartible), con carrusel, lightbox, navegación Anterior/Siguiente
-  (click + teclado) y botón "Me presta".
-- Página `/info` (Proyecto/Equipo/Contacto) completamente dirigida por la
-  pestaña "Página de Información" de la hoja, con acordeones y fotos tintadas.
-- Intro animada CMYK (bajo demanda: `?intro=true` o menú lateral).
-- Tema claro/oscuro persistido; buscador de estados; menú lateral.
-- Layouts móviles: header colapsado ("M.E.L."), toolbar (slider a sangre,
-  highlights con scroll), detalle de evento reordenado según Figma.
-- Headers unificados en todas las páginas (misma distancia al borde superior).
-- Protección de imágenes (menú contextual y arrastre bloqueados).
-- Galería 2.1: masonry de 3 columnas (2 tablet / 1 móvil) con cada flyer
-  entero a ancho de columna y ratio original, sin recortes; huecos de 24px,
-  orden aleatorio estable por sesión, scroll infinito con precarga (la
-  paginación queda solo en la Lista) y revelado animado al scroll. Ver
-  decisions.md D-014/D-015. Referencias git: tag `galeria-1.0` (rejilla
-  antigua de alturas fijas) y ramas `galeria/filas-justificadas` y
-  `galeria/paseo-horizontal` (bocetos alternativos valorados y no elegidos).
+- **Home Multivista (Galería / Mapa / Lista)**: Conexión SSR en tiempo real con Google Sheets, filtros combinados (buscador multitérmino + slider de años) y estadísticas dinámicas.
+- **Galería 2.1 con Masonry CSS Grid**: Masonry de 3 columnas (2 tablet / 1 móvil) con imágenes a ratio completo sin recortes, huecos de 24px, orden aleatorio estable por sesión, scroll infinito precargado y animación de revelado al scroll (`.reveal-in`).
+- **Vista Mapa Interactiva**: Integración con Google Maps API, agrupamiento de marcadores (*clustering*), panel lateral por sala/recinto y diff de marcadores en cliente.
+- **Vista Lista Técnica**: Tabla ordenable por columnas con animación *marquee* al hover y filtros desde cualquier celda.
+- **Sistema de Estados Vacíos (`EmptyState`)**: Componente reutilizable (`<EmptyState variant="construction|no-results" />`) con tinte fotográfico duotono (`mix-blend-screen` sobre B/N). Implementado de forma estática en `/exposiciones` y dinámicamente en client-side JS para la Galería y Lista cuando una búsqueda no devuelve resultados.
+- **Intro Animada CMYK Refinada (`IntroAnimation.astro`)**: Pantalla de inicio con 3 capas CMYK (`mix-blend-multiply`) aisladas con `isolation: isolate`. Parallax interactivo del ratón (Amarilla máx 16px/1px blur, Magenta máx 8px/0.5px blur, Cian 0px estática), despegue ease-in de 2.1s sin desaceleración final y descomposición del subtítulo palabra por palabra (retardo de 150ms acotado a `-90vh`).
+- **Detalle de Evento Adaptativo**: Doble implementación (página estática `/event/[id]` y overlay SPA `?detail=MEL-XXXX`) con carrusel, lightbox en pantalla completa, navegación por teclado y botón *"Me presta"*.
+- **Página de Información (`/info`)**: Mini-CMS impulsado por la hoja de Google Sheets con acordeones desplegables y fotos duotono.
+- **Tema Claro/Oscuro Persistido**: Alternador de tema en el menú lateral con persistencia en `localStorage`.
+- **Diseño Responsive y Header Unificado**: Ajustes específicos de 375px a 1440px y geometría de header idéntica en todas las secciones.
 
-## En progreso / pendiente de contenido
+---
 
-- **Sala de Exposiciones** (`/exposiciones`): solo EmptyState "En
-  construcción". El diseño final no está definido en el código.
-  <!-- TODO: definir qué contendrá la Sala de Exposiciones -->
-- Fotos del equipo en `/info`: dependen de que las celdas "Imagen" de la hoja
-  tengan URLs válidas (Drive público o URL directa).
+## En Progreso / Pendiente de Contenido
 
-## Problemas conocidos (aparcados explícitamente por el propietario)
+- **Sala de Exposiciones (`/exposiciones`)**: Actualmente muestra el estado vacante `<EmptyState variant="construction" />`. Pendiente de definir los contenidos definitivos por parte del equipo editorial.
+- **Fotografías del Equipo en `/info`**: Requiere que las celdas de imagen en la pestaña de la hoja contengan URLs públicas de Google Drive o enlaces directos.
 
-No retomar sin que el propietario lo pida ("Dejemos esto de momento"):
+---
 
-1. **La galería no anima la reordenación durante el arrastre del slider de
-   años** (solo al hacer click en la barra). Se intentó coalescing con rAF
-   sobre `updateSlider()`; no lo resolvió.
-2. **Durante ese arrastre se ven tarjetas moverse por debajo del módulo de
-   paginación** (zona inferior). Probablemente relacionado con el punto 1.
+## Problemas Conocidos (Aparcados Explícitamente)
 
-## Deuda técnica conocida
+*No abordar sin solicitud explícita del propietario:*
+1. **Falta de animación en tarjetas durante el arrastre continuo del slider de años**: La galería actualiza la reordenación al soltar o hacer click en la barra, pero no de forma fluida durante el arrastre continuo del tirador.
+2. **Desplazamiento visual de tarjetas por debajo de la toolbar durante el arrastre**: Íntimamente ligado al punto anterior.
 
-- Duplicación consciente del detalle de evento (página + overlay SPA) — ver
-  decisions.md D-008. Cualquier unificación futura debería mantener la view
-  transition de la imagen y el overlay instantáneo.
-- Índices de columna de la hoja hardcodeados (frágil ante reordenaciones de
-  columnas en el Sheet).
-- Clave de Google Maps incrustada en `Layout.astro`.
-  <!-- TODO: restringir la clave por dominio en Google Cloud Console -->
-- Sin caché del fetch a Google Sheets (un fetch por request SSR).
-- `src/components/HeaderTitle.astro.bak` es un residuo; eliminable.
+---
 
-## Ideas futuras (no comprometidas)
+## Deuda Técnica Registrada
 
-- Botón **"Descargar"** en el detalle de evento: existe en el diseño móvil de
-  Figma (nodo 634-41290, componente DownloadButton) pero no está implementado
-  en ninguna variante.
-  <!-- TODO: confirmar con el propietario si se quiere y qué descargaría (¿el flyer original?) -->
-- Aprovechar los campos ya parseados pero no mostrados: `ocr`,
-  `notasArchivo`, `existeOriginal`, `formato`.
-- Persistencia real de "Me presta" (ahora es estado visual local).
+- **Duplicación Consciente del Detalle de Evento**: Coexistencia de la página estática SSR `/event/[id].astro` y el renderer JS del overlay SPA en `index.astro`. Cualquier cambio de diseño debe aplicarse en ambos lados.
+- **Índices de Columna de la Hoja Hardcodeados**: El parseador SSR depende de los índices absolutos de columna en el Google Sheet; reordenar columnas en la hoja rompería la extracción de datos.
+- **Clave de Google Maps en Frontend**: Incrustada en `Layout.astro` (pendiente de restringir por dominio autorizado en Google Cloud Console).
+- **Ausencia de Caché SSR**: Cada request ejecuta una petición HTTP en vivo a Google Sheets.
 
-Al terminar cualquier punto, muévelo a "Hecho" y actualiza la fecha de arriba.
+---
+
+## Ideas y Futuras Mejoras
+
+- **Botón "Descargar" en el Detalle de Evento**: Diseñado en Figma (nodo `634-41290`, `DownloadButton`) para permitir la descarga directa de la pieza gráfica en alta resolución.
+- **Aprovechamiento de Campos Extra**: Integración de los campos ya parseados en el frontmatter (`ocr`, `notasArchivo`, `existeOriginal`, `formato`).
+- **Persistencia de "Me presta"**: Conexión con `localStorage` o servicio externo para guardar los eventos guardados por el usuario.
