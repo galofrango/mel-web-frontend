@@ -4,11 +4,12 @@ interface Props {
   category: string;
   location: string;
   year: number;
+  date: string;
   image: string;
   id: string;
 }
 
-const { title, category, location, year, image, id } = Astro.props;
+const { title, category, location, year, date, image, id } = Astro.props;
 ---
 <div
   class="gallery-item unsized relative overflow-hidden bg-white cursor-pointer transition-all duration-300 group hover:z-30"
@@ -36,12 +37,19 @@ const { title, category, location, year, image, id } = Astro.props;
   <!-- Blending grid overlay (striped Figma style) -->
   <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
 
-  <!-- Figma Hover overlay: 32px height bottom bar in action-secondary -->
+  <!-- Figma "Event Info" (node 481:238727): 32px bottom bar in action-secondary,
+       title left / date right, justify-between. Title truncates first (min-w-0)
+       so the date never gets pushed off on narrow cards. -->
   <div
-    class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]"
+    class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]"
   >
-    <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">
+    <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate min-w-0">
       {title}
     </p>
+    {date && (
+      <p class="font-serif font-medium text-[12px] leading-[16px] tracking-[0.15px] text-mel-text-on-action shrink-0">
+        {date}
+      </p>
+    )}
   </div>
 </div>

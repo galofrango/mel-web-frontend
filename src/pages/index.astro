@@ -31,6 +31,18 @@ function getYear(dateStr) {
   return null;
 }
 
+// DD/MM/AAAA a partir del AAAA-MM-DD tal cual llega de la hoja (columna Fecha).
+// Espejo server-side de la versión cliente (más abajo, en el <script>) — ver
+// AGENTS.md regla 7: FlyerCard se renderiza en SSR y necesita su propia copia.
+function formatFechaDMY(fecha) {
+  let formatted = fecha || '';
+  if (formatted && formatted.includes('-')) {
+    const parts = formatted.split('-');
+    if (parts.length === 3) formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+  }
+  return formatted;
+}
+
 // Direct hotlink builder to bypass drive authentication/cors
 function extractDriveImage(url) {
   if (!url) return '';
@@ -193,13 +205,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
-         its icon (see HeaderTitle/MenuItem), the search stretches over all the
-         remaining width, and the gap to the menu button is exactly 16px. -->
-    <div class="flex items-center gap-4 md:grid md:grid-cols-12 md:gap-6 shrink-0" style="view-transition-name: mel-header;">
-      <div class="flex-1 min-w-0 md:col-span-6 w-full">
+         its icon (see HeaderTitle/MenuItem), the gap to the menu button is 16px
+         on mobile / 24px from md up. Plain flex (title flex-1, menu shrink-0)
+         at every width — NOT a 50/50 grid split — so the search box only ever
+         shrinks (and truncates its placeholder) once it's genuinely out of
+         room, i.e. down to that gap from the menu, instead of being capped at
+         a fixed half of the row regardless of how little the menu needs. -->
+    <div class="flex items-center gap-4 md:gap-6 shrink-0" style="view-transition-name: mel-header;">
+      <div class="flex-1 min-w-0 w-full">
         <HeaderTitle hideDivider={true} />
       </div>
-      <div class="shrink-0 md:col-span-6 flex justify-end">
+      <div class="shrink-0 flex justify-end">
         <MenuItem id="menu-btn" />
       </div>
     </div>
@@ -217,14 +233,22 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         <TimeSlider />
       </div>
 
-      <!-- Filter Tags and View Switcher -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center mt-2">
+      <!-- Filter Tags and View Switcher. mt-0 lg:mt-2: below lg the extra 8px
+           this row used to add on top of the parent's gap-6 is dropped, so the
+           slider→highlights gap is 24px (was 32) in the adaptable-width tags
+           mode; kept at lg+ (32px) since that wasn't the reported issue. -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center mt-0 lg:mt-2">
         <!-- Event Stats Tags (TagWithLink). Desktop (lg+): an 8-column sub-grid
              (matching the parent toolbar's own gap-6) so every tag is exactly 2
              columns wide, one gap away from the view toggle. Mobile (Figma
              369:31311): tags shrink to their content and the row scrolls
-             horizontally instead. -->
-        <div class="col-span-12 lg:col-span-8 flex lg:grid lg:grid-cols-8 gap-6 items-center w-full overflow-x-auto lg:overflow-visible no-scrollbar">
+             horizontally instead — gap-0 there because each TagWithLink already
+             carries its own 24px of padding on both sides of its border-l
+             divider; stacking the row's own gap-6 on top of that made the gap
+             asymmetric (48px before the divider vs. 24px after it). At lg+ the
+             tags don't carry that padding split the same way relative to the
+             grid, so gap-6 stays. -->
+        <div class="col-span-12 lg:col-span-8 flex lg:grid lg:grid-cols-8 gap-0 lg:gap-6 items-center w-full overflow-x-auto lg:overflow-visible no-scrollbar">
           {tags.map((tag) => (
             <TagWithLink label={tag.label} count={tag.count} class="shrink-0 lg:shrink lg:col-span-2 w-auto" />
           ))}
@@ -263,6 +287,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                 category={item.organiza || "Colectivo"}
                 location={`${item.lugar}. ${item.localidad}`}
                 year={yr}
+                date={formatFechaDMY(item.fecha)}
                 image={imgSrc}
               />
             );
@@ -1517,9 +1542,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <!-- Blending grid overlay (striped Figma style) -->
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
 
-      <!-- Overlay info on hover -->
-      <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
-        <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">${item.evento}</p>
+      <!-- Overlay info on hover (Figma "Event Info" 481:238727 — mirrors FlyerCard.astro, ver AGENTS.md regla 7) -->
+      <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
+        <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate min-w-0">${escHtml(item.evento)}</p>
+        ${item.fecha ? `<p class="font-serif font-medium text-[12px] leading-[16px] tracking-[0.15px] text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
       </div>
     `;
     card.addEventListener('click', () => {

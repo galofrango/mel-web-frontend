@@ -2,6 +2,27 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Highlights (gap y simetría), buscador de cabecera sin encogido prematuro, fecha en la pastilla de galería
+
+### Objetivo de la Sesión
+Cuatro peticiones del propietario: reducir el hueco slider→Highlights en móvil, corregir la asimetría del separador vertical en el modo adaptable de Highlights, arreglar el buscador de la cabecera (se encogía y truncaba el placeholder antes de tiempo por un reparto 50/50 rígido con el Menú), e incluir la fecha del evento en la pastilla de título de la galería (hover en escritorio, fija en táctil).
+
+### Cambios Realizados
+1. **Gap slider→Highlights (D-029)**: `mt-2` (fijo) → `mt-0 lg:mt-2` en la fila de tags/toggle. Por debajo de `lg` el hueco baja de 32px a 24px.
+2. **Simetría del separador de Highlights (D-029)**: diagnosticado con `getBoundingClientRect()` que el hueco antes del `border-l` de cada `TagWithLink` era 48px (su propio padding + el `gap-6` del contenedor) y solo 24px después (solo su padding) — asimétrico. Contenedor interior de tags: `gap-6` → `gap-0 lg:gap-6`; por debajo de `lg` el padding propio de cada tag (24px a cada lado) ya basta para una separación simétrica sin el gap extra del contenedor.
+3. **Buscador de cabecera sin reparto 50/50 (D-029)**: diagnosticado en vivo (screenshot a 900px) que el buscador truncaba el placeholder con ~430px de hueco vacío antes del botón Menú — causa: `md:col-span-6` en ambos lados repartía la fila en dos mitades FIJAS de un grid de 12 columnas, sin relación con cuánto necesita cada lado. Sustituido por `flex` puro en toda anchura (título `flex-1 min-w-0`, Menú `shrink-0`, gap `gap-4 md:gap-6`) en `index.astro`, `exposiciones.astro` e `info.astro` — el buscador ahora ocupa todo el sobrante real y solo trunca cuando de verdad no cabe.
+4. **Fecha en la pastilla de galería (D-029)**: `FlyerCard.astro` gana la prop `date`; el `.flyer-label` pasa a `justify-between` con el título en negrita a la izquierda y la fecha en Lora a la derecha (Figma "Event Info" `481:238727`). Nuevo helper server-side `formatFechaDMY()` en el frontmatter de `index.astro` (espejo del ya existente en el `<script>` cliente). La réplica JS `buildGalleryCard()` (regla 7 de AGENTS.md) se actualiza igual.
+
+### Problemas Encontrados y Resueltos
+- El diagnóstico del buscador empezó midiendo con `getBoundingClientRect()`/`getComputedStyle()` tras forzar el ancho por JS, con resultados inconsistentes con lo que mostraba la captura de pantalla (medía ~306px cuando la caja se veía visiblemente más ancha). Se comprobó con un `<div>` de prueba en el mismo padre que el layout SÍ daba el ancho esperado, así que el problema no era del entorno en general — aun así, la medición JS de ESTE elemento en concreto siguió sin cuadrar con lo pintado en pantalla incluso tras descartar CSS `!important`, `max-width` y reglas ocultas. Se abandonó la vía de medición JS para este caso concreto y se verificó por captura de pantalla (screenshot), que sí reflejó el comportamiento real y permitió encontrar la causa de raíz (el `md:col-span-6` rígido) con confianza.
+- La fila de Highlights en `lg+` (desktop) tiene la MISMA asimetría de espaciado que se corrigió en el modo adaptable, pero se dejó sin tocar por estar fuera del alcance pedido explícitamente ("cuando el ancho... cambia a adaptable, a partir de tablet") — ver Tareas Pendientes.
+
+### Tareas Pendientes
+- Si en el futuro se pide corregir también la asimetría del separador de Highlights en `lg+` (desktop, ancho fijo por columnas), revisar antes si el `gap-6` de ese contenedor cumple otro propósito de alineación con el `ToggleSelector` antes de tocarlo.
+- Pendientes ya registrados en sesiones anteriores y aún sin hacer: subir las cajas de contenido (Galería/Mapa/Lista) — explícitamente aparcado por el propietario, D-028; el pliegue de papel del bottom sheet; el detalle de evento como bottom sheet con caja de imagen colapsable (D-027); verificar el bottom sheet completo en un dispositivo móvil real.
+
+---
+
 ## [2026-07-21] — Sesión: Ajuste fino del panel del mapa (X pegada al mapa) y offset del header en móvil
 
 ### Objetivo de la Sesión
