@@ -1,0 +1,369 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="MEL - Preview Animación">
+  
+  <div class="fixed inset-0 bg-[#f7f3f5] z-10 flex items-end justify-center overflow-hidden select-none" id="main-bg-container">
+    
+    <!-- Contenedor Maestro (1440x1024) -->
+    <div class="relative w-full max-w-[1440px] h-full max-h-[1024px] aspect-[1440/1024] flex flex-col justify-end p-[7.5%] pb-[140px] md:pb-[160px] z-30">
+      
+      <div class="flex flex-col items-start w-full">
+        
+        <!-- Título: Canvas WebGL con mix-blend-multiply -->
+        <div id="lab-title-container" class="relative w-full h-[220px] md:h-[420px] isolate pointer-events-none">
+          <canvas id="gl-canvas" class="absolute left-[-5%] top-[-10%] w-[110%] h-[120%] pointer-events-none mix-blend-multiply"></canvas>
+          <canvas id="text-canvas" class="hidden"></canvas>
+        </div>
+
+        <!-- Línea Divisoria (DOM) -->
+        <div
+          id="lab-divider"
+          class="w-full h-[2px] bg-[#190609] my-[3.3%] opacity-100 scale-x-100 origin-left"
+        ></div>
+
+        <!-- Subtítulo (DOM) -->
+        <div
+          id="lab-subtitle-container"
+          class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[4.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full"
+        >
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Minimal HUD Overlay (Apple Style) -->
+  <div class="fixed top-0 left-0 right-0 h-14 bg-black/20 backdrop-blur-2xl z-50 flex items-center justify-between px-6 text-white text-[11px] font-medium transition-opacity duration-1000" id="hud-layer">
+    <div class="flex items-center gap-2 tracking-widest uppercase">
+      <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span>
+      Reproducción en vivo
+    </div>
+    <div class="flex items-center gap-4">
+      <div id="preset-selector" class="flex gap-1"></div>
+      <div class="w-[1px] h-4 bg-white/20"></div>
+      <a href="/intro-gl" class="hover:text-white/70 transition-colors">← Volver al Editor</a>
+    </div>
+  </div>
+
+  <!-- Botón Play Central -->
+  <button id="btn-start" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm text-white transition-opacity duration-500">
+    <div class="flex flex-col items-center gap-4 hover:scale-105 transition-transform">
+      <div class="w-16 h-16 rounded-full border-2 border-white flex items-center justify-center">
+        <svg class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <span class="font-medium tracking-widest text-xs uppercase">Iniciar Intro</span>
+    </div>
+  </button>
+
+</Layout>
+
+<script>
+  interface GLKeyframe {
+    time: number;
+    chroma: number;
+    bloom: number;
+    halftone: number;
+    noise: number;
+    scanlines: number;
+    glitch: number;
+  }
+
+  interface GLPreset {
+    id: string;
+    name: string;
+    keyframes: GLKeyframe[];
+  }
+
+  // Cargar Presets de LocalStorage o usar Default
+  const DEFAULT_GL_PRESETS: GLPreset[] = [
+    {
+      id: 'gl_default',
+      name: 'Exploración Base',
+      keyframes: [
+        { time: 0.0, chroma: 1.5, bloom: 0.0, halftone: 0.8, noise: 0.1, scanlines: 0.2, glitch: 0.0 }
+      ]
+    }
+  ];
+
+  let presetsList: GLPreset[] = [];
+  try {
+    const saved = localStorage.getItem('mel_intro_gl_presets');
+    if (saved) presetsList = JSON.parse(saved);
+  } catch (e) {}
+  if (!presetsList.length) presetsList = JSON.parse(JSON.stringify(DEFAULT_GL_PRESETS));
+
+  let activePresetId: string = presetsList[0].id;
+  let activeKeyframes: GLKeyframe[] = JSON.parse(JSON.stringify(presetsList[0].keyframes));
+  let currentState: Omit<GLKeyframe, 'time'> = { ...activeKeyframes[0] };
+
+  let currentTime = 0.0;
+  const maxTime = 3.0;
+  let isPlaying = false;
+  let animReqId: number | null = null;
+  let lastTimestamp: number | null = null;
+
+  // DOM Elements
+  const hudLayer = document.getElementById('hud-layer')!;
+  const btnStart = document.getElementById('btn-start')!;
+  const presetSelector = document.getElementById('preset-selector')!;
+
+  const subtitleContainer = document.getElementById('lab-subtitle-container')!;
+  const dividerLine = document.getElementById('lab-divider')!;
+  const subtitleText = "A través del diseño gráfico";
+  const wordsArray = subtitleText.split(' ');
+
+  subtitleContainer.innerHTML = wordsArray.map(w => 
+    `<span class="mr-[1.5vw] md:mr-3 inline-block overflow-hidden pb-1"><span class="inline-block translate-y-[110%] intro-word font-normal">${w}</span></span>`
+  ).join('');
+  const wordSpans = document.querySelectorAll('.intro-word') as NodeListOf<HTMLElement>;
+
+  // Build Preset Selector
+  presetSelector.innerHTML = presetsList.map(p => `
+    <button data-id="${p.id}" class="preset-btn px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-semibold border ${p.id === activePresetId ? 'bg-white text-black border-white' : 'bg-transparent text-white/50 border-white/20 hover:text-white'} transition-colors">
+      ${p.name}
+    </button>
+  `).join('');
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const id = (e.currentTarget as HTMLElement).getAttribute('data-id')!;
+      activePresetId = id;
+      const found = presetsList.find(p => p.id === id);
+      if (found) {
+        activeKeyframes = JSON.parse(JSON.stringify(found.keyframes));
+        document.querySelectorAll('.preset-btn').forEach(b => {
+          b.className = `preset-btn px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-semibold border bg-transparent text-white/50 border-white/20 hover:text-white transition-colors`;
+        });
+        btn.className = `preset-btn px-2.5 py-1 rounded-md text-[10px] uppercase tracking-wider font-semibold border bg-white text-black border-white transition-colors`;
+        if (isPlaying) { currentTime = 0; }
+        else { seekTo(0); }
+      }
+    });
+  });
+
+  btnStart.addEventListener('click', () => {
+    btnStart.style.opacity = '0';
+    setTimeout(() => btnStart.style.display = 'none', 500);
+    
+    // Hide HUD after 2 seconds
+    setTimeout(() => { hudLayer.style.opacity = '0'; }, 2000);
+
+    currentTime = 0;
+    isPlaying = true;
+    lastTimestamp = performance.now();
+    animReqId = requestAnimationFrame(playLoop);
+  });
+
+  hudLayer.addEventListener('mouseenter', () => { hudLayer.style.opacity = '1'; });
+
+  function lerp(a: number, b: number, t: number) { return a + (b - a) * t; }
+
+  function interpolateKeyframes(time: number): Omit<GLKeyframe, 'time'> {
+    const kfs = [...activeKeyframes].sort((a, b) => a.time - b.time);
+    if (kfs.length === 0) return { chroma: 0, bloom: 0, halftone: 0, noise: 0, scanlines: 0, glitch: 0 };
+    if (time <= kfs[0].time) return { ...kfs[0] };
+    if (time >= kfs[kfs.length - 1].time) return { ...kfs[kfs.length - 1] };
+
+    let prev = kfs[0], next = kfs[1];
+    for (let i = 0; i < kfs.length - 1; i++) {
+      if (time >= kfs[i].time && time <= kfs[i + 1].time) {
+        prev = kfs[i]; next = kfs[i + 1]; break;
+      }
+    }
+    const span = next.time - prev.time;
+    const factor = span === 0 ? 0 : (time - prev.time) / span;
+
+    return {
+      chroma: lerp(prev.chroma, next.chroma, factor),
+      bloom: lerp(prev.bloom, next.bloom, factor),
+      halftone: lerp(prev.halftone, next.halftone, factor),
+      noise: lerp(prev.noise, next.noise, factor),
+      scanlines: lerp(prev.scanlines, next.scanlines, factor),
+      glitch: lerp(prev.glitch, next.glitch, factor)
+    };
+  }
+
+  function easeOutExpo(x: number): number { return x === 1 ? 1 : 1 - Math.pow(2, -10 * x); }
+  function easeInExpo(x: number): number { return x === 0 ? 0 : Math.pow(2, 10 * x - 10); }
+
+  function seekTo(t: number) {
+    currentTime = Math.max(0, Math.min(maxTime, t));
+    currentState = interpolateKeyframes(currentTime);
+
+    const divT = Math.max(0, Math.min(1, (currentTime - 0.4) / 0.6));
+    dividerLine.style.transform = `scaleX(${easeOutExpo(divT)})`;
+    dividerLine.style.opacity = divT > 0 ? '1' : '0';
+
+    wordSpans.forEach((span, i) => {
+      const wordStart = 0.8 + (i * 0.05);
+      const wordT = Math.max(0, Math.min(1, (currentTime - wordStart) / 0.5));
+      const yOffset = 110 - (easeOutExpo(wordT) * 110);
+      span.style.transform = `translateY(${yOffset}%)`;
+    });
+  }
+
+  function playLoop(timestamp: number) {
+    if (!isPlaying) return;
+    if (lastTimestamp === null) lastTimestamp = timestamp;
+    const delta = (timestamp - lastTimestamp) / 1000;
+    lastTimestamp = timestamp;
+
+    currentTime += delta;
+    if (currentTime >= maxTime) {
+      currentTime = 0; // Loop indefinitely for preview
+    }
+
+    seekTo(currentTime);
+    animReqId = requestAnimationFrame(playLoop);
+  }
+
+  // ==========================================================================
+  // WEBGL (Same as intro-gl.astro)
+  // ==========================================================================
+  const textCanvas = document.getElementById('text-canvas') as HTMLCanvasElement;
+  const ctx = textCanvas.getContext('2d', { willReadFrequently: true })!;
+  const C_WIDTH = 2448; const C_HEIGHT = 840;
+  textCanvas.width = C_WIDTH; textCanvas.height = C_HEIGHT;
+
+  const words = [
+    { text: "Memoria", yBase: 250, offset: 0 },
+    { text: "Electrónica", yBase: 450, offset: 0.15 },
+    { text: "Leonesa", yBase: 650, offset: 0.3 }
+  ];
+
+  function renderTextToCanvas(t: number) {
+    ctx.clearRect(0, 0, C_WIDTH, C_HEIGHT);
+    ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, C_WIDTH, C_HEIGHT);
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 200px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    const startX = 150;
+    words.forEach(w => {
+      let y = w.yBase;
+      let maskHeight = 250;
+      if (t < 1.0) {
+        const localT = Math.max(0, Math.min(1, (t - w.offset) / 0.7));
+        const e = easeOutExpo(localT);
+        y = w.yBase + 100 * (1 - e); maskHeight = e * 250;
+      } else if (t < 2.0) {
+        y = w.yBase;
+      } else {
+        const localT = Math.max(0, Math.min(1, (t - 2.0 - w.offset) / 0.7));
+        const e = easeInExpo(localT);
+        y = w.yBase - 800 * e;
+      }
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, w.yBase - maskHeight + 100, C_WIDTH, maskHeight); ctx.clip();
+      ctx.fillText(w.text, startX, y);
+      if (w.text === "Leonesa") {
+        ctx.save(); ctx.font = 'bold 90px sans-serif';
+        const mX = ctx.measureText("Leonesa").width + startX + 20;
+        ctx.fillText("®", mX, y - 60); ctx.restore();
+      }
+      ctx.restore();
+    });
+  }
+
+  const glCanvas = document.getElementById('gl-canvas') as HTMLCanvasElement;
+  const gl = glCanvas.getContext('webgl', { preserveDrawingBuffer: true })!;
+
+  function resizeGL() {
+    const rect = document.getElementById('lab-title-container')!.getBoundingClientRect();
+    glCanvas.width = rect.width * 1.1 * window.devicePixelRatio;
+    glCanvas.height = rect.height * 1.2 * window.devicePixelRatio;
+    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+  }
+  window.addEventListener('resize', resizeGL);
+  resizeGL();
+
+  const vsSource = `
+    attribute vec4 aVertexPosition; attribute vec2 aTextureCoord; varying vec2 vUv;
+    void main() { gl_Position = aVertexPosition; vUv = aTextureCoord; }
+  `;
+  const fsSource = `
+    precision highp float; varying vec2 vUv; uniform sampler2D uSampler;
+    uniform float uTime; uniform vec2 uRes; uniform float uChroma;
+    uniform float uBloom; uniform float uHalftone; uniform float uNoise;
+    uniform float uScanlines; uniform float uGlitch;
+    float rand(vec2 co){ return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453); }
+    void main() {
+      vec2 uv = vUv;
+      float glitchY = floor(uv.y * 100.0) / 100.0;
+      float glitchNoise = rand(vec2(glitchY, floor(uTime * 10.0)));
+      if (uGlitch > 0.0 && glitchNoise < (uGlitch * 0.3)) {
+        uv.x += (rand(vec2(uTime, glitchY)) - 0.5) * 0.1 * uGlitch;
+      }
+      float chromaOffset = (uChroma / uRes.x);
+      vec2 dirR = vec2(chromaOffset, 0.0); vec2 dirB = vec2(-chromaOffset, 0.0);
+      float r = (uv.x + dirR.x > 1.0 || uv.x + dirR.x < 0.0) ? 0.0 : texture2D(uSampler, uv + dirR).r;
+      float g = texture2D(uSampler, uv).g;
+      float b = (uv.x + dirB.x > 1.0 || uv.x + dirB.x < 0.0) ? 0.0 : texture2D(uSampler, uv + dirB).b;
+      vec3 color = vec3(r, g, b);
+      if (uBloom > 0.0) {
+        float bOff = uBloom * 3.0 / uRes.x; vec3 blurCol = vec3(0.0);
+        blurCol += texture2D(uSampler, uv + vec2(bOff, bOff)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(-bOff, -bOff)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(bOff, -bOff)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(-bOff, bOff)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(bOff*1.5, 0.0)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(-bOff*1.5, 0.0)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(0.0, bOff*1.5)).rgb;
+        blurCol += texture2D(uSampler, uv + vec2(0.0, -bOff*1.5)).rgb;
+        color += (blurCol * 0.125) * uBloom * 0.5;
+      }
+      if (uHalftone > 0.0) {
+        float luma = dot(color, vec3(0.299, 0.587, 0.114));
+        float dotSize = 8.0; 
+        vec2 center = floor(gl_FragCoord.xy / dotSize) * dotSize + (dotSize * 0.5);
+        float dist = distance(gl_FragCoord.xy, center);
+        float radius = (dotSize * 0.65) * luma * uHalftone;
+        float htMask = 1.0 - smoothstep(radius - 1.0, radius + 0.5, dist);
+        vec3 htColor = vec3(htMask) * color;
+        color = mix(color, htColor, uHalftone);
+      }
+      vec3 finalColor = 1.0 - color;
+      float lumaContent = max(max(color.r, color.g), color.b);
+      if (lumaContent > 0.01) {
+        if (uScanlines > 0.0) { float scanline = sin(uv.y * uRes.y * 1.5) * 0.05 * uScanlines; finalColor -= scanline; }
+        if (uNoise > 0.0) { float n = (rand(uv * uTime) - 0.5) * uNoise * 0.2; finalColor += n; }
+      }
+      finalColor = clamp(finalColor, 0.0, 1.0);
+      gl_FragColor = vec4(finalColor, 1.0);
+    }
+  `;
+
+  function initShaderProgram(gl: WebGLRenderingContext, vs: string, fs: string) {
+    const vertexShader = gl.createShader(gl.VERTEX_SHADER)!; gl.shaderSource(vertexShader, vs); gl.compileShader(vertexShader);
+    const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER)!; gl.shaderSource(fragmentShader, fs); gl.compileShader(fragmentShader);
+    const shaderProgram = gl.createProgram()!;
+    gl.attachShader(shaderProgram, vertexShader); gl.attachShader(shaderProgram, fragmentShader); gl.linkProgram(shaderProgram);
+    return shaderProgram;
+  }
+  const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+  const programInfo = {
+    program: shaderProgram,
+    attribLocations: { vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'), textureCoord: gl.getAttribLocation(shaderProgram, 'aTextureCoord') },
+    uniformLocations: { uSampler: gl.getUniformLocation(shaderProgram, 'uSampler'), uTime: gl.getUniformLocation(shaderProgram, 'uTime'), uRes: gl.getUniformLocation(shaderProgram, 'uRes'), uChroma: gl.getUniformLocation(shaderProgram, 'uChroma'), uBloom: gl.getUniformLocation(shaderProgram, 'uBloom'), uHalftone: gl.getUniformLocation(shaderProgram, 'uHalftone'), uNoise: gl.getUniformLocation(shaderProgram, 'uNoise'), uScanlines: gl.getUniformLocation(shaderProgram, 'uScanlines'), uGlitch: gl.getUniformLocation(shaderProgram, 'uGlitch') }
+  };
+  const positionBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,1, 1,1, -1,-1, 1,-1]), gl.STATIC_DRAW);
+  const textureCoordBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 0,1, 1,1]), gl.STATIC_DRAW);
+  const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  seekTo(0);
+
+  function renderWebGL() {
+    requestAnimationFrame(renderWebGL);
+    renderTextToCanvas(currentTime);
+    gl.bindTexture(gl.TEXTURE_2D, texture); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, textCanvas);
+    gl.useProgram(programInfo.program);
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer); gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+    gl.bindBuffer(gl.ARRAY_BUFFER, textureCoordBuffer); gl.vertexAttribPointer(programInfo.attribLocations.textureCoord, 2, gl.FLOAT, false, 0, 0); gl.enableVertexAttribArray(programInfo.attribLocations.textureCoord);
+    gl.uniform1f(programInfo.uniformLocations.uTime, currentTime); gl.uniform2f(programInfo.uniformLocations.uRes, gl.canvas.width, gl.canvas.height); gl.uniform1f(programInfo.uniformLocations.uChroma, currentState.chroma); gl.uniform1f(programInfo.uniformLocations.uBloom, currentState.bloom); gl.uniform1f(programInfo.uniformLocations.uHalftone, currentState.halftone); gl.uniform1f(programInfo.uniformLocations.uNoise, currentState.noise); gl.uniform1f(programInfo.uniformLocations.uScanlines, currentState.scanlines); gl.uniform1f(programInfo.uniformLocations.uGlitch, currentState.glitch);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texture); gl.uniform1i(programInfo.uniformLocations.uSampler, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+  requestAnimationFrame(renderWebGL);
+</script>

@@ -301,18 +301,20 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                abajo, ver setupSidePanelDrag(). -->
           <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" />
 
-          <!-- Header / Close button (Figma matches: pb-[8px] px-[16px] pt-[8px]) -->
-          <div class="flex items-center pb-[8px] px-[16px] pt-[8px] shrink-0 w-full">
-            <IconButton 
-              id="close-map-side-panel" 
+          <!-- Header / Close button. En el bottom sheet (bajo lg) sube 8px hacia
+               el tirador (pt-0); en desktop conserva el pt-8 de Figma. -->
+          <div class="flex items-center pb-[8px] px-[16px] pt-0 lg:pt-[8px] shrink-0 w-full">
+            <IconButton
+              id="close-map-side-panel"
               icon="x"
               variant="ghost"
               aria-label="Cerrar panel"
             />
           </div>
-          
-          <!-- Title & Address (Figma matches: pb-[32px] pt-[24px] px-[16px] + px-[8px] on inner text) -->
-          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[24px] px-[16px] shrink-0 w-full relative">
+
+          <!-- Title & Address. En el bottom sheet el título sube 8px hacia la X
+               (pt-16); en desktop conserva el pt-24 de Figma. -->
+          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] lg:pt-[24px] px-[16px] shrink-0 w-full relative">
             <div class="px-[8px] flex flex-col gap-[16px] items-start justify-center w-full">
               <h2 id="side-panel-title" class="font-sans font-bold text-[31px] leading-[32px] text-mel-text-primary tracking-[-0.62px] truncate w-full"></h2>
               <p id="side-panel-address" class="font-serif font-medium text-[15px] leading-[24px] text-mel-text-secondary tracking-[0.15px] truncate w-full"></p>
@@ -1514,7 +1516,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
 
       <!-- Overlay info on hover -->
-      <div class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
+      <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
         <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">${item.evento}</p>
       </div>
     `;

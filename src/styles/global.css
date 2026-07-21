@@ -310,3 +310,22 @@ body {
     width: auto;
   }
 }
+
+/* Galería — pastilla de título (hover). En dispositivos táctiles no hay hover,
+   así que el `group-hover:opacity-100` nunca dispararía: la mostramos SIEMPRE
+   sobre cada imagen. `(hover: none)` cubre móvil/tablet real y el modo
+   dispositivo del inspector (que emula touch). Global (no scoped) para que
+   aplique también a las tarjetas construidas por JS. */
+@media (hover: none) {
+  .flyer-label {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    translate: 0 0 !important;
+  }
+}
+/* Respaldo por JS (Layout.astro) por si el navegador no reporta (hover: none). */
+html.is-touch .flyer-label {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  translate: 0 0 !important;
+}

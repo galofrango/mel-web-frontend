@@ -38,7 +38,7 @@ const { title, category, location, year, image, id } = Astro.props;
 
   <!-- Figma Hover overlay: 32px height bottom bar in action-secondary -->
   <div
-    class="absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]"
+    class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]"
   >
     <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate w-full">
       {title}
