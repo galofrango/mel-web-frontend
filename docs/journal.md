@@ -2,6 +2,23 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Dots a 24px simétricos y estandarización de todos los "TagWithLink" del sitio
+
+### Objetivo de la Sesión
+Dos correcciones del propietario: la paginación necesitaba al menos 24px arriba y abajo (no 16/0 como en D-040 — confirma que el espacio bajo el botón sí era necesario); y una auditoría completa de todos los bloques con la forma de `TagWithLink` en el sitio (componente, réplica JS del overlay, Highlights de la home, panel del mapa), que debían tener las mismas propiedades: sin espacio fantasma a la derecha, siempre 48px de alto (tags y divisores), y corte a sangre contra el borde real de pantalla cuando hay scroll horizontal.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-041. Dots a `py-6` uniforme. Causa raíz del espacio fantasma: el chevron de hover de `Link.astro` vivía en flujo (reservaba ~16px aunque invisible) — pasa a `position: absolute`, sin reservar espacio. Causa raíz de la altura inconsistente: `TagWithLink.astro` tenía `py-2` en el modo con borde (56px) pero no en el modo `hideBorder` (48px) — unificado a 48px siempre, sin padding vertical en ningún modo. Las cuatro filas con scroll horizontal (tags del detalle ×2, Highlights, panel del mapa) ganan el patrón de márgenes negativos ya usado en el resto del sitio para sangrar contra el borde real.
+
+### Problemas Encontrados y Resueltos
+- El caso "Organiza" (caja más ancha que su valor "FIV") no es un bug — es la caja midiendo `max(etiqueta, valor)` de forma consistente; confirmado midiendo ambos anchos por separado antes de descartarlo como hallazgo.
+- El panel del mapa no se pudo verificar abriéndolo por interacción real (el sandbox no renderiza los tiles de Google Maps, limitación ya conocida) — verificado en su lugar sobre el marcado SSR, que ya contiene los `TagWithLink` reales con `count="0"` independientemente de si el panel está abierto.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-21] — Sesión: Grid fluido de 12 columnas en escritorio, nav siempre visible, y ajustes de dots/nav en móvil
 
 ### Objetivo de la Sesión

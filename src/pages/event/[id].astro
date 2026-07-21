@@ -280,7 +280,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
                  on desktop (top-[400px]) so they don't shift the navigation
                  block there, unchanged from before. -->
             {imageUrls.length > 1 && (
-              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center pt-4 pb-4 lg:py-6 w-full" id="carousel-dots-container">
+              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
 
                 {imageUrls.map((_, idx) => (
                   <PaginationDot
@@ -305,7 +305,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              provides the 32px to the image column — same whether or not this event has pagination,
              since #detail-image-sentinel's height (see the Image Column's comment) already accounts
              for the dots when present. -->
-        <div class="event-tags-row order-2 lg:order-1 lg:col-span-2 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-8 lg:border-b-0 lg:pb-0" data-name="Tags Section" style="view-transition-name: event-tags;">
+        <div class="event-tags-row order-2 lg:order-1 lg:col-span-2 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-8 lg:border-b-0 lg:pb-0 -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0" data-name="Tags Section" style="view-transition-name: event-tags;">
           <TagWithLink
             label="Fecha"
             count={dateDisplay.text}

@@ -34,10 +34,13 @@ const isDisabled = state === "Disabled";
       <span class="mel-link-underline absolute bottom-0 left-0 right-0 h-[1px] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
     </span>
     
-    <!-- Chevron icon for Left alignment (rendered on the right of text in hover) -->
+    <!-- Chevron icon for Left alignment (appears at the right of the text on
+         hover). Absolutely positioned so it takes NO layout space: an in-flow
+         chevron (even at opacity-0) reserved 16px at the value's right edge,
+         making linked tags visibly wider than plain ones (owner-reported). -->
     {!isRight && !hideChevron && (
       <svg 
-        class="w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover:translate-x-0 shrink-0" 
+        class="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover:translate-x-0 shrink-0" 
         fill="none" 
         viewBox="0 0 24 24" 
         stroke="currentColor" 
@@ -47,10 +50,11 @@ const isDisabled = state === "Disabled";
       </svg>
     )}
     
-    <!-- Chevron icon for Right alignment (rendered on the left of text in hover) -->
+    <!-- Chevron icon for Right alignment (appears at the left of the text on
+         hover). Absolute for the same no-reserved-space reason as above. -->
     {isRight && !hideChevron && (
       <svg 
-        class="w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[4px] group-hover:translate-x-0 order-first shrink-0" 
+        class="absolute right-full mr-1 top-1/2 -translate-y-1/2 w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[4px] group-hover:translate-x-0 order-first shrink-0" 
         fill="none" 
         viewBox="0 0 24 24" 
         stroke="currentColor" 
