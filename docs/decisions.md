@@ -461,11 +461,17 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Garantizar un contraste alto y permanente (WCAG AA/AAA) del texto sobre los elementos de acción principal en cualquier tema (claro u oscuro).
 - **Consecuencias**: El texto sobre `Action-Primary` es permanentemente casi blanco (`LE-50`) en ambos modos. Los botones sobre `Action-Secondary` conservan `--mel-text-on-action` para adaptarse correctamente a su fondo en modo oscuro.
 
-## D-050 · Revertido: Intento de actualización de `EmptyState` variante `no-results` con botón "Quitar filtros"
+## D-050 · Actualización de la variante `no-results` de `EmptyState` (botón "Quitar filtros" y descripción)
 
-- **Contexto**: Se intentó añadir el botón *"Quitar filtros"* y actualizar la descripción en el estado de "Sin resultados". El usuario reportó una regresión y solicitó revertir inmediatamente al commit anterior (`f724e97`).
-- **Decisión**: Se ejecuta `git revert` devolviendo el proyecto al estado del commit `f724e97`.
-- **Motivo**: Requerimiento directo del usuario para recuperar el comportamiento anterior estable.
-- **Consecuencias**: El código de `EmptyState.astro` e `index.astro` vuelve a su versión anterior sin cambios en los listeners o renderers de estado vacío.
+- **Contexto**: Cuando una búsqueda o filtro no devuelve resultados en Galería o Lista, la tarjeta de estado vacío debe mostrar el botón *"Quitar filtros"* y la descripción *"Elimina los filtros o prueba a buscar otra cosa."*.
+- **Decisión**:
+  1. En `src/components/EmptyState.astro`:
+     - Se actualiza la descripción por defecto para `variant="no-results"` a `"Elimina los filtros o prueba a buscar otra cosa."`.
+     - Se habilita el botón por defecto (`showButton = true`) con etiqueta `"Quitar filtros"`.
+  2. En `src/pages/index.astro`:
+     - Se sincronizan las 3 réplicas dinámicas en JavaScript (Galería, Lista en escritorio y Lista en móvil) para incluir la nueva descripción y el botón con la clase `.empty-state-clear-btn`.
+     - En el manejador global de clics delegado de `index.astro`, al hacer clic sobre `.empty-state-clear-btn`, se detiene la propagación y se emite la limpieza de búsqueda mediante `window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query: '' } }))`.
+- **Motivo**: Replicar fielmente el diseño de Figma y ofrecer un mecanismo limpio e instantáneo para restablecer la búsqueda con un solo clic.
+- **Consecuencias**: El estado vacío presenta la descripción actualizada y el botón *"Quitar filtros"* que restaura los resultados sin recargas.
 
 

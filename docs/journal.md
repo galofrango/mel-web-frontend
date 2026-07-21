@@ -2,14 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Reversión de cambios en `EmptyState` variante "No results" (D-050)
+## [2026-07-22] — Sesión: Actualización del componente `EmptyState` variante "No results" (D-050)
 
 ### Objetivo de la Sesión
-Revertir inmediatamente el commit `0556d1f` a petición del usuario para restablecer el estado exacto anterior del proyecto (`f724e97`).
+Actualizar el estado de "Sin resultados" (tanto en la vista Galería como en Lista) para mostrar la nueva descripción *"Elimina los filtros o prueba a buscar otra cosa."* y el botón de acción *"Quitar filtros"*.
 
 ### Cambios Realizados
-1. **Ejecución de `git revert 0556d1f`**: Restaurado el código fuente de `src/components/EmptyState.astro` y `src/pages/index.astro` a su estado exacto anterior.
-2. **Documentación**: Registrada decisión `D-050` en `docs/decisions.md` detallando la reversión del intento.
+1. **Componente `EmptyState.astro`**:
+   - Actualizada la descripción por defecto para `no-results` a `"Elimina los filtros o prueba a buscar otra cosa."`.
+   - Habilitado por defecto el botón (`showButton = true`) con etiqueta `"Quitar filtros"`.
+2. **Réplicas Dinámicas en JS y Delegación de Clics (`src/pages/index.astro`)**:
+   - Actualizados los 3 bloques de HTML dinámico (Galería grid, Lista escritorio y Lista móvil).
+   - Añadida la comprobación en el manejador delegado global de clics para la clase `.empty-state-clear-btn`, emitiendo `mel-set-search` con query vacía para restaurar la visualización de resultados de forma limpia e instantánea.
+3. **Documentación**: Registrada decisión `D-050` en `docs/decisions.md`.
 
 ---
 
