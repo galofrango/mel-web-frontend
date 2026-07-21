@@ -23,6 +23,26 @@ Cuatro peticiones del propietario: reducir el hueco slider→Highlights en móvi
 
 ---
 
+## [2026-07-21] — Sesión: Ancho máximo del buscador (según el placeholder o 24px del Menú, lo que llegue antes)
+
+### Objetivo de la Sesión
+Matización del propietario sobre el fix del buscador de la sesión anterior (D-029): no basta con que deje de encogerse antes de tiempo — su ancho máximo debe ser el MENOR entre "lo que ocupa el propio texto del placeholder" y "el hueco disponible hasta 24px del botón Menú".
+
+### Cambios Realizados
+1. **Tope de ancho por contenido (D-030)**: nuevo span de medición `#search-placeholder-shadow` en `HeaderTitle.astro` (fuente normal, coincide con el placeholder real, no con el texto tecleado en negrita) mide el ancho del texto del placeholder. `expandedWidth` pasa a `Math.min(anchoDisponible, anchoPlaceholder + 6 + 40)` (6 = padding del input, 40 = botón de cerrar).
+2. **Bug de medición a cero, encontrado y corregido**: la primera versión puso el span dentro de `#search-state-active`, oculto (`display:none`) al cargar la página — medir el ancho de un descendiente de un ancestro oculto da 0, así que el tope calculado quedaba fijo en 46px para siempre (la caja de búsqueda se veía colapsada a un punto). Solución: mover el span fuera de ese estado, como hijo directo de `#search-box-container` (que nunca se oculta).
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-030.
+
+### Problemas Encontrados y Resueltos
+- El bug de medición a cero se diagnosticó comparando el `style.width` inline (que sí decía el valor correcto contextualmente erróneo, 46px) contra una captura de pantalla que mostraba la caja colapsada — confirmando que el CÁLCULO era el problema (basado en una medición hecha demasiado pronto, contra un elemento aún sin layout), no un problema de aplicación de estilos.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-21] — Sesión: Ajuste fino del panel del mapa (X pegada al mapa) y offset del header en móvil
 
 ### Objetivo de la Sesión
