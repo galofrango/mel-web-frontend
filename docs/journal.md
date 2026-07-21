@@ -2,6 +2,41 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Los puntos de paginación del overlay dejan hueco de más cuando no hay paginación
+
+### Objetivo de la Sesión
+El propietario, con una captura de DevTools de "Teckel I" (evento de una sola imagen) inspeccionando `#overlay-carousel-dots`, pidió revisar si la paginación se mostraba sin necesidad y eliminar cualquier padding/margin inferior sobrante de la caja de imagen.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-035. En resumen: solo `index.astro` necesitaba el fix — `event/[id].astro` ya renderiza el bloque de dots como condicional del lado del servidor, así que para eventos de una sola imagen ese `<div>` ni siquiera existe en el DOM. El overlay, en cambio, reutiliza un único `#overlay-carousel-dots` estático entre eventos; su `py-6` (48px) reservaba altura aunque estuviera vacío. Añadida `dotsContainer.classList.toggle('hidden', imageUrls.length <= 1);` en `renderOverlayEvent()`, justo tras vaciar el contenedor.
+
+### Problemas Encontrados y Resueltos
+Ninguno nuevo más allá del propio bug reportado — diagnosticado directamente comparando la estructura de las dos implementaciones (nodo condicional vs. nodo reutilizado estático) antes de tocar código.
+
+### Tareas Pendientes
+Ver `docs/decisions.md` D-035. Verificado sin regresión en eventos con paginación (hueco de 32px se mantiene igual con o sin dots).
+
+---
+
+## [2026-07-21] — Sesión: La cabecera del detalle de evento pasa de `sticky` a `fixed` de verdad
+
+### Objetivo de la Sesión
+El propietario, con una captura de DevTools, señaló que la cabecera del detalle de evento (móvil/tablet) seguía moviéndose con el scroll y dejando un hueco por arriba durante los primeros ~90px de scroll — insistiendo en que debe estar fija "en ningún momento" con excepciones.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-034. En resumen, en ambos ficheros (`event/[id].astro` e `index.astro`):
+1. La cabecera pasa de `position: sticky` a `position: fixed` incondicional por debajo de `lg` — fija desde el primer fotograma, sin ninguna ventana de "aún no se ha enganchado".
+2. Nuevo spacer (`#detail-header-spacer`/`#overlay-header-spacer`) que reserva a mano el hueco que la cabecera dejó de ocupar en el flujo normal, sincronizado a su altura real en cada tick.
+3. Detectado y corregido un hueco redundante: el `pt-[10vh]`-ish del contenedor de página (pensado para una cabecera en flujo normal) se sumaba por encima del spacer, empujando el contenido más abajo de lo debido — pasa a `pt-0 lg:pt-[10vh]` (0 por debajo de `lg`, sin cambios en escritorio).
+
+### Problemas Encontrados y Resueltos
+El hueco redundante del punto 3 se diagnosticó midiendo directamente `getBoundingClientRect()` de la cabecera y del centinela de la imagen en reposo — el hueco (79.8px) coincidía exactamente con el `pt-[10vh]` en el viewport de prueba, confirmando la causa antes de tocar nada.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-21] — Sesión: Corrección del detalle de evento móvil — recorte real de la foto y cuatro bugs del repaso del propietario
 
 ### Objetivo de la Sesión

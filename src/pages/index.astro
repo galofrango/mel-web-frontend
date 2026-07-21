@@ -551,26 +551,35 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
   <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pb-[40px] lg:pb-[108px] px-6 sm:px-12 select-none">
-    <!-- pt lives here (not on #event-details-overlay itself) specifically so
-         #overlay-sticky-header's `position: sticky; top: 0` computes against
-         a zero-padding scrolling ancestor: sticky's `top` offset is relative
-         to its nearest scrolling ancestor's PADDING edge, and
-         #event-details-overlay is both that ancestor (overflow-y-auto) AND,
-         before this split, the element carrying the top padding — which
-         pinned the header ~41px down instead of flush with the true top. -->
-    <div class="w-full max-w-[1224px] flex flex-col relative pt-[calc(10vh-40px)] md:pt-[10vh]" id="overlay-content-wrapper">
+    <!-- pt-0 below `lg`: the header is `position: fixed` from the very first
+         frame (see its own comment) and #overlay-header-spacer reserves
+         exactly its height — any top padding here would just stack on top of
+         that and push content down by an unwanted extra gap below the
+         header. lg:pt-[10vh] matches every other page header's top offset
+         (unaffected — desktop's header isn't fixed, it's back in normal flow
+         via lg:static). Lives on this inner wrapper rather than
+         #event-details-overlay itself only because that's where it already
+         was; either would work equally now that the header no longer cares
+         about any ancestor's padding. -->
+    <div class="w-full max-w-[1224px] flex flex-col relative pt-0 lg:pt-[10vh]" id="overlay-content-wrapper">
       
-      <!-- Sticky Header (X + Mobile Title): mirrors event/[id].astro's
-           #detail-sticky-header — pinned at the true top of the overlay's own
-           scrolling box (#event-details-overlay, overflow-y-auto) below `lg`.
-           pb-8 lives on the wrapper itself rather than as the title's own
-           mb-8, since a margin on the last child can collapse through into
-           the parent's own box height, but padding never does — and JS needs
-           a reliable height reading here to position the image right below
-           it. See event/[id].astro for the full rationale (identical here). -->
+      <!-- Fixed Header (X + Mobile Title): mirrors event/[id].astro's
+           #detail-sticky-header — genuinely `position: fixed` from the very
+           first frame, not `sticky` (sticky only pins once scrolled past its
+           own natural resting position, leaving a real, visible window where
+           it still moved with the page — unacceptable per the propietario's
+           explicit "fija, sin hacer scroll en ningún momento"). Being fixed
+           immediately means it's out of normal flow from the start, so
+           #overlay-header-spacer right after it reserves its height for the
+           content that follows (see updateOverlayStickyImage()). pb-8 lives
+           on the wrapper itself rather than as the title's own mb-8, since a
+           margin on the last child can collapse through into the parent's
+           own box height, but padding never does — and JS needs a reliable
+           height reading here. See event/[id].astro for the identical
+           rationale. -->
       <div
         id="overlay-sticky-header"
-        class="sticky top-0 z-30 bg-mel-bg-primary -mx-6 px-6 pb-8 sm:-mx-12 sm:px-12 lg:static lg:bg-transparent lg:mx-0 lg:px-0 lg:pb-0"
+        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pb-0"
       >
         <!-- Close Button (X) at Top Left -->
         <button
@@ -588,6 +597,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              button and the image; on desktop it lives at the top of the Info column) -->
         <h2 id="overlay-event-title-mobile" class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary"></h2>
       </div>
+
+      <!-- Reserves flow space for the now-fixed header below `lg` — height
+           synced to the header's own current height every tick, so content
+           never starts underneath it nor leaves an extra gap below it. -->
+      <div id="overlay-header-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
 
       <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
       <div id="overlay-details-content" class="w-full transition-opacity duration-300">
@@ -983,6 +997,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
      event/[id].astro's own <style> block. */
   #overlay-image-crop,
   #overlay-image-sentinel,
+  #overlay-header-spacer,
   #overlay-scroll-runway {
     overflow-anchor: none;
   }
@@ -3660,6 +3675,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   const OVERLAY_IMAGE_MAX_H = 400;
   const OVERLAY_IMAGE_MIN_H = 200;
 
+  // The header is `position: fixed` from the very first frame (not
+  // `sticky` — see the header's own comment in the markup for why), so it's
+  // out of normal flow immediately and needs its height reserved by hand.
+  // Height is effectively constant (no scroll-driven resizing, only varies
+  // if a title wraps to a different number of lines between events), but
+  // it's still measured every tick rather than cached — cheap, and avoids
+  // ever needing a separate invalidation path.
+  function updateOverlayHeaderSpacer() {
+    const stickyHeader = document.getElementById('overlay-sticky-header');
+    const headerSpacer = document.getElementById('overlay-header-spacer');
+    if (!stickyHeader || !headerSpacer) return;
+    if (window.innerWidth >= 1024) {
+      headerSpacer.style.height = '';
+      return;
+    }
+    headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
+  }
+
   function updateOverlayStickyImage() {
     const stickyHeader = document.getElementById('overlay-sticky-header');
     const imageSticky = document.getElementById('overlay-image-sticky');
@@ -3668,6 +3701,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const tagsRow = document.getElementById('overlay-tags-sidebar');
     const containingBlock = document.getElementById('overlay-details-content');
     if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !tagsRow || !containingBlock) return;
+    updateOverlayHeaderSpacer();
 
     if (window.innerWidth >= 1024) {
       imageSticky.style.position = '';
@@ -3755,6 +3789,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const imageCrop = document.getElementById('overlay-image-crop');
     const scrollRunway = document.getElementById('overlay-scroll-runway');
     if (!imageSticky || !imageSentinel || !imageCrop || !scrollRunway) return;
+    updateOverlayHeaderSpacer();
 
     if (window.innerWidth >= 1024) {
       scrollRunway.style.height = '';
@@ -3870,10 +3905,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     overlayCurrentIndex = 0;
     track.style.transform = `translate3d(0, 0, 0)`;
 
-    // Dots
+    // Dots. Unlike event/[id].astro (where this whole block is server-side
+    // conditional and simply doesn't exist in the DOM for a single-image
+    // event), this container is a single reused static element for every
+    // event shown in the overlay — its own py-6 padding still renders (and
+    // reserves 48px of height, breaking the fixed 32px gap to tags) even
+    // when left empty, so it needs to be hidden outright rather than just
+    // left childless.
     const dotsContainer = document.getElementById('overlay-carousel-dots');
     dotsContainer.innerHTML = '';
-    
+    dotsContainer.classList.toggle('hidden', imageUrls.length <= 1);
+
     function updateOverlayCarousel(idx) {
       overlayCurrentIndex = (idx + imageUrls.length) % imageUrls.length;
       track.style.transform = `translate3d(-${overlayCurrentIndex * 100}%, 0, 0)`;

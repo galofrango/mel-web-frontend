@@ -136,26 +136,38 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
   </style>
 
-  <!-- Main layout container. pt-[calc(10vh-40px)] md:pt-[10vh] matches every
-       other page header's top offset. Bottom padding is 40px on mobile/tablet
-       (<lg) — the nav block ends up right around there from the screen's
-       bottom edge once fully scrolled, per spec — and 108px at `lg+`,
-       unchanged from before (desktop doesn't have this scroll behavior). -->
-  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-[calc(10vh-40px)] md:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12">
+  <!-- Main layout container. pt-0 below `lg`: the header there is
+       `position: fixed` from the very first frame (see its own comment)
+       and #detail-header-spacer reserves exactly its height — any
+       additional top padding here would just stack on top of that and push
+       content down by an unwanted extra gap below the header. lg:pt-[10vh]
+       matches every other page header's top offset (unaffected — desktop's
+       header isn't fixed, it's back in normal flow via lg:static). Bottom
+       padding is 40px on mobile/tablet (<lg) — the nav block ends up right
+       around there from the screen's bottom edge once fully scrolled, per
+       spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
+       this scroll behavior). -->
+  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12">
     <!-- Main Box Container (Figma 1224px wide) -->
     <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
-      <!-- Sticky Header (X + Mobile Title), Figma "Screen / Event Details"
+      <!-- Fixed Header (X + Mobile Title), Figma "Screen / Event Details"
            (369:32751) PageHeader + "No Scrolling Content": pinned at the true
-           viewport top below `lg` so it never scrolls away. pb-8 lives on the
-           wrapper itself (not as the title's own mb-8) specifically so
-           updateStickyImage() gets a reliable getBoundingClientRect().height
-           for it — a margin on the last child can collapse through into the
-           parent's own box, but padding never does, and JS needs this height
-           to position the image right below it. -->
+           viewport top below `lg` from the very first frame — genuinely
+           `position: fixed`, not `sticky`. `sticky` was tried first, but it
+           only pins once scrolled past its own natural (padded) resting
+           position, so there was a real, visible window where it still moved
+           with the page — unacceptable per the propietario's explicit "fija,
+           sin hacer scroll en ningún momento". Being fixed from the start
+           means it's out of normal flow immediately, so #detail-header-spacer
+           right after it reserves its height for the content that follows
+           (see updateStickyImage()) — pb-8 lives on the wrapper itself (not
+           as the title's own mb-8) so that measurement is reliable: a margin
+           on the last child can collapse through into the parent's own box,
+           but padding never does. -->
       <div
         id="detail-sticky-header"
-        class="sticky top-0 z-30 bg-mel-bg-primary -mx-6 px-6 pb-8 sm:-mx-12 sm:px-12 lg:static lg:bg-transparent lg:mx-0 lg:px-0 lg:pb-0"
+        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pb-0"
       >
         <!-- Close Button (X) at Top Left -->
         <a
@@ -178,6 +190,12 @@ const designerDisplay = getTagDisplay(eventData.designer);
           {eventData.title}
         </h2>
       </div>
+
+      <!-- Reserves flow space for the now-fixed header below `lg` (fixed
+           elements are removed from normal flow) — height synced to the
+           header's own current height every tick, so content never starts
+           underneath it nor leaves an extra gap below it. -->
+      <div id="detail-header-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
 
       <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). On
            mobile the same three blocks reflow per Figma 369:32751: image first
@@ -539,6 +557,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // nav-position tracking needed, and it's mathematically guaranteed to
     // never leave tags/info/nav permanently covered.
     const stickyHeader = document.getElementById('detail-sticky-header');
+    const headerSpacer = document.getElementById('detail-header-spacer');
     const imageSticky = document.getElementById('detail-image-sticky');
     const imageSentinel = document.getElementById('detail-image-sentinel');
     const imageCrop = document.getElementById('detail-image-crop');
@@ -546,8 +565,25 @@ const designerDisplay = getTagDisplay(eventData.designer);
     const IMAGE_MAX_H = 400;
     const IMAGE_MIN_H = 200;
 
+    // The header is `position: fixed` from the very first frame (not
+    // `sticky` — see the header's own comment in the markup for why), so
+    // it's out of normal flow immediately and needs its height reserved by
+    // hand. Height is effectively constant (no scroll-driven resizing, only
+    // varies if a title wraps to a different number of lines), but it's
+    // still measured every tick rather than cached — cheap, and avoids ever
+    // needing a separate invalidation path.
+    function updateHeaderSpacer() {
+      if (!stickyHeader || !headerSpacer) return;
+      if (window.innerWidth >= 1024) {
+        headerSpacer.style.height = '';
+        return;
+      }
+      headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
+    }
+
     function updateStickyImage() {
       if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !tagsRow) return;
+      updateHeaderSpacer();
       if (window.innerWidth >= 1024) {
         imageSticky.style.position = '';
         imageSticky.style.top = '';
@@ -559,10 +595,9 @@ const designerDisplay = getTagDisplay(eventData.designer);
         return;
       }
 
-      // Bottom edge of the (possibly still-engaging) sticky header — reads
-      // its LIVE position rather than assuming it's already pinned at 0, so
-      // this stays correct during the brief window before the header itself
-      // engages too.
+      // Bottom edge of the (now permanently fixed) header. Effectively a
+      // constant (headerSpacer.style.height, i.e. the header's own height),
+      // but read live off the header itself rather than assumed.
       const headerBottom = stickyHeader.getBoundingClientRect().bottom;
 
       // The sentinel sits at the image's natural (unpinned) flow position
@@ -641,6 +676,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
     function ensureScrollRunway() {
       if (!scrollRunway || !imageCrop || !imageSentinel || !imageSticky) return;
+      updateHeaderSpacer();
       if (window.innerWidth >= 1024) {
         scrollRunway.style.height = '';
         return;
@@ -948,14 +984,16 @@ const designerDisplay = getTagDisplay(eventData.designer);
   /* Scroll anchoring (on by default) fights the pinned-image scroll math:
      Chrome tries to keep on-screen content visually stable whenever an
      off-screen box changes size, and will silently nudge scrollY to
-     compensate whenever #detail-image-crop, #detail-image-sentinel or
-     #detail-scroll-runway resize — which then feeds back into
-     updateStickyImage()'s own scroll handler, compounding into an
-     unpredictable final scroll position. These are the only elements whose
-     height changes purely from script, never from user-visible content
-     shifting around, so disabling anchoring on them specifically is safe. */
+     compensate whenever #detail-image-crop, #detail-image-sentinel,
+     #detail-header-spacer or #detail-scroll-runway resize — which then
+     feeds back into updateStickyImage()'s own scroll handler, compounding
+     into an unpredictable final scroll position. These are the only
+     elements whose height changes purely from script, never from
+     user-visible content shifting around, so disabling anchoring on them
+     specifically is safe. */
   #detail-image-crop,
   #detail-image-sentinel,
+  #detail-header-spacer,
   #detail-scroll-runway {
     overflow-anchor: none;
   }
