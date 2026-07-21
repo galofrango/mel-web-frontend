@@ -2,6 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Ajuste de separación (120px) y cota inferior (104px) del bloque de navegación en detalle (D-055)
+
+### Objetivo de la Sesión
+Separar la barra de navegación entre eventos (`#overlay-nav-block` y `#detail-nav-block`) al menos 120px del contenido superior y fijar su límite inferior pegajoso a 104px del borde de la pantalla.
+
+### Cambios Realizados
+1. **Páginas `src/pages/index.astro` y `src/pages/event/[id].astro`**:
+   - Ajustada la separación superior a `lg:mt-[120px]`.
+   - Fijada la distancia al límite inferior de la pantalla a `lg:bottom-[104px]` y padding inferior del contenedor a `lg:pb-[104px]`.
+2. **Documentación**: Registrada decisión `D-055` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Espaciado superior dinámico de cabecera y simetría inferior en detalle de evento (D-054)
 
 ### Objetivo de la Sesión

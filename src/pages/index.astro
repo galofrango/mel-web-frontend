@@ -601,7 +601,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
          #event-details-overlay itself only because that's where it already
          was; either would work equally now that the header no longer cares
          about any ancestor's padding. -->
-    <div class="w-full max-w-[1224px] flex flex-col relative pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)]" id="overlay-content-wrapper">
+    <div class="w-full max-w-[1224px] flex flex-col relative pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[104px]" id="overlay-content-wrapper">
       
       <!-- Fixed Header (X + Mobile Title): mirrors event/[id].astro's
            #detail-sticky-header — genuinely `position: fixed` from the very
@@ -821,7 +821,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
         <!-- Navigation block. On mobile: 2-column row under a divider, with
              Anterior/Siguiente side by side (Figma 575:83196). -->
-        <div id="overlay-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-12 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[var(--mel-header-pt-desktop)] lg:z-10 lg:bg-mel-bg-primary lg:py-4">
+        <div id="overlay-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[120px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[104px] lg:z-10 lg:bg-mel-bg-primary lg:py-4">
           <div class="hidden lg:block lg:col-span-2"></div>
 
           <!-- Anterior -->

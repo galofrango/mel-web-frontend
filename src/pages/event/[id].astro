@@ -147,7 +147,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
-  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)] px-6 sm:px-12">
+  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[104px] px-6 sm:px-12">
     <!-- Main Box Container (Figma 1224px wide) -->
     <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
@@ -433,7 +433,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
       <!-- Navigation block (positioned exactly 280px below the image container and
            columns on desktop, top-aligned). On mobile it's a 2-column row under a
            divider, with Anterior/Siguiente side by side (Figma 575:83196). -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-12 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[var(--mel-header-pt-desktop)] lg:z-10 lg:bg-mel-bg-primary lg:py-4" data-name="Navigation Block">
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[120px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[104px] lg:z-10 lg:bg-mel-bg-primary lg:py-4" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>

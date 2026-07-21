@@ -522,6 +522,18 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Optimizar el aprovechamiento del espacio vertical en portátiles como el MacBook Pro de 15", garantizando que los detalles del evento encajen en pantalla sin scroll a menos que el contenido (descripción/artistas) sea extenso, y manteniendo una simetría idéntica entre la distancia de la cabecera al borde superior y de la navegación al borde inferior.
 - **Consecuencias**: En pantallas portátiles de 15", la vista de detalle encaja limpiamente sin scroll vertical innecesario, manteniendo la misma separación exacta en la parte superior e inferior.
 
+## D-055 · Separación superior (`120px`) y cota inferior (`104px`) del bloque de navegación en el detalle de evento
+
+- **Contexto**: Se requiere ajustar la separación de la barra de navegación ("Anterior" / "Siguiente", `id="overlay-nav-block"` y `#detail-nav-block`) para distanciarla del contenido superior y fijar una cota mínima al límite inferior de la pantalla.
+- **Decisión**:
+  1. En `src/pages/index.astro` (overlay SPA) y `src/pages/event/[id].astro` (vista standalone):
+     - Se establece la separación superior con el bloque de contenido a un mínimo de 120px (`lg:mt-[120px]`).
+     - Se fija el límite inferior respecto al borde de la pantalla a un mínimo de 104px (`lg:bottom-[104px]` y padding inferior del contenedor `lg:pb-[104px]`).
+  2. Si el contenido de la parte superior (descripción/artistas) empuja el bloque de navegación hacia abajo, este desciende con el scroll manteniendo la distancia de 104px en la base.
+- **Motivo**: Proporcionar una respiración visual óptima entre las 3 columnas de contenido y los botones de navegación entre eventos, acotando la barra pegajosa a 104px del borde inferior de la pantalla.
+- **Consecuencias**: El bloque de navegación mantiene 120px de separación superior con el contenido y se acota a 104px respecto a la base del puerto de visión.
+
+
 
 
 
