@@ -2,6 +2,18 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Pulido final de Intro WebGL Apple Pro, tipografía Space Grotesk en Canvas y limpieza de keyframes
+
+### Objetivo de la Sesión
+Eliminar de forma definitiva los keyframes y la línea de tiempo de `intro-gl.astro`, unificar la tipografía de Canvas a Space Grotesk (con letter-spacing exacto de Figma), arreglar los desbordamientos/recortes de la tipografía y ajustar el panel lateral a pantalla completa.
+
+### Cambios Realizados
+1. **Eliminación de Keyframes & Timeline**: Eliminada la barra inferior (`<footer>`), listeners de reproducción y la lógica de interpolación por tiempo. La animación se reproduce en bucle continuo respondiendo únicamente a la posición en el DOM.
+2. **Tipografía Space Grotesk en Canvas 2D**: Reemplazada la fuente por defecto del sistema (`-apple-system`) en el renderizado de la textura del título por `Space Grotesk` con `-10px` de tracking.
+3. **Subtítulo y Divisores DOM**: Ajustada la tipografía del subtítulo a `Space Grotesk` con `leading-[48px]` y `tracking-[-0.04em]` de acuerdo con el nodo de Figma.
+4. **Dimensiones del Canvas WebGL**: Expandido el contenedor del canvas `gl-canvas` en un 10-20% con márgenes negativos para prevenir recortes visuales del efecto Bloom.
+5. **Inspector Lateral**: Extendida la altura del panel `inspector-panel` hasta el fondo (`bottom-0`).
+
 ## [2026-07-20] — Sesión: Bottom sheet fiel a Figma (sin redondeos), unificación de sombras/dims a Tinted 950 y subida de contenido en móvil
 
 ### Objetivo de la Sesión
