@@ -2,6 +2,20 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Ancho mínimo de celda 136px en Lista y breakpoint móvil a 440px (D-057)
+
+### Objetivo de la Sesión
+Fijar el ancho mínimo de cada celda de la tabla de la vista Lista a 136px con scroll horizontal, y conmutar a la vista de tarjetas compactas de móvil cuando el ancho de pantalla descienda de 440px.
+
+### Cambios Realizados
+1. **Vista de Lista (`src/pages/index.astro`)**:
+   - Asignada la clase `min-w-[136px]` a todas las celdas de encabezado `<th>`, celdas de datos `<td>` y etiquetas `<col>` de la tabla.
+   - Establecido `min-w-[816px]` en el elemento `<table>` manteniendo `overflow-x-auto` en `#list-table-wrapper` para permitir desplazamiento horizontal limpio.
+   - Modificado el punto de conmutación móvil/tabla de `768px` (`md`) a **`440px`** (`min-[440px]:block` / `min-[440px]:hidden`).
+2. **Documentación**: Registrada decisión `D-057` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Reestructuración flex de la navegación en el detalle de evento (D-055)
 
 ### Objetivo de la Sesión

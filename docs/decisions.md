@@ -546,6 +546,17 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Eliminar el cruce visual anómalo de texto sobre los elementos del header y lograr un comportamiento natural donde la descripción aparece emergiendo desde detrás de la imagen del flyer con desvanecimiento suave.
 - **Consecuencias**: Al navegar a un evento con descripción viniendo de uno sin ella, el texto se desliza limpiamente desde detrás de la imagen en escritorio (izquierda) o móvil (arriba) con opacidad progresiva.
 
+## D-057 · Ancho mínimo de celdas en vista de Lista (`136px`) y punto de ruptura móvil (`440px`)
+
+- **Contexto**: Se requiere establecer un ancho mínimo por celda/columna en la tabla de la vista de Lista para garantizar la legibilidad de los campos y permitir scroll horizontal cuando el ancho de pantalla disminuye, hasta conmutar al diseño de tarjetas compactas de móvil cuando la pantalla sea menor de 440px.
+- **Decisión**:
+  1. En `src/pages/index.astro`, cada columna/celda (`<col>`, `<th>` y `<td>`) de la tabla de la vista de Lista tiene fijado un ancho mínimo de **136px** (`min-w-[136px]`, ancho total mínimo de tabla `816px`).
+  2. El contenedor `#list-table-wrapper` habilita desplazamiento horizontal fluido (`overflow-x-auto`) cuando el puerto de visión es menor al ancho de la tabla.
+  3. El punto de corte para conmutar entre la vista de tabla y el listado compacto móvil (`#list-mobile-cards`) se traslada de `768px` (`md`) a **`440px`** (`min-[440px]:block` / `min-[440px]:hidden`).
+- **Motivo**: Preservar la disposición tabular en pantallas medianas y portátiles estrechos con scroll horizontal limpio, reservando la vista de tarjetas únicamente para dispositivos con ancho inferior a 440px.
+- **Consecuencias**: En pantallas entre 440px y 816px de ancho se muestra la tabla completa con scroll horizontal; por debajo de 440px la interfaz conmuta al diseño compacto de tarjetas.
+
+
 
 
 
