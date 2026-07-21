@@ -455,7 +455,7 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
   2. Se actualizan todos los componentes y elementos que renderizan texto o iconos sobre `Action-Primary` o que cambian su fondo a `Action-Primary` en hover/active:
      - `SideMenu.astro`: Badge *"Nuevo"* y botón de modo color en hover.
      - `LikeButton.astro` y su réplica en `index.astro`: Texto e icono del botón *"Me presta"* en hover cuando está activo.
-     - `MapMarker.astro` y CSS de marcadores/clusters en `index.astro`: Texto de los marcadores del mapa cuando están en estado hover o activo (`.mel-marker-wrapper.active`, `.mel-marker-wrapper:hover`, `.mel-popup-btn:hover`).
+     - `MapMarker.astro` y marcadores/clusters del mapa en `index.astro`: Marcadores del mapa configurados a fondo `Action-Primary` con texto permanentemente en `LE-50` (`var(--mel-text-on-action-primary)`), eliminando variaciones inaccesibles y garantizando legibilidad en mapa claro u oscuro.
      - `IconButton.astro`: Variante `primary` en estado hover.
      - `EmptyState.astro`, `EventCard.astro`, `EventInfoBox.astro` y `event/[id].astro`: Botones con hover a `Action-Primary` (`hover:text-mel-text-on-action-primary`).
 - **Motivo**: Garantizar un contraste alto y permanente (WCAG AA/AAA) del texto sobre los elementos de acción principal en cualquier tema (claro u oscuro).

@@ -1151,9 +1151,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
   .mel-marker-wrapper.active .mel-marker-body {
     background-color: var(--mel-action-primary) !important;
+    filter: brightness(1.15);
   }
   .mel-marker-wrapper.active .mel-marker-pointer {
     border-top-color: var(--mel-action-primary) !important;
+    filter: brightness(1.15);
   }
 
   .mel-marker-body {
@@ -1164,9 +1166,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     min-width: 40px;
     width: auto;
     height: 40px;
-    background-color: var(--mel-action-secondary); /* Resting: Action Secondary */
+    background-color: var(--mel-action-primary);
     border: none;
-    transition: background-color 0.15s ease-out;
+    transition: background-color 0.15s ease-out, filter 0.15s ease-out;
     box-sizing: border-box;
   }
 
@@ -1177,12 +1179,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   .mel-marker-wrapper:hover .mel-marker-body {
-    background-color: var(--mel-action-primary); /* Hover: #8C2034 */
-  }
-
-  .mel-marker-wrapper.active .mel-marker-label,
-  .mel-marker-wrapper:hover .mel-marker-label {
-    color: var(--mel-text-on-action-primary) !important;
+    background-color: var(--mel-action-primary);
+    filter: brightness(1.15);
   }
 
   .mel-marker-label {
@@ -1191,7 +1189,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     font-size: 16px;
     line-height: 20px;
     text-align: center;
-    color: var(--mel-text-on-action);
+    color: var(--mel-text-on-action-primary) !important;
     white-space: nowrap;
   }
 
@@ -1200,13 +1198,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-top: 10px solid var(--mel-action-secondary);
+    border-top: 10px solid var(--mel-action-primary);
     margin-top: -1px;
-    transition: border-top-color 0.15s ease-out;
+    transition: border-top-color 0.15s ease-out, filter 0.15s ease-out;
   }
 
   .mel-marker-wrapper:hover .mel-marker-pointer {
     border-top-color: var(--mel-action-primary);
+    filter: brightness(1.15);
   }
 
   /* Google Maps popup card glassmorphism */

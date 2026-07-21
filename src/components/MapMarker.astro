@@ -26,15 +26,15 @@ const isHover = state === 'Hover';
 const isActive = state === 'Active';
 const isHoverOrActive = isHover || isActive;
 
-// Background color: Resting=Action Secondary, Hover/Active=Action Primary
-const bgColor = isHoverOrActive ? 'var(--mel-action-primary)' : 'var(--mel-action-secondary)';
+// Background color: Action Primary (granate)
+const bgColor = 'var(--mel-action-primary)';
 // Text color over Action Primary is ALWAYS LE-50 (text-on-action-primary)
-const textColor = isHoverOrActive ? 'var(--mel-text-on-action-primary)' : 'var(--mel-text-on-action)';
+const textColor = 'var(--mel-text-on-action-primary)';
 ---
 <div 
   class:list={[
-    "map-marker flex flex-col items-center justify-center relative",
-    isHoverOrActive ? "drop-shadow-[var(--mel-shadow-marker-active)]" : "drop-shadow-[var(--mel-shadow-button)]",
+    "map-marker flex flex-col items-center justify-center relative transition-transform duration-150",
+    isHoverOrActive ? "drop-shadow-[var(--mel-shadow-marker-active)] scale-105" : "drop-shadow-[var(--mel-shadow-button)]",
     className
   ]}
   data-node-id="Map Marker"
