@@ -2,6 +2,21 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Alineación uniforme de `EmptyState` en Galería, Mapa y Lista (D-051)
+
+### Objetivo de la Sesión
+Garantizar que el estado `EmptyState` de "Sin resultados" aparezca exactamente en la misma posición al alternar entre las tres vistas (Galería, Mapa y Lista), ocultando por completo la cabecera de la tabla y el módulo de paginación en la vista Lista.
+
+### Cambios Realizados
+1. **Contenedores de `EmptyState` en `src/pages/index.astro`**:
+   - Creados `#map-empty-state` en `#view-mapa` y `#list-empty-state` en `#view-lista` utilizando la misma geometría y offset superior de 24px que `#view-galería`.
+2. **Lógica de renderizado en `performDOMUpdates()` y `switchView()`**:
+   - Cuando `filtered.length === 0`, se activa el `EmptyState` en los 3 contenedores, se oculta la tabla completa (`#list-table-wrapper` incluyendo `<thead>`), las tarjetas de móvil (`#list-mobile-cards`) y la paginación (`#pagination-controls`).
+   - Al conmutar entre pestañas con los botones del toggle, el `EmptyState` se mantiene inmóvil en el mismo lugar de la pantalla.
+3. **Documentación**: Registrada decisión `D-051` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Actualización del componente `EmptyState` variante "No results" (D-050)
 
 ### Objetivo de la Sesión

@@ -337,6 +337,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            content sat visibly closer to the toolbar than the gallery's first row of cards. -->
       <div id="view-mapa" class="view-panel hidden absolute top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
         <div id="map-container" class="flex-1 h-full"></div>
+        <div id="map-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[15] items-center justify-center py-12"></div>
 
         <!-- Dim: solo cuando el panel es bottom sheet (bajo lg). Cubre el slider
              de tiempo (que queda a la vista, atenuado) y todo lo de abajo. -->
@@ -409,6 +410,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <!-- 3. LIST VIEW. pt-[24px] matches the gallery's own top padding (see the note on
            view-mapa above) so the table sits at the same height as the gallery's first row. -->
       <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0 pt-[24px]">
+        <div id="list-empty-state" class="hidden w-full flex-1 items-center justify-center py-12 relative"></div>
         <!-- The border lives on the <table> itself (top+bottom), not this wrapper — the wrapper
              is flex-1/stretches to fill whatever vertical space is available, so its own border
              would sit at the wrapper's edge (often below the actual last row, with an empty gap,
@@ -2162,12 +2164,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
       // Las tarjetas antiguas van a desaparecer: suelta sus observaciones de
       // revelado antes de recrearlas (el rebuild vuelve a armar las nuevas).
+      // Las tarjetas antiguas van a desaparecer: suelta sus observaciones de
+      // revelado antes de recrearlas (el rebuild vuelve a armar las nuevas).
       if (revealObserver) revealObserver.disconnect();
       gridContainer.innerHTML = '';
 
-      if (filtered.length === 0) {
-        gridContainer.className = 'w-full flex items-center justify-center py-12 relative';
-        gridContainer.innerHTML = `
+      const mapEmptyState = document.getElementById('map-empty-state');
+      const listEmptyState = document.getElementById('list-empty-state');
+      const listTableWrapper = document.getElementById('list-table-wrapper');
+      const listMobileCards = document.getElementById('list-mobile-cards');
+
+      function getEmptyStateHtml() {
+        return `
           <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
             <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
               <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
@@ -2182,7 +2190,41 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             </a>
           </div>
         `;
+      }
+
+      if (filtered.length === 0) {
+        // 1. Galería empty state
+        gridContainer.className = 'w-full flex items-center justify-center py-12 relative';
+        gridContainer.innerHTML = getEmptyStateHtml();
+
+        // 2. Mapa empty state
+        if (mapEmptyState) {
+          mapEmptyState.innerHTML = getEmptyStateHtml();
+          mapEmptyState.classList.remove('hidden');
+          mapEmptyState.classList.add('flex');
+        }
+        setSidePanelOpenState(false);
+
+        // 3. Lista empty state (hides table header, table body, mobile cards, and pagination)
+        if (listEmptyState) {
+          listEmptyState.innerHTML = getEmptyStateHtml();
+          listEmptyState.classList.remove('hidden');
+          listEmptyState.classList.add('flex');
+        }
+        if (listTableWrapper) listTableWrapper.classList.add('hidden');
+        if (listMobileCards) listMobileCards.classList.add('hidden');
       } else {
+        if (mapEmptyState) {
+          mapEmptyState.classList.add('hidden');
+          mapEmptyState.classList.remove('flex');
+        }
+        if (listEmptyState) {
+          listEmptyState.classList.add('hidden');
+          listEmptyState.classList.remove('flex');
+        }
+        if (listTableWrapper) listTableWrapper.classList.remove('hidden');
+        if (listMobileCards) listMobileCards.classList.remove('hidden');
+
         // relative: anchors the absolutely-positioned exiting-card clones
         // below to this element instead of the viewport. Deliberately not
         // giving this its own overflow:hidden too — an exiting card is
@@ -2320,44 +2362,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
         listBody.innerHTML = '';
 
-        if (paginated.length === 0) {
-          // height:100% on the table/row/cell chain — without it, this single
-          // short row only takes its own natural height, leaving a tall blank
-          // gap below it up to where the (now-hidden, since totalPages<=1)
-          // pagination module used to start. This makes it fill that same
-          // space instead, centered, matching the gallery/list's own no-results state.
-          listTable.style.height = '100%';
-          listBody.innerHTML = `
-            <tr style="height:100%;">
-              <td colspan="6" class="border-l border-r border-b border-mel-border bg-mel-bg-primary" style="height:100%;">
-                <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto h-full justify-center" data-name="Empty State">
-                  <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-                    <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
-                    <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
-                  </div>
-                  <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
-                    <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-                    <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
-                  </div>
-                  <a href="/" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
-                    <span>Quitar filtros</span>
-                  </a>
-                </div>
-              </td>
-            </tr>
-          `;
-        } else {
+        if (paginated.length > 0) {
           listTable.style.height = '';
           paginated.forEach(item => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-mel-bg-secondary/10 transition-colors';
             tr.dataset.id = item.idMel;
-            // NOTE: rows must NOT get a per-row view-transition-name. Sorting
-            // and pagination re-render inside document.startViewTransition,
-            // and named elements get morphed from old to new position in the
-            // browser's top layer — which ignores the table's overflow
-            // clipping, so rows visibly flew above/below the table. Unnamed
-            // rows just take part in the root cross-fade, which stays put.
             
             // Format date nicely to DD/MM/YYYY
             const formattedDate = formatFechaDMY(item.fecha);
@@ -2476,33 +2486,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // Móvil: mismo dataset paginado, tarjetas EventCardList compactas
         // (Figma 439:142691) en vez de la tabla ancha de escritorio.
         const mobileListContainer = document.getElementById('list-mobile-cards');
-        if (mobileListContainer) {
-          if (paginated.length === 0) {
-            mobileListContainer.innerHTML = `
-              <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto h-full justify-center" data-name="Empty State">
-                <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-                  <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
-                  <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
-                </div>
-                <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
-                  <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-                  <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
-                </div>
-                <a href="/" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
-                  <span>Quitar filtros</span>
-                </a>
-              </div>
-            `;
-          } else {
-            mobileListContainer.innerHTML = '';
-            paginated.forEach((item, idx) => {
-              const row = document.createElement('div');
-              row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
-              row.dataset.id = item.idMel;
-              row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
-              mobileListContainer.appendChild(row);
-            });
-          }
+        if (mobileListContainer && paginated.length > 0) {
+          mobileListContainer.innerHTML = '';
+          paginated.forEach((item, idx) => {
+            const row = document.createElement('div');
+            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+            row.dataset.id = item.idMel;
+            row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
+            mobileListContainer.appendChild(row);
+          });
         }
       }
 
@@ -2515,7 +2507,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (pagControls) {
         const listViewCheck = document.getElementById('view-lista');
         const isListActive = listViewCheck && !listViewCheck.classList.contains('hidden');
-        const shouldShowPagination = isListActive && totalPages > 1;
+        const shouldShowPagination = isListActive && totalPages > 1 && filtered.length > 0;
         pagControls.classList.toggle('hidden', !shouldShowPagination);
         pagControls.classList.toggle('flex', shouldShowPagination);
 
@@ -2687,7 +2679,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // Solo la lista pagina (la galería usa scroll infinito desde D-015).
     const pagControls = document.getElementById('pagination-controls');
     if (pagControls) {
-      if (viewName === 'lista') {
+      if (viewName === 'lista' && filtered.length > 0 && totalPages > 1) {
         pagControls.classList.remove('hidden');
         pagControls.classList.add('flex');
       } else {

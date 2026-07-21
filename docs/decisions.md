@@ -474,4 +474,18 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Replicar fielmente el diseño de Figma y ofrecer un mecanismo limpio e instantáneo para restablecer la búsqueda con un solo clic.
 - **Consecuencias**: El estado vacío presenta la descripción actualizada y el botón *"Quitar filtros"* que restaura los resultados sin recargas.
 
+## D-051 · Alineación uniforme de `EmptyState` en las 3 vistas (Galería, Mapa y Lista) sin elementos sobrantes
+
+- **Contexto**: Cuando la combinación de búsqueda y/o slider de fecha no devuelve resultados (`filtered.length === 0`), el estado vacío debe mostrarse centrado exactamente en la misma posición en las tres pestañas (Galería, Mapa y Lista). Además, en la vista Lista no debe quedar visible la cabecera de la tabla (`<thead>`), las tarjetas móviles ni la barra de paginación inferior.
+- **Decisión**:
+  1. Se crean contenedores vacíos con la misma geometría y alineación `#map-empty-state` en `#view-mapa` y `#list-empty-state` en `#view-lista`.
+  2. En `performDOMUpdates()` (`src/pages/index.astro`), si `filtered.length === 0`:
+     - Se inyecta la misma plantilla de `EmptyState` en Galería (`#gallery-grid`), Mapa (`#map-empty-state`) y Lista (`#list-empty-state`).
+     - Se oculta por completo `#list-table-wrapper` (eliminando la tabla y su cabecera `<thead>`), `#list-mobile-cards` y `#pagination-controls`.
+     - En el Mapa, se oculta el side panel si estuviera abierto.
+  3. Al cambiar de pestaña mediante los botones del toggle (`switchView()`), el selector de vistas conmuta la pestaña activa manteniendo la tarjeta `EmptyState` fijada exactamente en el mismo punto en la pantalla.
+- **Motivo**: Proporcionar una experiencia de usuario coherente y pulida sin restos visuales de la tabla o paginación cuando no existen resultados.
+- **Consecuencias**: Al navegar entre Galería, Mapa y Lista durante un estado sin resultados, el componente `EmptyState` permanece estable y centrado hasta que se restablezcan o modifiquen los filtros.
+
+
 
