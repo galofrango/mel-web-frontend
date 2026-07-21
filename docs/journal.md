@@ -2,6 +2,41 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: La V2 se hace definitiva (mirroreada a la standalone) y separadores a mínimo 32px en todo el sitio
+
+### Objetivo de la Sesión
+El propietario validó la V2 del overlay (tags fijas bajo el título) y pidió: incluirla definitivamente en el sitio (aplicarla también a la página standalone `/event/[id]`, no solo al overlay), quitar el separador antes del primer tag ("Eventos") en Highlights, y subir la distancia separador↔módulo de 24 a 32px mínimo en todas las instancias del sitio — repartiendo los tags a lo ancho completo con espaciado regular cuando quepan, en vez de agruparlos a la izquierda.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-043. V2 mirroreada a `event/[id].astro` (mismo patrón `#detail-tags-fixed` + spacer + `updateTagsFixed()`, sin necesitar la auto-corrección del overlay al no tener este el wrapper con `transition:transform`); columna de tags de escritorio pasa a `hidden lg:block`, con los 5 `TagWithLink` declarados dos veces (móvil fijo + escritorio) al ser página SSR estática. `TagWithLink.astro`: `px-6`→`px-8` en el modo con borde (único consumidor: Highlights). Highlights gana `[&>*:first-child]:border-l-0/pl-0` (quita el separador fantasma) y `justify-between` (reparto regular cuando cabe). Panel del mapa: `gap-[24px]`→`gap-8`.
+
+### Problemas Encontrados y Resueltos
+- Ninguno nuevo; verificación exhaustiva por medición directa en las cuatro instancias tocadas (standalone, overlay como control de regresión, Highlights en desborde y en reparto regular, panel del mapa) antes de dar la sesión por cerrada.
+
+### Tareas Pendientes
+- La excepción de 800px (tags a la izquierda por encima de ese ancho) sigue pendiente de confirmación explícita del propietario.
+- Nuevo tag git `detalle-evento-2.0` sustituye a `detalle-evento-1.0` como referencia de versión estable vigente.
+
+---
+
+## [2026-07-21] — Sesión: Divisor de tags sin sangrado, reset de imagen al navegar, y prueba V2 del overlay (tags fijas bajo el título)
+
+### Objetivo de la Sesión
+Tres peticiones tras D-041: el divisor inferior de la fila de tags del detalle sangraba a los bordes reales de pantalla cuando debía respetar el margen de página como el resto de divisores; la caja de imagen debía resetearse a tamaño máximo al navegar Anterior/Siguiente; y una prueba V2 — solo en el overlay — con las tags movidas arriba, fijas bajo el título, sin divisor, manteniendo el hueco de 32px a la imagen (referencia: captura del propietario). Explícitamente NO se pedía que las tags volvieran a la columna vertical de escritorio en ningún ancho — layout mobile-only. Una idea adicional (excepción a partir de 800px) quedó marcada "sin pruebas" y no se implementó esta sesión.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-042. `event-tags-row` se divide en un contenedor exterior (borde + padding a ancho normal) e interior (fila scrolleable a sangre) en ambos ficheros. `transitionToOverlayEvent()` resetea `scrollTop = 0` antes del snapshot del FLIP. Nuevo `#overlay-tags-fixed` (solo `index.astro`) hermano del header, con su propio spacer, posicionado con el mismo patrón ya usado para el header; la instancia de escritorio (`#overlay-tags-sidebar`) pasa a `hidden lg:block`; contenido duplicado en ambas instancias desde `renderOverlayEvent()`.
+
+### Problemas Encontrados y Resueltos
+- Bug preexistente encontrado por el camino (no introducido esta sesión, solo nunca antes probado en esta combinación exacta): en una carga directa por `?detail=MEL-XXXX` en móvil, la primera pasada de posicionamiento podía leer el layout aún no asentado, dejando header/tags/imagen en 0px hasta el siguiente scroll o resize real. Corregido reutilizando el doble `requestAnimationFrame` que ya existía para la animación de entrada del overlay, para repetir el posicionamiento una vez el layout está garantizado como asentado.
+- Aislado con precisión la causa combinando pruebas de click (funcionaba) vs. deep-link directo (fallaba) antes de tocar código — confirmó que no era un problema general de las nuevas tags, sino algo que también afectaba a la imagen desde antes.
+
+### Tareas Pendientes
+- La excepción de 800px (tags a la izquierda como en escritorio por encima de ese ancho) queda pendiente de confirmación explícita del propietario, sin implementar.
+- La V2 vive únicamente en el overlay; la página standalone (`event/[id].astro`) permanece en la versión estable D-032/D-036 sin cambios de layout.
+
+---
+
 ## [2026-07-21] — Sesión: Dots a 24px simétricos y estandarización de todos los "TagWithLink" del sitio
 
 ### Objetivo de la Sesión

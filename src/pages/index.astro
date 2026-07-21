@@ -243,12 +243,23 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              everywhere, not just below lg): each tag sizes to its own
              content and the row scrolls horizontally if it ever overflows,
              instead of desktop forcing a fixed 8-column equal split. gap-0
-             on the row itself — each TagWithLink already carries 24px of
-             padding on both sides of its own border-l divider, so the row's
-             own gap doesn't need to add anything on top (that used to double
-             up into an asymmetric 48px-before/24px-after gap around the
-             divider; gap-0 keeps it a symmetric 24px/24px everywhere). -->
-        <div class="col-span-12 lg:col-span-8 flex gap-0 items-center overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0">
+             on the row itself — each TagWithLink already carries 32px of
+             padding on both sides of its own border-l divider (D-043), so
+             the row's own gap doesn't need to add anything on top (that
+             would double up into an asymmetric gap around the divider;
+             gap-0 keeps it symmetric everywhere). [&>*:first-child] strips
+             the border-l/left-padding from the FIRST tag only — a divider
+             with nothing before it read as a stray leading separator (the
+             propietario flagged it), so "Eventos" now starts flush at the
+             row's own left edge like every other full-bleed row on the
+             site. justify-between: when the tags are narrower than the
+             row (usually `lg+`), they spread out to use the full width
+             with even gaps between them instead of clumping left with
+             empty space after — the D-043 32px padding inside each tag's
+             own box is the FLOOR that justify-between's extra spacing
+             only ever adds on top of, never removes; degrades to normal
+             packed/scrollable flow with no effect once they overflow. -->
+        <div class="col-span-12 lg:col-span-8 flex gap-0 justify-between items-center overflow-x-auto no-scrollbar [&>*:first-child]:border-l-0 [&>*:first-child]:pl-0 -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0">
           {tags.map((tag) => (
             <TagWithLink label={tag.label} count={tag.count} class="shrink-0 w-auto" />
           ))}
@@ -348,9 +359,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             </div>
           </div>
           
-          <!-- Highlight / Tag Section using the TagWithLink component with horizontal overflow (Figma matches: pb-[32px] px-[24px]) -->
+          <!-- Highlight / Tag Section using the TagWithLink component with horizontal overflow (Figma matches: pb-[32px] px-[24px]).
+               gap-8 (32px, D-043's sitewide minimum) applies uniformly to every
+               adjacent pair here — tag-to-divider and divider-to-tag alike, so
+               every divider keeps exactly 32px on both sides. justify-between
+               spreads the row across the panel's full width with even gaps
+               when there's room (same reasoning as the Highlights row above);
+               degrades to normal packed/scrollable flow once it overflows. -->
           <div class="pb-[32px] px-[24px] flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
-            <div class="flex gap-[24px] items-center overflow-x-auto no-scrollbar -mx-[24px] w-[calc(100%+48px)] px-[24px]" id="side-panel-tags-container">
+            <div class="flex gap-8 justify-between items-center overflow-x-auto no-scrollbar -mx-[24px] w-[calc(100%+48px)] px-[24px]" id="side-panel-tags-container">
               <TagWithLink label="Eventos" count="0" class="shrink-0 w-auto" hideBorder={true} />
               <div class="h-12 w-[1px] bg-mel-border shrink-0"></div>
               <TagWithLink label="Artistas" count="0" class="shrink-0 w-auto" hideBorder={true} />
@@ -603,6 +620,33 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            never starts underneath it nor leaves an extra gap below it. -->
       <div id="overlay-header-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
 
+      <!-- V2 layout (below `lg` only): tags row pinned directly under the
+           fixed header, instead of living beside the image further down.
+           Lives as a SIBLING of the header — not nested inside
+           #overlay-details-content — for the same reason the header itself
+           does: that wrapper's own `transition: transform` makes Chrome
+           treat it as an accidental containing block for `position: fixed`
+           descendants for a while after each entrance animation (see
+           updateOverlayStickyImage()'s own comment), which would double the
+           offset. Staying outside it means this can use plain
+           viewport-relative top/left math (updateOverlayFixedTags()), no
+           self-correcting probe needed — unlike the image, which DOES live
+           inside that wrapper and DOES need one. No border/divider here on
+           purpose: this block reads as part of the fixed header, not as its
+           own boxed section (the propietario flagged the old divider
+           bleeding edge-to-edge as a bug — see D-041/D-042). pb-8 (32px) is
+           the resting gap to the image below, exactly per spec regardless of
+           pagination. -->
+      <div id="overlay-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
+        <div class="event-tags-row flex flex-row gap-6 min-w-0 overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12" id="overlay-tags-sidebar-mobile">
+          <!-- Populated dynamically via JS (mirrors #overlay-tags-sidebar, the lg+ instance) -->
+        </div>
+      </div>
+      <!-- Reserves flow space for the fixed tags row below `lg`, right after
+           the header's own spacer — so the image column (first in the grid
+           below `lg`) naturally starts right after both. -->
+      <div id="overlay-tags-fixed-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
+
       <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
       <div id="overlay-details-content" class="w-full transition-opacity duration-300">
 
@@ -684,13 +728,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             </div>
           </div>
 
-          <!-- Column 1: Tags Sidebar. h-[400px]+justify-between matches the image column's own
-               fixed height and spreads the tags across it (see event/[id].astro for the full
-               rationale) instead of a flat 40px gap that left this column visibly shorter.
-               order-2 (lg:order-1 restores the desktop column position) puts it right after
-               the image below `lg`. -->
-          <div class="event-tags-row order-2 lg:order-1 lg:col-span-2 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-8 lg:border-b-0 lg:pb-0 -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0" id="overlay-tags-sidebar">
-            <!-- Populated dynamically via JS -->
+          <!-- Column 1: Tags Sidebar — DESKTOP ONLY (`lg+`) now: below `lg`,
+               #overlay-tags-fixed above (pinned under the header) takes over
+               this role entirely (V2 layout), so this instance is `hidden`
+               there and contributes nothing to the mobile grid flow.
+               h-[400px]+justify-between matches the image column's own fixed
+               height and spreads the tags across it (see event/[id].astro
+               for the full rationale) instead of a flat 40px gap that left
+               this column visibly shorter. -->
+          <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0">
+            <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0" id="overlay-tags-sidebar">
+              <!-- Populated dynamically via JS (desktop only — mobile uses #overlay-tags-sidebar-mobile) -->
+            </div>
           </div>
 
           <!-- Column 3: Event Info. order-3 (same at every breakpoint) needs to be explicit —
@@ -1016,6 +1065,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   #overlay-image-crop,
   #overlay-image-sentinel,
   #overlay-header-spacer,
+  #overlay-tags-fixed-spacer,
   #overlay-scroll-runway {
     overflow-anchor: none;
   }
@@ -3715,14 +3765,39 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
   }
 
+  // Pins the tags row directly below the fixed header (V2 layout — see the
+  // element's own markup comment). No self-correcting probe needed here,
+  // unlike the image: this element is a SIBLING of #overlay-details-content,
+  // not a descendant, so it's never affected by that wrapper's accidental-
+  // containing-block quirk — plain viewport-relative top math is always
+  // correct. Height is effectively constant (tags never wrap — every
+  // TagWithLink instance is exactly 48px tall, see D-041), but still
+  // measured live each tick rather than cached, matching the header's own
+  // pattern right above.
+  function updateOverlayFixedTags() {
+    const tagsFixed = document.getElementById('overlay-tags-fixed');
+    const tagsFixedSpacer = document.getElementById('overlay-tags-fixed-spacer');
+    const stickyHeader = document.getElementById('overlay-sticky-header');
+    if (!tagsFixed || !tagsFixedSpacer || !stickyHeader) return;
+    if (window.innerWidth >= 1024) {
+      tagsFixed.style.top = '';
+      tagsFixedSpacer.style.height = '';
+      return;
+    }
+    tagsFixed.style.top = `${stickyHeader.getBoundingClientRect().bottom}px`;
+    tagsFixedSpacer.style.height = `${tagsFixed.getBoundingClientRect().height}px`;
+  }
+
   function updateOverlayStickyImage() {
     const stickyHeader = document.getElementById('overlay-sticky-header');
+    const tagsFixed = document.getElementById('overlay-tags-fixed');
     const imageSticky = document.getElementById('overlay-image-sticky');
     const imageSentinel = document.getElementById('overlay-image-sentinel');
     const imageCrop = document.getElementById('overlay-image-crop');
     const containingBlock = document.getElementById('overlay-details-content');
     if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !containingBlock) return;
     updateOverlayHeaderSpacer();
+    updateOverlayFixedTags();
 
     if (window.innerWidth >= 1024) {
       imageSticky.style.position = '';
@@ -3735,7 +3810,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       return;
     }
 
-    const headerBottom = stickyHeader.getBoundingClientRect().bottom;
+    // "headerBottom" now means the bottom of the whole fixed block (header +
+    // pinned tags row, V2) — the image starts right below BOTH, not just the
+    // header. Falls back to the header alone if the tags block is somehow
+    // missing from the DOM.
+    const headerBottom = tagsFixed ? tagsFixed.getBoundingClientRect().bottom : stickyHeader.getBoundingClientRect().bottom;
 
     const sentinelTop = imageSentinel.getBoundingClientRect().top;
     const scrolledPast = Math.max(0, headerBottom - sentinelTop);
@@ -3833,6 +3912,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const scrollRunway = document.getElementById('overlay-scroll-runway');
     if (!overlay || !navBlock || !scrollRunway) return;
     updateOverlayHeaderSpacer();
+    // Must run BEFORE the nav measurement below: the tags-fixed spacer sits
+    // in-flow ahead of the nav, so its height directly shifts where the nav
+    // ends up — measuring against a stale (zero) spacer would under-count.
+    updateOverlayFixedTags();
 
     if (window.innerWidth >= 1024) {
       scrollRunway.style.height = '';
@@ -3885,15 +3968,20 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       descContainer.classList.add('hidden');
     }
 
-    // 2. Sidebar Tags
-    const sidebar = document.getElementById('overlay-tags-sidebar');
-    sidebar.innerHTML = `
+    // 2. Sidebar Tags — same markup goes to both the desktop (lg+, beside the
+    // image) and mobile (V2, pinned under the header) instances, exactly like
+    // the title's own desktop/mobile duplication just above.
+    const tagsHtml = `
       ${makeTagHtml("Fecha", eventItem.fecha)}
       ${makeTagHtml("Lugar", eventItem.lugar, `/?view=mapa&location=${encodeURIComponent(eventItem.lugar)}`)}
       ${makeTagHtml("Localidad", eventItem.localidad, `/?search=${encodeURIComponent(eventItem.localidad)}`)}
       ${makeTagHtml("Organiza", eventItem.organiza, `/?search=${encodeURIComponent(eventItem.organiza)}`)}
       ${makeTagHtml("Diseño", eventItem.disenador, `/?search=${encodeURIComponent(eventItem.disenador)}`)}
     `;
+    const sidebar = document.getElementById('overlay-tags-sidebar');
+    sidebar.innerHTML = tagsHtml;
+    const sidebarMobile = document.getElementById('overlay-tags-sidebar-mobile');
+    if (sidebarMobile) sidebarMobile.innerHTML = tagsHtml;
 
     // 3. Artists List
     const artistsContainer = document.getElementById('overlay-artists-container');
@@ -4197,6 +4285,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const content = document.getElementById('overlay-details-content');
     if (!content) { renderOverlayEvent(newEvent, panelEvents); return; }
 
+    // Anterior/Siguiente always lands on the new event with its image box at
+    // full size, never picking up whatever scroll-shrunk crop the outgoing
+    // event was left at. Reset BEFORE snapshotting oldRects below, so both
+    // the FLIP's old and new measurements are taken in the same (top) scroll
+    // state — resetting after would fold the scroll jump itself into the
+    // FLIP delta, on top of whatever content visibility actually changed.
+    const overlayScroller = document.getElementById('event-details-overlay');
+    if (overlayScroller) overlayScroller.scrollTop = 0;
+
     // Sections that persist in the same slot (title, tags, image, artist
     // list) just get their content rewritten in place — same idea as the map
     // cluster's own count updating directly rather than the whole bubble
@@ -4289,10 +4386,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // Double rAF: the first frame just commits the "enter" (offset) state so
     // the browser actually paints it — removing the class immediately after
     // adding it (single frame) risks the two style changes getting coalesced
-    // into a no-op, skipping the transition entirely.
+    // into a no-op, skipping the transition entirely. Also re-run the fixed-
+    // position math here: on a fresh full-page load that opens straight into
+    // `?detail=...` (as opposed to a click on an already-loaded page), the
+    // very first ensureOverlayScrollRunway()/updateOverlayStickyImage() call
+    // above can land before the browser has committed a real layout pass for
+    // the newly-visible overlay, reading a stale/zero viewport-relative rect
+    // and leaving the header/tags/image all un-positioned — this second
+    // pass, after two real paints, is guaranteed to see the settled layout.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         if (content) content.classList.remove('overlay-content-enter');
+        ensureOverlayScrollRunway();
+        updateOverlayStickyImage();
       });
     });
   }

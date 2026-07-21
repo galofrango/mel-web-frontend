@@ -197,6 +197,29 @@ const designerDisplay = getTagDisplay(eventData.designer);
            underneath it nor leaves an extra gap below it. -->
       <div id="detail-header-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
 
+      <!-- V2 layout (below `lg` only, made definitive after the overlay trial —
+           see D-042/D-043): tags row pinned directly under the fixed header,
+           replacing the old "beside the image" mobile position. Mirrors the
+           overlay's #overlay-tags-fixed exactly (same ids minus the `overlay-`
+           prefix) — a sibling of the header, not nested inside the grid, so it
+           can use plain viewport-relative top math via updateTagsFixed(). No
+           border/divider on purpose: reads as part of the fixed header. pb-8
+           (32px) is the resting gap to the image below, exactly per spec
+           regardless of pagination. -->
+      <div id="detail-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
+        <div class="event-tags-row flex flex-row gap-6 min-w-0 overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12">
+          <TagWithLink label="Fecha" count={dateDisplay.text} state={dateDisplay.isUnknown ? "Disabled" : "Default"} hideBorder={true} />
+          <TagWithLink label="Lugar" count={locationDisplay.text} state={locationDisplay.isUnknown ? "Disabled" : "Default"} href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`} hideBorder={true} />
+          <TagWithLink label="Localidad" count={localityDisplay.text} state={localityDisplay.isUnknown ? "Disabled" : "Default"} href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`} hideBorder={true} />
+          <TagWithLink label="Organiza" count={organizerDisplay.text} state={organizerDisplay.isUnknown ? "Disabled" : "Default"} href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`} hideBorder={true} />
+          <TagWithLink label="Diseño" count={designerDisplay.text} state={designerDisplay.isUnknown ? "Disabled" : "Default"} href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`} hideBorder={true} />
+        </div>
+      </div>
+      <!-- Reserves flow space for the fixed tags row below `lg`, right after
+           the header's own spacer — so the image column (first in the grid
+           below `lg`) naturally starts right after both. -->
+      <div id="detail-tags-fixed-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
+
       <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). On
            mobile the same three blocks reflow per Figma 369:32751: image first
            (full-bleed, pinned, shrinking), then the tags as a horizontally
@@ -294,52 +317,51 @@ const designerDisplay = getTagDisplay(eventData.designer);
           </div>
         </div>
 
-        <!-- Column 1: Tags Sidebar (Figma 184px wide). h-[400px] matches the image column's own
-             fixed height, and justify-between spreads the 5 tags across it so the first one lines
-             up with the image's top edge and the last with its bottom edge, instead of a flat
-             40px gap that leaves the column visibly shorter than the image next to it. gap-2 is
-             just a minimum floor. min-w-0 overrides the grid item's default content-based minimum
-             size, which would otherwise let a long tag value push this column wider than its
-             fixed 184px track. order-2 (lg:order-1 restores the desktop column position) puts it
-             right after the image below `lg`, matching Figma 369:32751. The grid's own gap-8
-             provides the 32px to the image column — same whether or not this event has pagination,
-             since #detail-image-sentinel's height (see the Image Column's comment) already accounts
-             for the dots when present. -->
-        <div class="event-tags-row order-2 lg:order-1 lg:col-span-2 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-8 lg:border-b-0 lg:pb-0 -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0" data-name="Tags Section" style="view-transition-name: event-tags;">
-          <TagWithLink
-            label="Fecha"
-            count={dateDisplay.text}
-            state={dateDisplay.isUnknown ? "Disabled" : "Default"}
-            hideBorder={true}
-          />
-          <TagWithLink
-            label="Lugar"
-            count={locationDisplay.text}
-            state={locationDisplay.isUnknown ? "Disabled" : "Default"}
-            href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`}
-            hideBorder={true}
-          />
-          <TagWithLink
-            label="Localidad"
-            count={localityDisplay.text}
-            state={localityDisplay.isUnknown ? "Disabled" : "Default"}
-            href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
-            hideBorder={true}
-          />
-          <TagWithLink
-            label="Organiza"
-            count={organizerDisplay.text}
-            state={organizerDisplay.isUnknown ? "Disabled" : "Default"}
-            href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
-            hideBorder={true}
-          />
-          <TagWithLink
-            label="Diseño"
-            count={designerDisplay.text}
-            state={designerDisplay.isUnknown ? "Disabled" : "Default"}
-            href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
-            hideBorder={true}
-          />
+        <!-- Column 1: Tags Sidebar — DESKTOP ONLY (`lg+`) now: below `lg`,
+             #detail-tags-fixed above (pinned under the header) takes over this
+             role entirely (V2 layout, made definitive — see D-042/D-043), so
+             this instance is `hidden` there and contributes nothing to the
+             mobile grid flow. h-[400px]+justify-between matches the image
+             column's own fixed height and spreads the tags across it instead
+             of a flat 40px gap that leaves the column visibly shorter than
+             the image next to it. -->
+        <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section" style="view-transition-name: event-tags;">
+          <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
+            <TagWithLink
+              label="Fecha"
+              count={dateDisplay.text}
+              state={dateDisplay.isUnknown ? "Disabled" : "Default"}
+              hideBorder={true}
+            />
+            <TagWithLink
+              label="Lugar"
+              count={locationDisplay.text}
+              state={locationDisplay.isUnknown ? "Disabled" : "Default"}
+              href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`}
+              hideBorder={true}
+            />
+            <TagWithLink
+              label="Localidad"
+              count={localityDisplay.text}
+              state={localityDisplay.isUnknown ? "Disabled" : "Default"}
+              href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
+              hideBorder={true}
+            />
+            <TagWithLink
+              label="Organiza"
+              count={organizerDisplay.text}
+              state={organizerDisplay.isUnknown ? "Disabled" : "Default"}
+              href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
+              hideBorder={true}
+            />
+            <TagWithLink
+              label="Diseño"
+              count={designerDisplay.text}
+              state={designerDisplay.isUnknown ? "Disabled" : "Default"}
+              href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
+              hideBorder={true}
+            />
+          </div>
         </div>
 
         <!-- Column 3: Event Info (Figma 496px wide with 24px left padding).
@@ -584,9 +606,31 @@ const designerDisplay = getTagDisplay(eventData.designer);
       headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
     }
 
+    // Pins the tags row directly below the fixed header (V2 layout, made
+    // definitive — mirrors the overlay's updateOverlayFixedTags() exactly).
+    // No self-correcting probe needed: unlike the overlay, this page has no
+    // accidental-containing-block quirk to work around (no animated wrapper
+    // with `transition:transform`), so plain viewport-relative top math is
+    // always correct here too. Height is effectively constant (tags never
+    // wrap — every TagWithLink instance is exactly 48px tall, see D-041),
+    // but still measured live each tick, matching the header's own pattern.
+    function updateTagsFixed() {
+      const tagsFixed = document.getElementById('detail-tags-fixed');
+      const tagsFixedSpacer = document.getElementById('detail-tags-fixed-spacer');
+      if (!tagsFixed || !tagsFixedSpacer || !stickyHeader) return;
+      if (window.innerWidth >= 1024) {
+        tagsFixed.style.top = '';
+        tagsFixedSpacer.style.height = '';
+        return;
+      }
+      tagsFixed.style.top = `${stickyHeader.getBoundingClientRect().bottom}px`;
+      tagsFixedSpacer.style.height = `${tagsFixed.getBoundingClientRect().height}px`;
+    }
+
     function updateStickyImage() {
       if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop) return;
       updateHeaderSpacer();
+      updateTagsFixed();
       if (window.innerWidth >= 1024) {
         imageSticky.style.position = '';
         imageSticky.style.top = '';
@@ -598,10 +642,11 @@ const designerDisplay = getTagDisplay(eventData.designer);
         return;
       }
 
-      // Bottom edge of the (now permanently fixed) header. Effectively a
-      // constant (headerSpacer.style.height, i.e. the header's own height),
-      // but read live off the header itself rather than assumed.
-      const headerBottom = stickyHeader.getBoundingClientRect().bottom;
+      // "headerBottom" now means the bottom of the whole fixed block (header +
+      // pinned tags row, V2) — the image starts right below BOTH, not just
+      // the header.
+      const tagsFixedEl = document.getElementById('detail-tags-fixed');
+      const headerBottom = tagsFixedEl ? tagsFixedEl.getBoundingClientRect().bottom : stickyHeader.getBoundingClientRect().bottom;
 
       // The sentinel sits at the image's natural (unpinned) flow position
       // and, being a plain block with no positioning of its own, keeps moving
@@ -697,6 +742,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
     function ensureScrollRunway() {
       if (!scrollRunway || !navBlock) return;
       updateHeaderSpacer();
+      // Must run BEFORE the nav measurement below: the tags-fixed spacer sits
+      // in-flow ahead of the nav, so its height directly shifts where the
+      // nav ends up — measuring against a stale (zero) spacer would under-count.
+      updateTagsFixed();
       if (window.innerWidth >= 1024) {
         scrollRunway.style.height = '';
         return;
@@ -1024,6 +1073,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
   #detail-image-crop,
   #detail-image-sentinel,
   #detail-header-spacer,
+  #detail-tags-fixed-spacer,
   #detail-scroll-runway {
     overflow-anchor: none;
   }

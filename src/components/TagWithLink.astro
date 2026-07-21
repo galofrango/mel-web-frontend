@@ -32,10 +32,12 @@ const isCenter = alignment === "Center";
 const hasWidth = className.split(/\s+/).some(cls => cls.startsWith('w-'));
 const widthClass = hasWidth ? '' : 'w-[184px]';
 
-// Border and padding styling: default to border-l and px-6 unless hideBorder is requested.
-// NO vertical padding in either mode: every Tag is exactly 48px tall (16px label +
-// 8px gap + 24px value) so the border-l divider between tags is also exactly 48px.
-const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border/30 px-6 py-0';
+// Border and padding styling: default to border-l and px-8 (32px, the sitewide
+// minimum on each side of a vertical separator between TagWithLink instances —
+// see D-043) unless hideBorder is requested. NO vertical padding in either
+// mode: every Tag is exactly 48px tall (16px label + 8px gap + 24px value) so
+// the border-l divider between tags is also exactly 48px.
+const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border/30 px-8 py-0';
 ---
 <div 
   class={`filter-tag flex flex-col gap-2 relative ${widthClass} ${borderClass} bg-transparent transition-all duration-200 ${isRight ? "items-end text-right" : isCenter ? "items-center text-center" : "items-start text-left"} ${className}`}
