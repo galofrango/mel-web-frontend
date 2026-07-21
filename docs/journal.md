@@ -2,6 +2,22 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Ocultación de la pastilla de datos en la Galería móvil (D-053)
+
+### Objetivo de la Sesión
+Eliminar la visibilidad permanente de la pastilla de datos (`.flyer-label` con título y fecha) sobre las imágenes de la Galería en dispositivos móviles y pantallas táctiles, conservándola únicamente al hacer hover en escritorio.
+
+### Cambios Realizados
+1. **Eliminación de la visibilidad forzada en `src/styles/global.css` y `src/layouts/Layout.astro`**:
+   - Se eliminan las reglas `@media (hover: none)` y `html.is-touch .flyer-label` que forzaban `opacity: 1` en pantallas táctiles/móviles.
+   - Se elimina la función auxiliar `applyTouchFlag` de `Layout.astro`.
+2. **Resultado**:
+   - En pantallas móviles/pequeñas, las tarjetas de la Galería se muestran limpias sin texto sobrepuesto, favoreciendo la estética pura del arte visual y promoviendo el clic/interacción del usuario.
+   - En pantallas de escritorio, el comportamiento de hover se mantiene intacto (`opacity-0` por defecto, `group-hover:opacity-100` al pasar el ratón).
+3. **Documentación**: Registrada decisión `D-053` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Ajuste de estados en Marcadores de Mapa y Botón "Me presta" (D-052)
 
 ### Objetivo de la Sesión

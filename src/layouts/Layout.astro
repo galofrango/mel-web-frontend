@@ -50,18 +50,7 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       applyTheme();
       document.addEventListener('astro:after-swap', applyTheme);
 
-      // Marca .is-touch en <html> en dispositivos táctiles (móvil/tablet real y
-      // el modo dispositivo del inspector). Complementa a @media (hover: none)
-      // para que la pastilla de título de la galería se muestre siempre sobre
-      // las imágenes cuando no hay hover posible (ver global.css .flyer-label).
-      function applyTouchFlag() {
-        var touch = (window.matchMedia && window.matchMedia('(hover: none)').matches)
-          || ('ontouchstart' in window)
-          || (navigator.maxTouchPoints > 0);
-        document.documentElement.classList.toggle('is-touch', !!touch);
-      }
-      applyTouchFlag();
-      document.addEventListener('astro:after-swap', applyTouchFlag);
+
 
       // Defensive reset: EmptyState's "De acuerdo" button fades document.body
       // to opacity 0 before navigating back — if Astro's own transition ever

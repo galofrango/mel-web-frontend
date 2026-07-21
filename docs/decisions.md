@@ -499,6 +499,17 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Mantener una coherencia visual estricta donde los elementos activos en reposo utilizan `Action-Secondary` y únicamente la interacción (Hover/Pressed) o la selección principal activa del mapa promociona a `Action-Primary`.
 - **Consecuencias**: Los marcadores del mapa en reposo muestran `Action-Secondary`, y el botón "Me presta" activado se mantiene en `Action-Secondary` hasta que el usuario interactúa con él (Hover/Pressed).
 
+## D-053 · Ocultación de la pastilla de datos (`.flyer-label`) en la Galería en pantallas pequeñas / móviles
+
+- **Contexto**: Anteriormente, en pantallas pequeñas y táctiles (`@media (hover: none)` y `html.is-touch`), la pastilla inferior de información (`.flyer-label` con título y fecha del evento) se mostraba forzadamente fija sobre cada tarjeta de flyer para compensar la falta de estado hover con ratón.
+- **Decisión**:
+  1. Se eliminan las reglas CSS forzadas en `src/styles/global.css` (`@media (hover: none)` y `html.is-touch .flyer-label`) y la función `applyTouchFlag` de `src/layouts/Layout.astro`.
+  2. En pantallas de escritorio (con cursor), la pastilla `.flyer-label` se mantiene oculta por defecto (`opacity-0`) y se revela únicamente al hacer hover (`group-hover:opacity-100`).
+  3. En pantallas móviles y táctiles, la pastilla permanece oculta, mostrando las obras de forma limpia.
+- **Motivo**: Mantener la vista de la Galería en móvil/pantallas pequeñas lo más limpia posible, destacando el valor visual del flyer como pieza de archivo y promoviendo la curiosidad, investigación y el clic por parte del usuario sin contaminarle con información excesiva antes de la interacción.
+- **Consecuencias**: Las imágenes de la Galería se muestran puras y sin sobreposiciones de texto en pantallas pequeñas/móviles. La información completa se consulta al pulsar sobre la tarjeta para abrir el detalle.
+
+
 
 
 
