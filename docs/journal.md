@@ -2,23 +2,6 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Actualización del componente `EmptyState` variante "No results" (Botón "Quitar filtros")
-
-### Objetivo de la Sesión
-Actualizar la instancia del componente `EmptyState` y las réplicas dinámicas JS de cliente en la home para la variante `no-results` según la captura de pantalla provista: mostrando siempre el botón de acción *"Quitar filtros"* y actualizando la descripción a *"Elimina los filtros o prueba a buscar otra cosa."*.
-
-### Cambios Realizados
-1. **Componente `EmptyState.astro` (D-050)**:
-   - Texto descriptivo por defecto para `no-results`: `"Elimina los filtros o prueba a buscar otra cosa."`.
-   - Botón visible por defecto (`showButton = true`) con texto `"Quitar filtros"`.
-   - Script interactivo: Al hacer clic en el botón de limpieza, se restablecen los filtros de la búsqueda (disparando el evento `mel-set-search` con query vacía) y el slider de años.
-2. **Réplicas dinámicas en JS (`src/pages/index.astro`)**:
-   - Actualizadas las 3 instancias dinámicas de `EmptyState` (Galería, Lista escritorio y Lista móvil) para incluir el botón *"Quitar filtros"* y la nueva descripción.
-   - Listener delegado en `initHomePage()` para procesar los clics en `.empty-state-clear-btn` y ejecutar `filterArchives(true)`.
-3. **Documentación**: Registrada decisión `D-050` en `docs/decisions.md`.
-
----
-
 ## [2026-07-21] — Sesión: Unificación del color de contraste de texto e iconos sobre Action-Primary (`LE-50`)
 
 ### Objetivo de la Sesión
