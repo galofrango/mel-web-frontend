@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
 :root {
+  /* Layout Spacing Tokens */
+  --mel-header-pt-desktop: clamp(32px, 5vh, 88px);
+
   /* ==========================================================================
      PRIMITIVE TOKENS (Leon Color Palette)
      ========================================================================= */

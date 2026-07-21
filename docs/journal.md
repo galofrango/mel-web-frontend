@@ -2,6 +2,23 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Espaciado superior dinámico de cabecera y simetría inferior en detalle de evento (D-054)
+
+### Objetivo de la Sesión
+Optimizar el aprovechamiento del espacio vertical en pantallas de portátil (como MacBook Pro de 15") haciendo variable el margen superior de cabecera mediante `clamp()`, y alineando de forma simétrica el bloque de navegación inferior del detalle de evento.
+
+### Cambios Realizados
+1. **Token `--mel-header-pt-desktop` en `src/styles/global.css`**:
+   - Creado `--mel-header-pt-desktop: clamp(32px, 5vh, 88px);` para escalar suavemente la distancia superior de cabecera en escritorio en función de la altura del viewport.
+2. **Aplicación Unificada en Páginas**:
+   - Actualizados los paddings superiores de escritorio en `index.astro`, `event/[id].astro`, `exposiciones.astro`, `info.astro` y `SideMenu.astro`.
+3. **Detalle de Evento (`event/[id].astro` y Overlay SPA en `index.astro`)**:
+   - Eliminado el margen superior estático `lg:mt-[280px]` sustituyéndolo por `lg:mt-12`.
+   - Fijado el offset inferior del bloque de navegación ("Anterior" / "Siguiente") a `lg:bottom-[var(--mel-header-pt-desktop)]` y padding inferior `lg:pb-[var(--mel-header-pt-desktop)]`, garantizando que la distancia al borde inferior sea idéntica a la distancia de la cabecera al borde superior.
+4. **Documentación**: Registrada decisión `D-054` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Ocultación de la pastilla de datos en la Galería móvil (D-053)
 
 ### Objetivo de la Sesión

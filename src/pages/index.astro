@@ -201,7 +201,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
        112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
        smaller screens don't waste fixed pixel gaps. -->
-  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[calc(10vh-40px)] md:pt-[10vh] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[calc(10vh-40px)] md:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
@@ -601,7 +601,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
          #event-details-overlay itself only because that's where it already
          was; either would work equally now that the header no longer cares
          about any ancestor's padding. -->
-    <div class="w-full max-w-[1224px] flex flex-col relative pt-0 lg:pt-[10vh]" id="overlay-content-wrapper">
+    <div class="w-full max-w-[1224px] flex flex-col relative pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)]" id="overlay-content-wrapper">
       
       <!-- Fixed Header (X + Mobile Title): mirrors event/[id].astro's
            #detail-sticky-header — genuinely `position: fixed` from the very
@@ -821,7 +821,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
         <!-- Navigation block. On mobile: 2-column row under a divider, with
              Anterior/Siguiente side by side (Figma 575:83196). -->
-        <div id="overlay-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[280px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[40px] lg:z-10 lg:bg-mel-bg-primary lg:py-6">
+        <div id="overlay-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-12 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[var(--mel-header-pt-desktop)] lg:z-10 lg:bg-mel-bg-primary lg:py-4">
           <div class="hidden lg:block lg:col-span-2"></div>
 
           <!-- Anterior -->

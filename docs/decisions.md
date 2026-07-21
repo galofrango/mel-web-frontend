@@ -509,6 +509,20 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Mantener la vista de la Galería en móvil/pantallas pequeñas lo más limpia posible, destacando el valor visual del flyer como pieza de archivo y promoviendo la curiosidad, investigación y el clic por parte del usuario sin contaminarle con información excesiva antes de la interacción.
 - **Consecuencias**: Las imágenes de la Galería se muestran puras y sin sobreposiciones de texto en pantallas pequeñas/móviles. La información completa se consulta al pulsar sobre la tarjeta para abrir el detalle.
 
+## D-054 · Distancia dinámica superior de cabecera (`--mel-header-pt-desktop`) y simetría en la navegación inferior del detalle de evento
+
+- **Contexto**: Anteriormente, el relleno superior de la cabecera en escritorio estaba fijado a un estático `10vh` y la navegación del detalle de evento tenía un margen superior rígido de `lg:mt-[280px]` con `108px` o `40px` inferiores. En pantallas de portátil pequeñas (como un MacBook Pro de 15" ~900px de altura), esto desaprovechaba espacio vertical y obligaba a un scroll vertical innecesario en eventos con contenidos breves.
+- **Decisión**:
+  1. Se crea el token de espaciado en `src/styles/global.css`:
+     `--mel-header-pt-desktop: clamp(32px, 5vh, 88px);`
+  2. Se aplica `--mel-header-pt-desktop` al padding superior de cabecera en escritorio en todas las páginas (`index.astro`, `event/[id].astro`, `exposiciones.astro`, `info.astro` y `SideMenu.astro`).
+  3. En la vista de detalle de evento (`event/[id].astro` y overlay en `index.astro`):
+     - Se sustituye el margen superior rígido `lg:mt-[280px]` por `lg:mt-12`.
+     - El bloque de navegación ("Anterior" / "Siguiente") se fija con `lg:bottom-[var(--mel-header-pt-desktop)]` y padding inferior `lg:pb-[var(--mel-header-pt-desktop)]`.
+- **Motivo**: Optimizar el aprovechamiento del espacio vertical en portátiles como el MacBook Pro de 15", garantizando que los detalles del evento encajen en pantalla sin scroll a menos que el contenido (descripción/artistas) sea extenso, y manteniendo una simetría idéntica entre la distancia de la cabecera al borde superior y de la navegación al borde inferior.
+- **Consecuencias**: En pantallas portátiles de 15", la vista de detalle encaja limpiamente sin scroll vertical innecesario, manteniendo la misma separación exacta en la parte superior e inferior.
+
+
 
 
 
