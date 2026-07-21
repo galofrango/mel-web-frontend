@@ -242,26 +242,33 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              breakpoint now (Figma "Highlights / Mobile" 369:31311 applied
              everywhere, not just below lg): each tag sizes to its own
              content and the row scrolls horizontally if it ever overflows,
-             instead of desktop forcing a fixed 8-column equal split. gap-0
-             on the row itself — each TagWithLink already carries 32px of
-             padding on both sides of its own border-l divider (D-043), so
-             the row's own gap doesn't need to add anything on top (that
-             would double up into an asymmetric gap around the divider;
-             gap-0 keeps it symmetric everywhere). [&>*:first-child] strips
-             the border-l/left-padding from the FIRST tag only — a divider
-             with nothing before it read as a stray leading separator (the
-             propietario flagged it), so "Eventos" now starts flush at the
-             row's own left edge like every other full-bleed row on the
-             site. justify-between: when the tags are narrower than the
-             row (usually `lg+`), they spread out to use the full width
-             with even gaps between them instead of clumping left with
-             empty space after — the D-043 32px padding inside each tag's
-             own box is the FLOOR that justify-between's extra spacing
-             only ever adds on top of, never removes; degrades to normal
+             instead of desktop forcing a fixed 8-column equal split.
+             Dividers are their OWN elements (not each tag's own border-l,
+             see the map side panel's `#side-panel-tags-container` for the
+             original of this pattern) — hideBorder on every tag removes
+             their individually-baked-in padding, which used to make the
+             gap-before-a-divider and gap-after-it uneven (any extra space
+             justify-between distributes always landed entirely on ONE side,
+             since the divider was physically part of a tag's own box, not
+             a container child in its own right — the propietario flagged
+             this directly) and also produced the stray leading divider
+             before "Eventos" (a border-l with nothing in front of it). With
+             real sibling dividers, gap-8 (D-043's 32px floor) and
+             justify-between's own extra distribution both apply UNIFORMLY
+             between every adjacent pair — tag-to-divider and divider-to-tag
+             alike — so the space is always symmetric on both sides of every
+             line, and there's simply no divider element before the first
+             tag or after the last one to begin with. justify-between:
+             when the tags are narrower than the row (usually `lg+`), they
+             spread out to use the full width with even gaps instead of
+             clumping left with empty space after; degrades to normal
              packed/scrollable flow with no effect once they overflow. -->
-        <div class="col-span-12 lg:col-span-8 flex gap-0 justify-between items-center overflow-x-auto no-scrollbar [&>*:first-child]:border-l-0 [&>*:first-child]:pl-0 -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0">
-          {tags.map((tag) => (
-            <TagWithLink label={tag.label} count={tag.count} class="shrink-0 w-auto" />
+        <div class="col-span-12 lg:col-span-8 flex gap-8 justify-between items-center overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12 lg:mx-0 lg:w-full lg:px-0">
+          {tags.map((tag, idx) => (
+            <>
+              {idx > 0 && <div class="h-12 w-px bg-mel-border shrink-0"></div>}
+              <TagWithLink label={tag.label} count={tag.count} class="shrink-0 w-auto" hideBorder={true} />
+            </>
           ))}
         </div>
 

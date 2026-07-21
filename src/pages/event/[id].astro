@@ -975,19 +975,24 @@ const designerDisplay = getTagDisplay(eventData.designer);
       }, 300);
     }
 
-    // Click on main image container opens the lightbox — desktop only.
-    // Below `lg` it instead re-expands the pinned box (animates the scroll
-    // back to the top, which un-shrinks the crop 1:1) if it's currently
-    // compressed by scroll, and does nothing otherwise. Hand-rolled
-    // timer-driven animation — mirrors the overlay in index.astro, where
-    // native smooth scrolling silently no-ops in some environments and
-    // requestAnimationFrame never ticks in some sandboxed/throttled
-    // contexts, while direct scroll writes always work. Time-based easing,
-    // so a slow timer only lowers the frame rate, never the duration.
+    // Click on main image container opens the lightbox from 480px up (D-039)
+    // — below that it instead re-expands the pinned box (animates the
+    // scroll back to the top, which un-shrinks the crop 1:1) if it's
+    // currently compressed by scroll, and does nothing otherwise. D-039
+    // documented this threshold as 480 "in both files", but only the
+    // overlay's own handler actually had it — this file had silently kept
+    // the pre-D-039 value of 1024 ever since. Found and fixed while working
+    // on D-044 (later reverted; this bugfix survives it, being unrelated to
+    // that breakpoint). Hand-rolled timer-driven animation — mirrors the
+    // overlay in index.astro, where native smooth scrolling silently no-ops
+    // in some environments and requestAnimationFrame never ticks in some
+    // sandboxed/throttled contexts, while direct scroll writes always work.
+    // Time-based easing, so a slow timer only lowers the frame rate, never
+    // the duration.
     const mainImageContainer = document.getElementById('carousel-main-container');
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
-        if (window.innerWidth < 1024) {
+        if (window.innerWidth < 480) {
           if (window.scrollY > 0) {
             const startY = window.scrollY;
             const t0 = performance.now();

@@ -2,6 +2,55 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: D-046 revertido tras probarlo en Figma; se conservan los divisores de Highlights y el Toggle
+
+### Objetivo de la Sesión
+El propietario probó en Figma la idea del reparto regular de la fila de tags fija (D-046) y decidió que no era lo que quería, pidiendo revertirlo — conservando eso sí los divisores de Highlights y el ancho mínimo del Toggle (D-045), sin relación con D-046.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-047. Revertidos a mano (no con `git checkout`, para no perder D-045 en los mismos ficheros) los tres cambios de D-046: `gap-8 justify-between` → `gap-6` en la fila fija de tags de ambos ficheros; eliminados los divisores `<div>` intercalados (vuelta a `tagsHtml` compartida sin distinción móvil/escritorio en el overlay); restaurada en `global.css` la regla `border-left`/`padding-left` que D-046 había retirado.
+
+### Problemas Encontrados y Resueltos
+- Ninguno; revert limpio, verificado que la fila de tags vuelve exactamente al comportamiento de D-042/D-043 y que Highlights/Toggle quedan intactos.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-21] — Sesión: La fila de tags fija del detalle se reparte "como en escritorio" en tablet, sin salir del mecanismo fijo
+
+### Objetivo de la Sesión
+Tras el revert de D-044, el propietario aclaró con una captura anotada qué quería realmente: mantener el mecanismo V2 (cabecera y tags fijas, contenido pasando por debajo) también en tablet, cambiando solo cómo se ve la fila de tags — repartida a lo ancho completo "como en desktop" en vez de tira con scroll, sin adoptar la columna vertical. Confirmado explícitamente antes de tocar código que era exactamente el patrón `justify-between` ya usado en Highlights, sin necesitar ningún breakpoint nuevo.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-046. `gap-6` → `gap-8 justify-between` en la fila fija de tags (`#detail-tags-fixed`/`#overlay-tags-fixed`, NO la columna de escritorio). Al reutilizar `.event-tags-row`, cuyo divisor se inyectaba vía CSS baked-in en cada tag, se eliminó esa inyección (regla `border-left`/`padding-left` de `global.css`) y se sustituyó por divisores `<div>` reales intercalados en el marcado — mismo patrón de D-045, aplicado ahora aquí también.
+
+### Problemas Encontrados y Resueltos
+- Detectado antes de implementar (no en producción): reutilizar `gap-8 justify-between` con el divisor CSS-baked-in de esta fila habría reproducido exactamente el bug de asimetría que D-045 corrigió en Highlights. Se solucionó en el mismo cambio, no como fix posterior.
+
+### Tareas Pendientes
+- Ninguna nueva. La petición real tras D-044 queda resuelta.
+
+---
+
+## [2026-07-21] — Sesión: Intento de "escritorio desde 800px" revertido por malentendido, divisores de Highlights corregidos de raíz, Toggle a 320px
+
+### Objetivo de la Sesión
+Implementar la excepción de 800px pendiente desde D-042/D-043; corregir la asimetría de espaciado en los divisores de Highlights; dar un ancho mínimo de 320px al `ToggleSelector`.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-044 (revertido) y D-045 (vigente). Se implementó por completo un breakpoint propio `--breakpoint-detail:800px` que adelantaba TODO el tratamiento de escritorio (cabecera estática, foto sin encoger, grid de 3 columnas) desde 800px en vez de 1024px. Al ver el resultado, el propietario aclaró que el malentendido era de alcance: quería mantener el mecanismo tipo V2/móvil (cabecera y tags fijas, contenido pasando por debajo) también en tablet, cambiando solo la presentación visual de la fila de tags — no todo el layout. Revertido con `git checkout` a `event/[id].astro`, `index.astro` y `global.css` al estado del commit `7734823`. D-045 (divisores de Highlights como elementos independientes + `hideBorder`, `gap-8 justify-between`; `min-w-[320px]` en `ToggleSelector`) se rehizo a mano tras el revert al vivir en los mismos ficheros. Reaplicado también el bugfix real encontrado por el camino (umbral del lightbox de la standalone, atascado en 1024 desde D-039 en vez de 480).
+
+### Problemas Encontrados y Resueltos
+- El malentendido de alcance se detectó tarde (tras implementar y enseñar capturas) por preguntar solo con palabras ("¿escritorio completo o solo tags?") sin una referencia visual — el propietario aportó después una captura con un rectángulo rojo marcando exactamente qué debía cambiar. Lección para la próxima vez que un cambio de layout sea ambiguo: pedir o generar una referencia visual antes de construir, no fiarlo todo a la descripción en texto.
+- El bug del umbral del lightbox (1024 en vez de 480 en la standalone desde D-039) se encontró de casualidad al migrar los `window.innerWidth` del breakpoint revertido — confirmado con `git log -S` que nunca existió correctamente en ese fichero.
+
+### Tareas Pendientes
+- La petición real (tags con aspecto "de escritorio" dentro del mecanismo fijo en anchos tipo tablet) sigue pendiente — a la espera de acordar el breakpoint exacto y el alcance visual con una referencia clara antes de implementar.
+
+---
+
 ## [2026-07-21] — Sesión: La V2 se hace definitiva (mirroreada a la standalone) y separadores a mínimo 32px en todo el sitio
 
 ### Objetivo de la Sesión

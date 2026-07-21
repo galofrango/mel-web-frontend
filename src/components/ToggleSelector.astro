@@ -9,7 +9,7 @@ const { class: className = "" } = Astro.props;
 ---
 <div 
   class:list={[
-    "toggle-selector relative flex items-center bg-mel-bg-secondary select-none h-[48px] w-full",
+    "toggle-selector relative flex items-center bg-mel-bg-secondary select-none h-[48px] w-full min-w-[320px]",
     className
   ]}
   style="border: 1px solid var(--mel-border, #D4C4C7); box-shadow: var(--mel-shadow-toggle-inset);"
