@@ -2,6 +2,28 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Ajuste fino del panel del mapa (X pegada al mapa) y offset del header en móvil
+
+### Objetivo de la Sesión
+Feedback del propietario sobre una captura anotada de escritorio: pegar la X de cierre del panel del mapa a la caja contenedora (misma altura donde arranca el mapa) en todas las anchuras, acercar el título a la X otros 8px, y reducir algo más la distancia entre la cabecera de página y el borde superior de pantalla en móvil.
+
+### Cambios Realizados
+1. **X del panel del mapa pegada al mapa en toda anchura (D-028)**: `pt-0 lg:pt-[8px]` → `pt-0` en la fila de la X. Antes solo el bottom sheet móvil quedaba pegado; en escritorio sobraba 8px de hueco. Verificado con `getBoundingClientRect()` a 1280px: `panelTop === mapTop === closeBtnTop === 368px`, coincidencia exacta.
+2. **Título 8px más cerca de la X (D-028)**: `pt-[16px] lg:pt-[24px]` → `pt-[16px]` en toda anchura. Hueco X→título: 32px → 24px en escritorio.
+3. **Offset del header de página en móvil (D-028)**: `pt-[calc(10vh-24px)] md:pt-[10vh]` → `pt-[calc(10vh-40px)] md:pt-[10vh]` (16px adicionales) en los 6 sitios ya unificados en D-024. `SideMenu.astro` ajusta su `min-h` en paralelo (`calc(10vh+40px)` → `calc(10vh+24px)`) para preservar el invariante `min-h − pt = 64px` que mantiene su botón de cierre alineado con el botón que abre el menú. Verificado en móvil (375px): el botón "Menú" y el botón "Cerrar menú" del SideMenu miden ambos `top: 45.195px`.
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-028.
+
+### Problemas Encontrados y Resueltos
+- Ninguno nuevo; cambios de espaciado directos, verificados por medición exacta (`getBoundingClientRect()`) en escritorio (1280px) y móvil (375px) antes de darlos por buenos.
+
+### Tareas Pendientes
+- **Explícitamente aparcado por el propietario, no tocar hasta que lo pida**: volver a subir un poco las cajas de contenido (Galería/Mapa/Lista) que se bajaron en su momento para que el efecto hover de las imágenes no se recortase — ya no hace falta tanto espacio. El propietario pedirá esto explícitamente en una sesión futura ("cosas que tenemos pendientes").
+- Pendientes ya registrados en sesiones anteriores y aún sin hacer: el pliegue de papel del bottom sheet (aparcado), el detalle de evento como bottom sheet con caja de imagen colapsable (specs dadas por el propietario, ver D-027), verificar el bottom sheet completo en un dispositivo móvil real.
+
+---
+
 ## [2026-07-21] — Sesión: Pulido final de Intro WebGL Apple Pro, tipografía Space Grotesk en Canvas y limpieza de keyframes
 
 ### Objetivo de la Sesión

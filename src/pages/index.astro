@@ -189,7 +189,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
        112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
        smaller screens don't waste fixed pixel gaps. -->
-  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[calc(10vh-24px)] md:pt-[10vh] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[calc(10vh-40px)] md:pt-[10vh] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
@@ -301,9 +301,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                abajo, ver setupSidePanelDrag(). -->
           <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" />
 
-          <!-- Header / Close button. En el bottom sheet (bajo lg) sube 8px hacia
-               el tirador (pt-0); en desktop conserva el pt-8 de Figma. -->
-          <div class="flex items-center pb-[8px] px-[16px] pt-0 lg:pt-[8px] shrink-0 w-full">
+          <!-- Header / Close button. Pegada a la caja contenedora (pt-0, a la
+               misma altura donde arranca #map-container) en todas las anchuras
+               — antes solo en el bottom sheet móvil, el propietario pidió lo
+               mismo en desktop viendo que sobraba hueco arriba del todo. -->
+          <div class="flex items-center pb-[8px] px-[16px] pt-0 shrink-0 w-full">
             <IconButton
               id="close-map-side-panel"
               icon="x"
@@ -312,9 +314,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             />
           </div>
 
-          <!-- Title & Address. En el bottom sheet el título sube 8px hacia la X
-               (pt-16); en desktop conserva el pt-24 de Figma. -->
-          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] lg:pt-[24px] px-[16px] shrink-0 w-full relative">
+          <!-- Title & Address. pt-16 (no el pt-24 original de Figma) en todas
+               las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
+          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] px-[16px] shrink-0 w-full relative">
             <div class="px-[8px] flex flex-col gap-[16px] items-start justify-center w-full">
               <h2 id="side-panel-title" class="font-sans font-bold text-[31px] leading-[32px] text-mel-text-primary tracking-[-0.62px] truncate w-full"></h2>
               <p id="side-panel-address" class="font-serif font-medium text-[15px] leading-[24px] text-mel-text-secondary tracking-[0.15px] truncate w-full"></p>
@@ -523,7 +525,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   </div>
 
   <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
-  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-[calc(10vh-24px)] md:pt-[10vh] pb-[108px] px-6 sm:px-12 select-none">
+  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-[calc(10vh-40px)] md:pt-[10vh] pb-[108px] px-6 sm:px-12 select-none">
     <div class="w-full max-w-[1224px] flex flex-col relative" id="overlay-content-wrapper">
       
       <!-- Close Button (X) at Top Left -->
