@@ -43,6 +43,25 @@ Ver `docs/decisions.md` D-030.
 
 ---
 
+## [2026-07-21] — Sesión: Highlights adaptable también en escritorio
+
+### Objetivo de la Sesión
+Extender a `lg+` (escritorio) el ancho adaptable de la fila de Highlights que hasta ahora solo aplicaba por debajo de `lg` (tablet/móvil) — el propietario pidió que el comportamiento fuera igual en todas las anchuras, manteniendo siempre los 24px simétricos a cada lado del separador vertical.
+
+### Cambios Realizados
+1. **Highlights adaptable en toda anchura (D-031)**: el contenedor de tags pierde el modo grid de escritorio (`lg:grid lg:grid-cols-8`, división fija en 8 columnas iguales) y queda en `flex gap-0` sin condicionales — cada `TagWithLink` se dimensiona por su propio contenido en cualquier tamaño de pantalla, no solo por debajo de `lg`. Con `gap-0` uniforme, el padding propio de 24px de cada tag es la única fuente de separación, así que la simetría 24px/24px de D-029 pasa a aplicar siempre, también en escritorio.
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-031.
+
+### Problemas Encontrados y Resueltos
+- Ninguno; cambio directo, verificado con `getBoundingClientRect()` en escritorio (1280px: anchos de tag ahora varían según contenido — 115/119/151/149px en vez de 157px fijos — con 24px de padding en ambos lados de cada tag) y por captura de pantalla en tablet (834px, sin regresión visual).
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-21] — Sesión: Ajuste fino del panel del mapa (X pegada al mapa) y offset del header en móvil
 
 ### Objetivo de la Sesión

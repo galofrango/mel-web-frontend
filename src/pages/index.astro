@@ -238,19 +238,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            slider→highlights gap is 24px (was 32) in the adaptable-width tags
            mode; kept at lg+ (32px) since that wasn't the reported issue. -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center mt-0 lg:mt-2">
-        <!-- Event Stats Tags (TagWithLink). Desktop (lg+): an 8-column sub-grid
-             (matching the parent toolbar's own gap-6) so every tag is exactly 2
-             columns wide, one gap away from the view toggle. Mobile (Figma
-             369:31311): tags shrink to their content and the row scrolls
-             horizontally instead — gap-0 there because each TagWithLink already
-             carries its own 24px of padding on both sides of its border-l
-             divider; stacking the row's own gap-6 on top of that made the gap
-             asymmetric (48px before the divider vs. 24px after it). At lg+ the
-             tags don't carry that padding split the same way relative to the
-             grid, so gap-6 stays. -->
-        <div class="col-span-12 lg:col-span-8 flex lg:grid lg:grid-cols-8 gap-0 lg:gap-6 items-center w-full overflow-x-auto lg:overflow-visible no-scrollbar">
+        <!-- Event Stats Tags (TagWithLink). Adaptable width at every
+             breakpoint now (Figma "Highlights / Mobile" 369:31311 applied
+             everywhere, not just below lg): each tag sizes to its own
+             content and the row scrolls horizontally if it ever overflows,
+             instead of desktop forcing a fixed 8-column equal split. gap-0
+             on the row itself — each TagWithLink already carries 24px of
+             padding on both sides of its own border-l divider, so the row's
+             own gap doesn't need to add anything on top (that used to double
+             up into an asymmetric 48px-before/24px-after gap around the
+             divider; gap-0 keeps it a symmetric 24px/24px everywhere). -->
+        <div class="col-span-12 lg:col-span-8 flex gap-0 items-center w-full overflow-x-auto no-scrollbar">
           {tags.map((tag) => (
-            <TagWithLink label={tag.label} count={tag.count} class="shrink-0 lg:shrink lg:col-span-2 w-auto" />
+            <TagWithLink label={tag.label} count={tag.count} class="shrink-0 w-auto" />
           ))}
         </div>
 
