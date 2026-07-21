@@ -2,6 +2,57 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Corrección del detalle de evento móvil — recorte real de la foto y cuatro bugs del repaso del propietario
+
+### Objetivo de la Sesión
+El propietario probó la sesión anterior (cabecera fija + foto encogible, D-032) en un dispositivo real y reportó seis problemas con capturas: foto rota/duplicada al entrar, la foto se reescalaba en vez de recortarse, temblor y tapado prematuro del contenido al final del scroll, falta de sangre en los bordes laterales, dudas sobre si la cabecera era 100% estática, y demasiado hueco antes del bloque de navegación.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-033 para el detalle completo. En resumen, aplicado en paralelo en `event/[id].astro` y el overlay de `index.astro`:
+1. **Recorte, no reescalado**: nueva "ventana de recorte" (`#detail-image-crop`/`#overlay-image-crop`, `overflow-hidden`, es lo que ahora encoge 400→200px) separada de la foto real (`#carousel-main-container`, siempre fija a 400px, nunca tocada por JS) — al ser su único hijo en flujo normal, queda pegada arriba por construcción; encoger la ventana revela menos foto desde abajo, a tamaño y ratio reales.
+2. **Imagen rota al entrar**: por debajo del punto de enganche, el elemento se queda en `position: static` en vez de forzar `fixed` — evita depender de mediciones tomadas a mitad de la animación de entrada del overlay (0.55s), que daban una respuesta del fotograma actual, no la final.
+3. **Temblor al final del scroll**: reinstaurada una "pista de scroll" (spacer dinámico) que garantiza siempre ≥260px de scroll disponibles después del punto de enganche, evitando el caso de inestabilidad marginal donde reducir la página reduce el scroll máximo por debajo de la posición actual, en un bucle sin fin.
+4. **A sangre siempre**: recuperada la técnica de márgenes negativos para el estado en reposo (retirada sin sustituto en la sesión anterior), más un fix de sobre-restricción CSS (`left`+`right`+`width` simultáneos hacían que el navegador ignorase `right` silenciosamente).
+5. **Bloque contenedor fantasma intermitente** (solo overlay): el quirk de D-032 (`#overlay-details-content` actuando de contenedor de elementos `fixed`) resultó ser temporal, no permanente — se asienta a los pocos segundos. Sustituida la compensación fija por un patrón "aplica una posición provisional, mide dónde aterrizó, corrige por la diferencia" que funciona sin necesidad de saber si el quirk sigue activo.
+6. **~40px hasta abajo**: `pb-[108px]` heredado pasa a `pb-[40px] lg:pb-[108px]` en ambos ficheros.
+
+### Problemas Encontrados y Resueltos
+Los seis del objetivo de la sesión, cada uno diagnosticado con medición directa (no solo capturas, que en este entorno de pruebas producen falsos positivos de vez en cuando por temporización de renderizado) — ver D-033 para el diagnóstico técnico de cada uno.
+
+### Tareas Pendientes
+- Ninguna nueva. Sigue pendiente el icono de lupa sobre la foto (ver D-032/D-033), no pedido en ninguna de las dos sesiones.
+
+---
+
+## [2026-07-21] — Sesión: Detalle de evento móvil — cabecera fija y foto que encoge al scroll (retomando D-027)
+
+### Objetivo de la Sesión
+Retomar la pieza pendiente desde D-026/D-027 (detalle de evento con imagen colapsable al scroll), esta vez explícitamente **sin bottom sheet**: cabecera (X + título) fija sin scroll; foto fija que encoge de tamaño para dejar ver mejor el resto de la ficha, que pasa por debajo de ella (incluida paginación) hasta que la navegación Anterior/Siguiente llega abajo del todo; tags siempre a 32px de la caja de imagen, con o sin paginación.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-032 para el detalle completo. En resumen:
+1. Cabecera (X + título) en un contenedor `sticky top-0`, disuelto vía `lg:contents` en escritorio.
+2. Foto pinneada y encogible (400px→200px, spec confirmada contra Figma `369:32751`) gestionada enteramente por JS con `position: fixed` — **no** con `position: sticky` nativo, tras verificar que un elemento sticky más bajo que el viewport nunca se libera de forma nativa sin importar cuánto contenido haya después.
+3. Liberación anclada a la posición real de la fila de tags (no a un cálculo genérico de "espacio restante del contenedor"), garantizando matemáticamente cero solape con el contenido siguiente en cualquier longitud de página.
+4. Réplica exacta en el overlay SPA de `index.astro` (regla de mantenimiento en espejo), con dos ajustes propios de su estructura (ver Problemas Encontrados).
+
+### Decisiones Tomadas
+Ver `docs/decisions.md` D-032.
+
+### Problemas Encontrados y Resueltos
+- **Intento inicial con `position: sticky` nativo + `display: contents`**: se restructuró el grid para que la imagen compartiera bloque contenedor con tags/info/nav (necesario para que la liberación nativa de sticky funcionase). Verificado en navegador que el contenido quedaba **permanentemente oculto** detrás de la imagen fija en eventos cortos — diagnosticado matemáticamente: un elemento sticky solo se libera de forma nativa cuando su propia altura ≥ la altura del viewport, algo que casi nunca ocurre para una foto de ~400px en un móvil de 600-900px de alto, sin importar cuánto contenido tenga la página. Se abandonó esta vía por completo a favor de `position: fixed` calculado a mano.
+- **Fórmula de liberación mal calibrada (dos iteraciones)**: un primer intento anclado al bloque contenedor genérico y un segundo anclado a la posición del bloque de navegación tenían el mismo problema de fondo (nunca se liberaban a tiempo, o lo hacían pero congelaban el solape existente en vez de resolverlo). La fórmula que sí funciona compara la foto contra la posición **real y actual** de la fila de tags (`top = min(headerBottom, tagsTop - alturaBloque)`) — verificado con barrido completo de scroll (paso a paso, no solo el punto final) en eventos cortos y largos, con y sin paginación: el solape pasa de -32px en reposo a 0px exacto y se mantiene así, nunca positivo.
+- **`overflow-anchor` (scroll anchoring) interfería con la medición**: Chrome ajusta silenciosamente la posición de scroll cuando un elemento fuera de pantalla cambia de tamaño — exactamente lo que hace la foto y el centinela en cada tick — produciendo posiciones de scroll impredecibles en las pruebas. Resuelto con `overflow-anchor: none` en los elementos que cambian de altura solo por script.
+- **Overlay — cabecera fija anclada 41px por debajo de lo esperado**: `#event-details-overlay` es a la vez el contenedor con scroll propio y el que llevaba el `padding-top`, así que el `sticky top:0` de la cabecera calculaba contra el borde CON padding en vez de contra el techo real. Solución: el padding superior se trasladó al wrapper interior, dejando el contenedor con scroll sin padding propio.
+- **Overlay — bloque contenedor accidental para la imagen fija**: `#overlay-details-content` (wrapper de la animación de entrada/salida del overlay) tiene `transition: transform`, y Chrome calcula un `matrix(1,0,0,1,0,0)` para cualquier elemento con `transform` en su lista de transición aunque nunca se le aplique ninguno — por especificación eso convierte al elemento en el bloque contenedor de sus descendientes `fixed`, doblando el offset de la imagen. Diagnosticado inspeccionando la cadena de ancestros con `getComputedStyle()` hasta encontrar el `transform` inesperado. Solución: `updateOverlayStickyImage()` resta el offset de ese wrapper al `top`/`left` en cada tick.
+- Varios "falsos positivos" de capturas de pantalla mostrando la foto minúscula/descolocada que resultaron ser artefactos de temporización de la herramienta de captura (confirmado repitiendo la captura o midiendo directamente con `getBoundingClientRect()`, que siempre dio valores correctos) — importante no diagnosticar de más sobre una única captura cuando las mediciones JS no cuadran con ella.
+
+### Tareas Pendientes
+- El icono de lupa superpuesto sobre la foto (esquina inferior derecha, visible en el frame de Figma `369:32751` como affordance para abrir el visor una vez la foto está encogida) no se implementó — no pedido explícitamente esta sesión. La foto sigue abriendo el visor a pantalla completa al pulsarla entera, como antes.
+- Pendientes ya registrados en sesiones anteriores y aún sin hacer: el pliegue de papel del bottom sheet del mapa (aparcado); verificar el bottom sheet completo en un dispositivo móvil real.
+
+---
+
 ## [2026-07-21] — Sesión: Highlights (gap y simetría), buscador de cabecera sin encogido prematuro, fecha en la pastilla de galería
 
 ### Objetivo de la Sesión

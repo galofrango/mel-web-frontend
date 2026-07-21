@@ -550,75 +550,126 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   </div>
 
   <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
-  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pt-[calc(10vh-40px)] md:pt-[10vh] pb-[108px] px-6 sm:px-12 select-none">
-    <div class="w-full max-w-[1224px] flex flex-col relative" id="overlay-content-wrapper">
+  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pb-[40px] lg:pb-[108px] px-6 sm:px-12 select-none">
+    <!-- pt lives here (not on #event-details-overlay itself) specifically so
+         #overlay-sticky-header's `position: sticky; top: 0` computes against
+         a zero-padding scrolling ancestor: sticky's `top` offset is relative
+         to its nearest scrolling ancestor's PADDING edge, and
+         #event-details-overlay is both that ancestor (overflow-y-auto) AND,
+         before this split, the element carrying the top padding — which
+         pinned the header ~41px down instead of flush with the true top. -->
+    <div class="w-full max-w-[1224px] flex flex-col relative pt-[calc(10vh-40px)] md:pt-[10vh]" id="overlay-content-wrapper">
       
-      <!-- Close Button (X) at Top Left -->
-      <button
-        id="event-details-overlay-close"
-        class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0 border-none bg-transparent outline-none self-start"
-        aria-label="Cerrar detalles de evento"
+      <!-- Sticky Header (X + Mobile Title): mirrors event/[id].astro's
+           #detail-sticky-header — pinned at the true top of the overlay's own
+           scrolling box (#event-details-overlay, overflow-y-auto) below `lg`.
+           pb-8 lives on the wrapper itself rather than as the title's own
+           mb-8, since a margin on the last child can collapse through into
+           the parent's own box height, but padding never does — and JS needs
+           a reliable height reading here to position the image right below
+           it. See event/[id].astro for the full rationale (identical here). -->
+      <div
+        id="overlay-sticky-header"
+        class="sticky top-0 z-30 bg-mel-bg-primary -mx-6 px-6 pb-8 sm:-mx-12 sm:px-12 lg:static lg:bg-transparent lg:mx-0 lg:px-0 lg:pb-0"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-
-      <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
-      <div id="overlay-details-content" class="w-full transition-opacity duration-300">
+        <!-- Close Button (X) at Top Left -->
+        <button
+          id="event-details-overlay-close"
+          class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0 border-none bg-transparent outline-none self-start"
+          aria-label="Cerrar detalles de evento"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
 
         <!-- Mobile-only Event Title (Figma 369:32751: title sits between the close
              button and the image; on desktop it lives at the top of the Info column) -->
-        <h2 id="overlay-event-title-mobile" class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary mb-8"></h2>
+        <h2 id="overlay-event-title-mobile" class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary"></h2>
+      </div>
+
+      <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
+      <div id="overlay-details-content" class="w-full transition-opacity duration-300">
 
         <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). lg:h-[400px] pins the
              row's own height to the image column's fixed height — without it, column 3's actual
              content height (which shifts by a couple px depending on how the artist list wraps)
              set the row's height instead, which in turn moved the Anterior/Siguiente nav below at
              mt-[280px] by that same couple of pixels from one event to the next.
-             On mobile the same three blocks reflow per Figma 369:32751: image first (full-bleed),
-             then the tags as a horizontally scrollable row, then the info column. -->
+             On mobile the same three blocks reflow per Figma 369:32751: image first (full-bleed,
+             pinned, shrinking — mirrors event/[id].astro), then the tags as a horizontally
+             scrollable row, then the info column — a real grid at every breakpoint, `order` doing
+             the mobile reflow (see each column's own comment). -->
         <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start w-full lg:h-[400px]">
 
-          <!-- Column 1: Tags Sidebar. h-[400px]+justify-between matches the image column's own
-               fixed height and spreads the tags across it (see event/[id].astro for the full
-               rationale) instead of a flat 40px gap that left this column visibly shorter. -->
-          <div class="event-tags-row order-2 lg:order-none flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-6 lg:border-b-0 lg:pb-0" id="overlay-tags-sidebar">
-            <!-- Populated dynamically via JS -->
-          </div>
+          <!-- Column 2: Image Box. order-1 (lg:order-2 restores the desktop middle-column
+               position) puts it first below `lg`, matching Figma 369:32751's image-then-tags-
+               then-info mobile flow — mirrors event/[id].astro's Image Column exactly. -->
+          <div id="overlay-image-column" class="order-1 lg:order-2 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full">
+            <!-- Reserves flow space for the pinned image below `lg` (that image
+                 is `position: fixed` there, removed from normal flow — see
+                 updateOverlayStickyImage()). Height synced to the pinned box's
+                 current size every scroll tick, so tags below are never
+                 covered by, nor gapped away from, the image. -->
+            <div id="overlay-image-sentinel" class="w-full lg:hidden" aria-hidden="true"></div>
 
-          <!-- Column 2: Image Box. On mobile it comes first and runs full-bleed,
-               with the dots in normal flow below the image (h-auto) instead of
-               absolutely hanging over the tags row. -->
-          <div class="order-1 lg:order-none flex flex-col items-center relative h-auto lg:h-[400px] -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:mx-0 lg:w-full">
-            <button 
-              id="overlay-carousel-main"
-              class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
-              aria-label="Ver imagen ampliada"
+            <!-- Pinned image box (min-h-[200px] on scroll, from 400px). Below `lg`,
+                 updateOverlayStickyImage() drives `position: fixed` plus `top`/`left`/`width`
+                 directly. pb-8 (32px) is the gap to tags, living here (after the dots if
+                 present) so it's the same 32px whether or not this event has pagination. -->
+            <div
+              id="overlay-image-sticky"
+              class="z-20 flex flex-col items-center bg-mel-bg-primary pb-8 -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:pb-0 lg:mx-0 lg:w-full lg:bg-transparent"
             >
-              <!-- Striped background -->
-              <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
-              
-              <!-- Track container -->
-              <div 
-                id="overlay-carousel-track" 
-                class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
-                style="transform: translate3d(0, 0, 0);"
-              >
+              <!-- Crop window: THIS is what shrinks (400px→200px), via overflow-hidden —
+                   not the photo itself. The photo (button below) always stays a full,
+                   unscaled 400px tall and anchored to this wrapper's top edge, so
+                   shrinking the wrapper just reveals progressively less of it from the
+                   bottom up, at its real size/ratio, instead of rescaling it down. -->
+              <div id="overlay-image-crop" class="relative w-full overflow-hidden lg:h-[400px]">
+                <button
+                  id="overlay-carousel-main"
+                  class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
+                  aria-label="Ver imagen ampliada"
+                >
+                  <!-- Striped background -->
+                  <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
+
+                  <!-- Track container -->
+                  <div
+                    id="overlay-carousel-track"
+                    class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
+                    style="transform: translate3d(0, 0, 0);"
+                  >
+                    <!-- Populated dynamically -->
+                  </div>
+                </button>
+              </div>
+
+              <!-- Dots: in flow below `lg` (below the image), so they count as part of the
+                   pinned box's own content — the pb-8 above always applies after them.
+                   Floating absolute on desktop so they never shift the columns' fixed
+                   400px height. -->
+              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="overlay-carousel-dots">
                 <!-- Populated dynamically -->
               </div>
-            </button>
-
-            <!-- Dots: in flow on mobile (below the image), floating absolute on
-                 desktop so they never shift the columns' fixed 400px height -->
-            <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="overlay-carousel-dots">
-              <!-- Populated dynamically -->
             </div>
           </div>
 
-          <!-- Column 3: Event Info -->
-          <div class="order-3 lg:order-none flex flex-col gap-10 w-full pl-0 lg:pl-6">
+          <!-- Column 1: Tags Sidebar. h-[400px]+justify-between matches the image column's own
+               fixed height and spreads the tags across it (see event/[id].astro for the full
+               rationale) instead of a flat 40px gap that left this column visibly shorter.
+               order-2 (lg:order-1 restores the desktop column position) puts it right after
+               the image below `lg`. -->
+          <div class="event-tags-row order-2 lg:order-1 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-6 lg:border-b-0 lg:pb-0" id="overlay-tags-sidebar">
+            <!-- Populated dynamically via JS -->
+          </div>
+
+          <!-- Column 3: Event Info. order-3 (same at every breakpoint) needs to be explicit —
+               the default `order: 0` on an unstyled item would otherwise rank it above the
+               image/tags columns, which both carry an explicit order. -->
+          <div class="order-3 flex flex-col gap-10 w-full pl-0 lg:pl-6">
             <h2 id="overlay-event-title" class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary"></h2>
 
             <div class="flex flex-col gap-10">
@@ -658,7 +709,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
         <!-- Navigation block. On mobile: 2-column row under a divider, with
              Anterior/Siguiente side by side (Figma 575:83196). -->
-        <div class="grid grid-cols-2 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-12 lg:mt-[280px] pt-6 border-t border-mel-border lg:pt-0 lg:border-t-0 shrink-0 items-center">
+        <div id="overlay-nav-block" class="grid grid-cols-2 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-12 lg:mt-[280px] pt-6 border-t border-mel-border lg:pt-0 lg:border-t-0 shrink-0 items-center">
           <div class="hidden lg:block"></div>
 
           <!-- Anterior -->
@@ -667,6 +718,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           <!-- Siguiente -->
           <div class="flex justify-start text-left pl-0 lg:pl-6 items-center" id="overlay-nav-next-container"></div>
         </div>
+
+        <!-- Scroll runway spacer (below `lg` only) — mirrors event/[id].astro's
+             #detail-scroll-runway exactly: guarantees the shrink has room to
+             fully complete before hitting the natural end of the page, or the
+             page's own scrollable height chases the scroll position 1:1
+             forever instead of settling (visible trembling). See
+             ensureOverlayScrollRunway() in the script below. -->
+        <div id="overlay-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
       </div>
 
     </div>
@@ -917,6 +976,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     white-space: nowrap;
     min-width: 0;
     max-width: 100%;
+  }
+
+  /* Scroll anchoring (on by default) fights the pinned-image scroll math in
+     updateOverlayStickyImage() — see the identical rule/rationale in
+     event/[id].astro's own <style> block. */
+  #overlay-image-crop,
+  #overlay-image-sentinel,
+  #overlay-scroll-runway {
+    overflow-anchor: none;
   }
 
   /* Event details SPA overlay: settle-in/out reveal shared by all entry
@@ -3549,11 +3617,174 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // covers that without risking a real (much later) user interaction ever
     // seeing gallerySettled still false.
     setTimeout(() => { gallerySettled = true; }, 200);
+
+    // Pinned, shrinking overlay image (below `lg`) — see updateOverlayStickyImage()
+    // for the full rationale (identical to event/[id].astro's #detail-image-sticky).
+    // The overlay scrolls within its own box (#event-details-overlay,
+    // overflow-y-auto), not the window, so the listener attaches there instead.
+    const overlayScrollEl = document.getElementById('event-details-overlay');
+    if (overlayScrollEl) {
+      overlayScrollEl.addEventListener('scroll', updateOverlayStickyImage, { passive: true, signal: wSig });
+      window.addEventListener('resize', () => {
+        ensureOverlayScrollRunway();
+        updateOverlayStickyImage();
+      }, { signal: wSig });
+    }
   }
 
   // ----------------------------------------------------
   // Fullscreen SPA Event Details Overlay Implementation
   // ----------------------------------------------------
+
+  // Pinned, shrinking image (below `lg`) — mirrors event/[id].astro's
+  // #detail-image-sticky/#detail-image-sentinel (see that file for the full
+  // rationale on why this is hand-computed via JS rather than CSS
+  // `position: sticky`, and why the release is anchored to the tags row
+  // rather than a generic containing-block calculation).
+  //
+  // Two differences from the standalone page, both stemming from
+  // #overlay-details-content wrapping the pinned image here (it doesn't in
+  // event/[id].astro):
+  // 1. This overlay scrolls within its own box (#event-details-overlay,
+  //    overflow-y-auto) rather than the window — harmless, since every
+  //    measurement below is a getBoundingClientRect() read (always
+  //    viewport-relative regardless of which ancestor actually scrolls).
+  // 2. #overlay-details-content has `transition: transform` for its own
+  //    enter/exit animation — and Chrome computes a live `matrix(...)` for
+  //    any element with `transform` in its transition-property list, even
+  //    at rest with no transform ever applied, which per spec makes it act
+  //    as the containing block for `position: fixed` descendants instead of
+  //    the viewport. So `imageSticky`'s `top`/`left`/`width` have to be
+  //    computed relative to #overlay-details-content's own current rect,
+  //    not assumed to be viewport-absolute like the standalone page can.
+  const OVERLAY_IMAGE_MAX_H = 400;
+  const OVERLAY_IMAGE_MIN_H = 200;
+
+  function updateOverlayStickyImage() {
+    const stickyHeader = document.getElementById('overlay-sticky-header');
+    const imageSticky = document.getElementById('overlay-image-sticky');
+    const imageSentinel = document.getElementById('overlay-image-sentinel');
+    const imageCrop = document.getElementById('overlay-image-crop');
+    const tagsRow = document.getElementById('overlay-tags-sidebar');
+    const containingBlock = document.getElementById('overlay-details-content');
+    if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !tagsRow || !containingBlock) return;
+
+    if (window.innerWidth >= 1024) {
+      imageSticky.style.position = '';
+      imageSticky.style.top = '';
+      imageSticky.style.left = '';
+      imageSticky.style.width = '';
+      imageSticky.style.margin = '';
+      imageCrop.style.height = '';
+      imageSentinel.style.height = '';
+      return;
+    }
+
+    const headerBottom = stickyHeader.getBoundingClientRect().bottom;
+
+    const sentinelTop = imageSentinel.getBoundingClientRect().top;
+    const scrolledPast = Math.max(0, headerBottom - sentinelTop);
+
+    // Below the engage point, stay in plain static flow instead of forcing
+    // `position: fixed` — this is what it looks like anyway (right below the
+    // header) at rest, and it sidesteps measuring #overlay-details-content's
+    // own opening entrance transition (transform/opacity, 0.55s) mid-flight:
+    // getBoundingClientRect() on an ancestor mid-transition gives a
+    // moving-target answer, not the settled one, which previously showed the
+    // photo torn/misplaced for an instant right after opening.
+    if (scrolledPast <= 0) {
+      imageSticky.style.position = '';
+      imageSticky.style.top = '';
+      imageSticky.style.left = '';
+      imageSticky.style.width = '';
+      imageSticky.style.margin = '';
+      imageCrop.style.height = `${OVERLAY_IMAGE_MAX_H}px`;
+      imageSentinel.style.height = '0px';
+      return;
+    }
+
+    const newCropHeight = Math.max(OVERLAY_IMAGE_MIN_H, Math.min(OVERLAY_IMAGE_MAX_H, OVERLAY_IMAGE_MAX_H - scrolledPast));
+    imageCrop.style.height = `${newCropHeight}px`;
+
+    // left/width (rather than left:0;right:0) since a containing block other
+    // than the true viewport — if one is currently in effect — doesn't
+    // necessarily span the full viewport width. margin:0 clears the
+    // -mx-6/-mx-12 full-bleed trick used for the static-mode (unscrolled)
+    // box — still-applied margins on a `fixed` box would double up with
+    // left/width below and render past both true screen edges.
+    imageSticky.style.position = 'fixed';
+    imageSticky.style.margin = '0';
+
+    // #overlay-details-content carries `transition: transform` for its own
+    // open/close animation, and Chrome computes a live `matrix(...)` for any
+    // element with `transform` in its transition-property list for a while
+    // after that transition runs — even back at rest, with no transform
+    // actually applied — which per spec makes it act as the containing block
+    // for `position: fixed` descendants (instead of the viewport) for as
+    // long as that lasts, then stops once it settles back to a literal
+    // `none`. Rather than guess which is currently true, apply a provisional
+    // viewport-relative guess, measure where it actually landed, and correct
+    // for whatever the gap turns out to be — this is correct either way,
+    // and self-heals if that transient window ever shifts.
+    imageSticky.style.left = '0';
+    imageSticky.style.width = `${window.innerWidth}px`;
+    const tagsTop = tagsRow.getBoundingClientRect().top;
+    const provisionalTop = Math.min(headerBottom, tagsTop - imageSticky.getBoundingClientRect().height);
+    imageSticky.style.top = `${provisionalTop}px`;
+
+    const renderedRect = imageSticky.getBoundingClientRect();
+    imageSticky.style.left = `${0 - renderedRect.left}px`;
+    imageSticky.style.top = `${provisionalTop - (renderedRect.top - provisionalTop)}px`;
+
+    const blockHeight = imageSticky.getBoundingClientRect().height;
+    imageSentinel.style.height = `${blockHeight}px`;
+  }
+
+  // Minimum scroll distance that must remain available, past the point where
+  // the crop starts shrinking, for it to reach its 200px floor before the
+  // page runs out of content — see event/[id].astro's identical constant and
+  // ensureScrollRunway() for the full rationale (shrinking the crop directly
+  // shrinks the page's own scrollable height, so without this, "scroll
+  // further" and "page gets shorter" chase each other 1:1 forever instead of
+  // settling — visible trembling, and the max scroll position flickering).
+  const OVERLAY_MIN_SCROLL_RUNWAY = (OVERLAY_IMAGE_MAX_H - OVERLAY_IMAGE_MIN_H) + 60;
+
+  function ensureOverlayScrollRunway() {
+    const imageSticky = document.getElementById('overlay-image-sticky');
+    const imageSentinel = document.getElementById('overlay-image-sentinel');
+    const imageCrop = document.getElementById('overlay-image-crop');
+    const scrollRunway = document.getElementById('overlay-scroll-runway');
+    if (!imageSticky || !imageSentinel || !imageCrop || !scrollRunway) return;
+
+    if (window.innerWidth >= 1024) {
+      scrollRunway.style.height = '';
+      return;
+    }
+    scrollRunway.style.height = '0px';
+
+    // Probe: temporarily force the fully-shrunk, pinned state to see how
+    // much natural scroll room is left after it, then immediately restore
+    // the real current state via updateOverlayStickyImage() — this all
+    // happens synchronously before the browser paints, so it's never
+    // visible. Has to actually switch to `fixed` (not just shrink the crop
+    // while still static) — otherwise imageSticky keeps occupying its own
+    // real flow space AND the sentinel reserves space on top of that,
+    // double-counting and wildly overstating how tall the page is.
+    imageCrop.style.height = `${OVERLAY_IMAGE_MIN_H}px`;
+    imageSticky.style.position = 'fixed';
+    imageSticky.style.margin = '0';
+    imageSticky.style.left = '0';
+    imageSticky.style.width = `${window.innerWidth}px`;
+    const minBlockHeight = imageSticky.getBoundingClientRect().height;
+    imageSentinel.style.height = `${minBlockHeight}px`;
+    const maxScrollAtFullShrink = document.documentElement.scrollHeight - window.innerHeight;
+
+    if (maxScrollAtFullShrink < OVERLAY_MIN_SCROLL_RUNWAY) {
+      scrollRunway.style.height = `${OVERLAY_MIN_SCROLL_RUNWAY - maxScrollAtFullShrink}px`;
+    }
+
+    updateOverlayStickyImage();
+  }
 
   function makeTagHtml(label, value, href) {
     const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
@@ -3903,6 +4134,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
 
     renderOverlayEvent(newEvent, panelEvents);
+    ensureOverlayScrollRunway();
+    updateOverlayStickyImage();
 
     if (dissolveClone) {
       requestAnimationFrame(() => {
@@ -3939,6 +4172,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       overlay.classList.remove('overlay-fading');
       overlay.classList.remove('hidden');
       overlay.classList.add('flex');
+      // Fresh open: start scrolled to the top, so the pinned image begins at
+      // its full 400px size rather than picking up wherever a previously
+      // viewed event happened to leave the scroll position.
+      overlay.scrollTop = 0;
     }
     // Start offset/hidden — renderOverlayEvent() below populates it while
     // still invisible, then the next step reveals it with a settle-in motion
@@ -3947,6 +4184,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (content) content.classList.add('overlay-content-enter');
 
     renderOverlayEvent(eventItem, panelEvents);
+    ensureOverlayScrollRunway();
+    updateOverlayStickyImage();
 
     // Double rAF: the first frame just commits the "enter" (offset) state so
     // the browser actually paints it — removing the class immediately after

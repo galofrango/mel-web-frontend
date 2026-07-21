@@ -1,6 +1,6 @@
 # Roadmap y Estado del Proyecto
 
-Última actualización: 2026-07-20.
+Última actualización: 2026-07-21.
 
 ## Funcionalidades Completadas
 
@@ -11,7 +11,7 @@
 - **Componente `EventCardList`**: Fila compacta de evento (miniatura 56×56 en fit sobre fondo secundario, título, fecha, chevron) usada en el panel del mapa y en la Lista móvil — ver `src/components/EventCardList.astro` y `buildEventCardListHtml()` en `index.astro`.
 - **Sistema de Estados Vacíos (`EmptyState`)**: Componente reutilizable (`<EmptyState variant="construction|no-results" />`) con tinte fotográfico duotono (`mix-blend-screen` sobre B/N). Implementado de forma estática en `/exposiciones` y dinámicamente en client-side JS para la Galería y Lista cuando una búsqueda no devuelve resultados.
 - **Intro Animada CMYK Refinada (`IntroAnimation.astro`)**: Pantalla de inicio con 3 capas CMYK (`mix-blend-multiply`) aisladas con `isolation: isolate`. Parallax interactivo del ratón (Amarilla máx 16px/1px blur, Magenta máx 8px/0.5px blur, Cian 0px estática), despegue ease-in de 2.1s sin desaceleración final y descomposición del subtítulo palabra por palabra (retardo de 150ms acotado a `-90vh`).
-- **Detalle de Evento Adaptativo**: Doble implementación (página estática `/event/[id]` y overlay SPA `?detail=MEL-XXXX`) con carrusel, lightbox en pantalla completa, navegación por teclado y botón *"Me presta"*.
+- **Detalle de Evento Adaptativo**: Doble implementación (página estática `/event/[id]` y overlay SPA `?detail=MEL-XXXX`) con carrusel, lightbox en pantalla completa, navegación por teclado y botón *"Me presta"*. En móvil/tablet (`<lg`): cabecera (X + título) y foto fijas durante el scroll, la foto encoge de 400px a 200px según se avanza y el resto de la ficha pasa por debajo hasta que la navegación Anterior/Siguiente llega al final (D-032).
 - **Página de Información (`/info`)**: Mini-CMS impulsado por la hoja de Google Sheets con acordeones desplegables y fotos duotono.
 - **Tema Claro/Oscuro Persistido**: Alternador de tema en el menú lateral con persistencia en `localStorage`.
 - **Diseño Responsive y Header Unificado**: Ajustes específicos de 375px a 1440px y geometría de header idéntica en todas las secciones.
@@ -44,6 +44,7 @@
 
 ## Ideas y Futuras Mejoras
 
+- **Icono de lupa sobre la foto del Detalle de Evento (móvil/tablet)**: visible en Figma "Screen / Event Details" (`369:32751`) como affordance superpuesto en la esquina inferior derecha de la foto, para abrir el visor a pantalla completa una vez la foto está encogida por el scroll (D-032). No implementado — la foto entera sigue abriendo el visor al pulsarla, como antes.
 - **Botón "Descargar" en el Detalle de Evento**: Diseñado en Figma (nodo `634-41290`, `DownloadButton`) para permitir la descarga directa de la pieza gráfica en alta resolución.
 - **Aprovechamiento de Campos Extra**: Integración de los campos ya parseados en el frontmatter (`ocr`, `notasArchivo`, `existeOriginal`, `formato`).
 - **Persistencia de "Me presta"**: Conexión con `localStorage` o servicio externo para guardar los eventos guardados por el usuario.

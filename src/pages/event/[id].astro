@@ -136,133 +136,195 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
   </style>
 
-  <!-- Main layout container with 108px (pb-[108px]) padding bottom. pt-[calc(10vh-40px)] md:pt-[10vh]
-       matches every other page header's top offset. -->
-  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-[calc(10vh-40px)] md:pt-[10vh] pb-[108px] px-6 sm:px-12">
+  <!-- Main layout container. pt-[calc(10vh-40px)] md:pt-[10vh] matches every
+       other page header's top offset. Bottom padding is 40px on mobile/tablet
+       (<lg) — the nav block ends up right around there from the screen's
+       bottom edge once fully scrolled, per spec — and 108px at `lg+`,
+       unchanged from before (desktop doesn't have this scroll behavior). -->
+  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-[calc(10vh-40px)] md:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12">
     <!-- Main Box Container (Figma 1224px wide) -->
-    <div class="w-full max-w-[1224px] flex flex-col select-none">
+    <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
-      <!-- Close Button (X) at Top Left -->
-      <a
-        id="detail-close-btn"
-        href="/"
-        class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0"
-        aria-label="Cerrar detalles de evento"
-        data-node-id="536:47449"
+      <!-- Sticky Header (X + Mobile Title), Figma "Screen / Event Details"
+           (369:32751) PageHeader + "No Scrolling Content": pinned at the true
+           viewport top below `lg` so it never scrolls away. pb-8 lives on the
+           wrapper itself (not as the title's own mb-8) specifically so
+           updateStickyImage() gets a reliable getBoundingClientRect().height
+           for it — a margin on the last child can collapse through into the
+           parent's own box, but padding never does, and JS needs this height
+           to position the image right below it. -->
+      <div
+        id="detail-sticky-header"
+        class="sticky top-0 z-30 bg-mel-bg-primary -mx-6 px-6 pb-8 sm:-mx-12 sm:px-12 lg:static lg:bg-transparent lg:mx-0 lg:px-0 lg:pb-0"
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </a>
+        <!-- Close Button (X) at Top Left -->
+        <a
+          id="detail-close-btn"
+          href="/"
+          class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0"
+          aria-label="Cerrar detalles de evento"
+          data-node-id="536:47449"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </a>
 
-      <!-- Mobile-only Event Title: on mobile (Figma 369:32751) the title sits
-           between the close button and the image; on desktop it lives at the
-           top of the Info column instead. -->
-      <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary mb-8">
-        {eventData.title}
-      </h2>
+        <!-- Mobile-only Event Title: on mobile (Figma 369:32751) the title sits
+             between the close button and the image; on desktop it lives at the
+             top of the Info column instead. -->
+        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary">
+          {eventData.title}
+        </h2>
+      </div>
 
       <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). On
            mobile the same three blocks reflow per Figma 369:32751: image first
-           (full-bleed), then the tags as a horizontally scrollable row, then
-           the info column. -->
+           (full-bleed, pinned, shrinking), then the tags as a horizontally
+           scrollable row, then the info column — a real grid at every
+           breakpoint, with `order` doing the mobile reflow (see each column's
+           own comment). -->
       <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start">
-        
+
+        <!-- Column 2: Image Box (Figma 496px wide, height exactly 400px on
+             desktop). order-1 (lg:order-2 restores the desktop middle-column
+             position) puts it first below `lg`, matching Figma 369:32751's
+             image-then-tags-then-info mobile flow. -->
+        <div id="detail-image-column" class="order-1 lg:order-2 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
+          <!-- Reserves flow space for the pinned image below `lg` (that image
+               is `position: fixed` there, removed from normal flow — see
+               updateStickyImage()). Its height is kept in sync with the
+               pinned box's own current size on every scroll tick, so tags
+               below it are never covered by, nor gapped away from, the image:
+               they always start exactly where it currently ends, whatever
+               that current shrunk/unshrunk size happens to be. -->
+          <div id="detail-image-sentinel" class="w-full lg:hidden" aria-hidden="true"></div>
+
+          <!-- Pinned image box (Figma 369:32751: min-h-[200px] on scroll).
+               Below `lg`, updateStickyImage() drives `position: fixed` plus
+               `top`/`left`/`width` directly — can't be static Tailwind
+               classes since they depend on scroll position and on the sticky
+               header's live height. pb-8 (32px) is the gap to whatever comes
+               next (tags): it's on this box itself, after the dots if
+               present, so it's the same 32px whether or not this event has
+               pagination. -->
+          <div
+            id="detail-image-sticky"
+            class="z-20 flex flex-col items-center bg-mel-bg-primary pb-8 -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:pb-0 lg:mx-0 lg:w-full lg:bg-transparent"
+          >
+            <!-- Crop window: THIS is what shrinks (400px→200px), via
+                 overflow-hidden — not the photo itself. The photo (button
+                 below) always stays a full, unscaled 400px tall and anchored
+                 to this wrapper's top edge (plain flow, first/only child), so
+                 shrinking the wrapper just reveals progressively less of it
+                 from the bottom up, at its real size/ratio, instead of
+                 rescaling it down. -->
+            <div id="detail-image-crop" class="relative w-full overflow-hidden lg:h-[400px]">
+              <button
+                id="carousel-main-container"
+                class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
+                aria-label="Siguiente imagen"
+              >
+                <!-- Custom background image matching Figma specifications exactly (flipped 180deg horizontally) -->
+                <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
+
+                <!-- Slides track container with sliding transform transition -->
+                <div
+                  id="carousel-track"
+                  class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
+                  style="transform: translate3d(0, 0, 0);"
+                >
+                  {imageUrls.map((img, idx) => (
+                    <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+                      <img
+                        src={img}
+                        alt={eventData.title}
+                        referrerpolicy="no-referrer"
+                        class="w-full h-full object-contain"
+                        style={idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : ""}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </button>
+            </div>
+
+            <!-- Pagination dots: in flow (below the image) below `lg`, so they
+                 count as part of the sticky box's own content — the pb-8
+                 above always applies after them, keeping the 32px gap to tags
+                 constant whether or not they're rendered. Floating absolute
+                 on desktop (top-[400px]) so they don't shift the navigation
+                 block there, unchanged from before. -->
+            {imageUrls.length > 1 && (
+              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
+
+                {imageUrls.map((_, idx) => (
+                  <PaginationDot
+                    state={idx === 0 ? "Active" : "Resting"}
+                    index={idx}
+                    class="carousel-dot"
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         <!-- Column 1: Tags Sidebar (Figma 184px wide). h-[400px] matches the image column's own
              fixed height, and justify-between spreads the 5 tags across it so the first one lines
              up with the image's top edge and the last with its bottom edge, instead of a flat
              40px gap that leaves the column visibly shorter than the image next to it. gap-2 is
              just a minimum floor. min-w-0 overrides the grid item's default content-based minimum
              size, which would otherwise let a long tag value push this column wider than its
-             fixed 184px track. -->
-        <div class="event-tags-row order-2 lg:order-none flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-6 lg:border-b-0 lg:pb-0" data-name="Tags Section" style="view-transition-name: event-tags;">
-          <TagWithLink 
-            label="Fecha" 
-            count={dateDisplay.text} 
-            state={dateDisplay.isUnknown ? "Disabled" : "Default"} 
+             fixed 184px track. order-2 (lg:order-1 restores the desktop column position) puts it
+             right after the image below `lg`, matching Figma 369:32751. The grid's own gap-8
+             provides the 32px to the image column — same whether or not this event has pagination,
+             since #detail-image-sentinel's height (see the Image Column's comment) already accounts
+             for the dots when present. -->
+        <div class="event-tags-row order-2 lg:order-1 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-6 lg:border-b-0 lg:pb-0" data-name="Tags Section" style="view-transition-name: event-tags;">
+          <TagWithLink
+            label="Fecha"
+            count={dateDisplay.text}
+            state={dateDisplay.isUnknown ? "Disabled" : "Default"}
             hideBorder={true}
           />
-          <TagWithLink 
-            label="Lugar" 
-            count={locationDisplay.text} 
-            state={locationDisplay.isUnknown ? "Disabled" : "Default"} 
+          <TagWithLink
+            label="Lugar"
+            count={locationDisplay.text}
+            state={locationDisplay.isUnknown ? "Disabled" : "Default"}
             href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`}
             hideBorder={true}
           />
-          <TagWithLink 
-            label="Localidad" 
-            count={localityDisplay.text} 
-            state={localityDisplay.isUnknown ? "Disabled" : "Default"} 
+          <TagWithLink
+            label="Localidad"
+            count={localityDisplay.text}
+            state={localityDisplay.isUnknown ? "Disabled" : "Default"}
             href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
             hideBorder={true}
           />
-          <TagWithLink 
-            label="Organiza" 
-            count={organizerDisplay.text} 
-            state={organizerDisplay.isUnknown ? "Disabled" : "Default"} 
+          <TagWithLink
+            label="Organiza"
+            count={organizerDisplay.text}
+            state={organizerDisplay.isUnknown ? "Disabled" : "Default"}
             href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
             hideBorder={true}
           />
-          <TagWithLink 
-            label="Diseño" 
-            count={designerDisplay.text} 
-            state={designerDisplay.isUnknown ? "Disabled" : "Default"} 
+          <TagWithLink
+            label="Diseño"
+            count={designerDisplay.text}
+            state={designerDisplay.isUnknown ? "Disabled" : "Default"}
             href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
             hideBorder={true}
           />
         </div>
 
-        <!-- Column 2: Image Box (Figma 496px wide, height exactly 400px, dots
-             absolute/floating so layout height remains constant). On mobile it
-             comes first and runs full-bleed to the screen edges. -->
-        <div class="order-1 lg:order-none flex flex-col items-center relative h-auto lg:h-[400px] -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
-          <button 
-            id="carousel-main-container"
-            class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
-            aria-label="Siguiente imagen"
-          >
-            <!-- Custom background image matching Figma specifications exactly (flipped 180deg horizontally) -->
-            <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
-            
-            <!-- Slides track container with sliding transform transition -->
-            <div 
-              id="carousel-track" 
-              class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
-              style="transform: translate3d(0, 0, 0);"
-            >
-              {imageUrls.map((img, idx) => (
-                <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
-                  <img
-                    src={img}
-                    alt={eventData.title}
-                    referrerpolicy="no-referrer"
-                    class="w-full h-full object-contain"
-                    style={idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : ""}
-                  />
-                </div>
-              ))}
-            </div>
-          </button>
-
-          <!-- Pagination dots: in flow on mobile (below the image), floating absolute
-               on desktop (top-[400px]) so they don't shift the navigation block -->
-          {imageUrls.length > 1 && (
-            <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
-
-              {imageUrls.map((_, idx) => (
-                <PaginationDot
-                  state={idx === 0 ? "Active" : "Resting"}
-                  index={idx}
-                  class="carousel-dot"
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <!-- Column 3: Event Info (Figma 496px wide with 24px left padding) -->
-        <div class="order-3 lg:order-none flex flex-col gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
+        <!-- Column 3: Event Info (Figma 496px wide with 24px left padding).
+             order-3 (same at every breakpoint, third of three) needs to be
+             explicit here — the default `order: 0` on an unstyled item would
+             otherwise rank it ABOVE the image/tags columns, which both carry
+             an explicit order. -->
+        <div class="order-3 flex flex-col gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -315,7 +377,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
       <!-- Navigation block (positioned exactly 280px below the image container and
            columns on desktop, top-aligned). On mobile it's a 2-column row under a
            divider, with Anterior/Siguiente side by side (Figma 575:83196). -->
-      <div class="grid grid-cols-2 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-12 lg:mt-[280px] pt-6 border-t border-mel-border lg:pt-0 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-12 lg:mt-[280px] pt-6 border-t border-mel-border lg:pt-0 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block"></div>
@@ -352,8 +414,21 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
       </div>
 
+      <!-- Scroll runway spacer (below `lg` only). Guarantees the shrink has
+           room to fully complete (reach its 200px floor) before hitting the
+           natural end of the page — without this, on a short event the crop
+           is still actively shrinking right as the page runs out of content,
+           and since shrinking it directly reduces the page's own scrollable
+           height, scrolling further and the page getting shorter chase each
+           other 1:1, forever, instead of settling: the box visibly trembles
+           and the max scroll position flickers between two nearby values.
+           Height is 0 by default and only grows via ensureScrollRunway() in
+           the script below when the page's own natural content falls short —
+           content-rich events get no extra padding at all. -->
+      <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
+
     </div>
-    
+
     <!-- Image Detail Lightbox Overlay (Figma 841:40903: fixed-size modal,
          image object-contained inside it — never sized off the photo's
          natural dimensions, which used to let large photos overflow the
@@ -437,6 +512,186 @@ const designerDisplay = getTagDisplay(eventData.designer);
       if (activeSearch) returnParams.set('search', activeSearch);
       if (activeLocation) returnParams.set('location', activeLocation);
       closeBtn.href = `/?${returnParams.toString()}`;
+    }
+
+    // Abort any previous window listeners to prevent duplicates across page transitions
+    if (window._melAbortCtrl) window._melAbortCtrl.abort();
+    window._melAbortCtrl = new AbortController();
+    const wSig = window._melAbortCtrl.signal;
+
+    // Pinned, shrinking image (below `lg`). Figma "Screen / Event Details"
+    // (369:32751): the image sticks right below the sticky X+title header and
+    // shrinks from 400px down to a documented min of 200px as the page
+    // scrolls, so the rest of the content (tags, info, nav) passes underneath
+    // it (it paints on top, z-20) — matching "el resto de la página pasará
+    // por debajo de la foto". This is driven entirely by JS rather than CSS
+    // `position: sticky`: a sticky element only auto-releases (stops pinning,
+    // starts scrolling away normally) once its containing block runs out of
+    // room below it, which requires the sticky element itself to be at least
+    // as tall as the viewport — ours (well under 500px) never is, so native
+    // sticky would just stay pinned forever, permanently hiding tags/info
+    // behind it. `updateStickyImage()` below computes the release by hand:
+    // tags' own live position (which only depends on the sentinel's height,
+    // not on wherever the pinned image is currently rendered) is compared
+    // directly against the pinned box's current height, and the pin is
+    // capped the instant continuing to hold it would start covering tags —
+    // release happens naturally as part of the same formula, no separate
+    // nav-position tracking needed, and it's mathematically guaranteed to
+    // never leave tags/info/nav permanently covered.
+    const stickyHeader = document.getElementById('detail-sticky-header');
+    const imageSticky = document.getElementById('detail-image-sticky');
+    const imageSentinel = document.getElementById('detail-image-sentinel');
+    const imageCrop = document.getElementById('detail-image-crop');
+    const tagsRow = document.querySelector('.event-tags-row');
+    const IMAGE_MAX_H = 400;
+    const IMAGE_MIN_H = 200;
+
+    function updateStickyImage() {
+      if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !tagsRow) return;
+      if (window.innerWidth >= 1024) {
+        imageSticky.style.position = '';
+        imageSticky.style.top = '';
+        imageSticky.style.left = '';
+        imageSticky.style.width = '';
+        imageSticky.style.margin = '';
+        imageCrop.style.height = '';
+        imageSentinel.style.height = '';
+        return;
+      }
+
+      // Bottom edge of the (possibly still-engaging) sticky header — reads
+      // its LIVE position rather than assuming it's already pinned at 0, so
+      // this stays correct during the brief window before the header itself
+      // engages too.
+      const headerBottom = stickyHeader.getBoundingClientRect().bottom;
+
+      // The sentinel sits at the image's natural (unpinned) flow position
+      // and, being a plain block with no positioning of its own, keeps moving
+      // 1:1 with scroll regardless of what the pinned image above it is
+      // doing — that's what lets it measure how far past the engage point
+      // we've scrolled, which drives the shrink.
+      const sentinelTop = imageSentinel.getBoundingClientRect().top;
+      const scrolledPast = Math.max(0, headerBottom - sentinelTop);
+
+      // Below the engage point, stay in plain static flow instead of forcing
+      // `position: fixed` — this is what it looks like anyway (right below
+      // the header) at rest, and it sidesteps measuring this page's own
+      // opening entrance transition mid-flight (getBoundingClientRect() on
+      // anything mid-transition gives a moving-target answer, not the
+      // settled one, which previously showed the photo torn/misplaced for an
+      // instant right after opening).
+      if (scrolledPast <= 0) {
+        imageSticky.style.position = '';
+        imageSticky.style.top = '';
+        imageSticky.style.left = '';
+        imageSticky.style.width = '';
+        imageSticky.style.margin = '';
+        imageCrop.style.height = `${IMAGE_MAX_H}px`;
+        imageSentinel.style.height = '0px';
+        return;
+      }
+
+      const newCropHeight = Math.max(IMAGE_MIN_H, Math.min(IMAGE_MAX_H, IMAGE_MAX_H - scrolledPast));
+      imageCrop.style.height = `${newCropHeight}px`;
+
+      // Measure the pinned box's own current total height (crop window +
+      // dots, if present, + its pb-8) now that the crop window's height is
+      // set — and reserve exactly that much flow space via the sentinel, so
+      // tags below always start right where this box currently ends, never
+      // gapped away from it or overlapping it.
+      imageSticky.style.position = 'fixed';
+      imageSticky.style.left = '0';
+      // Explicit width, not `right: 0` — the static-mode w-[calc(100%+48px)]
+      // class is still in the cascade, and `left`+`right`+`width` all
+      // present at once is over-constrained; per spec `right` is the one
+      // that gets silently ignored (in ltr), so the calc() width would win
+      // and the box would render 48px past the true right edge.
+      imageSticky.style.width = `${window.innerWidth}px`;
+      // The negative-margin full-bleed trick (-mx-6 etc.) that positions this
+      // box edge-to-edge while it's in normal static flow still applies its
+      // margin to a `fixed` box too — left uncleared, it'd double up with the
+      // left:0 above and render 24-48px past the left edge too.
+      imageSticky.style.margin = '0';
+      const blockHeight = imageSticky.getBoundingClientRect().height;
+      imageSentinel.style.height = `${blockHeight}px`;
+
+      // Pin at the header's bottom edge normally — but never lower than
+      // (tags' own current top minus this box's height), which would start
+      // covering tags. Once scrolling brings tags' natural position up to
+      // that ceiling, `desiredTop` starts tracking it 1:1 (both now moving
+      // together, so the gap to tags stays constant from then on — and since
+      // info/nav never move relative to tags, they're covered by exactly the
+      // same guarantee).
+      const tagsTop = tagsRow.getBoundingClientRect().top;
+      const desiredTop = Math.min(headerBottom, tagsTop - blockHeight);
+      imageSticky.style.top = `${desiredTop}px`;
+    }
+
+    const scrollRunway = document.getElementById('detail-scroll-runway');
+    // Minimum scroll distance that must remain available, past the point
+    // where the crop starts shrinking, for it to reach its 200px floor
+    // before the page runs out of content: the shrink range itself (200px)
+    // plus a safety margin (60px) — without at least this much room, the
+    // shrink is still active exactly when scroll hits the natural end, and
+    // since shrinking directly reduces the page's own scrollable height,
+    // "scroll further" and "page gets shorter" chase each other 1:1 forever
+    // instead of settling (the box visibly trembles, maxScroll flickers
+    // between two nearby values).
+    const MIN_SCROLL_RUNWAY = (IMAGE_MAX_H - IMAGE_MIN_H) + 60;
+
+    function ensureScrollRunway() {
+      if (!scrollRunway || !imageCrop || !imageSentinel || !imageSticky) return;
+      if (window.innerWidth >= 1024) {
+        scrollRunway.style.height = '';
+        return;
+      }
+      scrollRunway.style.height = '0px';
+
+      // Probe: temporarily force the fully-shrunk (fixed, pinned) state to
+      // see how much natural scroll room is left after it, then immediately
+      // restore the real current state via updateStickyImage() — this all
+      // happens synchronously before the browser paints, so it's never
+      // visible. Has to actually switch to `fixed` (not just shrink the crop
+      // while still static) — otherwise imageSticky keeps occupying its own
+      // real flow space AND the sentinel reserves space on top of that,
+      // double-counting and wildly overstating how tall the page is.
+      imageCrop.style.height = `${IMAGE_MIN_H}px`;
+      imageSticky.style.position = 'fixed';
+      imageSticky.style.left = '0';
+      imageSticky.style.width = `${window.innerWidth}px`;
+      imageSticky.style.margin = '0';
+      const minBlockHeight = imageSticky.getBoundingClientRect().height;
+      imageSentinel.style.height = `${minBlockHeight}px`;
+      const maxScrollAtFullShrink = document.documentElement.scrollHeight - window.innerHeight;
+
+      if (maxScrollAtFullShrink < MIN_SCROLL_RUNWAY) {
+        scrollRunway.style.height = `${MIN_SCROLL_RUNWAY - maxScrollAtFullShrink}px`;
+      }
+
+      updateStickyImage();
+    }
+
+    // Called directly on every scroll tick rather than rAF-throttled: the
+    // work here is a handful of getBoundingClientRect() reads plus a few
+    // style writes, cheap enough that the browser's own passive-listener
+    // scheduling throttles it adequately on its own.
+    ensureScrollRunway();
+    updateStickyImage();
+    window.addEventListener('scroll', updateStickyImage, { passive: true, signal: wSig });
+    window.addEventListener('resize', () => {
+      ensureScrollRunway();
+      updateStickyImage();
+    }, { signal: wSig });
+
+    // Web fonts (Space Grotesk / Lora) are still loading at astro:page-load
+    // time, so the very first ensureScrollRunway() measurement can catch the
+    // page at a taller fallback-font layout and under- or over-shoot the
+    // runway it adds. Re-measure once fonts have actually settled.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        ensureScrollRunway();
+        updateStickyImage();
+      });
     }
 
     // Dynamic Navigation filtering based on activeSearch or activeLocation results
@@ -664,7 +919,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // Keep indicators aligned perfectly on window resize
     window.addEventListener('resize', () => {
       updateCarousel(currentIndex);
-    });
+    }, { signal: wSig });
 
     // Initialize carousel and autoplay
     if (imageUrls && imageUrls.length > 0) {
@@ -690,6 +945,21 @@ const designerDisplay = getTagDisplay(eventData.designer);
 </script>
 
 <style>
+  /* Scroll anchoring (on by default) fights the pinned-image scroll math:
+     Chrome tries to keep on-screen content visually stable whenever an
+     off-screen box changes size, and will silently nudge scrollY to
+     compensate whenever #detail-image-crop, #detail-image-sentinel or
+     #detail-scroll-runway resize — which then feeds back into
+     updateStickyImage()'s own scroll handler, compounding into an
+     unpredictable final scroll position. These are the only elements whose
+     height changes purely from script, never from user-visible content
+     shifting around, so disabling anchoring on them specifically is safe. */
+  #detail-image-crop,
+  #detail-image-sentinel,
+  #detail-scroll-runway {
+    overflow-anchor: none;
+  }
+
   /* Custom Typography style sheets mapping Figma tokens */
   .typo-tag-label {
     font-family: var(--font-sans);
