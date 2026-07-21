@@ -478,14 +478,14 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 
 - **Contexto**: Cuando la combinación de búsqueda y/o slider de fecha no devuelve resultados (`filtered.length === 0`), el estado vacío debe mostrarse centrado exactamente en la misma posición en las tres pestañas (Galería, Mapa y Lista). Además, en la vista Lista no debe quedar visible la cabecera de la tabla (`<thead>`), las tarjetas móviles ni la barra de paginación inferior.
 - **Decisión**:
-  1. Se crean contenedores vacíos con la misma geometría y alineación `#map-empty-state` en `#view-mapa` y `#list-empty-state` en `#view-lista`.
-  2. En `performDOMUpdates()` (`src/pages/index.astro`), si `filtered.length === 0`:
-     - Se inyecta la misma plantilla de `EmptyState` en Galería (`#gallery-grid`), Mapa (`#map-empty-state`) y Lista (`#list-empty-state`).
-     - Se oculta por completo `#list-table-wrapper` (eliminando la tabla y su cabecera `<thead>`), `#list-mobile-cards` y `#pagination-controls`.
-     - En el Mapa, se oculta el side panel si estuviera abierto.
-  3. Al cambiar de pestaña mediante los botones del toggle (`switchView()`), el selector de vistas conmuta la pestaña activa manteniendo la tarjeta `EmptyState` fijada exactamente en el mismo punto en la pantalla.
-- **Motivo**: Proporcionar una experiencia de usuario coherente y pulida sin restos visuales de la tabla o paginación cuando no existen resultados.
-- **Consecuencias**: Al navegar entre Galería, Mapa y Lista durante un estado sin resultados, el componente `EmptyState` permanece estable y centrado hasta que se restablezcan o modifiquen los filtros.
+  1. Se definen tres capas de estado vacío absolutas de pantalla completa `#gallery-empty-state`, `#map-empty-state` y `#list-empty-state` con las clases idénticas `absolute inset-0 bg-mel-bg-primary z-[15] items-center justify-center` en cada uno de los páneles de vista (`#view-galería`, `#view-mapa` y `#view-lista`).
+  2. En `performDOMUpdates()` (`src/pages/index.astro`), cuando `filtered.length === 0`:
+     - Se activan simultáneamente los tres overlays centrándose respecto a la altura total útil de pantalla con idéntico margen superior e inferior.
+     - Se ocultan las parrillas/tablas reales (`#gallery-grid`, `#list-table-wrapper` incluyendo la cabecera `<thead>`, `#list-mobile-cards` y `#pagination-controls`).
+     - En el Mapa, se cierra cualquier side panel abierto.
+  3. Al conmutar de pestaña en el toggle (`switchView()`), el `EmptyState` permanece **estático en las mismas coordenadas exactas**, sin saltos verticales ni desplazamientos.
+- **Motivo**: Replicar el centrado vertical simétrico de la vista mapa en las tres vistas para una transición fluida e idéntica.
+- **Consecuencias**: La tarjeta de `EmptyState` se mantiene perfectamente fija y centrada tanto vertical como horizontalmente al cambiar de vista.
 
 
 

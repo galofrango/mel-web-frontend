@@ -307,7 +307,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            full-width. Bottom breathing room lives on the grid itself (pb) because
            a scroll container's own padding-bottom is dropped from the scrollable
            area, so it wouldn't reserve space at the end of the scroll. -->
-      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px]">
+      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px] relative">
+        <div id="gallery-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[15] items-center justify-center"></div>
         <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
@@ -410,7 +411,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <!-- 3. LIST VIEW. pt-[24px] matches the gallery's own top padding (see the note on
            view-mapa above) so the table sits at the same height as the gallery's first row. -->
       <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0 pt-[24px]">
-        <div id="list-empty-state" class="hidden w-full flex-1 items-center justify-center py-12 relative"></div>
+        <div id="list-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[15] items-center justify-center"></div>
         <!-- The border lives on the <table> itself (top+bottom), not this wrapper — the wrapper
              is flex-1/stretches to fill whatever vertical space is available, so its own border
              would sit at the wrapper's edge (often below the actual last row, with an empty gap,
@@ -2169,6 +2170,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (revealObserver) revealObserver.disconnect();
       gridContainer.innerHTML = '';
 
+      const galleryEmptyState = document.getElementById('gallery-empty-state');
       const mapEmptyState = document.getElementById('map-empty-state');
       const listEmptyState = document.getElementById('list-empty-state');
       const listTableWrapper = document.getElementById('list-table-wrapper');
@@ -2193,13 +2195,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       }
 
       if (filtered.length === 0) {
+        const emptyHtml = getEmptyStateHtml();
+
         // 1. Galería empty state
-        gridContainer.className = 'w-full flex items-center justify-center py-12 relative';
-        gridContainer.innerHTML = getEmptyStateHtml();
+        if (galleryEmptyState) {
+          galleryEmptyState.innerHTML = emptyHtml;
+          galleryEmptyState.classList.remove('hidden');
+          galleryEmptyState.classList.add('flex');
+        }
+        gridContainer.classList.add('hidden');
 
         // 2. Mapa empty state
         if (mapEmptyState) {
-          mapEmptyState.innerHTML = getEmptyStateHtml();
+          mapEmptyState.innerHTML = emptyHtml;
           mapEmptyState.classList.remove('hidden');
           mapEmptyState.classList.add('flex');
         }
@@ -2207,13 +2215,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
         // 3. Lista empty state (hides table header, table body, mobile cards, and pagination)
         if (listEmptyState) {
-          listEmptyState.innerHTML = getEmptyStateHtml();
+          listEmptyState.innerHTML = emptyHtml;
           listEmptyState.classList.remove('hidden');
           listEmptyState.classList.add('flex');
         }
         if (listTableWrapper) listTableWrapper.classList.add('hidden');
         if (listMobileCards) listMobileCards.classList.add('hidden');
       } else {
+        if (galleryEmptyState) {
+          galleryEmptyState.classList.add('hidden');
+          galleryEmptyState.classList.remove('flex');
+        }
+        gridContainer.classList.remove('hidden');
+
         if (mapEmptyState) {
           mapEmptyState.classList.add('hidden');
           mapEmptyState.classList.remove('flex');
