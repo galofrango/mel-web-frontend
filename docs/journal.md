@@ -2,6 +2,87 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Grid fluido de 12 columnas en escritorio, nav siempre visible, y ajustes de dots/nav en móvil
+
+### Objetivo de la Sesión
+Cuatro ajustes del propietario sobre el detalle de evento: mover 16px del padding superior de la paginación al inferior, +8px entre Me presta y la navegación (móvil); y en escritorio, hacer el contenido adaptable (el grid fijo de 184/496/496px generaba scroll horizontal entre 1024 y ~1320px) y que la navegación Anterior/Siguiente quede siempre visible por encima del límite inferior de la pantalla.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-040: dots a `pt-4 pb-4`, nav a `mt-10`, grids convertidos al sistema de 12 columnas (`lg:grid-cols-12` + spans 2/5/5, que a 1224px reproducen exactamente los valores de Figma), y nav con `lg:sticky lg:bottom-[40px]` + fondo opaco y `py-6`.
+
+### Problemas Encontrados y Resueltos
+- El `lg:pt-0` heredado del nav anulaba el `padding-top` del nuevo `lg:py-6` (orden de utilidades de Tailwind: `pt-*` gana a `py-*` a igual variante) — eliminado.
+- Las capturas de escritorio salían "lavadas": verificado que es artefacto del captor del sandbox (opacidad computada 1, sin ancestros translúcidos), no un defecto real.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-21] — Sesión: Foto sin recorte en origen, lightbox desde 480px y ritmo vertical de 32px
+
+### Objetivo de la Sesión
+Corrección del propietario sobre la sesión anterior (captura anotada): la foto debe adaptarse entera a la caja de 360px (sin recorte en reposo — "la imagen es protagonista absoluta"), el lightbox debe funcionar como en desktop desde 480px de ancho, y los espaciados verticales de la ficha móvil eran irregulares (24/56/24/32/24/40/40/48/24px medidos).
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-039. Botón de la foto a `h-[360px] lg:h-[400px]` (flyer completo `object-contain`, el recorte centrado solo aparece al comprimir con scroll); umbral del click-lightbox de 1024→480px; y ritmo único de 32px entre todos los bloques (dots, tags, descripción, divisores, artistas, Me presta, nav) vía `gap-8`/`pb-8`/`pt-8`/`mt-8` por debajo de `lg`, con los valores de escritorio intactos en variantes `lg:`.
+
+### Problemas Encontrados y Resueltos
+- Ninguno nuevo; verificación por medición directa de los nueve huecos consecutivos (todos a 32px exactos en ambos ficheros) y capturas.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-21] — Sesión: Caja de imagen a 360px, tap para re-expandir y navegación anclada abajo
+
+### Objetivo de la Sesión
+Tres peticiones del propietario para el detalle móvil: bajar 40px la altura máxima de la caja de imagen, que el tap sobre la foto re-expanda la caja comprimida en vez de abrir el lightbox, y que el bloque Anterior/Siguiente quede siempre pegado al borde inferior (limitando el scroll) con ~40px de resguardo frente a la UI del teléfono.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-038. Máximo del recorte 400→360px (foto sigue a 400px centrada); tap en móvil = animación de scroll a 0 (bucle temporizado propio, ni `scrollTo` smooth ni rAF — ambos poco fiables, ver D-038); runway movido ANTES del nav y redimensionado para que el nav quede exactamente a 40px del borde inferior en todos los casos (con contenido corto empuja el nav hasta ahí y anula el scroll).
+
+### Problemas Encontrados y Resueltos
+- `scrollTo({behavior:'smooth'})` se ignora silenciosamente en el contenedor con overflow del overlay, y `requestAnimationFrame` no llega a ejecutarse en el sandbox de verificación (0 ticks medidos) — la animación pasó a frames por `setTimeout(16)` con easing basado en tiempo real.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-21] — Sesión: La foto se recorta centrada mientras encoge
+
+### Objetivo de la Sesión
+Petición del propietario sobre D-036: la imagen debe permanecer centrada en su caja contenedora mientras se hace pequeña al hacer scroll, no pegada al borde superior.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-037. La ventana de recorte pasa a `flex flex-col justify-center` y el botón de la foto gana `shrink-0` (sin él, el flex de columna reescalaría la altura del botón en vez de dejarlo desbordar y recortarse). Aplicado en espejo en `index.astro` y `event/[id].astro`; verificado con desbordamiento simétrico exacto en ambos y no-op en escritorio.
+
+Además, a petición del propietario, la cabecera fija (`#overlay-sticky-header` / `#detail-sticky-header`) gana un padding superior igual al inferior (`pt-8`, 32px, solo por debajo de `lg`) — el spacer sincronizado absorbe la nueva altura (152px) automáticamente, sin cambios de código JS.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-21] — Sesión: La caja de imagen queda clavada bajo la cabecera y pierde el padding inferior redundante
+
+### Objetivo de la Sesión
+El propietario reportó que la caja de la imagen parecía hacer scroll por detrás de la cabecera (debería solo encogerse, hasta 200px mínimo sin contar paginación) y que `#overlay-image-sticky` seguía teniendo un margin/padding inferior que pidió eliminar.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-036. En resumen, en ambos ficheros: (1) la caja pasa a anclarse incondicionalmente al borde inferior de la cabecera — se elimina la fórmula de liberación de D-032, que la deslizaba hacia arriba desde el primer píxel de scroll; (2) el centinela pasa a ser CONSTANTE (huella a tamaño completo), con lo que el contenido emerge a 32px bajo la caja durante el encogimiento y después pasa por debajo de ella, y el bucle de retroalimentación de D-033 desaparece estructuralmente; (3) eliminado el `pb-8` de la caja — era redundante con el `gap-8` del grid (64px de hueco visual en vez de 32).
+
+### Problemas Encontrados y Resueltos
+- Al reordenar, apareció un bug de "no se puede hacer scroll": medir el rect de la caja recién fijada antes de dar altura al centinela dejaba el overlay momentáneamente más corto que el viewport y el navegador recolocaba `scrollTop` a 0 en mitad del tick. Resuelto fijando el centinela ANTES de conmutar a `fixed`.
+- `ensureOverlayScrollRunway()` medía `document.documentElement.scrollHeight` (la home de detrás) en vez del propio overlay con scroll. Corregido.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-21] — Sesión: Los puntos de paginación del overlay dejan hueco de más cuando no hay paginación
 
 ### Objetivo de la Sesión

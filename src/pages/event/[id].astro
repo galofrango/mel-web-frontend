@@ -167,7 +167,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
            but padding never does. -->
       <div
         id="detail-sticky-header"
-        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pb-0"
+        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0"
       >
         <!-- Close Button (X) at Top Left -->
         <a
@@ -203,45 +203,50 @@ const designerDisplay = getTagDisplay(eventData.designer);
            scrollable row, then the info column — a real grid at every
            breakpoint, with `order` doing the mobile reflow (see each column's
            own comment). -->
-      <div class="grid grid-cols-1 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-start">
 
         <!-- Column 2: Image Box (Figma 496px wide, height exactly 400px on
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div id="detail-image-column" class="order-1 lg:order-2 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
+        <div id="detail-image-column" class="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
           <!-- Reserves flow space for the pinned image below `lg` (that image
                is `position: fixed` there, removed from normal flow — see
-               updateStickyImage()). Its height is kept in sync with the
-               pinned box's own current size on every scroll tick, so tags
-               below it are never covered by, nor gapped away from, the image:
-               they always start exactly where it currently ends, whatever
-               that current shrunk/unshrunk size happens to be. -->
+               updateStickyImage()). Held at a CONSTANT height: the box's
+               full-size footprint (crop 400px + dots if any) — deliberately
+               NOT synced to the box's current shrunk size. That way the
+               page's height never changes with scroll, tags emerge at the
+               grid's own 32px gap under the shrinking box, and once the crop
+               bottoms out at 200px the content simply passes underneath the
+               pinned box. -->
           <div id="detail-image-sentinel" class="w-full lg:hidden" aria-hidden="true"></div>
 
           <!-- Pinned image box (Figma 369:32751: min-h-[200px] on scroll).
                Below `lg`, updateStickyImage() drives `position: fixed` plus
                `top`/`left`/`width` directly — can't be static Tailwind
                classes since they depend on scroll position and on the sticky
-               header's live height. pb-8 (32px) is the gap to whatever comes
-               next (tags): it's on this box itself, after the dots if
-               present, so it's the same 32px whether or not this event has
-               pagination. -->
+               header's live height. NO bottom padding/margin of its own: the
+               32px resting gap to tags is the parent grid's gap-8, which
+               already applies after this box (dots included) whether or not
+               this event has pagination — any spacing here would stack on
+               top of that gap (the propietario flagged exactly that as
+               unwanted extra space below the photo). -->
           <div
             id="detail-image-sticky"
-            class="z-20 flex flex-col items-center bg-mel-bg-primary pb-8 -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:pb-0 lg:mx-0 lg:w-full lg:bg-transparent"
+            class="z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent"
           >
             <!-- Crop window: THIS is what shrinks (400px→200px), via
                  overflow-hidden — not the photo itself. The photo (button
-                 below) always stays a full, unscaled 400px tall and anchored
-                 to this wrapper's top edge (plain flow, first/only child), so
-                 shrinking the wrapper just reveals progressively less of it
-                 from the bottom up, at its real size/ratio, instead of
-                 rescaling it down. -->
-            <div id="detail-image-crop" class="relative w-full overflow-hidden lg:h-[400px]">
+                 below) always stays a full, unscaled 400px tall and CENTERED
+                 in this wrapper (flex column + justify-center; the button
+                 needs shrink-0 or column-flex would shrink its 400px height
+                 to fit), so shrinking the wrapper crops it evenly from the
+                 top and bottom at its real size/ratio, keeping the image
+                 centered instead of pinned to the top edge. -->
+            <div id="detail-image-crop" class="relative w-full overflow-hidden flex flex-col justify-center lg:h-[400px]">
               <button
                 id="carousel-main-container"
-                class="relative w-full h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
+                class="relative w-full h-[360px] lg:h-[400px] shrink-0 overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
                 aria-label="Siguiente imagen"
               >
                 <!-- Custom background image matching Figma specifications exactly (flipped 180deg horizontally) -->
@@ -269,13 +274,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
             </div>
 
             <!-- Pagination dots: in flow (below the image) below `lg`, so they
-                 count as part of the sticky box's own content — the pb-8
-                 above always applies after them, keeping the 32px gap to tags
-                 constant whether or not they're rendered. Floating absolute
+                 count as part of the sticky box's own content — the parent
+                 grid's gap-8 always applies after them, keeping the 32px gap
+                 to tags constant whether or not they're rendered. Floating absolute
                  on desktop (top-[400px]) so they don't shift the navigation
                  block there, unchanged from before. -->
             {imageUrls.length > 1 && (
-              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
+              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center pt-4 pb-4 lg:py-6 w-full" id="carousel-dots-container">
 
                 {imageUrls.map((_, idx) => (
                   <PaginationDot
@@ -300,7 +305,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              provides the 32px to the image column — same whether or not this event has pagination,
              since #detail-image-sentinel's height (see the Image Column's comment) already accounts
              for the dots when present. -->
-        <div class="event-tags-row order-2 lg:order-1 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-6 lg:border-b-0 lg:pb-0" data-name="Tags Section" style="view-transition-name: event-tags;">
+        <div class="event-tags-row order-2 lg:order-1 lg:col-span-2 flex flex-row lg:flex-col justify-start lg:justify-between gap-6 lg:gap-2 h-auto lg:h-[400px] w-full min-w-0 overflow-x-auto lg:overflow-visible no-scrollbar border-b border-mel-border pb-8 lg:border-b-0 lg:pb-0" data-name="Tags Section" style="view-transition-name: event-tags;">
           <TagWithLink
             label="Fecha"
             count={dateDisplay.text}
@@ -342,7 +347,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div class="order-3 flex flex-col gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
+        <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -350,9 +355,9 @@ const designerDisplay = getTagDisplay(eventData.designer);
           </h2>
 
           <!-- Description + Artists block -->
-          <div class="flex flex-col gap-10">
+          <div class="flex flex-col gap-8 lg:gap-10">
             {eventData.description && (
-              <div class="flex flex-col gap-6">
+              <div class="flex flex-col gap-8 lg:gap-6">
                 <p class="font-sans font-normal text-[16px] leading-[24px] tracking-[-0.16px] text-mel-text-primary">
                   {eventData.description}
                 </p>
@@ -392,16 +397,27 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
       </div>
 
+      <!-- Scroll runway spacer (below `lg` only), deliberately placed BEFORE
+           the nav block: growing it pushes the nav DOWN toward the screen's
+           bottom edge, and scrolling can never continue past the nav (it's
+           the last thing before the page's own 40px bottom padding). Sized
+           by ensureScrollRunway() so that, on content-short events, the nav
+           block's bottom lands exactly 40px above the bottom of the screen
+           (the page container's pb-[40px], the guard against phone nav UI);
+           content-rich events get no extra padding at all — their natural
+           scroll end already leaves the nav pinned at that same spot. -->
+      <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
+
       <!-- Navigation block (positioned exactly 280px below the image container and
            columns on desktop, top-aligned). On mobile it's a 2-column row under a
            divider, with Anterior/Siguiente side by side (Figma 575:83196). -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-[184px_496px_496px] gap-8 lg:gap-6 w-full mt-12 lg:mt-[280px] pt-6 border-t border-mel-border lg:pt-0 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[280px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[40px] lg:z-10 lg:bg-mel-bg-primary lg:py-6" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
-        <div class="hidden lg:block"></div>
+        <div class="hidden lg:block lg:col-span-2"></div>
         
         <!-- Anterior (Right-aligned under middle column) -->
-        <div class="flex justify-end text-right items-center" id="nav-prev-container">
+        <div class="lg:col-span-5 flex justify-end text-right items-center" id="nav-prev-container">
           {prevEvent && (
             <TagWithLink
               label="Anterior"
@@ -416,7 +432,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         </div>
 
         <!-- Siguiente (Left-aligned under right column with 24px left padding on desktop) -->
-        <div class="flex justify-start text-left pl-0 lg:pl-6 items-center" id="nav-next-container">
+        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center" id="nav-next-container">
           {nextEvent && (
             <TagWithLink
               label="Siguiente"
@@ -431,19 +447,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
         </div>
 
       </div>
-
-      <!-- Scroll runway spacer (below `lg` only). Guarantees the shrink has
-           room to fully complete (reach its 200px floor) before hitting the
-           natural end of the page — without this, on a short event the crop
-           is still actively shrinking right as the page runs out of content,
-           and since shrinking it directly reduces the page's own scrollable
-           height, scrolling further and the page getting shorter chase each
-           other 1:1, forever, instead of settling: the box visibly trembles
-           and the max scroll position flickers between two nearby values.
-           Height is 0 by default and only grows via ensureScrollRunway() in
-           the script below when the page's own natural content falls short —
-           content-rich events get no extra padding at all. -->
-      <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
     </div>
 
@@ -542,27 +545,27 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // shrinks from 400px down to a documented min of 200px as the page
     // scrolls, so the rest of the content (tags, info, nav) passes underneath
     // it (it paints on top, z-20) — matching "el resto de la página pasará
-    // por debajo de la foto". This is driven entirely by JS rather than CSS
-    // `position: sticky`: a sticky element only auto-releases (stops pinning,
-    // starts scrolling away normally) once its containing block runs out of
-    // room below it, which requires the sticky element itself to be at least
-    // as tall as the viewport — ours (well under 500px) never is, so native
-    // sticky would just stay pinned forever, permanently hiding tags/info
-    // behind it. `updateStickyImage()` below computes the release by hand:
-    // tags' own live position (which only depends on the sentinel's height,
-    // not on wherever the pinned image is currently rendered) is compared
-    // directly against the pinned box's current height, and the pin is
-    // capped the instant continuing to hold it would start covering tags —
-    // release happens naturally as part of the same formula, no separate
-    // nav-position tracking needed, and it's mathematically guaranteed to
-    // never leave tags/info/nav permanently covered.
+    // por debajo de la foto". The box NEVER moves once pinned: its top stays
+    // glued to the header's bottom edge for the whole scroll range (it never
+    // slides up behind the header), only the crop window's height changes.
+    // During the shrink phase the sentinel (held at a constant full-size
+    // height) makes content below emerge at a steady 32px under the box's
+    // receding bottom edge; once the crop bottoms out at 200px, further
+    // scrolling simply sends that content underneath the (opaque, z-20) box.
+    // Driven by JS rather than CSS `position: sticky` because sticky can't
+    // express "pinned forever but with a scroll-driven inner height" — and
+    // its own engage timing depends on natural resting position, which the
+    // propietario explicitly rejected for the header (D-034).
     const stickyHeader = document.getElementById('detail-sticky-header');
     const headerSpacer = document.getElementById('detail-header-spacer');
     const imageSticky = document.getElementById('detail-image-sticky');
     const imageSentinel = document.getElementById('detail-image-sentinel');
     const imageCrop = document.getElementById('detail-image-crop');
-    const tagsRow = document.querySelector('.event-tags-row');
-    const IMAGE_MAX_H = 400;
+    // Crop-window height range below `lg`. Max is 40px SHORTER than the
+    // photo's fixed 400px (the photo stays 400px and centered — see the
+    // crop's markup comment — so at rest 20px are already cropped off each
+    // end); desktop keeps the full 400px via the crop's lg:h-[400px] class.
+    const IMAGE_MAX_H = 360;
     const IMAGE_MIN_H = 200;
 
     // The header is `position: fixed` from the very first frame (not
@@ -582,7 +585,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
 
     function updateStickyImage() {
-      if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !tagsRow) return;
+      if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop) return;
       updateHeaderSpacer();
       if (window.innerWidth >= 1024) {
         imageSticky.style.position = '';
@@ -626,14 +629,30 @@ const designerDisplay = getTagDisplay(eventData.designer);
         return;
       }
 
+      // The sentinel reserves the box's FULL-SIZE footprint (crop at 400px +
+      // dots if present), as a constant — NOT the box's current shrunk
+      // height. Measured BEFORE any mutation below (current height plus
+      // however much the crop is currently shrunk — exact whether or not
+      // this event has dots, without hardcoding their height), and set
+      // BEFORE the box switches to `fixed`: setting it after would leave a
+      // forced-layout window where the box has already left normal flow but
+      // the sentinel hasn't grown yet — the page momentarily shorter than
+      // the viewport, which makes the browser clamp the scroll position
+      // back to 0 mid-tick (observed as "can't scroll at all"). A constant
+      // sentinel also means the page's height no longer depends on scroll
+      // position: during the shrink phase, content below rises 1:1 with
+      // scroll while the box's bottom edge also recedes 1:1, so tags stay
+      // exactly 32px (the grid's own gap-8) under it; after the crop
+      // bottoms out at 200px, content simply continues up and passes
+      // underneath the (opaque, z-20) box.
+      const currentBlockHeight = imageSticky.getBoundingClientRect().height;
+      const currentCropHeight = imageCrop.getBoundingClientRect().height;
+      const fullBlockHeight = currentBlockHeight + (IMAGE_MAX_H - currentCropHeight);
+      imageSentinel.style.height = `${fullBlockHeight}px`;
+
       const newCropHeight = Math.max(IMAGE_MIN_H, Math.min(IMAGE_MAX_H, IMAGE_MAX_H - scrolledPast));
       imageCrop.style.height = `${newCropHeight}px`;
 
-      // Measure the pinned box's own current total height (crop window +
-      // dots, if present, + its pb-8) now that the crop window's height is
-      // set — and reserve exactly that much flow space via the sentinel, so
-      // tags below always start right where this box currently ends, never
-      // gapped away from it or overlapping it.
       imageSticky.style.position = 'fixed';
       imageSticky.style.left = '0';
       // Explicit width, not `right: 0` — the static-mode w-[calc(100%+48px)]
@@ -647,61 +666,47 @@ const designerDisplay = getTagDisplay(eventData.designer);
       // margin to a `fixed` box too — left uncleared, it'd double up with the
       // left:0 above and render 24-48px past the left edge too.
       imageSticky.style.margin = '0';
-      const blockHeight = imageSticky.getBoundingClientRect().height;
-      imageSentinel.style.height = `${blockHeight}px`;
 
-      // Pin at the header's bottom edge normally — but never lower than
-      // (tags' own current top minus this box's height), which would start
-      // covering tags. Once scrolling brings tags' natural position up to
-      // that ceiling, `desiredTop` starts tracking it 1:1 (both now moving
-      // together, so the gap to tags stays constant from then on — and since
-      // info/nav never move relative to tags, they're covered by exactly the
-      // same guarantee).
-      const tagsTop = tagsRow.getBoundingClientRect().top;
-      const desiredTop = Math.min(headerBottom, tagsTop - blockHeight);
-      imageSticky.style.top = `${desiredTop}px`;
+      // Pinned at the header's bottom edge, unconditionally — the box never
+      // slides up behind the header, no matter how far the page scrolls.
+      imageSticky.style.top = `${headerBottom}px`;
     }
 
     const scrollRunway = document.getElementById('detail-scroll-runway');
-    // Minimum scroll distance that must remain available, past the point
-    // where the crop starts shrinking, for it to reach its 200px floor
-    // before the page runs out of content: the shrink range itself (200px)
-    // plus a safety margin (60px) — without at least this much room, the
-    // shrink is still active exactly when scroll hits the natural end, and
-    // since shrinking directly reduces the page's own scrollable height,
-    // "scroll further" and "page gets shorter" chase each other 1:1 forever
-    // instead of settling (the box visibly trembles, maxScroll flickers
-    // between two nearby values).
-    const MIN_SCROLL_RUNWAY = (IMAGE_MAX_H - IMAGE_MIN_H) + 60;
+    const navBlock = document.getElementById('detail-nav-block');
+    // Gap the nav block must always keep to the bottom of the screen, so it
+    // never sits under a phone's own navigation UI. Matches the page
+    // container's pb-[40px] below `lg` — that padding is what actually
+    // stops the scroll 40px short at the natural end; this constant only
+    // matters for the content-short case where the runway has to push the
+    // nav down to that same resting spot.
+    const NAV_BOTTOM_GUARD = 40;
 
+    // Sizes the runway (which sits BEFORE the nav block) so the nav's
+    // bottom edge always ends up pinned exactly NAV_BOTTOM_GUARD px above
+    // the bottom of the screen, and the scroll is limited to exactly that
+    // point: content-rich events need nothing (their natural scroll end —
+    // nav + the page's own bottom padding — already lands there), while
+    // content-short events get the deficit added so the nav rests at the
+    // bottom with no scrolling at all. Since the runway is before the nav
+    // and nothing follows the nav but the 40px padding, scrolling past the
+    // nav is impossible by construction. (The page's flow height is
+    // scroll-independent — the sentinel reserves a constant full-size
+    // footprint, see updateStickyImage() — so this is a plain one-shot
+    // measurement.)
     function ensureScrollRunway() {
-      if (!scrollRunway || !imageCrop || !imageSentinel || !imageSticky) return;
+      if (!scrollRunway || !navBlock) return;
       updateHeaderSpacer();
       if (window.innerWidth >= 1024) {
         scrollRunway.style.height = '';
         return;
       }
       scrollRunway.style.height = '0px';
-
-      // Probe: temporarily force the fully-shrunk (fixed, pinned) state to
-      // see how much natural scroll room is left after it, then immediately
-      // restore the real current state via updateStickyImage() — this all
-      // happens synchronously before the browser paints, so it's never
-      // visible. Has to actually switch to `fixed` (not just shrink the crop
-      // while still static) — otherwise imageSticky keeps occupying its own
-      // real flow space AND the sentinel reserves space on top of that,
-      // double-counting and wildly overstating how tall the page is.
-      imageCrop.style.height = `${IMAGE_MIN_H}px`;
-      imageSticky.style.position = 'fixed';
-      imageSticky.style.left = '0';
-      imageSticky.style.width = `${window.innerWidth}px`;
-      imageSticky.style.margin = '0';
-      const minBlockHeight = imageSticky.getBoundingClientRect().height;
-      imageSentinel.style.height = `${minBlockHeight}px`;
-      const maxScrollAtFullShrink = document.documentElement.scrollHeight - window.innerHeight;
-
-      if (maxScrollAtFullShrink < MIN_SCROLL_RUNWAY) {
-        scrollRunway.style.height = `${MIN_SCROLL_RUNWAY - maxScrollAtFullShrink}px`;
+      // Flow position (scroll-independent) of the nav's bottom edge.
+      const navBottomFlow = navBlock.getBoundingClientRect().bottom + window.scrollY;
+      const deficit = (window.innerHeight - NAV_BOTTOM_GUARD) - navBottomFlow;
+      if (deficit > 0) {
+        scrollRunway.style.height = `${deficit}px`;
       }
 
       updateStickyImage();
@@ -921,10 +926,35 @@ const designerDisplay = getTagDisplay(eventData.designer);
       }, 300);
     }
 
-    // Click on main image container opens overlay
+    // Click on main image container opens the lightbox — desktop only.
+    // Below `lg` it instead re-expands the pinned box (animates the scroll
+    // back to the top, which un-shrinks the crop 1:1) if it's currently
+    // compressed by scroll, and does nothing otherwise. Hand-rolled
+    // timer-driven animation — mirrors the overlay in index.astro, where
+    // native smooth scrolling silently no-ops in some environments and
+    // requestAnimationFrame never ticks in some sandboxed/throttled
+    // contexts, while direct scroll writes always work. Time-based easing,
+    // so a slow timer only lowers the frame rate, never the duration.
     const mainImageContainer = document.getElementById('carousel-main-container');
     if (mainImageContainer) {
-      mainImageContainer.addEventListener('click', openOverlay);
+      mainImageContainer.addEventListener('click', () => {
+        if (window.innerWidth < 1024) {
+          if (window.scrollY > 0) {
+            const startY = window.scrollY;
+            const t0 = performance.now();
+            const DUR = 350;
+            const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+            const stepFrame = () => {
+              const p = Math.min(1, (performance.now() - t0) / DUR);
+              window.scrollTo(0, Math.round(startY * (1 - easeOut(p))));
+              if (p < 1) setTimeout(stepFrame, 16);
+            };
+            stepFrame();
+          }
+          return;
+        }
+        openOverlay();
+      });
     }
 
     if (overlayCloseBtn) overlayCloseBtn.onclick = closeOverlay;
