@@ -461,3 +461,11 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Garantizar un contraste alto y permanente (WCAG AA/AAA) del texto sobre los elementos de acción principal en cualquier tema (claro u oscuro).
 - **Consecuencias**: El texto sobre `Action-Primary` es permanentemente casi blanco (`LE-50`) en ambos modos. Los botones sobre `Action-Secondary` conservan `--mel-text-on-action` para adaptarse correctamente a su fondo en modo oscuro.
 
+## D-050 · Revertido: Intento de actualización de `EmptyState` variante `no-results` con botón "Quitar filtros"
+
+- **Contexto**: Se intentó añadir el botón *"Quitar filtros"* y actualizar la descripción en el estado de "Sin resultados". El usuario reportó una regresión y solicitó revertir inmediatamente al commit anterior (`f724e97`).
+- **Decisión**: Se ejecuta `git revert` devolviendo el proyecto al estado del commit `f724e97`.
+- **Motivo**: Requerimiento directo del usuario para recuperar el comportamiento anterior estable.
+- **Consecuencias**: El código de `EmptyState.astro` e `index.astro` vuelve a su versión anterior sin cambios en los listeners o renderers de estado vacío.
+
+

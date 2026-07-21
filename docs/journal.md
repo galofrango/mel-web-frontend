@@ -2,6 +2,17 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Reversión de cambios en `EmptyState` variante "No results" (D-050)
+
+### Objetivo de la Sesión
+Revertir inmediatamente el commit `0556d1f` a petición del usuario para restablecer el estado exacto anterior del proyecto (`f724e97`).
+
+### Cambios Realizados
+1. **Ejecución de `git revert 0556d1f`**: Restaurado el código fuente de `src/components/EmptyState.astro` y `src/pages/index.astro` a su estado exacto anterior.
+2. **Documentación**: Registrada decisión `D-050` en `docs/decisions.md` detallando la reversión del intento.
+
+---
+
 ## [2026-07-21] — Sesión: Unificación del color de contraste de texto e iconos sobre Action-Primary (`LE-50`)
 
 ### Objetivo de la Sesión
