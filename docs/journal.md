@@ -2,6 +2,21 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Ajuste de estados en Marcadores de Mapa y Botón "Me presta" (D-052)
+
+### Objetivo de la Sesión
+Ajustar los colores de reposo e interacción de los marcadores del mapa y del botón "Me presta" para que solo cambien a `Action-Primary` en hover, pressed o estado activo seleccionado del mapa.
+
+### Cambios Realizados
+1. **Marcadores del Mapa (`MapMarker.astro` e `index.astro`)**:
+   - Ajustados en reposo a `Action-Secondary` (`--mel-action-secondary`) y texto `--mel-text-on-action`.
+   - Únicamente pasan a `Action-Primary` (`--mel-action-primary`) con texto `LE-50` (`--mel-text-on-action-primary`) en estados hover, pressed o marcador activo (`.mel-marker-wrapper.active`).
+2. **Botón "Me presta" (`LikeButton.astro` y réplica en `index.astro`)**:
+   - Confirmado que cuando está en estado activo (`data-active="true"`), en reposo se mantiene en `Action-Secondary`, y solo cambia a `Action-Primary` al hacer hover o pressed.
+3. **Documentación**: Registrada decisión `D-052` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Unificación de Overlay de `EmptyState` en `#content-views` (D-051)
 
 ### Objetivo de la Sesión

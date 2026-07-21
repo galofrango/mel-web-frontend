@@ -486,5 +486,19 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Eliminar cualquier discrepancia de padding o cálculo de altura entre paneles individuales, logrando que el estado vacío no se mueva ni un solo píxel al alternar entre Galería, Mapa y Lista.
 - **Consecuencias**: Transición perfectamente suave y nula variación vertical del estado vacío al cambiar de vista.
 
+## D-052 · Comportamiento de estados de color en Marcadores de Mapa y Botón "Me presta"
+
+- **Contexto**: Se define la interacción precisa de los estados Resting, Hover/Pressed y Active para los marcadores del mapa y el botón "Me presta".
+- **Decisión**:
+  1. **Marcadores del Mapa (`MapMarker.astro` y `index.astro`)**:
+     - **En reposo (Resting)**: Fondo `Action-Secondary`, puntero `Action-Secondary` y texto `var(--mel-text-on-action)`.
+     - **En Hover, Pressed o Activo (panel abierto)**: Cambia a fondo `Action-Primary`, puntero `Action-Primary` y texto en `var(--mel-text-on-action-primary)` (`LE-50`).
+  2. **Botón "Me presta" (`LikeButton.astro` y réplica en `index.astro`)**:
+     - **Inactivo (`data-active="false"`)**: Reposo en borde/texto `Action-Secondary`. Hover/Pressed conmuta a borde/texto `Action-Primary`.
+     - **Activo (`data-active="true"`)**: En reposo permanece en fondo/borde `Action-Secondary` con texto/icono `var(--mel-text-on-action)`. Solo cambia a fondo/borde `Action-Primary` con texto/icono `var(--mel-text-on-action-primary)` (`LE-50`) al hacer **Hover** o **Pressed**.
+- **Motivo**: Mantener una coherencia visual estricta donde los elementos activos en reposo utilizan `Action-Secondary` y únicamente la interacción (Hover/Pressed) o la selección principal activa del mapa promociona a `Action-Primary`.
+- **Consecuencias**: Los marcadores del mapa en reposo muestran `Action-Secondary`, y el botón "Me presta" activado se mantiene en `Action-Secondary` hasta que el usuario interactúa con él (Hover/Pressed).
+
+
 
 

@@ -26,10 +26,10 @@ const isHover = state === 'Hover';
 const isActive = state === 'Active';
 const isHoverOrActive = isHover || isActive;
 
-// Background color: Action Primary (granate)
-const bgColor = 'var(--mel-action-primary)';
-// Text color over Action Primary is ALWAYS LE-50 (text-on-action-primary)
-const textColor = 'var(--mel-text-on-action-primary)';
+// Background color: Action Secondary in resting, Action Primary in Hover/Active
+const bgColor = isHoverOrActive ? 'var(--mel-action-primary)' : 'var(--mel-action-secondary)';
+// Text color over Action Primary is LE-50 (text-on-action-primary), over Action Secondary is text-on-action
+const textColor = isHoverOrActive ? 'var(--mel-text-on-action-primary)' : 'var(--mel-text-on-action)';
 ---
 <div 
   class:list={[
