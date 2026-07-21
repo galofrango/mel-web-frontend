@@ -39,8 +39,9 @@ Dos paletas primitivas:
 | `text-primary` | le-950 | tinted-50 | Títulos principales y texto destacado |
 | `text-secondary` | tinted-600 | tinted-200 | Textos secundarios, descripciones y subtítulos |
 | `text-tertiary` | tinted-400 | tinted-500 | Datos deshabilitados / "desconocidos" |
-| `text-on-action` | tinted-50 | tinted-900 | Texto sobre botones principales |
-| `action-primary` | le-500 | le-400 | Colores de hover y elementos de acento |
+| `text-on-action` | tinted-50 | tinted-900 | Texto e iconos sobre Action-Secondary (cambia en modo oscuro) |
+| `text-on-action-primary` | le-50 | le-50 | Texto e iconos sobre Action-Primary (FIJO casi blanco en ambos modos) |
+| `action-primary` | le-500 | le-400 | Colores de hover y elementos de acento principal |
 | `action-secondary` | le-800 | le-100 | Botones principales y handles de slider |
 | `action-tertiary` | tinted-500 | tinted-400 | Bordes activos y elementos secundarios |
 | `border` | tinted-200 | tinted-700 | Divisores y bordes de tarjetas |

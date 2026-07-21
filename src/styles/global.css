@@ -89,6 +89,7 @@
   --mel-text-secondary: var(--mel-primitive-tinted-600);  /* TINTED 600 */
   --mel-text-tertiary: var(--mel-primitive-tinted-400);   /* TINTED 400 */
   --mel-text-on-action: var(--mel-primitive-tinted-50);    /* TINTED 50 */
+  --mel-text-on-action-primary: var(--mel-primitive-le-50); /* LE 50 (Always light over Action-Primary) */
 
   /* Action */
   --mel-action-primary: var(--mel-primitive-le-500);      /* LE 500 (ORIG) */
@@ -115,6 +116,7 @@
   --mel-text-secondary: var(--mel-primitive-tinted-200);
   --mel-text-tertiary: var(--mel-primitive-tinted-500);
   --mel-text-on-action: var(--mel-primitive-tinted-900);
+  --mel-text-on-action-primary: var(--mel-primitive-le-50); /* Fixed LE-50 for high contrast over Action-Primary */
 
   /* Action overrides */
   --mel-action-primary: var(--mel-primitive-le-400);
@@ -163,6 +165,7 @@
   --color-mel-text-secondary: var(--mel-text-secondary);
   --color-mel-text-tertiary: var(--mel-text-tertiary);
   --color-mel-text-on-action: var(--mel-text-on-action);
+  --color-mel-text-on-action-primary: var(--mel-text-on-action-primary);
   
   --color-mel-action-primary: var(--mel-action-primary);
   --color-mel-action-secondary: var(--mel-action-secondary);

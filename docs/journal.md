@@ -2,6 +2,39 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-21] — Sesión: Unificación del color de contraste de texto e iconos sobre Action-Primary (`LE-50`)
+
+### Objetivo de la Sesión
+Garantizar que todo texto o icono situado sobre elementos de color `Action-Primary` (o en estados hover/active que cambien a `Action-Primary`) utilice siempre el primitivo casi blanco `LE-50`, sin alternar en modo oscuro, favoreciendo el contraste y la accesibilidad WCAG.
+
+### Cambios Realizados
+1. **Nueva Token Semántica `--mel-text-on-action-primary` (D-049)**: Definida en `src/styles/global.css` tanto en `:root` como en `.dark` apuntando a `var(--mel-primitive-le-50)`. Expuesta a Tailwind v4 como `text-mel-text-on-action-primary` y `hover:text-mel-text-on-action-primary`.
+2. **Actualización de Componentes**:
+   - `SideMenu.astro`: Badge *"Nuevo"* y botón de cambio de modo de color en hover.
+   - `LikeButton.astro` y réplica en `index.astro`: Texto e icono del botón *"Me presta"* en hover activo.
+   - `MapMarker.astro` y marcadores del mapa en `index.astro`: Texto de los marcadores en estados hover y activo (`.mel-marker-wrapper.active`, `.mel-marker-wrapper:hover`, `.mel-popup-btn:hover`).
+   - `IconButton.astro`: Variante `primary` en hover.
+   - `EmptyState.astro`, `EventCard.astro`, `EventInfoBox.astro` y `event/[id].astro`: Botones con hover sobre `Action-Primary`.
+3. **Documentación**: Registrada decisión `D-049` en `docs/decisions.md` y actualizada la tabla de tokens en `docs/design-system.md`.
+
+---
+
+## [2026-07-21] — Sesión: El toolbar de la home (Highlights + Toggle) pasa a `flex-wrap` real con capturas de Figma como referencia
+
+### Objetivo de la Sesión
+El propietario se dio cuenta de que la confusión de las últimas rondas era en realidad sobre el toolbar de la HOME (Highlights + selector Galería/Mapa/Lista), no sobre el detalle de evento — aportó tres capturas de Figma mostrando el comportamiento exacto: escritorio con tags y Toggle en la misma fila, ancho intermedio con el Toggle saltando a su propia fila (no puede medir menos de 320px), y móvil con el slider a sangre y tags sin divisor inicial. Las tres especifican 24px entre divisores y tags.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-048. El contenedor del toolbar pasa de `grid grid-cols-1 lg:grid-cols-12` (salto brusco exactamente en 1024px) a `flex flex-wrap` real: las tags nunca se comprimen (`shrink-0`, ancho natural de contenido) y el Toggle crece (`grow`) para ocupar lo que sobre, saltando de línea de forma orgánica en cuanto su suelo de 320px deja de caber junto al ancho actual de las tags — sin depender de ningún breakpoint fijo.
+
+### Problemas Encontrados y Resueltos
+- El truco de sangrado por margen negativo de la fila de tags (`-mx-6 w-[calc(100%+48px)]`, D-041) rompía el cálculo del `flex-wrap`: con un ancho explícito de "100%+48px", el "100%" se resolvía contra el contenedor flex completo, no contra lo que la fila necesitaba — la fila se expandía a casi todo el ancho del toolbar y forzaba al Toggle a saltar de línea incluso en escritorio ancho. Corregido sustituyendo por `max-w-full` sin margen negativo. Coste asumido y documentado: el scroll de la fila en móvil muy estrecho ya no sangra hasta el borde físico de la pantalla (se recorta contra el padding de página) — incompatible con compartir línea con un hermano flex.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-21] — Sesión: D-046 revertido tras probarlo en Figma; se conservan los divisores de Highlights y el Toggle
 
 ### Objetivo de la Sesión

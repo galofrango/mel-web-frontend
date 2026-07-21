@@ -13,13 +13,13 @@ const { id, active = false, class: className = "" } = Astro.props;
   data-active={active ? "true" : "false"}
 >
   <!-- Centered Label with color transition -->
-  <span class="text-mel-action-secondary group-hover:text-mel-action-primary group-data-[active=true]:text-mel-text-on-action transition-colors duration-300 select-none pointer-events-none">
+  <span class="text-mel-action-secondary group-hover:text-mel-action-primary group-data-[active=true]:text-mel-text-on-action group-data-[active=true]:group-hover:text-mel-text-on-action-primary transition-colors duration-300 select-none pointer-events-none">
     Me presta
   </span>
 
   <!-- Icon container sliding in from the right (width and opacity transition) -->
   <div class="icon-container flex items-center justify-center overflow-hidden shrink-0 w-0 opacity-0 ml-0 transition-all duration-300 ease-out group-data-[active=true]:w-5 group-data-[active=true]:opacity-100 group-data-[active=true]:ml-2">
-    <svg class="w-4 h-4 text-mel-text-on-action shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+    <svg class="w-4 h-4 text-mel-text-on-action group-data-[active=true]:group-hover:text-mel-text-on-action-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
     </svg>
   </div>
@@ -42,10 +42,12 @@ const { id, active = false, class: className = "" } = Astro.props;
   button[data-active="true"] {
     border-color: var(--mel-action-secondary);
     background-color: var(--mel-action-secondary);
+    color: var(--mel-text-on-action);
   }
 
   button[data-active="true"]:hover {
     border-color: var(--mel-action-primary);
     background-color: var(--mel-action-primary);
+    color: var(--mel-text-on-action-primary);
   }
 </style>

@@ -26,8 +26,10 @@ const isHover = state === 'Hover';
 const isActive = state === 'Active';
 const isHoverOrActive = isHover || isActive;
 
-// Background color: Resting=#490815, Hover/Active=#981932
+// Background color: Resting=Action Secondary, Hover/Active=Action Primary
 const bgColor = isHoverOrActive ? 'var(--mel-action-primary)' : 'var(--mel-action-secondary)';
+// Text color over Action Primary is ALWAYS LE-50 (text-on-action-primary)
+const textColor = isHoverOrActive ? 'var(--mel-text-on-action-primary)' : 'var(--mel-text-on-action)';
 ---
 <div 
   class:list={[
@@ -49,14 +51,14 @@ const bgColor = isHoverOrActive ? 'var(--mel-action-primary)' : 'var(--mel-actio
   >
     <!-- Label text -->
     <p class="font-sans font-medium text-[16px] leading-[20px] text-center overflow-hidden text-ellipsis whitespace-nowrap" 
-       style="color: var(--mel-text-on-action);">
+       style={`color: ${textColor};`}>
       {label}
     </p>
     
     <!-- Count (only for Text type) -->
     {!isNumber && count !== undefined && (
       <p class="font-sans font-medium text-[16px] leading-[20px] text-center overflow-hidden text-ellipsis whitespace-nowrap"
-         style="color: var(--mel-text-on-action);">
+         style={`color: ${textColor};`}>
         ({count})
       </p>
     )}
