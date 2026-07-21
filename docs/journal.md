@@ -2,6 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Ajuste de reglas de navegación en detalle de evento (D-055)
+
+### Objetivo de la Sesión
+Garantizar la simetría absoluta de la navegación inferior del detalle de evento respecto a la distancia de la cabecera al borde superior (`--mel-header-pt-desktop`), manteniendo un margen mínimo de 104px respecto a la caja de la imagen.
+
+### Cambios Realizados
+1. **Páginas `src/pages/index.astro` y `src/pages/event/[id].astro`**:
+   - Ajustada la separación respecto a la caja de la imagen / grid de contenido a `lg:mt-[104px]`.
+   - Reestablecido el borde inferior a `lg:bottom-[var(--mel-header-pt-desktop)]` y padding inferior `lg:pb-[var(--mel-header-pt-desktop)]`, replicando exactamente la misma distancia variable empleada para la parte superior de la cabecera.
+2. **Documentación**: Actualizada decisión `D-055` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Corrección y transición emergente de la descripción en el detalle de evento (D-056)
 
 ### Objetivo de la Sesión

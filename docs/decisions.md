@@ -522,16 +522,14 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Optimizar el aprovechamiento del espacio vertical en portátiles como el MacBook Pro de 15", garantizando que los detalles del evento encajen en pantalla sin scroll a menos que el contenido (descripción/artistas) sea extenso, y manteniendo una simetría idéntica entre la distancia de la cabecera al borde superior y de la navegación al borde inferior.
 - **Consecuencias**: En pantallas portátiles de 15", la vista de detalle encaja limpiamente sin scroll vertical innecesario, manteniendo la misma separación exacta en la parte superior e inferior.
 
-## D-055 · Separación superior (`120px`) y cota inferior (`104px`) del bloque de navegación en el detalle de evento
+## D-055 · Reglas del bloque de navegación en detalle de evento (distancia idéntica inferior/superior y margen de 104px a la foto)
 
-- **Contexto**: Se requiere ajustar la separación de la barra de navegación ("Anterior" / "Siguiente", `id="overlay-nav-block"` y `#detail-nav-block`) para distanciarla del contenido superior y fijar una cota mínima al límite inferior de la pantalla.
+- **Contexto**: Se requiere precisar las reglas de posicionamiento del bloque de navegación entre eventos ("Anterior" / "Siguiente", `id="overlay-nav-block"` y `#detail-nav-block`) en escritorio (`lg+`).
 - **Decisión**:
-  1. En `src/pages/index.astro` (overlay SPA) y `src/pages/event/[id].astro` (vista standalone):
-     - Se establece la separación superior con el bloque de contenido a un mínimo de 120px (`lg:mt-[120px]`).
-     - Se fija el límite inferior respecto al borde de la pantalla a un mínimo de 104px (`lg:bottom-[104px]` y padding inferior del contenedor `lg:pb-[104px]`).
-  2. Si el contenido de la parte superior (descripción/artistas) empuja el bloque de navegación hacia abajo, este desciende con el scroll manteniendo la distancia de 104px en la base.
-- **Motivo**: Proporcionar una respiración visual óptima entre las 3 columnas de contenido y los botones de navegación entre eventos, acotando la barra pegajosa a 104px del borde inferior de la pantalla.
-- **Consecuencias**: El bloque de navegación mantiene 120px de separación superior con el contenido y se acota a 104px respecto a la base del puerto de visión.
+  1. **Simetría superior/inferior**: La separación de la barra respecto al borde inferior de la pantalla es exactamente la misma que se utiliza para el margen superior de la cabecera: `--mel-header-pt-desktop` (`clamp(32px, 5vh, 88px)`), usando `lg:bottom-[var(--mel-header-pt-desktop)]` y padding inferior del contenedor `lg:pb-[var(--mel-header-pt-desktop)]`.
+  2. **Separación mínima de la caja de la imagen / contenido**: El módulo de navegación no puede acercarse a menos de 104px de la caja de la imagen o del bloque superior (`lg:mt-[104px]`).
+- **Motivo**: Mantener una simetría estética absoluta entre las cotas superior e inferior del marco de visión y asegurar que el bloque de navegación guarde una distancia limpia de al menos 104px respecto a la foto del flyer.
+- **Consecuencias**: El bloque de navegación se mantiene a `var(--mel-header-pt-desktop)` del borde inferior y guarda 104px de margen con la caja de la imagen en escritorio.
 
 ## D-056 · Transición de aparición emergente de la descripción (`opacity 0` + desde la caja de la imagen)
 
