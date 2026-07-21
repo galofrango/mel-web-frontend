@@ -533,6 +533,19 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Proporcionar una respiración visual óptima entre las 3 columnas de contenido y los botones de navegación entre eventos, acotando la barra pegajosa a 104px del borde inferior de la pantalla.
 - **Consecuencias**: El bloque de navegación mantiene 120px de separación superior con el contenido y se acota a 104px respecto a la base del puerto de visión.
 
+## D-056 · Transición de aparición emergente de la descripción (`opacity 0` + desde la caja de la imagen)
+
+- **Contexto**: Al navegar entre eventos en la vista de detalle (SPA overlay), cuando un evento sin descripción daba paso a un evento con descripción, el cálculo FLIP de posición interpretaba el origen previo en (0,0) (pantalla superior), provocando que el contenedor de descripción bajase atravesando toda la pantalla por encima del resto de elementos.
+- **Decisión**:
+  1. En `switchDetailsOverlayEventSPA` (`src/pages/index.astro`), se detecta cuando la descripción no existía en el evento saliente (`wasDescHidden`) y sí existe en el entrante (`isDescVisible`).
+  2. En este caso se evita el FLIP vertical global y se aplica una transición dedicada de entrada:
+     - **En escritorio (`lg+`)**: Emerge desde la izquierda (`opacity: 0`, `translateX(-50px)`) por detrás de la caja de la imagen (`z-20`).
+     - **En móvil (`<lg`)**: Emerge desde arriba (`opacity: 0`, `translateY(-24px)`) por detrás de la caja de la imagen.
+  3. Para el resto de elementos y en transiciones entre eventos que ya tenían descripción, se filtran sólo elementos previamente visibles (`oldRect.height > 5`), evitando cualquier salto indeseado desde la parte superior.
+- **Motivo**: Eliminar el cruce visual anómalo de texto sobre los elementos del header y lograr un comportamiento natural donde la descripción aparece emergiendo desde detrás de la imagen del flyer con desvanecimiento suave.
+- **Consecuencias**: Al navegar a un evento con descripción viniendo de uno sin ella, el texto se desliza limpiamente desde detrás de la imagen en escritorio (izquierda) o móvil (arriba) con opacidad progresiva.
+
+
 
 
 

@@ -4327,7 +4327,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // redrawing — instead of the old blanket 500ms fade-to-blank-and-back.
     // Only the sections whose *visibility* can toggle (description, artists)
     // get a FLIP: if one collapses/expands, whatever comes after glides into
+    // Only the sections whose *visibility* can toggle (description, artists)
+    // get a FLIP: if one collapses/expands, whatever comes after glides into
     // its new position instead of snapping.
+    const descContainer = document.getElementById('overlay-description-container');
+    const wasDescHidden = !descContainer || descContainer.classList.contains('hidden') || (descContainer.getBoundingClientRect().height < 5);
+
     const flipEls = ['overlay-description-container', 'overlay-artists-container', 'overlay-btn-me-presta']
       .map(id => document.getElementById(id))
       .filter(Boolean);
@@ -4367,18 +4372,51 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       });
     }
 
+    const isDescVisible = descContainer && !descContainer.classList.contains('hidden') && (descContainer.getBoundingClientRect().height > 5);
+
+    if (wasDescHidden && isDescVisible) {
+      const isDesktop = window.innerWidth >= 1024;
+      descContainer.style.transition = 'none';
+      descContainer.style.opacity = '0';
+      if (isDesktop) {
+        // Desktop (lg+): description enters from behind the image box (from the left)
+        descContainer.style.transform = 'translateX(-50px)';
+      } else {
+        // Mobile (<lg): description enters from behind/under the image box (from above)
+        descContainer.style.transform = 'translateY(-24px)';
+      }
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          descContainer.style.transition = 'opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+          descContainer.style.opacity = '1';
+          descContainer.style.transform = 'translate(0, 0)';
+          setTimeout(() => {
+            descContainer.style.transition = '';
+            descContainer.style.transform = '';
+            descContainer.style.opacity = '';
+          }, 420);
+        });
+      });
+    }
+
     flipEls.forEach((el, i) => {
+      if (el === descContainer && wasDescHidden && isDescVisible) {
+        return;
+      }
       const oldRect = oldRects[i];
       const newRect = el.getBoundingClientRect();
-      const deltaY = oldRect.top - newRect.top;
-      if (Math.abs(deltaY) > 1) {
-        el.style.transition = 'none';
-        el.style.transform = `translateY(${deltaY}px)`;
-        requestAnimationFrame(() => {
-          el.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-          el.style.transform = '';
-          setTimeout(() => { el.style.transition = ''; el.style.transform = ''; }, 420);
-        });
+      if (oldRect && oldRect.height > 5 && newRect && newRect.height > 5) {
+        const deltaY = oldRect.top - newRect.top;
+        if (Math.abs(deltaY) > 1) {
+          el.style.transition = 'none';
+          el.style.transform = `translateY(${deltaY}px)`;
+          requestAnimationFrame(() => {
+            el.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+            el.style.transform = '';
+            setTimeout(() => { el.style.transition = ''; el.style.transform = ''; }, 420);
+          });
+        }
       }
     });
   }

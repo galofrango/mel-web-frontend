@@ -2,6 +2,21 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Corrección y transición emergente de la descripción en el detalle de evento (D-056)
+
+### Objetivo de la Sesión
+Solucionar el problema en el que la descripción de un evento emergía desde la parte superior de la pantalla cruzando otros elementos al navegar desde un evento sin descripción, implementando una entrada emergente desde detrás de la imagen con opacidad 0.
+
+### Cambios Realizados
+1. **Lógica de transición en `switchDetailsOverlayEventSPA` (`src/pages/index.astro`)**:
+   - Detectado cuando un evento anterior carecía de descripción (`wasDescHidden`) y el nuevo evento sí tiene descripción (`isDescVisible`).
+   - Evitado el cálculo FLIP erróneo `translateY(0 - newRect.top)` que provocaba el cruce vertical desde la pantalla superior.
+   - En **escritorio (`lg+`)**: La descripción entra desde la izquierda (`translateX(-50px)`) emergiendo progresivamente desde detrás del bloque de la foto con `opacity: 0 -> 1`.
+   - En **móvil (`<lg`)**: La descripción entra desde arriba (`translateY(-24px)`) emergiendo por debajo del bloque de la foto con `opacity: 0 -> 1`.
+2. **Documentación**: Registrada decisión `D-056` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Ajuste de separación (120px) y cota inferior (104px) del bloque de navegación en detalle (D-055)
 
 ### Objetivo de la Sesión
