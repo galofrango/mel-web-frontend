@@ -2170,13 +2170,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         gridContainer.innerHTML = `
           <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
             <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-              <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
+              <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
               <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
             </div>
             <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
               <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-              <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Comprueba los filtros y prueba buscando otra cosa.</p>
+              <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
             </div>
+            <button type="button" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
+              <span>Quitar filtros</span>
+            </button>
           </div>
         `;
       } else {
@@ -2329,13 +2332,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               <td colspan="6" class="border-l border-r border-b border-mel-border bg-mel-bg-primary" style="height:100%;">
                 <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto h-full justify-center" data-name="Empty State">
                   <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-                    <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
+                    <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
                     <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
                   </div>
                   <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
                     <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-                    <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Comprueba los filtros y prueba buscando otra cosa.</p>
+                    <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
                   </div>
+                  <button type="button" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
+                    <span>Quitar filtros</span>
+                  </button>
                 </div>
               </td>
             </tr>
@@ -2475,13 +2481,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             mobileListContainer.innerHTML = `
               <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto h-full justify-center" data-name="Empty State">
                 <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-                  <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" />
+                  <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
                   <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
                 </div>
                 <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
                   <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-                  <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Comprueba los filtros y prueba buscando otra cosa.</p>
+                  <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
                 </div>
+                <button type="button" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
+                  <span>Quitar filtros</span>
+                </button>
               </div>
             `;
           } else {
@@ -3514,6 +3523,30 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const galleryScroller = document.getElementById('view-galería');
       if (galleryScroller) galleryScroller.scrollTop = 0;
       filterArchives(true);
+    }, { signal: wSig });
+
+    // Listen for EmptyState "Quitar filtros" button clicks
+    document.addEventListener('click', (e: any) => {
+      const btn = e.target.closest('.empty-state-clear-btn');
+      if (btn) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query: '' } }));
+
+        const sliderMin = document.getElementById('slider-min') as HTMLInputElement;
+        const sliderMax = document.getElementById('slider-max') as HTMLInputElement;
+        if (sliderMin && sliderMax) {
+          sliderMin.value = "2004";
+          sliderMax.value = "2019";
+          sliderMin.dispatchEvent(new Event('input', { bubbles: true }));
+          sliderMax.dispatchEvent(new Event('input', { bubbles: true }));
+        } else {
+          minYear = 2004;
+          maxYear = 2019;
+          _s.minYear = 2004;
+          _s.maxYear = 2019;
+          filterArchives(true);
+        }
+      }
     }, { signal: wSig });
 
     viewBtns.forEach(btn => {

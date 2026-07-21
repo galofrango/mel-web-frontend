@@ -461,3 +461,16 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Garantizar un contraste alto y permanente (WCAG AA/AAA) del texto sobre los elementos de acción principal en cualquier tema (claro u oscuro).
 - **Consecuencias**: El texto sobre `Action-Primary` es permanentemente casi blanco (`LE-50`) en ambos modos. Los botones sobre `Action-Secondary` conservan `--mel-text-on-action` para adaptarse correctamente a su fondo en modo oscuro.
 
+## D-050 · Actualización de la variante `no-results` de `EmptyState` (botón "Quitar filtros" y descripción)
+
+- **Contexto**: Tras la captura de diseño enviada por el usuario, el estado vacío cuando una búsqueda o filtro no arroja resultados debe mostrar explícitamente el botón de acción *"Quitar filtros"* y actualizar su texto descriptivo a *"Elimina los filtros o prueba a buscar otra cosa."*.
+- **Decisión**:
+  1. Se actualizan las propiedades por defecto de `src/components/EmptyState.astro` para la variante `no-results`:
+     - Texto descriptivo: `"Elimina los filtros o prueba a buscar otra cosa."`
+     - Botón visible por defecto (`showButton = true`) con etiqueta `"Quitar filtros"`.
+     - Lógica de click en cliente: Despacha la limpieza de búsqueda y restablece el rango del slider de años (2004–2019).
+  2. Se sincronizan las réplicas dinámicas en JavaScript de cliente en `src/pages/index.astro` (Galería, Lista escritorio y Lista móvil) para incluir exactamente esta estructura HTML y botón, registrando un listener delegado de click que ejecuta `filterArchives(true)` tras restablecer los filtros.
+- **Motivo**: Replicar fielmente las especificaciones visuales de Figma y mejorar la UX permitiendo al usuario resetear su búsqueda con un solo clic.
+- **Consecuencias**: Cuando una búsqueda no devuelve resultados, se presenta la tarjeta de estado vacío con el botón *"Quitar filtros"*, permitiendo restaurar la galería/lista inmediatamente.
+
+
