@@ -522,14 +522,17 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Optimizar el aprovechamiento del espacio vertical en portátiles como el MacBook Pro de 15", garantizando que los detalles del evento encajen en pantalla sin scroll a menos que el contenido (descripción/artistas) sea extenso, y manteniendo una simetría idéntica entre la distancia de la cabecera al borde superior y de la navegación al borde inferior.
 - **Consecuencias**: En pantallas portátiles de 15", la vista de detalle encaja limpiamente sin scroll vertical innecesario, manteniendo la misma separación exacta en la parte superior e inferior.
 
-## D-055 · Reglas del bloque de navegación en detalle de evento (distancia idéntica inferior/superior y margen de 104px a la foto)
+## D-055 · Posicionamiento flex del bloque de navegación en detalle de evento (Simetría 100% arriba/abajo + Margen 104px infranqueable)
 
-- **Contexto**: Se requiere precisar las reglas de posicionamiento del bloque de navegación entre eventos ("Anterior" / "Siguiente", `id="overlay-nav-block"` y `#detail-nav-block`) en escritorio (`lg+`).
+- **Contexto**: Anteriormente, el uso de `sticky bottom` en el bloque de navegación entre eventos ("Anterior" / "Siguiente", `id="overlay-nav-block"` y `#detail-nav-block`) provocaba dos fallos de maquetación en escritorio:
+  1. No dejaba el bloque a la misma distancia exacta del borde inferior de la pantalla que el botón de cerrar 'X' al borde superior.
+  2. En pantallas con menor altura ("bajitas"), la propiedad sticky forzaba al bloque de navegación a deslizarse hacia arriba por encima de la caja de la imagen.
 - **Decisión**:
-  1. **Simetría superior/inferior**: La separación de la barra respecto al borde inferior de la pantalla es exactamente la misma que se utiliza para el margen superior de la cabecera: `--mel-header-pt-desktop` (`clamp(32px, 5vh, 88px)`), usando `lg:bottom-[var(--mel-header-pt-desktop)]` y padding inferior del contenedor `lg:pb-[var(--mel-header-pt-desktop)]`.
-  2. **Separación mínima de la caja de la imagen / contenido**: El módulo de navegación no puede acercarse a menos de 104px de la caja de la imagen o del bloque superior (`lg:mt-[104px]`).
-- **Motivo**: Mantener una simetría estética absoluta entre las cotas superior e inferior del marco de visión y asegurar que el bloque de navegación guarde una distancia limpia de al menos 104px respecto a la foto del flyer.
-- **Consecuencias**: El bloque de navegación se mantiene a `var(--mel-header-pt-desktop)` del borde inferior y guarda 104px de margen con la caja de la imagen en escritorio.
+  1. **Estructura Flex**: Se asigna `lg:min-h-[calc(100vh-var(--mel-header-pt-desktop)*2)]` al contenedor principal (`#overlay-content-wrapper` y `#detail-page-container`) con flexbox vertical `justify-between`.
+  2. **Simetría Absoluta**: Se elimina `sticky` en escritorio y se usa `lg:mt-auto`. El borde superior del botón de cerrar 'X' queda a `var(--mel-header-pt-desktop)` del borde superior de la ventana, y el borde inferior del bloque de navegación queda exactamente a `var(--mel-header-pt-desktop)` del borde inferior de la ventana.
+  3. **Margen Infranqueable de 104px**: Se añade `lg:pt-[104px]` (o `lg:mt-auto lg:pt-[104px]`). En pantallas cortas, el bloque de navegación se mantiene en flujo normal a al menos 104px por debajo de la imagen del flyer, expandiendo la página verticalmente si es necesario sin solaparse jamás con la foto.
+- **Motivo**: Garantizar una simetría óptica idéntica entre la parte superior e inferior de la pantalla y evitar cualquier solapamiento con la caja de la foto en pantallas compactas.
+- **Consecuencias**: Distancia 100% simétrica al marco de visión y separación constante de mínimo 104px respecto a la imagen del evento.
 
 ## D-056 · Transición de aparición emergente de la descripción (`opacity 0` + desde la caja de la imagen)
 

@@ -2,15 +2,17 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Ajuste de reglas de navegación en detalle de evento (D-055)
+## [2026-07-22] — Sesión: Reestructuración flex de la navegación en el detalle de evento (D-055)
 
 ### Objetivo de la Sesión
-Garantizar la simetría absoluta de la navegación inferior del detalle de evento respecto a la distancia de la cabecera al borde superior (`--mel-header-pt-desktop`), manteniendo un margen mínimo de 104px respecto a la caja de la imagen.
+Garantizar la simetría óptica idéntica entre el botón de cerrar 'X' (arriba) y la navegación (abajo) respecto a los bordes de la pantalla, y asegurar que la navegación jamás se deslice por encima de la caja de la foto en pantallas cortas ("bajitas").
 
 ### Cambios Realizados
-1. **Páginas `src/pages/index.astro` y `src/pages/event/[id].astro`**:
-   - Ajustada la separación respecto a la caja de la imagen / grid de contenido a `lg:mt-[104px]`.
-   - Reestablecido el borde inferior a `lg:bottom-[var(--mel-header-pt-desktop)]` y padding inferior `lg:pb-[var(--mel-header-pt-desktop)]`, replicando exactamente la misma distancia variable empleada para la parte superior de la cabecera.
+1. **Modelado Flexbox en `src/pages/index.astro` y `src/pages/event/[id].astro`**:
+   - Asignada altura mínima `lg:min-h-[calc(100vh-var(--mel-header-pt-desktop)*2)]` con distribución `flex flex-col justify-between`.
+   - Eliminado `sticky bottom` en escritorio y aplicado `lg:mt-auto` + `lg:pt-[104px]`.
+   - Con esto, la distancia del botón 'X' al borde superior y de la navegación al borde inferior es exactamente 100% idéntica (`var(--mel-header-pt-desktop)`).
+   - En pantallas cortas ("bajitas"), la navegación se mantiene en flujo normal a mínimo 104px por debajo de la foto del flyer, expandiendo la página verticalmente con scroll sin solaparse nunca con la imagen.
 2. **Documentación**: Actualizada decisión `D-055` en `docs/decisions.md`.
 
 ---
