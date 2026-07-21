@@ -478,14 +478,13 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 
 - **Contexto**: Cuando la combinación de búsqueda y/o slider de fecha no devuelve resultados (`filtered.length === 0`), el estado vacío debe mostrarse centrado exactamente en la misma posición en las tres pestañas (Galería, Mapa y Lista). Además, en la vista Lista no debe quedar visible la cabecera de la tabla (`<thead>`), las tarjetas móviles ni la barra de paginación inferior.
 - **Decisión**:
-  1. Se definen tres capas de estado vacío absolutas de pantalla completa `#gallery-empty-state`, `#map-empty-state` y `#list-empty-state` con las clases idénticas `absolute inset-0 bg-mel-bg-primary z-[15] items-center justify-center` en cada uno de los páneles de vista (`#view-galería`, `#view-mapa` y `#view-lista`).
+  1. Se simplifica la arquitectura del estado vacío definiendo una única capa overlay `#views-empty-state` directamente sobre `#content-views` con `absolute top-[24px] right-0 bottom-0 left-0 bg-mel-bg-primary z-[30] items-center justify-center py-12`.
   2. En `performDOMUpdates()` (`src/pages/index.astro`), cuando `filtered.length === 0`:
-     - Se activan simultáneamente los tres overlays centrándose respecto a la altura total útil de pantalla con idéntico margen superior e inferior.
-     - Se ocultan las parrillas/tablas reales (`#gallery-grid`, `#list-table-wrapper` incluyendo la cabecera `<thead>`, `#list-mobile-cards` y `#pagination-controls`).
-     - En el Mapa, se cierra cualquier side panel abierto.
-  3. Al conmutar de pestaña en el toggle (`switchView()`), el `EmptyState` permanece **estático en las mismas coordenadas exactas**, sin saltos verticales ni desplazamientos.
-- **Motivo**: Replicar el centrado vertical simétrico de la vista mapa en las tres vistas para una transición fluida e idéntica.
-- **Consecuencias**: La tarjeta de `EmptyState` se mantiene perfectamente fija y centrada tanto vertical como horizontalmente al cambiar de vista.
+     - Se activa la capa `#views-empty-state` poblándola con el marcado de `EmptyState` ("Sin resultados", "Elimina los filtros o prueba a buscar otra cosa." y el botón "Quitar filtros").
+     - Se ocultan las vistas reales (`#gallery-grid`, `#list-table-wrapper` incluyendo la cabecera `<thead>`, `#list-mobile-cards` y `#pagination-controls`), cerrando cualquier side panel de ubicación en el mapa.
+  3. Al conmutar de vista mediante los botones del toggle (`switchView()`), el selector conmuta los estados de los botones, pero la tarjeta de `EmptyState` permanece **100% estática e inmóvil en las mismas coordenadas exactas**, ya que está anclada al contenedor padre global de las tres vistas.
+- **Motivo**: Eliminar cualquier discrepancia de padding o cálculo de altura entre paneles individuales, logrando que el estado vacío no se mueva ni un solo píxel al alternar entre Galería, Mapa y Lista.
+- **Consecuencias**: Transición perfectamente suave y nula variación vertical del estado vacío al cambiar de vista.
 
 
 
