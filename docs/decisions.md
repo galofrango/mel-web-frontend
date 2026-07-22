@@ -787,6 +787,16 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Tras exhaustivas pruebas, posicionar la cabecera pegajosa a `top-[-1px]` demostró ser la **única solución técnica y óptica efectiva** para resolver este problema recurrente de scroll. Al desplazar el `<thead>` exactamente 1px hacia arriba, el borde colapsado y el fondo secundario de la cabecera sellan por completo la grieta superior del contenedor pegajoso, impidiendo que el contenido desplazado se trasluzca en ningún frame.
 - **Consecuencias**: Queda registrado en la documentación del proyecto como la solución definitiva y comprobada ante cualquier intento futuro de modificar el offset de la cabecera de la tabla de Lista.
 
+## D-077 · Restablecimiento automático de scroll al cambiar de página en la paginación (`resetPaginationScroll`)
+
+- **Contexto**: Se solicita que al hacer clic en un número diferente de la paginación (`#pagination-numbers`) o en los botones Anterior/Siguiente, la tabla/vista restablezca su scroll a la posición inicial (`scrollTop = 0`), mostrando los primeros elementos en la parte superior.
+- **Decisión**:
+  1. En `src/pages/index.astro`, se añade la función auxiliar `resetPaginationScroll()` que pone a `0` el `scrollTop` de `#list-table-wrapper`, `#list-mobile-cards`, `#view-lista` y `#view-galería`.
+  2. Se invoca `resetPaginationScroll()` en los event listeners de clic de los botones numéricos de `pagination-numbers` y en los botones Anterior/Siguiente.
+- **Motivo**: Asegurar que al cambiar de página el usuario siempre empiece a ver la nueva lista desde el primer elemento superior.
+- **Consecuencias**: Al pulsar cualquier número o flecha de paginación, el scroll de la tabla o tarjetas de Lista se posiciona inmediatamente arriba del todo.
+
+
 
 
 
