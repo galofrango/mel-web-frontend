@@ -579,11 +579,18 @@ const designerDisplay = getTagDisplay(eventData.designer);
           >
             {imageUrls.map((img) => (
               <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+                <!-- max-w/max-h (not w-full/h-full): object-contain alone still
+                     scales UP past the image's natural resolution to fill the
+                     box, which pixelates small/low-res photos. w-auto h-auto
+                     lets it render at its real size by default, capped by
+                     max-w-full/max-h-full so it still shrinks to fit a box
+                     bigger than the image itself — never upscaled, always
+                     centered (the parent's own flex centering). -->
                 <img
                   src={img}
                   alt={eventData.title}
                   referrerpolicy="no-referrer"
-                  class="w-full h-full object-contain"
+                  class="w-auto h-auto max-w-full max-h-full object-contain"
                 />
               </div>
             ))}
