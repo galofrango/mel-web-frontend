@@ -2,16 +2,14 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Borde de 1px en la cabecera de la tabla de Lista vía inset box-shadow (D-076)
+## [2026-07-22] — Sesión: Borde medio estándar de 1px en la cabecera de Lista con pt-px en el contenedor (D-076)
 
 ### Objetivo de la Sesión
-Garantizar un borde visible e ininterrumpido de 1px (`var(--mel-border)`) alrededor de todo el grupo de celdas de la cabecera de la tabla de Lista.
+Sustituir el borde interior `box-shadow: inset` por bordes medios CSS estándar (`border-collapse: collapse`) en las celdas `<th>` de la cabecera de Lista, evitando que `overflow-y-auto` recorte la línea superior pegajosa.
 
 ### Cambios Realizados
-1. **Revertido `<colgroup>`**: Eliminada la clase de `<colgroup>` (los navegadores ignoran la propiedad CSS `border` sobre `<colgroup>`).
-2. **Estilo `.sort-header` (`src/pages/index.astro`)**:
-   - Añadida la propiedad `box-shadow: inset 0 0 0 1px var(--mel-border);` a `.sort-header`.
-   - Al dibujarse hacia el interior del cuadro de la celda `<th>`, se elimina el recorte superior producido por la posición `sticky top-0` y el `overflow-y-auto` del contenedor.
+1. **Revertida la sombra interior**: Eliminado `box-shadow: inset` de `.sort-header`.
+2. **Contenedor `#list-table-wrapper` (`src/pages/index.astro`)**: Añadido `pt-px` (1px de padding superior) para que la línea superior colapsada de la cabecera `sticky top-0` no sufra recortes.
 3. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md`.
 
 ---

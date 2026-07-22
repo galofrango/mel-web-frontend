@@ -777,14 +777,16 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
   - **Corrección robusta**: sustituido el `requestAnimationFrame` de duración fija por un `ResizeObserver` sobre `#map-container`, creado una única vez en `createGoogleMapInstance()` (con `disconnect()` de cualquier observer anterior al recrear la instancia del mapa) — dispara `resize()` en CADA frame en que el contenedor REALMENTE cambia de tamaño, sin depender de temporizaciones adivinadas, cubriendo apertura, cierre y redimensionado de ventana con un único mecanismo. `panTo()` se sigue disparando de inmediato al abrir (fuera del `if (googleMap)` que antes envolvía también el resize).
   - **Verificación**: build limpio, sin errores de consola, el panel sigue abriendo/cerrando con el ancho correcto (320px mínimo comprobado). **No ha sido posible confirmar visualmente que el problema de brusquedad esté resuelto** — los tiles de Google Maps no renderizan en este entorno sandbox en ningún punto de esta sesión, así que este diagnóstico y arreglo se basan en el razonamiento sobre el comportamiento conocido de la API clásica de Google Maps, no en una comprobación visual directa. Pendiente de confirmación del propietario en su propio navegador — si el `ResizeObserver` tampoco resuelve el síntoma, el problema puede estar en otro punto (p. ej. el propio timing de `updateSidePanelDOM()` synchrono bloqueando el primer frame de la transición CSS del panel, no solo el mapa).
 
-## D-076 · Borde de 1px (`border-mel-border`) en el grupo de celdas de cabecera de la tabla en Lista
+## D-076 · Borde medio estándar de 1px (`border-mel-border`) en el grupo de celdas de cabecera de la tabla en Lista
 
-- **Contexto**: Se solicita añadir un borde continuo de 1px (de color `var(--mel-border)`) alrededor de todo el grupo de celdas de la cabecera de la tabla de la vista de Lista en la página principal (`index.astro`). El intento previo de usar `<colgroup class="border ...">` fue descartado porque los navegadores ignoran la propiedad CSS `border` sobre elementos `<colgroup>`. Asimismo, el borde superior CSS plano (`border-t`) de los `<th>` se recortaba al ser el `<thead>` un elemento pegajoso (`sticky top-0`) dentro de un contenedor con `overflow-y-auto`.
+- **Contexto**: Se solicita reemplazar el `box-shadow: inset` interior por el borde medio estándar de CSS (`border-collapse: collapse` con `border-t border-b border-l border-r border-mel-border`) en las celdas `<th>` de la cabecera de la vista de Lista, asegurando que la línea superior no se recorte por la combinación de `sticky top-0` y `overflow-y-auto`.
 - **Decisión**:
-  1. Revertido el atributo `class` de `<colgroup>` en `src/pages/index.astro`.
-  2. Añadida la regla `box-shadow: inset 0 0 0 1px var(--mel-border);` a la clase `.sort-header` en `src/pages/index.astro`.
-- **Motivo**: El `box-shadow: inset` dibuja la línea de 1px estrictamente hacia el *interior* de cada celda `<th>` de la cabecera, lo que evita que el desbordamiento o la posición `sticky top-0` recorten el borde superior, garantizando un borde de 1px visible e ininterrumpido en todo el perímetro del bloque de cabecera y entre sus columnas.
-- **Consecuencias**: El bloque de cabecera completo de la tabla de Lista muestra un borde nítido de 1px del color oficial `var(--mel-border)` sin recortes por scroll ni sticky.
+  1. Revertida la sombra interior `box-shadow: inset` de `.sort-header` en `src/pages/index.astro`.
+  2. Añadido `pt-px` (padding superior de 1px) al contenedor `#list-table-wrapper` en `src/pages/index.astro`.
+  3. Las celdas `<th>` mantienen sus bordes colapsados estándar (`border-t border-b border-l border-r border-mel-border`).
+- **Motivo**: El padding de 1px en `#list-table-wrapper` evita que el borde superior colapsado ("borde medio") del `<thead>` pegajoso sea recortado por la caja de scroll `overflow-y-auto`, permitiendo que el grupo de celdas luzca el borde CSS estándar compartido sin efectos de sombra interior.
+- **Consecuencias**: El bloque de celdas de la cabecera cuenta con bordes medios de 1px de color `var(--mel-border)` totalmente visibles en todos sus lados y divisores.
+
 
 
 
