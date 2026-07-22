@@ -2,14 +2,14 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Añadido padding de 32px a `home-highlights-tags` (D-070)
+## [2026-07-22] — Sesión: Ajuste de padding de 32px a la derecha en `home-highlights-tags` (D-070)
 
 ### Objetivo de la Sesión
-Añadir 32px de padding al elemento `home-highlights-tags` en la página principal.
+Ajustar el padding de `home-highlights-tags` en la página principal para aplicarlo únicamente en el lateral derecho (`pr-[32px]`), eliminando el margen izquierdo.
 
 ### Cambios Realizados
 1. **Página principal (`src/pages/index.astro`)**:
-   - Añadida la clase `p-[32px]` a `<AdaptiveTagsRow id="home-highlights-tags" tags={tags} class="p-[32px]" />`.
+   - Actualizada la clase a `pr-[32px]` en `<AdaptiveTagsRow id="home-highlights-tags" tags={tags} class="pr-[32px]" />`.
 2. **Documentación**: Registrada decisión `D-070` en `docs/decisions.md`.
 
 ---

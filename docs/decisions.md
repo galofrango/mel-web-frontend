@@ -700,13 +700,14 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Respetar la especificación de diseño donde el fondo y el texto del ítem del menú usan tono secundario en hover, mientras el chevron destaca en `Action-Primary`.
 - **Consecuencias**: Al hacer hover sobre los enlaces del menú lateral, el fondo cambia a `bg-mel-bg-secondary`, el texto a `text-mel-action-secondary` y el chevron a `text-mel-action-primary`.
 
-## D-070 · Padding de 32px en `home-highlights-tags` (`AdaptiveTagsRow.astro`)
+## D-070 · Padding de 32px a la derecha en `home-highlights-tags` (`AdaptiveTagsRow.astro`)
 
-- **Contexto**: Se solicita incorporar un espaciado interior de 32px (`p-[32px]`) al contenedor de la fila de highlights de la página principal (`id="home-highlights-tags"`).
+- **Contexto**: Se solicita ajustar el espaciado de la fila de highlights de la página principal (`id="home-highlights-tags"`) para aplicar un padding de 32px únicamente en el margen derecho (`pr-[32px]`).
 - **Decisión**:
-  1. En `src/pages/index.astro`, se añade la propiedad `class="p-[32px]"` al componente `<AdaptiveTagsRow id="home-highlights-tags" tags={tags} />`.
-- **Motivo**: Proporcionar un margen interior holgado de 32px alrededor de los tags de estadísticas de la home.
-- **Consecuencias**: El elemento `home-highlights-tags` se renderiza con 32px de padding en todos sus bordes.
+  1. En `src/pages/index.astro`, se asigna `class="pr-[32px]"` al componente `<AdaptiveTagsRow id="home-highlights-tags" tags={tags} />`.
+- **Motivo**: Mantener el margen izquierdo alineado con la retícula de la página mientras se deja una reserva de 32px en el lateral derecho para el desplazamiento/scroll de la fila de tags.
+- **Consecuencias**: El elemento `home-highlights-tags` cuenta con 32px de padding en su extremo derecho sin modificar el margen izquierdo.
+
 
 
 
