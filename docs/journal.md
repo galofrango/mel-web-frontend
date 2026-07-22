@@ -2,15 +2,17 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Añadido borde de 1px a `<colgroup>` en la vista de Lista (D-076)
+## [2026-07-22] — Sesión: Borde de 1px en la cabecera de la tabla de Lista vía inset box-shadow (D-076)
 
 ### Objetivo de la Sesión
-Añadir la clase `border border-mel-border` al elemento `<colgroup>` de la tabla de la vista de Lista.
+Garantizar un borde visible e ininterrumpido de 1px (`var(--mel-border)`) alrededor de todo el grupo de celdas de la cabecera de la tabla de Lista.
 
 ### Cambios Realizados
-1. **Página principal (`src/pages/index.astro`)**:
-   - Añadida la clase `border border-mel-border` a `<colgroup>` en la tabla de la vista de Lista.
-2. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md`.
+1. **Revertido `<colgroup>`**: Eliminada la clase de `<colgroup>` (los navegadores ignoran la propiedad CSS `border` sobre `<colgroup>`).
+2. **Estilo `.sort-header` (`src/pages/index.astro`)**:
+   - Añadida la propiedad `box-shadow: inset 0 0 0 1px var(--mel-border);` a `.sort-header`.
+   - Al dibujarse hacia el interior del cuadro de la celda `<th>`, se elimina el recorte superior producido por la posición `sticky top-0` y el `overflow-y-auto` del contenedor.
+3. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md`.
 
 ---
 
