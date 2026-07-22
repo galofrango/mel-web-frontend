@@ -1888,7 +1888,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             btn.addEventListener('click', () => {
               currentPage = p;
               filterArchives();
-              resetPaginationScroll();
+              const cv = document.getElementById('content-views');
+              if (cv) cv.scrollIntoView({ behavior: 'smooth' });
             });
           }
           paginationNumbers.appendChild(btn);
@@ -2320,17 +2321,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
   }
 
-  function resetPaginationScroll() {
-    const tableWrapper = document.getElementById('list-table-wrapper');
-    if (tableWrapper) tableWrapper.scrollTop = 0;
-    const mobileCards = document.getElementById('list-mobile-cards');
-    if (mobileCards) mobileCards.scrollTop = 0;
-    const viewLista = document.getElementById('view-lista');
-    if (viewLista) viewLista.scrollTop = 0;
-    const viewGaleria = document.getElementById('view-galería');
-    if (viewGaleria) viewGaleria.scrollTop = 0;
-  }
-
   // Pagination click handlers — called from initHomePage()
   function bindPaginationEvents() {
     if (btnPrevPage) {
@@ -2339,7 +2329,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           currentPage--;
           syncState();
           filterArchives();
-          resetPaginationScroll();
           const cv = document.getElementById('content-views');
           if (cv) cv.scrollIntoView({ behavior: 'smooth' });
         }
@@ -2351,7 +2340,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         currentPage++;
         syncState();
         filterArchives();
-        resetPaginationScroll();
         const cv = document.getElementById('content-views');
         if (cv) cv.scrollIntoView({ behavior: 'smooth' });
       });

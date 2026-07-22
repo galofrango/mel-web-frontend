@@ -2,15 +2,15 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Restablecimiento automático de scroll en paginación (D-077)
+## [2026-07-22] — Sesión: Transición suave de desplazamiento al hacer clic en números de paginación (D-077)
 
 ### Objetivo de la Sesión
-Garantizar que al hacer clic en cualquier número de paginación (`#pagination-numbers`) o en los botones Anterior/Siguiente, el scroll de la tabla y las tarjetas de la vista de Lista se restablezca arriba del todo (`scrollTop = 0`).
+Replicar la animación/transición suave de desplazamiento hacia arriba (`scrollIntoView({ behavior: 'smooth' })` sobre `#content-views`) en los números de paginación al hacer clic en cualquier página (ej. de 1 a 2).
 
 ### Cambios Realizados
 1. **Página principal (`src/pages/index.astro`)**:
-   - Creada la función `resetPaginationScroll()` que reinicia el `scrollTop` de `#list-table-wrapper`, `#list-mobile-cards`, `#view-lista` y `#view-galería`.
-   - Invocada `resetPaginationScroll()` en los event listeners de clic de los botones numéricos generados en `paginationNumbers` y en los botones de navegación Anterior/Siguiente.
+   - Añadida la llamada a `document.getElementById('content-views').scrollIntoView({ behavior: 'smooth' })` en los event listeners de clic de cada botón numérico generado en `paginationNumbers`.
+   - Eliminada la lógica previa de reseteo instantáneo de `scrollTop`.
 2. **Documentación**: Registrada decisión `D-077` en `docs/decisions.md`.
 
 ---
