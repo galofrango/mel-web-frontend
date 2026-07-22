@@ -2,6 +2,42 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Apertura brusca del panel del mapa — segundo intento con ResizeObserver (D-075, ronda 2)
+
+### Objetivo de la Sesión
+El propietario, tras probar el delay de 500ms y el primer intento de sincronización (polling de `resize` por `requestAnimationFrame`), confirmó que la apertura seguía brusca — con una pista clave: el panel "aparece de tirón encima del mapa" en vez de deslizarse desde la derecha, mientras que el cierre sí anima correctamente.
+
+### Investigación y Cambios Realizados
+1. Diagnóstico: el `google.maps.Map` clásico no se entera de que su contenedor se ha encogido salvo aviso explícito — durante la transición CSS del panel, el mapa seguía pintando a su tamaño anterior, dando la sensación de que el panel "tapa" el mapa en vez de compartir el espacio con él.
+2. El primer intento (polling de 320ms por rAF) no lo resolvió de forma fiable.
+3. Sustituido por un `ResizeObserver` sobre `#map-container`, creado una vez en `createGoogleMapInstance()` — dispara `resize()` en cada cambio real de tamaño del contenedor, sin depender de duraciones adivinadas. Cubre apertura, cierre y redimensionado de ventana con un único mecanismo.
+4. **Verificación honesta**: no ha sido posible confirmar visualmente la mejora — los tiles de Google Maps no renderizan en este entorno sandbox en ningún punto de la sesión. El arreglo se basa en razonamiento sobre el comportamiento conocido de la API, no en comprobación visual directa.
+
+### Decisiones Tomadas
+- Ver la ronda 2 añadida a D-075 en `docs/decisions.md`.
+
+### Próximos Pasos
+- Confirmación del propietario en su propio navegador — si el síntoma persiste, revisar si `updateSidePanelDOM()` (síncrono, con escrituras DOM pesadas) está bloqueando el primer frame de la propia transición CSS del panel, no solo el mapa.
+
+---
+
+## [2026-07-22] — Sesión: Panel del mapa atascado desde el enlace "Lugar" (D-075)
+
+### Objetivo de la Sesión
+Corregir que el enlace "Lugar" del detalle de evento no abriera el panel de eventos del mapa como se esperaba, y que dicho panel se quedara atascado sin poder cerrarse.
+
+### Investigación y Cambios Realizados
+1. Causa raíz: el enlace usaba `?search=` en vez del parámetro dedicado `?location=`; el botón de cerrar solo limpiaba `?location=`, así que `?search=` seguía en la URL y volvía a abrir el panel en cualquier re-render posterior.
+2. `event/[id].astro`: el enlace "Lugar" pasa a `?view=mapa&location=<lugar>`.
+3. `index.astro`: eliminado el fallback a `?search=` en la lógica de auto-apertura del panel — evita la conflación semántica de raíz.
+4. Añadido movimiento de cámara (`setCenter`/`setZoom`) al abrir el panel por URL, reutilizando la lógica de `window.showLocationOnMap()` — función que resultó estar completamente huérfana (sin ninguna llamada, resto del overlay de D-072) y se ha eliminado.
+5. Verificado en navegador: el panel se abre con los eventos del lugar y se cierra sin quedar atascado.
+
+### Decisiones Tomadas
+- Ver decisión D-075 en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Fundido suave al abrir/navegar entre eventos (D-074)
 
 ### Objetivo de la Sesión

@@ -216,7 +216,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
           id="detail-tags-fixed-row"
           tags={[
             { label: 'Fecha', count: dateDisplay.text, state: dateDisplay.isUnknown ? 'Disabled' : 'Default' },
-            { label: 'Lugar', count: locationDisplay.text, state: locationDisplay.isUnknown ? 'Disabled' : 'Default', href: locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}` },
+            { label: 'Lugar', count: locationDisplay.text, state: locationDisplay.isUnknown ? 'Disabled' : 'Default', href: locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}` },
             { label: 'Localidad', count: localityDisplay.text, state: localityDisplay.isUnknown ? 'Disabled' : 'Default', href: localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}` },
             { label: 'Organiza', count: organizerDisplay.text, state: organizerDisplay.isUnknown ? 'Disabled' : 'Default', href: organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}` },
             { label: 'Diseño', count: designerDisplay.text, state: designerDisplay.isUnknown ? 'Disabled' : 'Default', href: designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}` },
@@ -345,7 +345,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
               label="Lugar"
               count={locationDisplay.text}
               state={locationDisplay.isUnknown ? "Disabled" : "Default"}
-              href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`}
+              href={locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}`}
               hideBorder={true}
             />
             <TagWithLink

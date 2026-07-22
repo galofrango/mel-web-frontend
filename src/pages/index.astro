@@ -1372,6 +1372,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   let galleryOrderedCache = [];
   let revealObserver = null;
   let sentinelObserver = null;
+  let mapResizeObserver = null;
 
   // Orden aleatorio ESTABLE por sesión: cada evento recibe una clave al azar
   // la primera vez que se le ve y la conserva — así un cambio de filtro no
@@ -2648,6 +2649,23 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     locationMarkers.clear();
     mapMarkers = [];
     _s.mapMarkers = mapMarkers;
+
+    // The classic google.maps.Map API (unlike the newer <gmp-map> element)
+    // has no idea its container resized unless told via event.trigger(map,
+    // 'resize') — left alone, opening the side panel (which shrinks
+    // #map-container through a plain CSS width transition, D-026) left the
+    // map's actual rendered content at its old, wider size for the whole
+    // transition, so the panel visually looked like it popped in ON TOP of
+    // a still-full-width map instead of the map making room for it. A
+    // ResizeObserver ties the resize signal to the container's REAL size on
+    // every frame it actually changes — robust regardless of transition
+    // duration/easing, and covers open, close, and window resize alike with
+    // one mechanism instead of guessing fixed delays per call site.
+    if (mapResizeObserver) mapResizeObserver.disconnect();
+    mapResizeObserver = new ResizeObserver(() => {
+      google.maps.event.trigger(googleMap, 'resize');
+    });
+    mapResizeObserver.observe(mapContainerEl);
   }
 
   async function initGoogleMap() {
@@ -2810,12 +2828,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // measurement above ran against that stale (still-collapsing) width,
       // so re-decide once the transition has settled.
       setTimeout(() => updateAdaptiveTagsRow('side-panel-tags-container'), 310);
-      if (googleMap) {
-        setTimeout(() => {
-          google.maps.event.trigger(googleMap, "resize");
-          googleMap.panTo(group.coords);
-        }, 310);
-      }
+      // Camera starts moving immediately — it animates smoothly on its own,
+      // so the map glides into place WHILE the panel opens instead of
+      // jumping once it already has. Keeping the map's own tiles in step
+      // with the panel's width transition is handled by the ResizeObserver
+      // set up in createGoogleMapInstance() (D-075), not by a timer here.
+      if (googleMap) googleMap.panTo(group.coords);
     }
   }
 
@@ -2933,26 +2951,47 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       locationGroups[locKey].events.push(item);
     });
 
-    // Auto-open side panel if loading with search/location parameter matching a specific place name
+    // Auto-open side panel if loading with a ?location= parameter matching a
+    // specific place name (e.g. the "Lugar" tag on event/[id].astro). Only
+    // ?location= is used for this match — NOT ?search=, which is a plain
+    // text search and shouldn't have the side effect of popping the map
+    // panel open just because someone searched a term that happens to equal
+    // a place name (this used to fall back to ?search= too, which is also
+    // why the panel could get stuck open with no way to close: the close
+    // button only ever cleared ?location=).
     const params = new URLSearchParams(window.location.search);
     const urlView = params.get('view');
-    const urlSearch = params.get('search');
     const urlLocation = params.get('location');
+    let justAutoOpened = false;
     if (urlView === 'mapa' && !activeSidePanelKey) {
-      const matchName = (urlLocation || urlSearch || '').toLowerCase().trim();
+      const matchName = (urlLocation || '').toLowerCase().trim();
       if (matchName) {
         const matchKey = Object.keys(locationGroups).find(key => {
           return locationGroups[key].locationName.toLowerCase() === matchName;
         });
         if (matchKey) {
           activeSidePanelKey = matchKey;
+          justAutoOpened = true;
         }
       }
     }
 
     // Update or hide side panel dynamically based on filtered data.
     if (activeSidePanelKey && locationGroups[activeSidePanelKey]) {
-      populateSidePanel(locationGroups[activeSidePanelKey]);
+      // Pan/zoom the camera to the matched place so arriving via a "Lugar"
+      // link is visibly "the map finds this place, THEN the panel opens" —
+      // not just a panel that's silently already open on load. Only for the
+      // just-matched case (justAutoOpened): a location the visitor already
+      // had open before this render (e.g. still on ?location= from an
+      // earlier auto-open) shouldn't re-snap the camera/re-delay on every
+      // re-render.
+      if (justAutoOpened && googleMap) {
+        googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
+        googleMap.setZoom(15);
+        setTimeout(() => populateSidePanel(locationGroups[activeSidePanelKey]), 500);
+      } else {
+        populateSidePanel(locationGroups[activeSidePanelKey]);
+      }
     } else {
       activeSidePanelKey = null;
       const sidePanel = document.getElementById('map-side-panel');
@@ -3666,22 +3705,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   // --- List View Sorting and Navigation Actions ---
-
-  window.showLocationOnMap = function(lugarName) {
-    switchView('mapa');
-    const matchKey = Object.keys(locationGroups).find(key => {
-      return locationGroups[key].locationName.toLowerCase() === lugarName.toLowerCase().trim();
-    });
-    if (matchKey) {
-      activeSidePanelKey = matchKey;
-      populateSidePanel(locationGroups[matchKey]); // ya añade 'side-panel-open' y opacity
-      const group = locationGroups[matchKey];
-      if (group && googleMap) {
-        googleMap.setCenter(group.coords);
-        googleMap.setZoom(15);
-      }
-    }
-  };
 
   window.searchInListView = function(query) {
     window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query } }));
