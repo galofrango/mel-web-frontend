@@ -689,3 +689,13 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Decisión**: añadido `touch-none` (Tailwind, `touch-action:none`) a `#min-handle`/`#max-handle` (vía `SliderHandler.astro`, componente compartido) y a `#slider-track-wrapper` — le dice al navegador que no intente interpretar gestos táctiles sobre estos elementos como pan/scroll/zoom, dejando el 100% del control al JS que ya lo gestiona por completo.
 - **Motivo**: es el fix estándar y ya establecido para esta clase de conflicto (slider/drag custom sobre táctil sin `touch-action`), aplicado en el punto exacto donde se origina — los propios elementos que reciben el gesto de arrastre.
 - **Consecuencias**: verificado por lectura del HTML servido (`curl`) que la clase `touch-none` llega al marcado de ambos tiradores y del track. No fue posible verificar visualmente el arrastre táctil en este entorno (mismo problema de capturas de pantalla no fiables señalado en D-067, y este sandbox no tiene un dispositivo táctil real que probar) — pendiente de confirmación del propietario en un dispositivo/navegador táctil real. La sospecha sobre la tabla de Lista no se investigó en esta entrada — si el rebote de página desaparece con este fix pero la tabla sigue teniendo problemas propios, son causas distintas (la tabla ya tiene su propio problema conocido y aparcado, D-066/D-067).
+
+## D-069 · Estilos de hover en los elementos del menú lateral (`SideMenu.astro`)
+
+- **Contexto**: Se solicita ajustar el estado hover de los elementos del menú lateral (`id="menu-item-home"`, `menu-item-intro`, etc.) para que el color de fondo pase a ser la variable completa de fondo secundario (`bg-mel-bg-secondary`) y el color de texto e icono pase a `text-mel-action-secondary` (en lugar de `text-mel-action-primary`).
+- **Decisión**:
+  1. En `src/components/SideMenu.astro`, se sustituye `hover:bg-mel-bg-secondary/40` por `hover:bg-mel-bg-secondary` en todos los enlaces de la lista del menú.
+  2. Se sustituye `group-hover:text-mel-action-primary` por `group-hover:text-mel-action-secondary` en los textos e iconos chevron de cada elemento del menú.
+- **Motivo**: Mantener la coherencia estética del Design System (`D-052`), donde el estado `Action-Secondary` se utiliza en reposo/hover interactivo de elementos secundarios de navegación sin invadir el énfasis reservado para `Action-Primary`.
+- **Consecuencias**: Al hacer hover sobre los enlaces del menú lateral, el fondo cambia a `bg-mel-bg-secondary` y el texto/icono cambia a `text-mel-action-secondary`.
+

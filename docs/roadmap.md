@@ -43,6 +43,7 @@
 ## Pendiente de Auditoría (marcado explícitamente por el propietario — NO cerrar hasta hacerla)
 
 - **Estandarización completa de `TagWithLink`/`Link.astro` en todo el sitio** (D-067): tras varias rondas de fixes puntuales (D-062 fuente, D-066 chevron clipado, D-067 desbordamiento por `shrink-0`), el propietario reporta que en algunos tags el texto SÍ trunca pero sigue sin verse ni el "…" ni el chevron — pese a que la medición (`scrollWidth`/`clientWidth`) decía que el truncado era correcto. Pidió explícitamente **no dar esto por resuelto** y en su lugar revisar en una sesión dedicada TODAS las instancias del sitio que usan `TagWithLink`/`Link.astro` (real o replicado a mano en JS: `makeTagHtml`, `makeAdaptiveTagHtml`, la tabla de Lista, los enlaces de artistas) para confirmar que todas se comportan exactamente igual, en vez de seguir parcheando caso por caso.
+- **Temblor del slider de fecha en táctil, restante tras D-068**: el `touch-action:none` de D-068 mejoró el problema pero el propietario sigue viéndolo temblar según la pantalla se hace más pequeña — con la sospecha (sin confirmar) de que tenga que ver con el propio recálculo de posición/resolución de la barra (`render()` en `TimeSlider.astro`) al cambiar de ancho, no solo con el conflicto de gestos táctiles ya arreglado. Aparcado explícitamente para una sesión dedicada.
 
 ## Problemas Conocidos (Aparcados Explícitamente)
 

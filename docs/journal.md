@@ -2,6 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Estilos de hover en los elementos del menú lateral (D-069)
+
+### Objetivo de la Sesión
+Actualizar el color de fondo en hover de los enlaces del menú lateral (`SideMenu.astro`) a `bg-mel-bg-secondary` y asegurar que los textos e iconos cambien a `text-mel-action-secondary` en lugar de `text-mel-action-primary`.
+
+### Cambios Realizados
+1. **Componente `src/components/SideMenu.astro`**:
+   - Reemplazada la clase `hover:bg-mel-bg-secondary/40` por `hover:bg-mel-bg-secondary` en todos los enlaces (`#menu-item-home`, `#menu-item-intro`, etc.).
+   - Reemplazada la clase `group-hover:text-mel-action-primary` por `group-hover:text-mel-action-secondary` en las etiquetas de texto `<p>` y en el componente de icono `IconButton`.
+2. **Documentación**: Registrada decisión `D-069` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Bug real de visibilidad en Lista (dos estilos a la vez), regresión de la paginación de D-064, borde superior de tabla, verificaciones de galería/hover
 
 ### Objetivo de la Sesión
