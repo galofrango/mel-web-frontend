@@ -807,6 +807,16 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Corregir la brusquedad visual del panel, mejorar la profundidad jerárquica con el mapa y optimizar la experiencia de usuario al navegar desde enlaces directos a lugares.
 - **Consecuencias**: El panel lateral de escritorio se abre con total fluidez de 0px a su tamaño final, proyecta sombra sobre el mapa, muestra la primera etiqueta sin divisor y se sincroniza limpiamente con la carga inicial del mapa en URLs con parámetro de ubicación.
 
+## D-079 · Acotación de divisor de tags a escritorio y alineación adaptativa de paddings en el Bottom Sheet (`#map-side-panel`)
+
+- **Contexto**: Se solicita que la ocultación del divisor vertical de la primera etiqueta ("Eventos") en `#side-panel-tags-container` aplique únicamente en la vista de panel lateral de escritorio (`>=1024px`), manteniendo el divisor visible en el Bottom Sheet de móvil (`<1024px`). Asimismo, se detectó un desajuste visual en los márgenes laterales del Bottom Sheet en tabletas/pantallas medias (~1020px de ancho) respecto al layout de fondo del sitio.
+- **Decisión**:
+  1. En `src/pages/index.astro`, se acota la regla `#side-panel-tags-container .highlight-unit:first-child > .bg-mel-border { display: none !important; }` dentro del bloque `@media (min-width: 1024px)`.
+  2. Se actualizan los contenedores internos del panel (cabecera con botón de cerrar, título/dirección, contenedor e hilera inferior de etiquetas y tarjetas de eventos en JS) con la escala adaptativa `px-6 sm:px-12 lg:px-6` (`px-4 sm:px-10 lg:px-4` en la barra de la X).
+- **Motivo**: Mantener la integridad de diseño del Bottom Sheet móvil mientras se garantiza que en tabletas y pantallas medias (como 1020px) el contenido del Bottom Sheet se alinee milimétricamente con el margen de 48px del encabezado y el slider de fondo.
+- **Consecuencias**: El primer divisor de etiquetas se conserva en móvil y se oculta solo en escritorio; en pantallas intermedias (`640px` a `1023px`), el Bottom Sheet encaja pixel a pixel con los elementos de fondo.
+
+
 
 
 

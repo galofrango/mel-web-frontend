@@ -351,7 +351,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                misma altura donde arranca #map-container) en todas las anchuras
                — antes solo en el bottom sheet móvil, el propietario pidió lo
                mismo en desktop viendo que sobraba hueco arriba del todo. -->
-          <div class="flex items-center pb-[8px] px-[16px] pt-0 shrink-0 w-full">
+          <div class="flex items-center pb-[8px] px-4 sm:px-10 lg:px-4 pt-0 shrink-0 w-full">
             <IconButton
               id="close-map-side-panel"
               icon="x"
@@ -362,8 +362,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
           <!-- Title & Address. pt-16 (no el pt-24 original de Figma) en todas
                las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
-          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] px-[16px] shrink-0 w-full relative">
-            <div class="px-[8px] flex flex-col gap-[16px] items-start justify-center w-full">
+          <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] px-6 sm:px-12 lg:px-6 shrink-0 w-full relative">
+            <div class="flex flex-col gap-[16px] items-start justify-center w-full">
               <h2 id="side-panel-title" class="font-sans font-bold text-[31px] leading-[32px] text-mel-text-primary tracking-[-0.62px] truncate w-full"></h2>
               <p id="side-panel-address" class="font-serif font-medium text-[15px] leading-[24px] text-mel-text-secondary tracking-[0.15px] truncate w-full"></p>
             </div>
@@ -375,7 +375,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                scroll+bleed) is decided by updateAdaptiveTagsRow() below, no
                sibling to negotiate space with so it's always "alone" against
                the panel's own width. -->
-          <div class="pb-[32px] px-[24px] flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
+          <div class="pb-[32px] px-6 sm:px-12 lg:px-6 flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
             <AdaptiveTagsRow
               id="side-panel-tags-container"
               tags={[
@@ -386,7 +386,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               ]}
             />
             <!-- Inset bottom divider (Figma matches: bottom-0 left-24 right-24, color: mel-border) -->
-            <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
+            <div class="absolute bottom-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 h-[1px] bg-mel-border"></div>
           </div>
           
           <!-- Event List (Scrollable) -->
@@ -1182,11 +1182,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       border-left-width: 1px;
       box-shadow: -8px 0 24px -4px rgba(0, 0, 0, 0.12), -2px 0 6px -1px rgba(0, 0, 0, 0.06);
     }
-  }
-
-  /* Ocultar el primer divisor vertical en las tags del panel lateral */
-  #side-panel-tags-container .highlight-unit:first-child > .bg-mel-border {
-    display: none !important;
+    /* Ocultar el primer divisor vertical solo en el panel lateral de escritorio */
+    #side-panel-tags-container .highlight-unit:first-child > .bg-mel-border {
+      display: none !important;
+    }
   }
 
   /* Bajo lg: bottom sheet. Su borde superior llega justo por debajo del slider
@@ -2851,7 +2850,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
       group.events.forEach((evt, idx) => {
         const card = document.createElement('div');
-        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
         card.addEventListener('click', () => {

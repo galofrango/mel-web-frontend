@@ -2,6 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Acotación de divisor de tags y alineación adaptativa de paddings en Bottom Sheet (D-079)
+
+### Objetivo de la Sesión
+Acotar la ocultación del primer divisor de etiquetas al panel lateral de escritorio (`>=1024px`) y sincronizar los paddings horizontales del Bottom Sheet (`px-6 sm:px-12 lg:px-6`) para alinear sus contenidos con los 48px de margen de las pantallas medias (1020px).
+
+### Cambios Realizados
+1. **Página principal (`src/pages/index.astro`)**:
+   - Movida la regla CSS de ocultar el primer divisor de `#side-panel-tags-container` dentro del bloque `@media (min-width: 1024px)`.
+   - Asignadas las clases de padding horizontal adaptativo `px-6 sm:px-12 lg:px-6` (y `px-4 sm:px-10 lg:px-4` en la X) a los contenedores internos del panel y en el script JS de las tarjetas de evento.
+2. **Documentación**: Registrada decisión `D-079` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Optimización de la animación del panel del mapa, sombras, tags y retardo de lugar (D-078)
 
 ### Objetivo de la Sesión
