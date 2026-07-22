@@ -602,302 +602,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     </div>
   </div>
 
-  <!-- Fullscreen SPA Event Details Overlay (used for Map and general SPA details flow) -->
-  <div id="event-details-overlay" class="fixed inset-0 z-[200] bg-mel-bg-primary hidden flex-col items-center justify-start overflow-y-auto pb-[40px] lg:pb-[108px] px-6 sm:px-12 select-none">
-    <!-- pt-0 below `lg`: the header is `position: fixed` from the very first
-         frame (see its own comment) and #overlay-header-spacer reserves
-         exactly its height — any top padding here would just stack on top of
-         that and push content down by an unwanted extra gap below the
-         header. lg:pt-[10vh] matches every other page header's top offset
-         (unaffected — desktop's header isn't fixed, it's back in normal flow
-         via lg:static). Lives on this inner wrapper rather than
-         #event-details-overlay itself only because that's where it already
-         was; either would work equally now that the header no longer cares
-         about any ancestor's padding. -->
-    <div class="w-full max-w-[1224px] flex flex-col relative pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)] lg:min-h-[calc(100vh-var(--mel-header-pt-desktop)*2)]" id="overlay-content-wrapper">
-      
-      <!-- Fixed Header (X + Mobile Title): mirrors event/[id].astro's
-           #detail-sticky-header — genuinely `position: fixed` from the very
-           first frame, not `sticky` (sticky only pins once scrolled past its
-           own natural resting position, leaving a real, visible window where
-           it still moved with the page — unacceptable per the propietario's
-           explicit "fija, sin hacer scroll en ningún momento"). Being fixed
-           immediately means it's out of normal flow from the start, so
-           #overlay-header-spacer right after it reserves its height for the
-           content that follows (see updateOverlayStickyImage()). pb-8 lives
-           on the wrapper itself rather than as the title's own mb-8, since a
-           margin on the last child can collapse through into the parent's
-           own box height, but padding never does — and JS needs a reliable
-           height reading here. See event/[id].astro for the identical
-           rationale. -->
-      <div
-        id="overlay-sticky-header"
-        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0"
-      >
-        <!-- Close Button (X) at Top Left -->
-        <button
-          id="event-details-overlay-close"
-          class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0 border-none bg-transparent outline-none self-start"
-          aria-label="Cerrar detalles de evento"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
-
-        <!-- Mobile-only Event Title (Figma 369:32751: title sits between the close
-             button and the image; on desktop it lives at the top of the Info column) -->
-        <h2 id="overlay-event-title-mobile" class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary"></h2>
-      </div>
-
-      <!-- Reserves flow space for the now-fixed header below `lg` — height
-           synced to the header's own current height every tick, so content
-           never starts underneath it nor leaves an extra gap below it. -->
-      <div id="overlay-header-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
-
-      <!-- V2 layout (below `lg` only): tags row pinned directly under the
-           fixed header, instead of living beside the image further down.
-           Lives as a SIBLING of the header — not nested inside
-           #overlay-details-content — for the same reason the header itself
-           does: that wrapper's own `transition: transform` makes Chrome
-           treat it as an accidental containing block for `position: fixed`
-           descendants for a while after each entrance animation (see
-           updateOverlayStickyImage()'s own comment), which would double the
-           offset. Staying outside it means this can use plain
-           viewport-relative top/left math (updateOverlayFixedTags()), no
-           self-correcting probe needed — unlike the image, which DOES live
-           inside that wrapper and DOES need one. No border/divider here on
-           purpose: this block reads as part of the fixed header, not as its
-           own boxed section (the propietario flagged the old divider
-           bleeding edge-to-edge as a bug — see D-041/D-042). pb-8 (32px) is
-           the resting gap to the image below, exactly per spec regardless of
-           pagination. -->
-      <div id="overlay-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <!-- AdaptiveTagsRow structure (D-059/D-060), same component as the
-             home toolbar and the map side panel — populated dynamically via
-             makeAdaptiveTagHtml() below (JS mirror of AdaptiveTagsRow.astro
-             + TagWithLink.astro's own markup, AGENTS.md rule 7) since this
-             is the SPA overlay, not server-rendered. -->
-        <div class="adaptive-tags-row highlights-flex-content min-w-0 flex gap-8 items-center overflow-x-auto no-scrollbar" id="overlay-tags-sidebar-mobile">
-          <!-- Populated dynamically via JS (mirrors #overlay-tags-sidebar, the lg+ instance) -->
-        </div>
-      </div>
-      <!-- Reserves flow space for the fixed tags row below `lg`, right after
-           the header's own spacer — so the image column (first in the grid
-           below `lg`) naturally starts right after both. -->
-      <div id="overlay-tags-fixed-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
-
-      <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
-      <div id="overlay-details-content" class="w-full flex-1 flex flex-col justify-between transition-opacity duration-300">
-
-        <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). NO
-             fixed height on the grid itself (D-061 — a leftover `lg:h-[400px]`
-             here, from before D-055's mt-auto/pt-[104px] nav positioning
-             existed, pinned the grid's own box to the image column's 400px
-             regardless of column 3's real content height; with a long artist
-             list, column 3 visually overflowed past that box and the nav
-             block below — a normal-flow sibling measuring its 104px gap from
-             the grid's artificially short bottom edge, not column 3's real
-             one — ended up overlapping it). Mirrors event/[id].astro exactly,
-             which never had this fixed height: the grid's own height is just
-             the tallest column's real content height (`items-start`), and
-             D-055's own mechanism already guards the nav's minimum gap
-             correctly once that's true.
-             On mobile the same three blocks reflow per Figma 369:32751: image first (full-bleed,
-             pinned, shrinking — mirrors event/[id].astro), then the tags as a horizontally
-             scrollable row, then the info column — a real grid at every breakpoint, `order` doing
-             the mobile reflow (see each column's own comment). -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-start w-full">
-
-          <!-- Column 2: Image Box. order-1 (lg:order-2 restores the desktop middle-column
-               position) puts it first below `lg`, matching Figma 369:32751's image-then-tags-
-               then-info mobile flow — mirrors event/[id].astro's Image Column exactly. -->
-          <div id="overlay-image-column" class="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full">
-            <!-- Reserves flow space for the pinned image below `lg` (that image
-                 is `position: fixed` there, removed from normal flow — see
-                 updateOverlayStickyImage()). Held at a CONSTANT height (the box's
-                 full-size footprint), deliberately NOT synced to the box's
-                 shrunk size — so the page's height never changes with scroll and
-                 content passes underneath the pinned box once the crop bottoms
-                 out. Mirrors event/[id].astro's #detail-image-sentinel. -->
-            <div id="overlay-image-sentinel" class="w-full lg:hidden" aria-hidden="true"></div>
-
-            <!-- Pinned image box (min-h-[200px] on scroll, from 400px). Below `lg`,
-                 updateOverlayStickyImage() drives `position: fixed` plus `top`/`left`/`width`
-                 directly. NO bottom padding/margin of its own: the 32px resting gap
-                 to tags is the parent grid's gap-8, which already applies after this
-                 box (dots included) whether or not this event has pagination — any
-                 spacing here would stack on top of that gap (the propietario flagged
-                 exactly that as unwanted extra space below the photo). -->
-            <div
-              id="overlay-image-sticky"
-              class="z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent"
-            >
-              <!-- Crop window: THIS is what shrinks (360px→200px), via overflow-hidden —
-                   not the photo itself. The photo (button below) matches the box's
-                   own resting height (360px below lg, 400px on desktop) with the
-                   image object-contained inside, so AT REST nothing is ever cropped
-                   — the full flyer is the absolute protagonist. Only once scroll
-                   shrinks this wrapper below the button's height does clipping
-                   start, evenly from top and bottom (flex column + justify-center
-                   keeps the button CENTERED; it needs shrink-0 or column-flex
-                   would shrink its height to fit instead of letting it overflow
-                   and clip). -->
-              <div id="overlay-image-crop" class="relative w-full overflow-hidden flex flex-col justify-center lg:h-[400px]">
-                <button
-                  id="overlay-carousel-main"
-                  class="relative w-full h-[360px] lg:h-[400px] shrink-0 overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
-                  aria-label="Ver imagen ampliada"
-                >
-                  <!-- Striped background -->
-                  <div class="absolute inset-0 striped-bg z-0 pointer-events-none"></div>
-
-                  <!-- Track container -->
-                  <div
-                    id="overlay-carousel-track"
-                    class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
-                    style="transform: translate3d(0, 0, 0);"
-                  >
-                    <!-- Populated dynamically -->
-                  </div>
-                </button>
-              </div>
-
-              <!-- Dots: in flow below `lg` (below the image), so they count as part of the
-                   pinned box's own content — the pb-8 above always applies after them.
-                   Floating absolute on desktop so they never shift the columns' fixed
-                   400px height. -->
-              <!-- Below lg: pt-8 gives the uniform 32px gap to the photo above;
-                   NO bottom padding — the grid's own gap-8 after the box is the
-                   (same, 32px) gap to whatever follows. Desktop keeps py-6. -->
-              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="overlay-carousel-dots">
-                <!-- Populated dynamically -->
-              </div>
-            </div>
-          </div>
-
-          <!-- Column 1: Tags Sidebar — DESKTOP ONLY (`lg+`) now: below `lg`,
-               #overlay-tags-fixed above (pinned under the header) takes over
-               this role entirely (V2 layout), so this instance is `hidden`
-               there and contributes nothing to the mobile grid flow.
-               h-[400px]+justify-between matches the image column's own fixed
-               height and spreads the tags across it (see event/[id].astro
-               for the full rationale) instead of a flat 40px gap that left
-               this column visibly shorter. -->
-          <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0">
-            <div class="hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0" id="overlay-tags-sidebar">
-              <!-- Populated dynamically via JS (desktop only — mobile uses #overlay-tags-sidebar-mobile) -->
-            </div>
-          </div>
-
-          <!-- Column 3: Event Info. order-3 (same at every breakpoint) needs to be explicit —
-               the default `order: 0` on an unstyled item would otherwise rank it above the
-               image/tags columns, which both carry an explicit order. -->
-          <!-- gap-8 below lg: uniform 32px rhythm between every block of the
-               mobile ficha (matches the grid's gap-8 and the 32px image↔tags
-               spec); desktop keeps its original gap-10/gap-6 values. -->
-          <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6">
-            <h2 id="overlay-event-title" class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary"></h2>
-
-            <div class="flex flex-col gap-8 lg:gap-10">
-              <div id="overlay-description-container" class="flex flex-col gap-8 lg:gap-6">
-                <p id="overlay-event-description" class="font-sans font-normal text-[16px] leading-[24px] tracking-[-0.16px] text-mel-text-primary"></p>
-                <div class="h-px w-full bg-mel-border"></div>
-              </div>
-
-              <div id="overlay-artists-container" class="flex flex-col gap-2">
-                <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
-                <div id="overlay-artists-list" class="flex flex-wrap gap-y-1"></div>
-              </div>
-            </div>
-
-            <!-- Like Button -->
-            <div class="flex gap-6 items-start">
-              <button
-                id="overlay-btn-me-presta"
-                class="content-stretch cursor-pointer flex items-center justify-center py-3 px-4 relative select-none outline-none group border font-sans font-medium text-[16px] leading-[20px] tracking-[0px] w-fit"
-                data-active="false"
-              >
-                <!-- Centered Label -->
-                <span class="text-mel-action-secondary group-hover:text-mel-action-primary group-data-[active=true]:text-mel-text-on-action group-data-[active=true]:group-hover:text-mel-text-on-action-primary transition-colors duration-300 select-none pointer-events-none">
-                  Me presta
-                </span>
-                <!-- Checkmark -->
-                <div class="icon-container flex items-center justify-center overflow-hidden shrink-0 w-0 opacity-0 mr-0 transition-all duration-300 ease-out group-data-[active=true]:w-5 group-data-[active=true]:opacity-100 group-data-[active=true]:ml-2">
-                  <svg class="w-4 h-4 text-mel-text-on-action group-data-[active=true]:group-hover:text-mel-text-on-action-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
-              </button>
-            </div>
-          </div>
-
-        </div>
-
-        <!-- Scroll runway spacer (below `lg` only), deliberately placed BEFORE
-             the nav block — mirrors event/[id].astro's #detail-scroll-runway
-             exactly: growing it pushes the nav DOWN toward the screen's bottom
-             edge, and scrolling can never continue past the nav (it's the last
-             thing before the overlay's own 40px bottom padding, the guard
-             against phone nav UI). Sized by ensureOverlayScrollRunway() so the
-             nav's bottom always ends up pinned exactly 40px above the bottom
-             of the screen; content-rich events get no extra padding at all. -->
-        <div id="overlay-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
-
-        <!-- Navigation block. On mobile: 2-column row under a divider, with
-             Anterior/Siguiente side by side (Figma 575:83196). -->
-        <div id="overlay-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto lg:pt-[104px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0">
-          <div class="hidden lg:block lg:col-span-2"></div>
-
-          <!-- Anterior -->
-          <div class="lg:col-span-5 flex justify-end text-right items-center" id="overlay-nav-prev-container"></div>
-
-          <!-- Siguiente -->
-          <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center" id="overlay-nav-next-container"></div>
-        </div>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- Image Detail Lightbox for the Overlay (Figma 841:40903: fixed-size
-       modal, photo object-contained inside, pagination dots below) -->
-  <div
-    id="overlay-image-lightbox"
-    class="fixed inset-0 bg-[var(--mel-scrim)] z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
-  >
-    <div
-      id="overlay-lightbox-modal"
-      class="relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 pb-4 h-[76vh] max-w-[92vw] aspect-square"
-    >
-      <button
-        id="overlay-lightbox-close"
-        class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary hover:text-mel-text-on-action-primary flex items-center justify-center shadow-[var(--mel-shadow-button)] border-none cursor-pointer z-50 transition-colors"
-        aria-label="Cerrar vista grande"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
-
-      <div class="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center">
-        <div class="absolute inset-0 striped-bg pointer-events-none"></div>
-        <div
-          id="overlay-lightbox-track"
-          class="flex w-full h-full transition-transform duration-500 ease-out z-10"
-          style="transform: translate3d(0, 0, 0);"
-        ></div>
-      </div>
-
-      <!-- Pagination dots, populated per event by renderOverlayEvent(), which also toggles
-           #overlay-lightbox-modal between pb-4/pb-8 depending on whether this row ends up with
-           any dots in it — see the note on event/[id].astro's own (static) version of this. -->
-      <div id="overlay-lightbox-dots" class="flex gap-4 items-center justify-center pt-4 pb-1 shrink-0"></div>
-    </div>
-  </div>
-
   <IntroAnimation />
   <SideMenu />
 </Layout>
@@ -966,27 +670,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   #view-lista.active {
     display: flex;
-  }
-
-  /* Overlay Me Presta Button Styles */
-  #overlay-btn-me-presta {
-    border-color: var(--mel-action-secondary);
-    background-color: transparent;
-    transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  
-  #overlay-btn-me-presta:hover {
-    border-color: var(--mel-action-primary);
-  }
-
-  #overlay-btn-me-presta[data-active="true"] {
-    border-color: var(--mel-action-secondary);
-    background-color: var(--mel-action-secondary);
-  }
-
-  #overlay-btn-me-presta[data-active="true"]:hover {
-    border-color: var(--mel-action-primary);
-    background-color: var(--mel-action-primary);
   }
 </style>
 
@@ -1108,39 +791,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     max-width: 100%;
   }
 
-  /* Scroll anchoring (on by default) fights the pinned-image scroll math in
-     updateOverlayStickyImage() — see the identical rule/rationale in
-     event/[id].astro's own <style> block. */
-  #overlay-image-crop,
-  #overlay-image-sentinel,
-  #overlay-header-spacer,
-  #overlay-tags-fixed-spacer,
-  #overlay-scroll-runway {
-    overflow-anchor: none;
-  }
-
-  /* Event details SPA overlay: settle-in/out reveal shared by all entry
-     points (gallery card, list row, map panel), since they all open it
-     through the same openDetailsOverlaySPA(). */
-  #overlay-details-content {
-    transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1), transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-  #overlay-details-content.overlay-content-enter {
-    opacity: 0;
-    transform: translateY(24px) scale(0.97);
-  }
-  /* The overlay's own opaque background never faded on close — only the
-     content inside it did — so once the content finished fading out there
-     was a brief solid-color gap before the overlay actually hid and the
-     gallery/list underneath reappeared. Fading the overlay itself too (in
-     step with the content, same 0.5s the close timeout waits on) turns that
-     gap into a proper dissolve onto whatever's underneath. */
-  #event-details-overlay {
-    transition: opacity 0.5s ease;
-  }
-  #event-details-overlay.overlay-fading {
-    opacity: 0;
-  }
 
   @keyframes marker-fade-out {
     from {
@@ -1577,8 +1227,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       mapCore: null,
       markerLib: null,
       googleMapClusterer: null,
-      overlayAutoplayInterval: null,
-      overlayCurrentIndex: 0,
     };
   }
   const _s = window._melState;
@@ -1924,16 +1572,57 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
   }
 
-  // Opening an event from ANY entry point (gallery card, list row, map
-  // popup) uses the same in-place SPA overlay the map panel uses — the old
-  // full-page navigation to /event/… (with its forced reload, needed there
-  // to dodge the router's stale-snapshot cache) made gallery/list feel
-  // heavy next to the panel's smooth fade. Prev/next inside the overlay
-  // walks the currently filtered + sorted list, so it respects whatever
-  // search/year/sort context the visitor is in. The /event/[id] page still
-  // exists server-rendered for direct and shared links.
+  // Saves the visitor's current browsing context (view, scroll position,
+  // map camera) to sessionStorage right before leaving `/` for an event's
+  // detail page, so returning (via the detail page's close button, which
+  // already round-trips ?view=/?search=/?location=) can restore exactly
+  // where they were. URL query params alone cover the shareable filters;
+  // scroll/camera position isn't shareable state, so it lives here instead.
+  function saveReturnState() {
+    try {
+      const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
+      const state = { view: activeViewName, galleryVisibleCount };
+      if (activeViewName === 'galería') {
+        const el = document.getElementById('view-galería');
+        state.scrollTop = el ? el.scrollTop : 0;
+      } else if (activeViewName === 'lista') {
+        const el = window.innerWidth >= 440
+          ? document.getElementById('list-table-wrapper')
+          : document.getElementById('list-mobile-cards');
+        state.scrollTop = el ? el.scrollTop : 0;
+      } else if (activeViewName === 'mapa' && googleMap) {
+        const c = googleMap.getCenter();
+        if (c) { state.mapCenter = { lat: c.lat(), lng: c.lng() }; state.mapZoom = googleMap.getZoom(); }
+      }
+      sessionStorage.setItem('mel-return-state', JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  // Real navigation to the static, server-rendered /event/[id] page — this
+  // replaced an in-place SPA overlay that used to duplicate its whole
+  // markup/logic (see docs/decisions.md D-072). Uses a hard reload
+  // (data-astro-reload semantics via window.location, matching the
+  // Anterior/Siguiente links on /event/[id] itself) rather than Astro's
+  // soft ClientRouter navigation: an earlier full-page-navigation attempt
+  // at this site hit the router's stale-snapshot cache switching between
+  // two /event/[id] URLs, which is exactly why the overlay was built in
+  // the first place. /event/[id] already reads ?search=/?location=/?view=
+  // to compute its own filtered Anterior/Siguiente and its own return link.
+  function navigateToEvent(idMel, { search = '', location = '' } = {}) {
+    saveReturnState();
+    const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
+    const params = new URLSearchParams();
+    params.set('view', activeViewName);
+    if (location) {
+      params.set('location', location);
+    } else if (search) {
+      params.set('search', search);
+    }
+    window.location.href = `/event/${idMel}?${params.toString()}`;
+  }
+
   function openLightbox(item) {
-    openDetailsOverlaySPA(item, filtered.length ? filtered : archives);
+    navigateToEvent(item.idMel, { search: searchQuery });
   }
 
   function closeLightbox() {
@@ -2625,42 +2314,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   let mapCore       = _s.mapCore;
   let markerLib     = _s.markerLib;
   let googleMapClusterer = _s.googleMapClusterer;
-  let overlayAutoplayInterval = _s.overlayAutoplayInterval;
-  let overlayCurrentIndex     = _s.overlayCurrentIndex;
-
-  // Left/right arrow keys: if the image lightbox is open, they step through
-  // that event's photos; otherwise, if the event details overlay itself is
-  // open, they step to the previous/next event (same navigation as the
-  // Anterior/Siguiente links). Bound once (this script block only runs
-  // once), and always dispatches to whichever event's state is currently
-  // active via window._melState, kept up to date by renderOverlayEvent()/
-  // the lightbox's own show functions.
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-
-    const lb = document.getElementById('overlay-image-lightbox');
-    if (lb && !lb.classList.contains('hidden')) {
-      const activeLb = window._melState && window._melState.activeLightbox;
-      if (!activeLb) return;
-      e.preventDefault();
-      if (e.key === 'ArrowLeft') activeLb.showImage(activeLb.getIndex() - 1);
-      else activeLb.showImage(activeLb.getIndex() + 1);
-      return;
-    }
-
-    const overlay = document.getElementById('event-details-overlay');
-    if (overlay && !overlay.classList.contains('hidden')) {
-      const nav = window._melState && window._melState.activeOverlayNav;
-      if (!nav) return;
-      if (e.key === 'ArrowLeft' && nav.prevItem) {
-        e.preventDefault();
-        transitionToOverlayEvent(nav.prevItem, nav.panelEvents);
-      } else if (e.key === 'ArrowRight' && nav.nextItem) {
-        e.preventDefault();
-        transitionToOverlayEvent(nav.nextItem, nav.panelEvents);
-      }
-    }
-  });
 
   function switchView(viewName) {
     // Dynamically synchronize the view query parameter in the browser URL
@@ -3090,7 +2743,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
         card.addEventListener('click', () => {
-          openDetailsOverlaySPA(evt, group.events);
+          navigateToEvent(evt.idMel, { location: evt.lugar });
         });
         listContainer.appendChild(card);
       });
@@ -3431,10 +3084,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // row shares its line with another element (a Toggle, say) via
   // `opts.getReservedWidth` — pass it when there's a sibling to negotiate
   // space with, omit it for a row that's always alone (event detail tags,
-  // map side panel, event overlay's mobile tags row). Module-scope (not
-  // nested in initHomePage) since renderOverlayEvent() also needs it.
-  // Duplicated by hand into event/[id].astro's own <script> (AGENTS.md rule
-  // 7 — no shared client JS module system here).
+  // map side panel). Duplicated by hand into event/[id].astro's own
+  // <script> (AGENTS.md rule 7 — no shared client JS module system here).
   const ADAPTIVE_ROW_GAP = 32; // between highlight-units, in either mode
 
   function updateAdaptiveTagsRow(rowId, opts = {}) {
@@ -3525,8 +3176,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     mapCore            = _s.mapCore;
     markerLib          = _s.markerLib;
     googleMapClusterer = _s.googleMapClusterer;
-    overlayAutoplayInterval = _s.overlayAutoplayInterval;
-    overlayCurrentIndex     = _s.overlayCurrentIndex;
 
     // Re-query all DOM element refs
     sliderMin  = document.getElementById('slider-min');
@@ -3655,19 +3304,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // the fallback font, narrower than the real Lora serif values. Once
     // fonts actually swap in, re-measure whichever rows are live right now,
     // or a borderline case can wrap onto two lines instead of ellipsizing
-    // (D-061). The map panel's and overlay's rows only get re-measured if
-    // currently open/visible — closed ones get a fresh, already-settled
-    // measurement whenever they're next populated.
+    // (D-061). The map panel's row only gets re-measured if currently
+    // open/visible — closed, it gets a fresh, already-settled measurement
+    // whenever it's next populated.
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => {
         updateHomeToolbarLayout();
         const sidePanel = document.getElementById('map-side-panel');
         if (sidePanel && sidePanel.classList.contains('side-panel-open')) {
           updateAdaptiveTagsRow('side-panel-tags-container');
-        }
-        const overlayEl = document.getElementById('event-details-overlay');
-        if (overlayEl && !overlayEl.classList.contains('hidden')) {
-          updateAdaptiveTagsRow('overlay-tags-sidebar-mobile');
         }
       });
     }
@@ -3825,24 +3470,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       window.addEventListener('mouseup', dragEnd, { signal: wSig });
     }
 
-    // Bind overlay close
-    const overlayCloseBtn = document.getElementById('event-details-overlay-close');
-    if (overlayCloseBtn) {
-      overlayCloseBtn.onclick = () => closeDetailsOverlaySPA(true);
-    }
-
-    window.addEventListener('popstate', (e) => {
-      const overlay = document.getElementById('event-details-overlay');
-      if (overlay && !overlay.classList.contains('hidden')) {
-        _s.mapInitialized = false;
-        _s.googleMap = null;
-        _s.mapMarkers = [];
-        _s.infoWindow = null;
-        _s.googleMapClusterer = null;
-        closeDetailsOverlaySPA(false);
-      }
-    }, { signal: wSig });
-
     // Register list table event delegation handler at document level (survives all DOM updates)
     if (!window._melListClickHandlerBound) {
       window._melListClickHandlerBound = true;
@@ -3854,9 +3481,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (!inTable && !inMobileCards) return; // Only handle clicks within the list view (table or mobile cards)
 
         // Mobile: the whole EventCardList row is clickable, same target as
-        // the table's thumbnail+title (openLightbox with the full filtered
-        // list as carousel context, unlike the map panel's location-scoped
-        // openDetailsOverlaySPA).
+        // the table's thumbnail+title (openLightbox navigates with the
+        // current search as context, unlike the map panel's location-scoped
+        // navigateToEvent()).
         if (inMobileCards) {
           const row = e.target.closest('.mobile-event-card-list');
           if (row) {
@@ -3911,6 +3538,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       });
     }
 
+    // Returning from an event detail page (its close button links back with
+    // ?view=/?search=/?location= already, restoring filters) — restore the
+    // scroll position / map camera saveReturnState() stashed before leaving,
+    // since that's not shareable URL state. Read it before the initial
+    // render so a restored galleryVisibleCount renders enough cards for the
+    // scrollTop below to land somewhere real, instead of clamping to 0.
+    let pendingReturnState = null;
+    try {
+      const savedRaw = sessionStorage.getItem('mel-return-state');
+      if (savedRaw) {
+        sessionStorage.removeItem('mel-return-state');
+        pendingReturnState = JSON.parse(savedRaw);
+        if (pendingReturnState.galleryVisibleCount > galleryVisibleCount) {
+          galleryVisibleCount = pendingReturnState.galleryVisibleCount;
+        }
+      }
+    } catch (e) {}
+
     // Initialize state and render
     calculateDynamicBounds();
     updateSlider();
@@ -3928,18 +3573,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       switchView('galería');
     }
 
-    // Deep link: ?detail=MEL-XXXX (the URL the overlay writes while open)
-    // re-opens that event's overlay on top of the chosen view, so overlay
-    // URLs are fully shareable.
-    const detailParam = loadParams.get('detail');
-    if (detailParam) {
-      const targetEvent = archives.find(x => x.idMel === detailParam);
-      const overlayEl = document.getElementById('event-details-overlay');
-      if (targetEvent && overlayEl && overlayEl.classList.contains('hidden')) {
-        openDetailsOverlaySPA(targetEvent, filtered.length ? filtered : archives);
-      }
-    }
-
     // Everything above runs synchronously, including any filterArchives()
     // calls triggered along the way (e.g. the search box's own startup
     // dispatch) — deferring to a macrotask means gallerySettled only flips
@@ -3953,851 +3586,44 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // same tick a plain setTimeout(…, 0) would catch. A short, generous delay
     // covers that without risking a real (much later) user interaction ever
     // seeing gallerySettled still false.
-    setTimeout(() => { gallerySettled = true; }, 200);
-
-    // Pinned, shrinking overlay image (below `lg`) — see updateOverlayStickyImage()
-    // for the full rationale (identical to event/[id].astro's #detail-image-sticky).
-    // The overlay scrolls within its own box (#event-details-overlay,
-    // overflow-y-auto), not the window, so the listener attaches there instead.
-    const overlayScrollEl = document.getElementById('event-details-overlay');
-    if (overlayScrollEl) {
-      overlayScrollEl.addEventListener('scroll', updateOverlayStickyImage, { passive: true, signal: wSig });
-      window.addEventListener('resize', () => {
-        ensureOverlayScrollRunway();
-        updateOverlayStickyImage();
-        if (!overlayScrollEl.classList.contains('hidden')) {
-          updateAdaptiveTagsRow('overlay-tags-sidebar-mobile');
-        }
-      }, { signal: wSig });
-    }
-  }
-
-  // ----------------------------------------------------
-  // Fullscreen SPA Event Details Overlay Implementation
-  // ----------------------------------------------------
-
-  // Pinned, shrinking image (below `lg`) — mirrors event/[id].astro's
-  // #detail-image-sticky/#detail-image-sentinel (see that file for the full
-  // rationale on why this is hand-computed via JS rather than CSS
-  // `position: sticky`, and why the release is anchored to the tags row
-  // rather than a generic containing-block calculation).
-  //
-  // Two differences from the standalone page, both stemming from
-  // #overlay-details-content wrapping the pinned image here (it doesn't in
-  // event/[id].astro):
-  // 1. This overlay scrolls within its own box (#event-details-overlay,
-  //    overflow-y-auto) rather than the window — harmless, since every
-  //    measurement below is a getBoundingClientRect() read (always
-  //    viewport-relative regardless of which ancestor actually scrolls).
-  // 2. #overlay-details-content has `transition: transform` for its own
-  //    enter/exit animation — and Chrome computes a live `matrix(...)` for
-  //    any element with `transform` in its transition-property list, even
-  //    at rest with no transform ever applied, which per spec makes it act
-  //    as the containing block for `position: fixed` descendants instead of
-  //    the viewport. So `imageSticky`'s `top`/`left`/`width` have to be
-  //    computed relative to #overlay-details-content's own current rect,
-  //    not assumed to be viewport-absolute like the standalone page can.
-  // Crop-window height range below `lg`. Max is 40px SHORTER than the
-  // photo's fixed 400px (the photo stays 400px and centered — see the
-  // crop's markup comment — so at rest 20px are already cropped off each
-  // end); desktop keeps the full 400px via the crop's lg:h-[400px] class.
-  const OVERLAY_IMAGE_MAX_H = 360;
-  const OVERLAY_IMAGE_MIN_H = 200;
-
-  // The header is `position: fixed` from the very first frame (not
-  // `sticky` — see the header's own comment in the markup for why), so it's
-  // out of normal flow immediately and needs its height reserved by hand.
-  // Height is effectively constant (no scroll-driven resizing, only varies
-  // if a title wraps to a different number of lines between events), but
-  // it's still measured every tick rather than cached — cheap, and avoids
-  // ever needing a separate invalidation path.
-  function updateOverlayHeaderSpacer() {
-    const stickyHeader = document.getElementById('overlay-sticky-header');
-    const headerSpacer = document.getElementById('overlay-header-spacer');
-    if (!stickyHeader || !headerSpacer) return;
-    if (window.innerWidth >= 1024) {
-      headerSpacer.style.height = '';
-      return;
-    }
-    headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
-  }
-
-  // Pins the tags row directly below the fixed header (V2 layout — see the
-  // element's own markup comment). No self-correcting probe needed here,
-  // unlike the image: this element is a SIBLING of #overlay-details-content,
-  // not a descendant, so it's never affected by that wrapper's accidental-
-  // containing-block quirk — plain viewport-relative top math is always
-  // correct. Height is effectively constant (tags never wrap — every
-  // TagWithLink instance is exactly 48px tall, see D-041), but still
-  // measured live each tick rather than cached, matching the header's own
-  // pattern right above.
-  function updateOverlayFixedTags() {
-    const tagsFixed = document.getElementById('overlay-tags-fixed');
-    const tagsFixedSpacer = document.getElementById('overlay-tags-fixed-spacer');
-    const stickyHeader = document.getElementById('overlay-sticky-header');
-    if (!tagsFixed || !tagsFixedSpacer || !stickyHeader) return;
-    if (window.innerWidth >= 1024) {
-      tagsFixed.style.top = '';
-      tagsFixedSpacer.style.height = '';
-      return;
-    }
-    tagsFixed.style.top = `${stickyHeader.getBoundingClientRect().bottom}px`;
-    tagsFixedSpacer.style.height = `${tagsFixed.getBoundingClientRect().height}px`;
-  }
-
-  function updateOverlayStickyImage() {
-    const stickyHeader = document.getElementById('overlay-sticky-header');
-    const tagsFixed = document.getElementById('overlay-tags-fixed');
-    const imageSticky = document.getElementById('overlay-image-sticky');
-    const imageSentinel = document.getElementById('overlay-image-sentinel');
-    const imageCrop = document.getElementById('overlay-image-crop');
-    const containingBlock = document.getElementById('overlay-details-content');
-    if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop || !containingBlock) return;
-    updateOverlayHeaderSpacer();
-    updateOverlayFixedTags();
-
-    if (window.innerWidth >= 1024) {
-      imageSticky.style.position = '';
-      imageSticky.style.top = '';
-      imageSticky.style.left = '';
-      imageSticky.style.width = '';
-      imageSticky.style.margin = '';
-      imageSticky.style.paddingBottom = '';
-      imageCrop.style.height = '';
-      imageSentinel.style.height = '';
-      return;
-    }
-
-    // "headerBottom" now means the bottom of the whole fixed block (header +
-    // pinned tags row, V2) — the image starts right below BOTH, not just the
-    // header. Falls back to the header alone if the tags block is somehow
-    // missing from the DOM.
-    const headerBottom = tagsFixed ? tagsFixed.getBoundingClientRect().bottom : stickyHeader.getBoundingClientRect().bottom;
-
-    const sentinelTop = imageSentinel.getBoundingClientRect().top;
-    const scrolledPast = Math.max(0, headerBottom - sentinelTop);
-
-    // Below the engage point, stay in plain static flow instead of forcing
-    // `position: fixed` — this is what it looks like anyway (right below the
-    // header) at rest, and it sidesteps measuring #overlay-details-content's
-    // own opening entrance transition (transform/opacity, 0.55s) mid-flight:
-    // getBoundingClientRect() on an ancestor mid-transition gives a
-    // moving-target answer, not the settled one, which previously showed the
-    // photo torn/misplaced for an instant right after opening.
-    if (scrolledPast <= 0) {
-      imageSticky.style.position = '';
-      imageSticky.style.top = '';
-      imageSticky.style.left = '';
-      imageSticky.style.width = '';
-      imageSticky.style.margin = '';
-      imageSticky.style.paddingBottom = '';
-      imageCrop.style.height = `${OVERLAY_IMAGE_MAX_H}px`;
-      imageSentinel.style.height = '0px';
-      return;
-    }
-
-    // The sentinel reserves the box's FULL-SIZE footprint (crop at 400px +
-    // dots if present), as a constant — NOT the box's current shrunk height.
-    // Measured BEFORE any mutation below (current height plus however much
-    // the crop is currently shrunk — exact whether or not this event has
-    // dots, without hardcoding their height), and set BEFORE the box
-    // switches to `fixed`: setting it after would leave a forced-layout
-    // window where the box has already left normal flow but the sentinel
-    // hasn't grown yet — the overlay's content momentarily shorter than the
-    // viewport, which makes the browser clamp scrollTop back to 0 mid-tick
-    // (observed as "can't scroll at all"). A constant sentinel also means
-    // the overlay's scrollable height no longer depends on scroll position:
-    // during the shrink phase, content below rises 1:1 with scroll while
-    // the box's bottom edge also recedes 1:1 (tags stay exactly 32px — the
-    // grid's own gap-8 — under it); once the crop bottoms out at 200px,
-    // content simply continues up and passes underneath the (opaque, z-20)
-    // pinned box.
-    const currentBlockHeight = imageSticky.getBoundingClientRect().height;
-    const currentCropHeight = imageCrop.getBoundingClientRect().height;
-    const fullBlockHeight = currentBlockHeight + (OVERLAY_IMAGE_MAX_H - currentCropHeight);
-    imageSentinel.style.height = `${fullBlockHeight}px`;
-
-    const newCropHeight = Math.max(OVERLAY_IMAGE_MIN_H, Math.min(OVERLAY_IMAGE_MAX_H, OVERLAY_IMAGE_MAX_H - scrolledPast));
-    imageCrop.style.height = `${newCropHeight}px`;
-
-    // left/width (rather than left:0;right:0) since a containing block other
-    // than the true viewport — if one is currently in effect — doesn't
-    // necessarily span the full viewport width. margin:0 clears the
-    // -mx-6/-mx-12 full-bleed trick used for the static-mode (unscrolled)
-    // box — still-applied margins on a `fixed` box would double up with
-    // left/width below and render past both true screen edges.
-    imageSticky.style.position = 'fixed';
-    imageSticky.style.margin = '0';
-    // Safety buffer, ONLY while pinned (D-063 — mirrors event/[id].astro's
-    // own copy of this fix): on a fast/momentum scroll the compositor can
-    // paint a frame or two ahead of this handler (runs on the JS thread on
-    // every scroll tick) — content passing underneath the box can briefly
-    // render a sliver above the box's own exact computed bottom edge before
-    // the next tick catches up, poking into what should be opaque.
-    // Extending the box's own opaque background (bg-mel-bg-primary) a bit
-    // past the crop's real bottom absorbs that slop; the sentinel math
-    // above already accounts for whatever this box's current total height
-    // is, so this doesn't shift anything else. Cleared in the two branches
-    // above (rest state, desktop) so it never adds to the resting 32px gap
-    // after the photo.
-    imageSticky.style.paddingBottom = '24px';
-
-    // #overlay-details-content carries `transition: transform` for its own
-    // open/close animation, and Chrome computes a live `matrix(...)` for any
-    // element with `transform` in its transition-property list for a while
-    // after that transition runs — even back at rest, with no transform
-    // actually applied — which per spec makes it act as the containing block
-    // for `position: fixed` descendants (instead of the viewport) for as
-    // long as that lasts, then stops once it settles back to a literal
-    // `none`. Rather than guess which is currently true, apply a provisional
-    // viewport-relative guess, measure where it actually landed, and correct
-    // for whatever the gap turns out to be — this is correct either way,
-    // and self-heals if that transient window ever shifts.
-    imageSticky.style.left = '0';
-    imageSticky.style.width = `${window.innerWidth}px`;
-    // Pinned at the header's bottom edge, unconditionally — the box never
-    // slides up behind the header, no matter how far the overlay scrolls.
-    const provisionalTop = headerBottom;
-    imageSticky.style.top = `${provisionalTop}px`;
-
-    const renderedRect = imageSticky.getBoundingClientRect();
-    imageSticky.style.left = `${0 - renderedRect.left}px`;
-    imageSticky.style.top = `${provisionalTop - (renderedRect.top - provisionalTop)}px`;
-  }
-
-  // Gap the nav block must always keep to the bottom of the screen, so it
-  // never sits under a phone's own navigation UI. Matches the overlay
-  // scroller's pb-[40px] below `lg` — that padding is what actually stops
-  // the scroll 40px short at the natural end; this constant only matters
-  // for the content-short case where the runway has to push the nav down
-  // to that same resting spot.
-  const OVERLAY_NAV_BOTTOM_GUARD = 40;
-
-  // Sizes the runway (which sits BEFORE the nav block) so the nav's bottom
-  // edge always ends up pinned exactly 40px above the bottom of the screen,
-  // and the scroll is limited to exactly that point — see event/[id].astro's
-  // ensureScrollRunway() for the full rationale. Measures the overlay's own
-  // scroller (overflow-y-auto), not the document (the home page behind it).
-  function ensureOverlayScrollRunway() {
-    const overlay = document.getElementById('event-details-overlay');
-    const navBlock = document.getElementById('overlay-nav-block');
-    const scrollRunway = document.getElementById('overlay-scroll-runway');
-    if (!overlay || !navBlock || !scrollRunway) return;
-    updateOverlayHeaderSpacer();
-    // Must run BEFORE the nav measurement below: the tags-fixed spacer sits
-    // in-flow ahead of the nav, so its height directly shifts where the nav
-    // ends up — measuring against a stale (zero) spacer would under-count.
-    updateOverlayFixedTags();
-
-    if (window.innerWidth >= 1024) {
-      scrollRunway.style.height = '';
-      return;
-    }
-    scrollRunway.style.height = '0px';
-    // Flow position (scroll-independent) of the nav's bottom edge, in the
-    // overlay scroller's own coordinate space.
-    const navBottomFlow = navBlock.getBoundingClientRect().bottom + overlay.scrollTop;
-    const deficit = (overlay.clientHeight - OVERLAY_NAV_BOTTOM_GUARD) - navBottomFlow;
-    if (deficit > 0) {
-      scrollRunway.style.height = `${deficit}px`;
-    }
-
-    updateOverlayStickyImage();
-  }
-
-  function makeTagHtml(label, value, href) {
-    const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
-    const displayVal = isUnknown ? 'desconocido' : value;
-
-    // The value link/text must never wrap to a second line or bleed past the
-    // tag's box — always ellipsis instead (tag-value-link/-text below get
-    // matching global CSS for that; see the min-width:0 chain needed to make
-    // ellipsis actually work inside nested flex containers).
-    return `
-      <div class="flex flex-col items-start gap-2 w-full min-w-0 select-none">
-        <span class="font-sans text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">${label}</span>
-        ${(!isUnknown && href)
-          ? `<a href="${href}" class="tag-value-link group/tag font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative inline-flex items-center no-underline min-w-0 max-w-full"><span class="tag-value-text relative text-inherit">${displayVal}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover/tag:scale-x-100 transition-transform duration-200 origin-left"></span></span><svg class="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-3 h-3 text-inherit opacity-0 group-hover/tag:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover/tag:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg></a>`
-          : `<span class="tag-value-text block w-full font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] ${isUnknown ? 'text-mel-text-tertiary' : 'text-mel-text-secondary'}">${displayVal}</span>`
-        }
-      </div>
-    `;
-  }
-
-  // JS mirror of AdaptiveTagsRow.astro + TagWithLink.astro's own rendered
-  // markup (hideBorder, alignment Left, no titleIcon — AGENTS.md rule 7),
-  // used ONLY for #overlay-tags-sidebar-mobile (the tags row once it's in
-  // horizontal format, D-060). The lg+ vertical sidebar keeps makeTagHtml()
-  // below — a different layout (label/value stacked, spread down a fixed
-  // column height), not the horizontally-adaptive one.
-  function makeAdaptiveTagHtml(label, value, href) {
-    const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
-    const displayVal = isUnknown ? 'desconocido' : value;
-    // Link.astro's own `.mel-link-active`/`.mel-link-underline` styling
-    // (font, color, ellipsis, hover underline) lives in a component-scoped
-    // <style> block — Astro compiles that scope to a per-component hashed
-    // attribute selector that only elements Astro itself renders receive.
-    // This markup is injected via innerHTML on the client, so it never gets
-    // that attribute and those scoped rules silently never match — a real,
-    // persistent bug (not a timing/race issue): every linked tag rendered
-    // sans-serif in the body font instead of Lora (D-062). Fixed by
-    // spelling out the same styling as plain Tailwind utilities instead of
-    // depending on the scoped class names at all.
-    const valueInner = (!isUnknown && href)
-      ? `<a href="${href}" class="group relative inline-flex items-center gap-1 no-underline min-w-0 max-w-full justify-start text-left overflow-hidden text-ellipsis whitespace-nowrap font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary bg-transparent transition-colors">
-          <span class="relative inline-block text-inherit">
-            <span class="tag-count-val">${displayVal}</span>
-            <span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
-          </span>
-          <svg class="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-        </a>`
-      : `<span class="tag-count-val block w-full min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] ${isUnknown ? 'text-mel-text-tertiary' : 'text-mel-text-secondary'} select-text">${displayVal}</span>`;
-    return `
-      <div class="highlight-unit shrink-0 flex items-center gap-6 min-w-0">
-        <div class="h-12 w-px bg-mel-border shrink-0"></div>
-        <div class="filter-tag flex flex-col gap-2 relative px-0 py-0 bg-transparent transition-all duration-200 items-start text-left min-w-0 w-auto" data-category="${label}">
-          <div class="flex gap-1 items-center relative shrink-0">
-            <span class="font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary whitespace-nowrap">${label}</span>
-          </div>
-          <div class="flex h-[24px] items-center relative shrink-0 w-full min-w-0">
-            ${valueInner}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  function renderOverlayEvent(eventItem, panelEvents) {
-    // 1. Text & Basic Details (desktop title + its mobile twin above the grid)
-    document.getElementById('overlay-event-title').textContent = eventItem.evento;
-    const mobileTitle = document.getElementById('overlay-event-title-mobile');
-    if (mobileTitle) mobileTitle.textContent = eventItem.evento;
-    
-    const desc = eventItem.descripcion || '';
-    const descContainer = document.getElementById('overlay-description-container');
-    const descText = document.getElementById('overlay-event-description');
-    if (desc) {
-      descText.textContent = desc;
-      descContainer.classList.remove('hidden');
-    } else {
-      descContainer.classList.add('hidden');
-    }
-
-    // 2. Sidebar Tags — same markup goes to both the desktop (lg+, beside the
-    // image) and mobile (V2, pinned under the header) instances, exactly like
-    // the title's own desktop/mobile duplication just above.
-    const tagsHtml = `
-      ${makeTagHtml("Fecha", eventItem.fecha)}
-      ${makeTagHtml("Lugar", eventItem.lugar, `/?view=mapa&location=${encodeURIComponent(eventItem.lugar)}`)}
-      ${makeTagHtml("Localidad", eventItem.localidad, `/?search=${encodeURIComponent(eventItem.localidad)}`)}
-      ${makeTagHtml("Organiza", eventItem.organiza, `/?search=${encodeURIComponent(eventItem.organiza)}`)}
-      ${makeTagHtml("Diseño", eventItem.disenador, `/?search=${encodeURIComponent(eventItem.disenador)}`)}
-    `;
-    const sidebar = document.getElementById('overlay-tags-sidebar');
-    sidebar.innerHTML = tagsHtml;
-    const sidebarMobile = document.getElementById('overlay-tags-sidebar-mobile');
-    if (sidebarMobile) {
-      sidebarMobile.innerHTML = `
-        ${makeAdaptiveTagHtml("Fecha", eventItem.fecha)}
-        ${makeAdaptiveTagHtml("Lugar", eventItem.lugar, `/?view=mapa&location=${encodeURIComponent(eventItem.lugar)}`)}
-        ${makeAdaptiveTagHtml("Localidad", eventItem.localidad, `/?search=${encodeURIComponent(eventItem.localidad)}`)}
-        ${makeAdaptiveTagHtml("Organiza", eventItem.organiza, `/?search=${encodeURIComponent(eventItem.organiza)}`)}
-        ${makeAdaptiveTagHtml("Diseño", eventItem.disenador, `/?search=${encodeURIComponent(eventItem.disenador)}`)}
-      `;
-      updateAdaptiveTagsRow('overlay-tags-sidebar-mobile');
-    }
-
-    // 3. Artists List
-    const artistsContainer = document.getElementById('overlay-artists-container');
-    const artistsList = document.getElementById('overlay-artists-list');
-    if (eventItem.artistas && eventItem.artistas.toLowerCase() !== 'no detallados') {
-      artistsContainer.classList.remove('hidden');
-      artistsList.innerHTML = eventItem.artistas.split(/[,;\/]+/).map((artist, idx, arr) => {
-        const cleanArtist = artist.trim();
-        if (!cleanArtist) return '';
-        const isLast = idx === arr.length - 1;
-        return `
-          <span class="inline-flex items-center whitespace-nowrap">
-            <a href="/?search=${encodeURIComponent(cleanArtist)}" class="group/art font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary transition-colors relative inline-flex items-center no-underline"><span class="relative inline-block text-inherit">${cleanArtist}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover/art:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>
-            ${!isLast ? `<span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>` : ''}
-          </span>
-        `;
-      }).join('');
-    } else {
-      artistsContainer.classList.add('hidden');
-    }
-
-    // 4. Image carousel
-    const track = document.getElementById('overlay-carousel-track');
-    const imageUrls = eventItem.carruselItems.map(item => extractDriveImage(item.urlDrive)).filter(Boolean);
-    
-    // Clear any previous interval
-    if (overlayAutoplayInterval) {
-      clearInterval(overlayAutoplayInterval);
-      overlayAutoplayInterval = null;
-    }
-
-    track.innerHTML = imageUrls.map(img => `
-      <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
-        <img src="${img}" alt="${eventItem.evento}" class="w-full h-full object-contain" referrerpolicy="no-referrer" />
-      </div>
-    `).join('');
-
-    overlayCurrentIndex = 0;
-    track.style.transform = `translate3d(0, 0, 0)`;
-
-    // Dots. Unlike event/[id].astro (where this whole block is server-side
-    // conditional and simply doesn't exist in the DOM for a single-image
-    // event), this container is a single reused static element for every
-    // event shown in the overlay — its own py-6 padding still renders (and
-    // reserves 48px of height, breaking the fixed 32px gap to tags) even
-    // when left empty, so it needs to be hidden outright rather than just
-    // left childless.
-    const dotsContainer = document.getElementById('overlay-carousel-dots');
-    dotsContainer.innerHTML = '';
-    dotsContainer.classList.toggle('hidden', imageUrls.length <= 1);
-
-    function updateOverlayCarousel(idx) {
-      overlayCurrentIndex = (idx + imageUrls.length) % imageUrls.length;
-      track.style.transform = `translate3d(-${overlayCurrentIndex * 100}%, 0, 0)`;
-      const dots = dotsContainer.querySelectorAll('.overlay-carousel-dot');
-      dots.forEach((dot, dIdx) => {
-        dot.setAttribute('data-active', dIdx === overlayCurrentIndex ? 'true' : 'false');
-      });
-    }
-
-    function startOverlayAutoplay() {
-      if (overlayAutoplayInterval) clearInterval(overlayAutoplayInterval);
-      if (imageUrls.length <= 1) return;
-      overlayAutoplayInterval = setInterval(() => {
-        updateOverlayCarousel(overlayCurrentIndex + 1);
-      }, 5000);
-    }
-
-    if (imageUrls.length > 1) {
-      imageUrls.forEach((_, idx) => {
-        const dot = document.createElement('div');
-        dot.className = 'overlay-carousel-dot w-8 h-8 flex items-center justify-center relative cursor-pointer group select-none';
-        dot.setAttribute('data-index', idx);
-        dot.setAttribute('data-active', idx === 0 ? 'true' : 'false');
-        dot.innerHTML = `
-          <div class="absolute inset-[4px] border border-mel-action-tertiary transition-all duration-300 opacity-0 scale-75 group-data-[active=true]:opacity-100 group-data-[active=true]:scale-100 pointer-events-none flex items-center justify-center">
-            <div class="w-2 h-2 bg-mel-action-tertiary"></div>
-          </div>
-          <div class="dot-resting w-2 h-2 bg-mel-action-secondary transition-all duration-300 group-hover:w-[6px] group-hover:h-[6px] group-hover:bg-mel-action-primary group-data-[active=true]:opacity-0"></div>
-        `;
-        dot.addEventListener('click', (e) => {
-          e.stopPropagation();
-          updateOverlayCarousel(idx);
-          startOverlayAutoplay();
-        });
-        dotsContainer.appendChild(dot);
-      });
-      startOverlayAutoplay();
-    }
-
-    // 5. Zoom image visualizer within overlay. The modal is a fixed-size
-    // CSS box (Figma 841:40903) and the photo object-contains inside it —
-    // no JS sizing off the image's natural dimensions (the old approach
-    // both let big photos overflow the screen and leaked one window
-    // resize listener per rendered event).
-    const carouselMain = document.getElementById('overlay-carousel-main');
-    const imageLightbox = document.getElementById('overlay-image-lightbox');
-    const lightboxModal = document.getElementById('overlay-lightbox-modal');
-    const lightboxTrack = document.getElementById('overlay-lightbox-track');
-    const lightboxDotsContainer = document.getElementById('overlay-lightbox-dots');
-
-    lightboxTrack.innerHTML = imageUrls.map(img => `
-      <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
-        <img src="${img}" alt="${eventItem.evento}" class="w-full h-full object-contain" referrerpolicy="no-referrer" />
-      </div>
-    `).join('');
-
-    let lightboxIndex = 0;
-
-    // Same sliding-track transition as the main carousel, but this never autoplays on its own
-    function showLightboxImage(idx) {
-      if (!imageUrls || imageUrls.length === 0) return;
-      lightboxIndex = (idx + imageUrls.length) % imageUrls.length;
-      if (lightboxTrack) lightboxTrack.style.transform = `translate3d(-${lightboxIndex * 100}%, 0, 0)`;
-      lightboxDotsContainer.querySelectorAll('.overlay-lightbox-dot').forEach((dot, dIdx) => {
-        dot.setAttribute('data-active', dIdx === lightboxIndex ? 'true' : 'false');
-      });
-    }
-
-    // Let the single, page-level keydown listener reach this event's current lightbox state
-    window._melState.activeLightbox = {
-      showImage: showLightboxImage,
-      getIndex: () => lightboxIndex,
-    };
-
-    // Bottom padding matches the other sides (pb-8) when there's no pagination row to show —
-    // with dots, pb-4 plus their own padding reads as the same visual weight, so it stays
-    // smaller there on purpose (mirrors the static logic in event/[id].astro). The dots
-    // container itself must also be fully hidden (not just emptied) when there's nothing to
-    // show in it — its own pt-4/pb-1 padding still occupies height even with zero children,
-    // which is what made the bottom edge read as bigger than the other three sides.
-    lightboxModal.classList.toggle('pb-4', imageUrls.length > 1);
-    lightboxModal.classList.toggle('pb-8', imageUrls.length <= 1);
-    lightboxDotsContainer.classList.toggle('hidden', imageUrls.length <= 1);
-
-    // Rebuild the lightbox pagination for THIS event's images
-    lightboxDotsContainer.innerHTML = '';
-    if (imageUrls.length > 1) {
-      imageUrls.forEach((_, idx) => {
-        const dot = document.createElement('div');
-        dot.className = 'overlay-lightbox-dot w-8 h-8 flex items-center justify-center relative cursor-pointer group select-none';
-        dot.setAttribute('data-index', idx);
-        dot.setAttribute('data-active', idx === 0 ? 'true' : 'false');
-        dot.innerHTML = `
-          <div class="absolute inset-[4px] border border-mel-action-tertiary transition-all duration-300 opacity-0 scale-75 group-data-[active=true]:opacity-100 group-data-[active=true]:scale-100 pointer-events-none flex items-center justify-center">
-            <div class="w-2 h-2 bg-mel-action-tertiary"></div>
-          </div>
-          <div class="dot-resting w-2 h-2 bg-mel-action-secondary transition-all duration-300 group-hover:w-[6px] group-hover:h-[6px] group-hover:bg-mel-action-primary group-data-[active=true]:opacity-0"></div>
-        `;
-        dot.addEventListener('click', (e) => {
-          e.stopPropagation();
-          showLightboxImage(idx);
-        });
-        lightboxDotsContainer.appendChild(dot);
-      });
-    }
-
-    carouselMain.onclick = () => {
-      // Below 480px the photo doesn't open the lightbox: tapping it
-      // re-expands the pinned box (animates the overlay's scroll back to
-      // the top, which un-shrinks the crop 1:1) if it's currently
-      // compressed by scroll, and does nothing otherwise. From 480px up
-      // the click opens the lightbox exactly like desktop. Hand-rolled
-      // timer-driven animation rather than scrollTo({behavior:'smooth'})
-      // (which silently no-ops on this overflow container in some
-      // environments) or requestAnimationFrame (which some sandboxed/
-      // throttled contexts never tick) — direct scrollTop writes always
-      // work, and they drive the scroll handler, so the crop visibly grows
-      // during the ride. Time-based easing, so a slow timer only lowers
-      // the frame rate, never stretches the duration.
-      if (window.innerWidth < 480) {
-        const overlayScroller = document.getElementById('event-details-overlay');
-        if (overlayScroller && overlayScroller.scrollTop > 0) {
-          const startY = overlayScroller.scrollTop;
-          const t0 = performance.now();
-          const DUR = 350;
-          const easeOut = (t) => 1 - Math.pow(1 - t, 3);
-          const stepFrame = () => {
-            const p = Math.min(1, (performance.now() - t0) / DUR);
-            overlayScroller.scrollTop = Math.round(startY * (1 - easeOut(p)));
-            if (p < 1) setTimeout(stepFrame, 16);
-          };
-          stepFrame();
-        }
-        return;
-      }
-      if (overlayAutoplayInterval) clearInterval(overlayAutoplayInterval);
-      showLightboxImage(overlayCurrentIndex);
-      imageLightbox.classList.remove('hidden');
-      setTimeout(() => {
-        imageLightbox.classList.remove('opacity-0', 'pointer-events-none');
-        imageLightbox.classList.add('opacity-100', 'pointer-events-auto');
-        lightboxModal.classList.remove('scale-95');
-        lightboxModal.classList.add('scale-100');
-      }, 10);
-    };
-
-    const closeOverlayLightbox = () => {
-      imageLightbox.classList.remove('opacity-100', 'pointer-events-auto');
-      imageLightbox.classList.add('opacity-0', 'pointer-events-none');
-      lightboxModal.classList.remove('scale-100');
-      lightboxModal.classList.add('scale-95');
-      setTimeout(() => {
-        imageLightbox.classList.add('hidden');
-        startOverlayAutoplay();
-      }, 300);
-    };
-
-    document.getElementById('overlay-lightbox-close').onclick = closeOverlayLightbox;
-    imageLightbox.onclick = (e) => {
-      if (e.target === imageLightbox) closeOverlayLightbox();
-    };
-
-    // 6. Like button
-    const likeKey = `mel-like-${eventItem.idMel}`;
-    let isLiked = localStorage.getItem(likeKey) === 'true';
-    const likeBtn = document.getElementById('overlay-btn-me-presta');
-    const updateLikeUI = () => {
-      likeBtn.setAttribute('data-active', isLiked ? 'true' : 'false');
-    };
-    updateLikeUI();
-    likeBtn.onclick = () => {
-      isLiked = !isLiked;
-      localStorage.setItem(likeKey, String(isLiked));
-      updateLikeUI();
-    };
-
-    // 7. Navigation
-    const curIdx = panelEvents.findIndex(x => x.idMel === eventItem.idMel);
-    const prevItem = curIdx > 0 ? panelEvents[curIdx - 1] : null;
-    const nextItem = curIdx < panelEvents.length - 1 ? panelEvents[curIdx + 1] : null;
-
-    // Lets the page-level keydown listener step to the prev/next event with
-    // the arrow keys, same as clicking Anterior/Siguiente.
-    window._melState.activeOverlayNav = { prevItem, nextItem, panelEvents };
-
-    const prevNav = document.getElementById('overlay-nav-prev-container');
-    const nextNav = document.getElementById('overlay-nav-next-container');
-
-    prevNav.innerHTML = '';
-    nextNav.innerHTML = '';
-
-    // Prev/next markup mirrors the real /event/[id] page's TagWithLink +
-    // Link combo: sans uppercase label, then a serif (Lora) title in
-    // text-secondary that turns action-primary on hover, with the sliding
-    // chevron (left-pointing before the text for Anterior, right-pointing
-    // after it for Siguiente) and the scaleX underline.
-    if (prevItem) {
-      const prevBtn = document.createElement('div');
-      prevBtn.className = 'w-full max-w-[496px] cursor-pointer group flex flex-col items-end gap-2 select-none';
-      prevBtn.innerHTML = `
-        <span class="font-sans text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">Anterior</span>
-        <span class="relative inline-flex items-center gap-1 max-w-full font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary group-hover:text-mel-action-primary transition-colors">
-          <svg class="w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[4px] group-hover:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
-          <span class="relative inline-block truncate">${prevItem.evento}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span>
-        </span>
-      `;
-      prevBtn.addEventListener('click', () => {
-        transitionToOverlayEvent(prevItem, panelEvents);
-      });
-      prevNav.appendChild(prevBtn);
-    }
-
-    if (nextItem) {
-      const nextBtn = document.createElement('div');
-      nextBtn.className = 'w-full max-w-[496px] cursor-pointer group flex flex-col items-start gap-2 select-none';
-      nextBtn.innerHTML = `
-        <span class="font-sans text-[13px] font-bold tracking-[1.56px] leading-[16px] uppercase text-mel-text-primary">Siguiente</span>
-        <span class="relative inline-flex items-center gap-1 max-w-full font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary group-hover:text-mel-action-primary transition-colors">
-          <span class="relative inline-block truncate">${nextItem.evento}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span>
-          <svg class="w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
-        </span>
-      `;
-      nextBtn.addEventListener('click', () => {
-        transitionToOverlayEvent(nextItem, panelEvents);
-      });
-      nextNav.appendChild(nextBtn);
-    }
-  }
-
-  // The overlay works from every context (gallery, list, map panel), so its
-  // URL handling is context-neutral: just set/remove a `detail` param on top
-  // of whatever the current URL already carries (view, search, location…)
-  // instead of the old hardcoded map-flavored URL. replaceState keeps this
-  // outside the history stack so Astro's router never gets involved.
-  function setDetailParam(idMel) {
-    try {
-      const url = new URL(window.location.href);
-      if (idMel) {
-        url.searchParams.set('detail', idMel);
-      } else {
-        url.searchParams.delete('detail');
-      }
-      window.history.replaceState(idMel ? { spaDetail: true } : {}, '', url.toString());
-    } catch(e){}
-  }
-
-  function transitionToOverlayEvent(newEvent, panelEvents) {
-    setDetailParam(newEvent.idMel);
-
-    const content = document.getElementById('overlay-details-content');
-    if (!content) { renderOverlayEvent(newEvent, panelEvents); return; }
-
-    // Anterior/Siguiente always lands on the new event with its image box at
-    // full size, never picking up whatever scroll-shrunk crop the outgoing
-    // event was left at. Reset BEFORE snapshotting oldRects below, so both
-    // the FLIP's old and new measurements are taken in the same (top) scroll
-    // state — resetting after would fold the scroll jump itself into the
-    // FLIP delta, on top of whatever content visibility actually changed.
-    const overlayScroller = document.getElementById('event-details-overlay');
-    if (overlayScroller) overlayScroller.scrollTop = 0;
-
-    // Sections that persist in the same slot (title, tags, image, artist
-    // list) just get their content rewritten in place — same idea as the map
-    // cluster's own count updating directly rather than the whole bubble
-    // redrawing — instead of the old blanket 500ms fade-to-blank-and-back.
-    // Only the sections whose *visibility* can toggle (description, artists)
-    // get a FLIP: if one collapses/expands, whatever comes after glides into
-    // Only the sections whose *visibility* can toggle (description, artists)
-    // get a FLIP: if one collapses/expands, whatever comes after glides into
-    // its new position instead of snapping.
-    const descContainer = document.getElementById('overlay-description-container');
-    const wasDescHidden = !descContainer || descContainer.classList.contains('hidden') || (descContainer.getBoundingClientRect().height < 5);
-
-    const flipEls = ['overlay-description-container', 'overlay-artists-container', 'overlay-btn-me-presta']
-      .map(id => document.getElementById(id))
-      .filter(Boolean);
-    const oldRects = flipEls.map(el => el.getBoundingClientRect());
-
-    // Photo dissolve: snapshot the carousel exactly as it looks right now
-    // into a fixed-position clone stacked on top of the real one, let
-    // renderOverlayEvent() swap the real carousel to the new event's photo
-    // underneath, then fade the snapshot away — so the old photo visibly
-    // dissolves into the new one instead of popping.
-    const carouselBox = document.getElementById('overlay-carousel-main');
-    let dissolveClone = null;
-    if (carouselBox) {
-      const rect = carouselBox.getBoundingClientRect();
-      dissolveClone = carouselBox.cloneNode(true);
-      dissolveClone.removeAttribute('id');
-      dissolveClone.style.position = 'fixed';
-      dissolveClone.style.left = rect.left + 'px';
-      dissolveClone.style.top = rect.top + 'px';
-      dissolveClone.style.width = rect.width + 'px';
-      dissolveClone.style.height = rect.height + 'px';
-      dissolveClone.style.margin = '0';
-      dissolveClone.style.zIndex = '9999';
-      dissolveClone.style.pointerEvents = 'none';
-      dissolveClone.style.transition = 'opacity 0.5s ease';
-      document.body.appendChild(dissolveClone);
-    }
-
-    renderOverlayEvent(newEvent, panelEvents);
-    ensureOverlayScrollRunway();
-    updateOverlayStickyImage();
-
-    if (dissolveClone) {
-      requestAnimationFrame(() => {
-        dissolveClone.style.opacity = '0';
-        setTimeout(() => { dissolveClone.remove(); }, 520);
-      });
-    }
-
-    const isDescVisible = descContainer && !descContainer.classList.contains('hidden') && (descContainer.getBoundingClientRect().height > 5);
-
-    if (wasDescHidden && isDescVisible) {
-      const isDesktop = window.innerWidth >= 1024;
-      descContainer.style.transition = 'none';
-      descContainer.style.opacity = '0';
-      if (isDesktop) {
-        // Desktop (lg+): description enters from behind the image box (from the left)
-        descContainer.style.transform = 'translateX(-50px)';
-      } else {
-        // Mobile (<lg): description enters from behind/under the image box (from above)
-        descContainer.style.transform = 'translateY(-24px)';
-      }
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          descContainer.style.transition = 'opacity 0.4s ease-out, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-          descContainer.style.opacity = '1';
-          descContainer.style.transform = 'translate(0, 0)';
-          setTimeout(() => {
-            descContainer.style.transition = '';
-            descContainer.style.transform = '';
-            descContainer.style.opacity = '';
-          }, 420);
-        });
-      });
-    }
-
-    flipEls.forEach((el, i) => {
-      if (el === descContainer && wasDescHidden && isDescVisible) {
-        return;
-      }
-      const oldRect = oldRects[i];
-      const newRect = el.getBoundingClientRect();
-      if (oldRect && oldRect.height > 5 && newRect && newRect.height > 5) {
-        const deltaY = oldRect.top - newRect.top;
-        if (Math.abs(deltaY) > 1) {
-          el.style.transition = 'none';
-          el.style.transform = `translateY(${deltaY}px)`;
-          requestAnimationFrame(() => {
-            el.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-            el.style.transform = '';
-            setTimeout(() => { el.style.transition = ''; el.style.transform = ''; }, 420);
-          });
-        }
-      }
-    });
-  }
-
-  function openDetailsOverlaySPA(eventItem, panelEvents) {
-    document.body.classList.add('overflow-hidden');
-
-    setDetailParam(eventItem.idMel);
-
-    // Show overlay
-    const overlay = document.getElementById('event-details-overlay');
-    const content = document.getElementById('overlay-details-content');
-    if (overlay) {
-      overlay.classList.remove('overlay-fading');
-      overlay.classList.remove('hidden');
-      overlay.classList.add('flex');
-      // Fresh open: start scrolled to the top, so the pinned image begins at
-      // its full 400px size rather than picking up wherever a previously
-      // viewed event happened to leave the scroll position.
-      overlay.scrollTop = 0;
-    }
-    // Start offset/hidden — renderOverlayEvent() below populates it while
-    // still invisible, then the next step reveals it with a settle-in motion
-    // shared by all three entry points (gallery card, list row, map panel),
-    // since they all funnel through this same function.
-    if (content) content.classList.add('overlay-content-enter');
-
-    renderOverlayEvent(eventItem, panelEvents);
-    ensureOverlayScrollRunway();
-    updateOverlayStickyImage();
-
-    // Double rAF: the first frame just commits the "enter" (offset) state so
-    // the browser actually paints it — removing the class immediately after
-    // adding it (single frame) risks the two style changes getting coalesced
-    // into a no-op, skipping the transition entirely. Also re-run the fixed-
-    // position math here: on a fresh full-page load that opens straight into
-    // `?detail=...` (as opposed to a click on an already-loaded page), the
-    // very first ensureOverlayScrollRunway()/updateOverlayStickyImage() call
-    // above can land before the browser has committed a real layout pass for
-    // the newly-visible overlay, reading a stale/zero viewport-relative rect
-    // and leaving the header/tags/image all un-positioned — this second
-    // pass, after two real paints, is guaranteed to see the settled layout.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (content) content.classList.remove('overlay-content-enter');
-        ensureOverlayScrollRunway();
-        updateOverlayStickyImage();
-      });
-    });
-  }
-
-  function closeDetailsOverlaySPA(shouldRestoreUrl = true) {
-    const overlay = document.getElementById('event-details-overlay');
-    const content = document.getElementById('overlay-details-content');
-
-    if (content) content.classList.add('overlay-content-enter');
-    if (overlay) overlay.classList.add('overlay-fading');
-
-    if (overlayAutoplayInterval) {
-      clearInterval(overlayAutoplayInterval);
-      overlayAutoplayInterval = null;
-    }
-
-    document.body.classList.remove('overflow-hidden');
-
-    // Dropping just the detail param returns to the exact context the
-    // visitor was in (view, search, panel…) — and also covers the
-    // deep-link case, where there was no "previous" URL to restore.
-    if (shouldRestoreUrl) setDetailParam(null);
-
-    // Let the shrink-and-fade play out before actually hiding the overlay —
-    // hiding it immediately would just cut the animation off. Matches the
-    // 0.55s transition on #overlay-details-content.
+    //
+    // Restoring saveReturnState()'s scroll/map position piggybacks on this
+    // same delay: updateSlider()'s own startup call schedules a
+    // performDOMUpdates() rebuild of #gallery-grid a frame later, which
+    // momentarily clamps the scroller's content back down — setting
+    // scrollTop any earlier than this just gets overwritten by that rebuild.
     setTimeout(() => {
-      if (overlay) {
-        overlay.classList.remove('overlay-fading');
-        overlay.classList.add('hidden');
-        overlay.classList.remove('flex');
+      gallerySettled = true;
+      if (pendingReturnState) {
+        const restoreScroll = (el, targetTop, attemptsLeft) => {
+          if (!el) return;
+          if (el.scrollHeight - el.clientHeight >= targetTop || attemptsLeft <= 0) {
+            el.scrollTop = targetTop;
+          } else {
+            requestAnimationFrame(() => restoreScroll(el, targetTop, attemptsLeft - 1));
+          }
+        };
+        if (pendingReturnState.view === 'galería') {
+          restoreScroll(document.getElementById('view-galería'), pendingReturnState.scrollTop || 0, 120);
+        } else if (pendingReturnState.view === 'lista') {
+          const el = window.innerWidth >= 440
+            ? document.getElementById('list-table-wrapper')
+            : document.getElementById('list-mobile-cards');
+          restoreScroll(el, pendingReturnState.scrollTop || 0, 120);
+        } else if (pendingReturnState.view === 'mapa' && pendingReturnState.mapCenter) {
+          const restoreMapCamera = (attemptsLeft) => {
+            if (googleMap) {
+              googleMap.setCenter(pendingReturnState.mapCenter);
+              googleMap.setZoom(pendingReturnState.mapZoom);
+            } else if (attemptsLeft > 0) {
+              requestAnimationFrame(() => restoreMapCamera(attemptsLeft - 1));
+            }
+          };
+          restoreMapCamera(60);
+        }
       }
-      if (content) content.classList.remove('overlay-content-enter');
-    }, 500);
+    }, 200);
   }
-
-  // Overlay close buttons are bound in initHomePage()
 
   // --- List View Sorting and Navigation Actions ---
 

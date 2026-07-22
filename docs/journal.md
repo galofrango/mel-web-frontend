@@ -2,6 +2,33 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Eliminación del overlay SPA del detalle de evento (Opción B, D-072)
+
+### Objetivo de la Sesión
+Eliminar la duplicación de raíz entre la página estática `/event/[id].astro` y el overlay SPA de `index.astro`, sustituyendo el overlay por navegación real siempre a `/event/[id]`, sin perder navegación filtrada (Anterior/Siguiente respetando búsqueda/localización activa) ni el "recordar de dónde veníamos" (vista, filtros, scroll, cámara de mapa).
+
+### Investigación Previa
+- Se descubrió, vía un comentario en el propio código, que el overlay había sustituido un intento previo de navegación real, descartado entonces por un problema de caché de snapshot del `ClientRouter` de Astro al navegar entre dos URLs `/event/[id]` distintas.
+- Se confirmó que `/event/[id].astro` YA tenía construida (sin usar desde la Home) la infraestructura de navegación filtrada por `?search=`/`?location=`/`?view=`, incluyendo el enlace de vuelta.
+
+### Cambios Realizados
+1. Punto de restauración: tag git `pre-overlay-removal`.
+2. Nueva función `navigateToEvent()` en `index.astro`: navegación real (recarga dura, mismo patrón que Anterior/Siguiente ya usaban) con `?search=`/`?location=`/`?view=` según el punto de entrada.
+3. Nuevo mecanismo `saveReturnState()` + restauración vía `sessionStorage` para scroll de Galería/Lista y cámara del mapa (lo que no es estado shareable por URL).
+4. Eliminado por completo: marcado `#event-details-overlay`, su lightbox propio, y ~9 funciones JS dedicadas (`renderOverlayEvent`, `openDetailsOverlaySPA`, `closeDetailsOverlaySPA`, etc.), el atajo de teclado del overlay y el deep-link `?detail=`.
+5. `npm run build` verificado sin errores; flujo completo probado en navegador real (clic en tarjeta → detalle con filtro correcto → Anterior/Siguiente filtrado → cierre con vista/búsqueda/scroll restaurados).
+6. **Bug introducido y corregido en la misma sesión**: al borrar CSS muerto del overlay por número de línea, se eliminó por error una etiqueta `</style>` que cerraba el bloque `<style>` anterior — el propietario reportó Galería/Mapa/Lista visiblemente rotos (columnas a mitad de ancho). Diagnosticado por `git diff` línea a línea y corregido reintroduciendo la etiqueta; verificado que las tres vistas vuelven a su layout correcto. Ver nota completa en D-072.
+
+### Decisiones Tomadas
+- Ver decisión D-072 en `docs/decisions.md`, incluyendo el alcance explícitamente descartado (rango de años del slider no se propaga al detalle).
+
+### Próximos Pasos
+- Confirmación visual del propietario en navegador real.
+- Verificación cross-browser/táctil pendiente (no realizada en esta sesión).
+- El flujo de navegación desde el panel de eventos del mapa usa el mismo código ya probado, pero no se verificó visualmente por clic en un marcador real (los tiles de Google Maps no renderizan en este entorno sandbox).
+
+---
+
 ## [2026-07-22] — Sesión: Unificación del breakpoint de escritorio a `lg` (`1024px`) en todo el sitio (D-071)
 
 ### Objetivo de la Sesión
