@@ -700,4 +700,13 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Respetar la especificación de diseño donde el fondo y el texto del ítem del menú usan tono secundario en hover, mientras el chevron destaca en `Action-Primary`.
 - **Consecuencias**: Al hacer hover sobre los enlaces del menú lateral, el fondo cambia a `bg-mel-bg-secondary`, el texto a `text-mel-action-secondary` y el chevron a `text-mel-action-primary`.
 
+## D-070 · Padding de 32px en `home-highlights-tags` (`AdaptiveTagsRow.astro`)
+
+- **Contexto**: Se solicita incorporar un espaciado interior de 32px (`p-[32px]`) al contenedor de la fila de highlights de la página principal (`id="home-highlights-tags"`).
+- **Decisión**:
+  1. En `src/pages/index.astro`, se añade la propiedad `class="p-[32px]"` al componente `<AdaptiveTagsRow id="home-highlights-tags" tags={tags} />`.
+- **Motivo**: Proporcionar un margen interior holgado de 32px alrededor de los tags de estadísticas de la home.
+- **Consecuencias**: El elemento `home-highlights-tags` se renderiza con 32px de padding en todos sus bordes.
+
+
 
