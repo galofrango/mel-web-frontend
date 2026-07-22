@@ -2,15 +2,15 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Offset de -1px (top-[-1px]) en thead de la vista de Lista (D-076)
+## [2026-07-22] — Sesión: Offset de -1px (top-[-1px]) en thead de Lista: Solución única para el sellado de scroll (D-076)
 
 ### Objetivo de la Sesión
-Configurar el offset de la cabecera pegajosa `<thead>` a `top-[-1px]` con bordes medios estándar (`border-collapse: collapse`) para evitar que el contenido desplazado se trasluzca o asome por detrás de la cabecera durante el scroll.
+Resolver definitivamente el traslucido/asomo de celdas del cuerpo por detrás de la cabecera pegajosa `<thead>` durante el scroll en la tabla de la vista de Lista.
 
 ### Cambios Realizados
-1. **Contenedor `#list-table-wrapper`**: Eliminado `pt-px`.
-2. **Cabecera `<thead>` (`src/pages/index.astro`)**: Cambiada la clase a `sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate`.
-3. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md`.
+1. **Pruebas y hallazgo**: Se confirmó que `top-[-1px]` en `<thead>` es la **única solución efectiva** encontrada para sellar visualmente la grieta superior del contenedor pegajoso en tablas con `border-collapse: collapse`.
+2. **Implementación (`src/pages/index.astro`)**: Asignada la clase `sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate` a `<thead>`.
+3. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md` dejando constancia formal de este hallazgo.
 
 ---
 

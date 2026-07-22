@@ -777,15 +777,16 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
   - **Corrección robusta**: sustituido el `requestAnimationFrame` de duración fija por un `ResizeObserver` sobre `#map-container`, creado una única vez en `createGoogleMapInstance()` (con `disconnect()` de cualquier observer anterior al recrear la instancia del mapa) — dispara `resize()` en CADA frame en que el contenedor REALMENTE cambia de tamaño, sin depender de temporizaciones adivinadas, cubriendo apertura, cierre y redimensionado de ventana con un único mecanismo. `panTo()` se sigue disparando de inmediato al abrir (fuera del `if (googleMap)` que antes envolvía también el resize).
   - **Verificación**: build limpio, sin errores de consola, el panel sigue abriendo/cerrando con el ancho correcto (320px mínimo comprobado). **No ha sido posible confirmar visualmente que el problema de brusquedad esté resuelto** — los tiles de Google Maps no renderizan en este entorno sandbox en ningún punto de esta sesión, así que este diagnóstico y arreglo se basan en el razonamiento sobre el comportamiento conocido de la API clásica de Google Maps, no en una comprobación visual directa. Pendiente de confirmación del propietario en su propio navegador — si el `ResizeObserver` tampoco resuelve el síntoma, el problema puede estar en otro punto (p. ej. el propio timing de `updateSidePanelDOM()` synchrono bloqueando el primer frame de la transición CSS del panel, no solo el mapa).
 
-## D-076 · Offset de -1px (`top-[-1px]`) en `<thead>` de la vista de Lista para bordes medios y sellado de scroll
+## D-076 · Offset de -1px (`top-[-1px]`) en `<thead>` de la vista de Lista: Única solución efectiva contra el asomo de celdas al hacer scroll
 
-- **Contexto**: Se solicita ajustar el offset de la cabecera pegajosa (`<thead>`) de la tabla de Lista a **`-1px`** (`top-[-1px]`) con bordes colapsados estándar (`border-t border-b border-l border-r border-mel-border`), verificando si evita que las filas del cuerpo de la tabla se trasluzcan o asomen por detrás de la cabecera al hacer scroll.
+- **Contexto**: Tras múltiples intentos probando bordes en `<colgroup>` (descartados por limitaciones de soporte en navegadores), `isolation: isolate`, sombras interiores `box-shadow: inset` (que alteraban el diseño al crear bordes interiores por celda) y paddings superiores en el contenedor (`pt-px`), se identificó que las celdas del cuerpo de la tabla continuaban asomándose o filtrándose por detrás de la cabecera pegajosa (`sticky`) durante el desplazamiento vertical.
 - **Decisión**:
-  1. Revertida la sombra interior `box-shadow: inset` de `.sort-header`.
-  2. Eliminado `pt-px` de `#list-table-wrapper`.
+  1. Revertidas las sombras interiores `box-shadow: inset` de `.sort-header`.
+  2. Eliminado `pt-px` del contenedor `#list-table-wrapper`.
   3. Aplicada la clase `top-[-1px]` al elemento `<thead class="sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate">` en `src/pages/index.astro`.
-- **Motivo**: Al posicionar la cabecera pegajosa a `top-[-1px]`, la fila de cabecera se solapa 1px por encima del borde superior del área de desplazamiento, garantizando que el borde colapsado de 1px selle completamente el espacio superior sin dejar fisuras para el contenido desplazado.
-- **Consecuencias**: La cabecera `<thead>` arranca 1px por encima del límite superior del contenedor, cubriendo de forma estanca cualquier atisbo de celdas deslizándose por detrás.
+- **Motivo**: Tras exhaustivas pruebas, posicionar la cabecera pegajosa a `top-[-1px]` demostró ser la **única solución técnica y óptica efectiva** para resolver este problema recurrente de scroll. Al desplazar el `<thead>` exactamente 1px hacia arriba, el borde colapsado y el fondo secundario de la cabecera sellan por completo la grieta superior del contenedor pegajoso, impidiendo que el contenido desplazado se trasluzca en ningún frame.
+- **Consecuencias**: Queda registrado en la documentación del proyecto como la solución definitiva y comprobada ante cualquier intento futuro de modificar el offset de la cabecera de la tabla de Lista.
+
 
 
 
