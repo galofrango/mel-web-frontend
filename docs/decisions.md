@@ -708,6 +708,17 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Mantener el margen izquierdo alineado con la retícula de la página mientras se deja una reserva de 32px en el lateral derecho para el desplazamiento/scroll de la fila de tags.
 - **Consecuencias**: El elemento `home-highlights-tags` cuenta con 32px de padding en su extremo derecho sin modificar el margen izquierdo.
 
+## D-071 · Unificación del breakpoint de escritorio a `lg` (`1024px`) en todo el sitio
+
+- **Contexto**: Anteriormente, la Página de Inicio (`index.astro`) utilizaba `md` (`768px`) para activar el padding superior dinámico `--mel-header-pt-desktop` y conmutar la cabecera, mientras que el Detalle de Evento usaba `lg` (`1024px`). Esto causaba una incoherencia en tablets (768px–1023px) donde la Home estaba en layout de escritorio y el detalle en layout móvil.
+- **Decisión**:
+  1. Se unifica el breakpoint de activación de escritorio a **`lg` (`1024px`)** en todas las vistas y componentes (`index.astro`, `exposiciones.astro`, `info.astro`, `SideMenu.astro` y `HeaderTitle.astro`).
+  2. El relleno superior dinámico `--mel-header-pt-desktop` se activa a partir de `1024px` (`lg:pt-[var(--mel-header-pt-desktop)]`).
+  3. La conmutación del título de cabecera (*"M.E.L."* vs *"Memoria Electrónica Leonesa"*) se realiza en `1024px` (`lg:hidden` / `hidden lg:inline`).
+- **Motivo**: Mantener una coherencia óptica y geométrica del 100% entre todas las páginas del sitio y garantizar un comportamiento unificado de la cabecera, los márgenes y el menú lateral.
+- **Consecuencias**: En pantallas `<1024px` la web se comporta de forma limpia en modo móvil/tablet en todas las vistas; a partir de `1024px` conmuta de forma perfectamente síncrona al modo escritorio en todas las páginas.
+
+
 
 
 

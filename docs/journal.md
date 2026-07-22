@@ -2,6 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Unificación del breakpoint de escritorio a `lg` (`1024px`) en todo el sitio (D-071)
+
+### Objetivo de la Sesión
+Unificar el breakpoint de conmutación a layout de escritorio y activación de `--mel-header-pt-desktop` a `lg` (`1024px`) en todas las páginas y componentes del proyecto, garantizando coherencia visual completa.
+
+### Cambios Realizados
+1. **Componentes y Páginas (`HeaderTitle.astro`, `SideMenu.astro`, `index.astro`, `exposiciones.astro`, `info.astro`)**:
+   - Actualizadas las clases de conmutación de padding superior (`lg:pt-[var(--mel-header-pt-desktop)]`), márgenes y visibilidad del título (*"M.E.L."* vs *"Memoria Electrónica Leonesa"*) de `md` (`768px`) a **`lg` (`1024px`)**.
+2. **Punto de recuperación**: Creada la etiqueta Git `checkpoint-before-lg-unification`.
+3. **Documentación**: Registrada decisión `D-071` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Ajuste de padding de 32px a la derecha en `home-highlights-tags` (D-070)
 
 ### Objetivo de la Sesión

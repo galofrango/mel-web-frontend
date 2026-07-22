@@ -202,17 +202,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
        112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
        smaller screens don't waste fixed pixel gaps. -->
-  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 md:px-[108px] pt-[calc(10vh-40px)] md:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pt-[calc(10vh-40px)] lg:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
          its icon (see HeaderTitle/MenuItem), the gap to the menu button is 16px
-         on mobile / 24px from md up. Plain flex (title flex-1, menu shrink-0)
+         on mobile / 24px from lg up. Plain flex (title flex-1, menu shrink-0)
          at every width — NOT a 50/50 grid split — so the search box only ever
          shrinks (and truncates its placeholder) once it's genuinely out of
          room, i.e. down to that gap from the menu, instead of being capped at
          a fixed half of the row regardless of how little the menu needs. -->
-    <div class="flex items-center gap-4 md:gap-6 shrink-0" style="view-transition-name: mel-header;">
+    <div class="flex items-center gap-4 lg:gap-6 shrink-0" style="view-transition-name: mel-header;">
       <div class="flex-1 min-w-0 w-full">
         <HeaderTitle hideDivider={true} />
       </div>
@@ -224,9 +224,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     <!-- Toolbar: Slider & Controls. El hueco hasta la cabecera lo da el gap-6
          del contenedor padre (24px). En móvil (Figma 439:140952 / 315:17658 el
          toolbar arranca más pegado a la cabecera) lo recortamos a 16px con
-         -mt-2, restaurando 24px en desktop (md:mt-0). El pb-4 mantiene el hueco
+         -mt-2, restaurando 24px en desktop (lg:mt-0). El pb-4 mantiene el hueco
          hacia el contenido de abajo. Tailwind: gap-6=24px, -mt-2=-8px. -->
-    <div class="flex flex-col gap-6 pb-4 shrink-0 -mt-2 md:mt-0" style="view-transition-name: mel-toolbar;">
+    <div class="flex flex-col gap-6 pb-4 shrink-0 -mt-2 lg:mt-0" style="view-transition-name: mel-toolbar;">
       <!-- Year Slider Bar (Removed text header label as requested). On mobile the
            slider runs full-bleed to the screen edges (negative margins cancel the
            page's px-6), per the mobile toolbar design (Figma 315:17658). -->
