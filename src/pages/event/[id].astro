@@ -570,6 +570,29 @@ const designerDisplay = getTagDisplay(eventData.designer);
     window._melAbortCtrl = new AbortController();
     const wSig = window._melAbortCtrl.signal;
 
+    // Fundido v1 (D-074, ver docs/design-system.md): fundido de salida antes
+    // de una navegación real, dando tiempo a que se vea antes de que la
+    // página se descargue. Toda navegación interna de esta página pasa por
+    // aquí en vez de por el ClientRouter de Astro — no solo por el fundido,
+    // sino porque una navegación suave a `/` (Home) deja su layout roto
+    // unos instantes mientras su JS termina de inicializarse (galería/mapa/
+    // lista), el mismo tipo de problema de fondo que D-072 ya evitó para
+    // /event/[id] con recarga dura. Un solo listener delegado cubre TODOS
+    // los enlaces internos de la página (cerrar, tags, artistas,
+    // Anterior/Siguiente) sin tener que tocar cada componente por separado.
+    function fadeAndNavigate(url) {
+      document.body.style.transition = 'opacity 0.2s ease';
+      document.body.style.opacity = '0';
+      setTimeout(() => { window.location.href = url; }, 200);
+    }
+    document.addEventListener('click', (e) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const link = e.target.closest('a[href^="/"]');
+      if (!link) return;
+      e.preventDefault();
+      fadeAndNavigate(link.href);
+    }, { signal: wSig });
+
     // Pinned, shrinking image (below `lg`). Figma "Screen / Event Details"
     // (369:32751): the image sticks right below the sticky X+title header and
     // shrinks from 400px down to a documented min of 200px as the page
@@ -878,13 +901,19 @@ const designerDisplay = getTagDisplay(eventData.designer);
     const navParam = returnNavParams.toString();
 
     // Render navigation dynamically based on active search/location matches (using visibility:hidden to preserve grid layout!)
+    // (fade+hard-navigate on click is handled by the single delegated
+    // listener set up earlier in initPage() — no per-link binding needed.)
+    let prevHref = null, nextHref = null;
     const prevContainer = document.getElementById('nav-prev-container');
     if (prevContainer) {
       if (prevEventItem) {
         prevContainer.classList.remove('invisible');
         const link = prevContainer.querySelector('a');
         const text = prevContainer.querySelector('.tag-count-val');
-        if (link) link.href = `/event/${prevEventItem.idMel}?${navParam}`;
+        if (link) {
+          link.href = `/event/${prevEventItem.idMel}?${navParam}`;
+          prevHref = link.href;
+        }
         if (text) text.textContent = prevEventItem.title;
       } else {
         prevContainer.classList.add('invisible');
@@ -897,7 +926,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
         nextContainer.classList.remove('invisible');
         const link = nextContainer.querySelector('a');
         const text = nextContainer.querySelector('.tag-count-val');
-        if (link) link.href = `/event/${nextEventItem.idMel}?${navParam}`;
+        if (link) {
+          link.href = `/event/${nextEventItem.idMel}?${navParam}`;
+          nextHref = link.href;
+        }
         if (text) text.textContent = nextEventItem.title;
       } else {
         nextContainer.classList.add('invisible');
@@ -1001,6 +1033,18 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
     window.melOverlayKeydownHandler = handleOverlayKeydown;
     document.addEventListener('keydown', window.melOverlayKeydownHandler);
+
+    // Left/right arrow keys step to the previous/next EVENT (Anterior/
+    // Siguiente) — only while the image lightbox above isn't open, since
+    // that already claims the same keys for stepping through this event's
+    // own photos.
+    document.addEventListener('keydown', (e) => {
+      if (overlay && !overlay.classList.contains('hidden')) return;
+      const tag = e.target && e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+      if (e.key === 'ArrowLeft' && prevHref) { e.preventDefault(); fadeAndNavigate(prevHref); }
+      else if (e.key === 'ArrowRight' && nextHref) { e.preventDefault(); fadeAndNavigate(nextHref); }
+    }, { signal: wSig });
 
     function openOverlay() {
       if (!overlay || !overlayModal) return;

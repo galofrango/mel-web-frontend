@@ -134,3 +134,50 @@ Tokens de espaciado: `--mel-spacing-xs/s/sm/m/l/xl` = 4 / 8 / 12 / 16 / 24 / 32p
 5. **Esquinas rectas (sin `border-radius`)**: **NADA en la web tiene bordes redondeados.** Botones, tarjetas, tiradores, sheets, badges, inputs… todo con esquinas rectas. El único recurso decorativo de borde es el **pliegue diagonal** del bottom sheet (`clip-path`, ver `BottomSheetHeader`). Si un mockup parece redondeado, es una ilusión del pliegue o un error de lectura.
 6. **Sombras y dims unificados**: Toda sombra/scrim usa el primitivo `--mel-shadow-rgb` (Tinted 950) vía los tokens de elevación; los dims llevan además `mix-blend-multiply` para notarse en oscuro (ver sección *Sombras, Dims y Elevaciones*).
 7. **Offset superior en móvil**: `pt-[10vh]` (header común de todas las páginas) se reduce 24px por debajo de `md` — `pt-[calc(10vh-24px)] md:pt-[10vh]` — para subir el contenido en pantallas pequeñas. El `SideMenu` ajusta su `min-h` en paralelo para alinear el botón de cerrar.
+
+## Transiciones de Navegación
+
+### Fundido v1 (D-074)
+
+Patrón mínimo para suavizar una **navegación real de página** (recarga dura — `window.location.href`, nunca `document.startViewTransition()` ni el `ClientRouter` de Astro; ver "Por qué recarga dura, no `ClientRouter`" más abajo). Dos mitades independientes, sin dependencias entre sí:
+
+**Entrada (fade-in)** — CSS puro, ya activo sitewide, no requiere nada por página:
+```css
+/* src/layouts/Layout.astro, aplicado a <body> */
+body { animation: mel-fade-in 0.25s ease; }
+@keyframes mel-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+```
+Se reproduce solo en cada carga de página fresca (toda navegación real es una carga fresca). Nada que llamar, nada que limpiar.
+
+**Salida (fade-out) antes de navegar** — JS mínimo, a añadir en el punto donde se decide la URL de destino:
+```js
+function fadeAndNavigate(url) {
+  document.body.style.transition = 'opacity 0.2s ease';
+  document.body.style.opacity = '0';
+  setTimeout(() => { window.location.href = url; }, 200);
+}
+```
+Los 200ms de espera son intencionados: son los que dejan que el fundido se vea antes de que la página se descargue (el bug original de `EmptyState.astro`'s back button era fundir Y navegar en el mismo tick, sin darle tiempo al fundido a jugar).
+
+**Valores fijos del patrón** (no reinventar por sitio): entrada 0.25s / salida 0.2s, siempre `ease`, siempre sobre `body` completo (no un wrapper interno). Si una futura iteración cambia estos valores, actualízalos aquí primero — es la referencia única.
+
+**Cuándo interceptar clics en vez de dejar que el navegador navegue solo**: si el destino es una página con inicialización JS pesada (Home con su galería/mapa/lista, o el propio detalle de evento), evita el `ClientRouter` de Astro por completo — ni siquiera para el trayecto de vuelta. Un enlace normal sin `data-astro-reload` deja que Astro haga una navegación *suave* (fetch + swap de DOM), y el destino se ve con su layout roto unos instantes mientras su JS de inicialización termina de correr (bug real encontrado y corregido en esta misma entrada — los enlaces de Localidad/Organiza/Diseño/Artistas de `event/[id].astro` no llevaban `reload`). La forma más simple de blindarse contra esto en una página entera es UN solo listener de click delegado en `document` que intercepta cualquier `<a href="/...">` interno, hace `preventDefault()` y llama a `fadeAndNavigate(link.href)` — cubre enlaces presentes y futuros sin tocar cada componente:
+```js
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = e.target.closest('a[href^="/"]');
+  if (!link) return;
+  e.preventDefault();
+  fadeAndNavigate(link.href);
+}, { signal: wSig });
+```
+(Guarda de modificadores/botón para no robar el "abrir en pestaña nueva" de Cmd/Ctrl+clic o clic central.)
+
+**Por qué recarga dura, no `ClientRouter`** (contexto de D-072): un intento anterior de navegación suave entre dos URLs `/event/[id]` distintas chocó con la caché de snapshot del `ClientRouter`, lo que en su día motivó construir el overlay SPA que D-072 acabó eliminando. La recarga dura es el patrón ya probado en todo el sitio — no reintroducir `ClientRouter` para estas páginas sin volver a investigar y descartar ese problema primero.
+
+**Dónde está implementado hoy**: `navigateToEvent()` en `index.astro` (fade-out, todos los puntos de entrada al detalle: galería, lista, panel de mapa) y el listener delegado de `event/[id].astro` (fade-out + evita el `ClientRouter`, cubre cerrar/Anterior/Siguiente/tags/artistas). El fade-in de `Layout.astro` es sitewide y no necesita registrarse en ningún sitio más.
+
+**Pendiente / candidatos para reutilizar el patrón**: cualquier otro punto del sitio con una recarga dura similar (p. ej. el botón "De acuerdo" de `EmptyState.astro`, que ya fundía pero sin el `setTimeout` — corregirlo para que coincida con esta referencia sería la primera reutilización natural). Evaluar tras confirmación visual del propietario si conviene iterar hacia algo más elaborado (por ejemplo, morphing de la imagen del flyer entre origen y destino).

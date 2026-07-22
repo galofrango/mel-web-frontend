@@ -1643,7 +1643,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     } else if (search) {
       params.set('search', search);
     }
-    window.location.href = `/event/${idMel}?${params.toString()}`;
+    const url = `/event/${idMel}?${params.toString()}`;
+    // Same fade-out-then-hard-navigate pattern already used by EmptyState's
+    // back button — softens the otherwise-abrupt white flash of a real
+    // navigation (see D-072: hard reload was chosen over Astro's
+    // ClientRouter to avoid its stale-snapshot cache bug, so this fade is
+    // plain CSS/JS, not a View Transition). The destination page fades in
+    // on its own via the sitewide @keyframes in Layout.astro.
+    document.body.style.transition = 'opacity 0.2s ease';
+    document.body.style.opacity = '0';
+    setTimeout(() => { window.location.href = url; }, 200);
   }
 
   function openLightbox(item) {

@@ -2,6 +2,27 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Fundido suave al abrir/navegar entre eventos (D-074)
+
+### Objetivo de la Sesión
+Suavizar el corte visual seco de las recargas duras introducidas por D-072, con la transición más sencilla posible, sin reintroducir el riesgo de caché del `ClientRouter` de Astro.
+
+### Cambios Realizados
+1. `@keyframes mel-fade-in` en `Layout.astro` — fundido de entrada compartido por todas las páginas, CSS puro.
+2. Fundido de salida (`body.style.opacity` + `setTimeout` de 200ms) en `navigateToEvent()` (`index.astro`, cubre galería/lista/panel de mapa) y, en `event/[id].astro`, con un único listener de click delegado que cubre cerrar/Anterior-Siguiente/tags/artistas a la vez.
+3. Documentado como patrón reutilizable **"Fundido v1"** en `docs/design-system.md` (sección "Transiciones de Navegación"), con los valores fijos y el código a copiar para el próximo sitio donde se aplique.
+4. **Dos bugs encontrados y corregidos de camino** (reportados por el propietario tras probar): la navegación entre eventos por teclado (←/→) llevaba rota desde D-072 (solo existía en el overlay eliminado) — añadida en `event/[id].astro`; y los enlaces de Lugar/Localidad/Organiza/Diseño/Artistas navegaban lento con el layout roto un instante porque usaban la navegación suave del `ClientRouter` en vez de recarga dura — resuelto por el mismo listener delegado del punto 2.
+5. Verificado en navegador (captura visual, no `getComputedStyle` — ver nota de discrepancia de herramienta en D-074).
+
+### Decisiones Tomadas
+- Ver decisión D-074 en `docs/decisions.md` (actualizada con los dos bugs corregidos) y la sección "Fundido v1" en `docs/design-system.md`.
+
+### Próximos Pasos
+- Confirmación del propietario en su propio navegador y decidir si iterar hacia algo más elaborado.
+- Candidato pendiente para reutilizar Fundido v1: el botón "De acuerdo" de `EmptyState.astro` (ya funde pero sin el `setTimeout`, así que apenas se ve).
+
+---
+
 ## [2026-07-22] — Sesión: Orden de la Galería estable por sesión y sincronizado con Lista (D-073)
 
 ### Objetivo de la Sesión
