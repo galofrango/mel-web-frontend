@@ -5,12 +5,13 @@ Este archivo registra la cronología de las sesiones de desarrollo importantes. 
 ## [2026-07-22] — Sesión: Estilos de hover en los elementos del menú lateral (D-069)
 
 ### Objetivo de la Sesión
-Actualizar el color de fondo en hover de los enlaces del menú lateral (`SideMenu.astro`) a `bg-mel-bg-secondary` y asegurar que los textos e iconos cambien a `text-mel-action-secondary` en lugar de `text-mel-action-primary`.
+Actualizar el color de fondo en hover de los enlaces del menú lateral (`SideMenu.astro`) a `bg-mel-bg-secondary`, con el texto en `text-mel-action-secondary` y el icono chevron en `text-mel-action-primary`.
 
 ### Cambios Realizados
 1. **Componente `src/components/SideMenu.astro`**:
    - Reemplazada la clase `hover:bg-mel-bg-secondary/40` por `hover:bg-mel-bg-secondary` en todos los enlaces (`#menu-item-home`, `#menu-item-intro`, etc.).
-   - Reemplazada la clase `group-hover:text-mel-action-primary` por `group-hover:text-mel-action-secondary` en las etiquetas de texto `<p>` y en el componente de icono `IconButton`.
+   - Asignada la clase `group-hover:text-mel-action-secondary` a los textos `<p>`.
+   - Asignada la clase `group-hover:text-mel-action-primary` a los iconos chevron (`IconButton`).
 2. **Documentación**: Registrada decisión `D-069` en `docs/decisions.md`.
 
 ---

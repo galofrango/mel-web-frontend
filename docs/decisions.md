@@ -692,10 +692,12 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 
 ## D-069 · Estilos de hover en los elementos del menú lateral (`SideMenu.astro`)
 
-- **Contexto**: Se solicita ajustar el estado hover de los elementos del menú lateral (`id="menu-item-home"`, `menu-item-intro`, etc.) para que el color de fondo pase a ser la variable completa de fondo secundario (`bg-mel-bg-secondary`) y el color de texto e icono pase a `text-mel-action-secondary` (en lugar de `text-mel-action-primary`).
+- **Contexto**: Se ajusta el estado hover de los elementos del menú lateral (`id="menu-item-home"`, `menu-item-intro`, etc.) para que el color de fondo pase a ser la variable completa de fondo secundario (`bg-mel-bg-secondary`), las letras cambien a `text-mel-action-secondary` y el icono chevron pase a `Action-Primary` (`text-mel-action-primary`).
 - **Decisión**:
   1. En `src/components/SideMenu.astro`, se sustituye `hover:bg-mel-bg-secondary/40` por `hover:bg-mel-bg-secondary` en todos los enlaces de la lista del menú.
-  2. Se sustituye `group-hover:text-mel-action-primary` por `group-hover:text-mel-action-secondary` en los textos e iconos chevron de cada elemento del menú.
-- **Motivo**: Mantener la coherencia estética del Design System (`D-052`), donde el estado `Action-Secondary` se utiliza en reposo/hover interactivo de elementos secundarios de navegación sin invadir el énfasis reservado para `Action-Primary`.
-- **Consecuencias**: Al hacer hover sobre los enlaces del menú lateral, el fondo cambia a `bg-mel-bg-secondary` y el texto/icono cambia a `text-mel-action-secondary`.
+  2. El texto del enlace `<p>` utiliza `group-hover:text-mel-action-secondary`.
+  3. El icono chevron `IconButton` utiliza `group-hover:text-mel-action-primary`.
+- **Motivo**: Respetar la especificación de diseño donde el fondo y el texto del ítem del menú usan tono secundario en hover, mientras el chevron destaca en `Action-Primary`.
+- **Consecuencias**: Al hacer hover sobre los enlaces del menú lateral, el fondo cambia a `bg-mel-bg-secondary`, el texto a `text-mel-action-secondary` y el chevron a `text-mel-action-primary`.
+
 
