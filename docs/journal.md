@@ -2,14 +2,14 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Borde medio estándar de 1px en la cabecera de Lista con pt-px en el contenedor (D-076)
+## [2026-07-22] — Sesión: Offset de -1px (top-[-1px]) en thead de la vista de Lista (D-076)
 
 ### Objetivo de la Sesión
-Sustituir el borde interior `box-shadow: inset` por bordes medios CSS estándar (`border-collapse: collapse`) en las celdas `<th>` de la cabecera de Lista, evitando que `overflow-y-auto` recorte la línea superior pegajosa.
+Configurar el offset de la cabecera pegajosa `<thead>` a `top-[-1px]` con bordes medios estándar (`border-collapse: collapse`) para evitar que el contenido desplazado se trasluzca o asome por detrás de la cabecera durante el scroll.
 
 ### Cambios Realizados
-1. **Revertida la sombra interior**: Eliminado `box-shadow: inset` de `.sort-header`.
-2. **Contenedor `#list-table-wrapper` (`src/pages/index.astro`)**: Añadido `pt-px` (1px de padding superior) para que la línea superior colapsada de la cabecera `sticky top-0` no sufra recortes.
+1. **Contenedor `#list-table-wrapper`**: Eliminado `pt-px`.
+2. **Cabecera `<thead>` (`src/pages/index.astro`)**: Cambiada la clase a `sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate`.
 3. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md`.
 
 ---

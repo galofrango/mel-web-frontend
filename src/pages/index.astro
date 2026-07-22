@@ -421,7 +421,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         <div id="list-mobile-cards" class="block min-[440px]:hidden -mx-6 sm:-mx-12 flex-1 overflow-y-auto relative">
           <!-- Dynamically populated -->
         </div>
-        <div id="list-table-wrapper" class="hidden min-[440px]:block overflow-x-auto w-full flex-1 overflow-y-auto pt-px">
+        <div id="list-table-wrapper" class="hidden min-[440px]:block overflow-x-auto w-full flex-1 overflow-y-auto">
           <table class="w-full text-left text-sm border-collapse border-t border-b border-mel-border min-w-[816px]" style="table-layout:fixed;">
             <!-- Evento gets 2 "shares" of the space, Lugar/Localidad/Organiza/Diseño get 1 share
                  each (6 shares total), Fecha gets just enough for a date. calc() inside <col>
@@ -445,7 +445,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                  row can still paint on top of it. `isolation:isolate`
                  forces a real stacking context, which is what actually
                  stops that. -->
-            <thead class="sticky top-0 z-[2] bg-mel-bg-secondary isolate">
+            <thead class="sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate">
               <tr class="h-[40px]">
                 <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="evento">
                   <div class="flex items-center justify-between gap-1">
