@@ -787,13 +787,15 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Tras exhaustivas pruebas, posicionar la cabecera pegajosa a `top-[-1px]` demostró ser la **única solución técnica y óptica efectiva** para resolver este problema recurrente de scroll. Al desplazar el `<thead>` exactamente 1px hacia arriba, el borde colapsado y el fondo secundario de la cabecera sellan por completo la grieta superior del contenedor pegajoso, impidiendo que el contenido desplazado se trasluzca en ningún frame.
 - **Consecuencias**: Queda registrado en la documentación del proyecto como la solución definitiva y comprobada ante cualquier intento futuro de modificar el offset de la cabecera de la tabla de Lista.
 
-## D-077 · Transición de desplazar suavemente (`scrollIntoView`) al cambiar de página en los números de paginación
+## D-077 · Restablecimiento de scroll superior y animación de rebote (`tableBounceUpdate`) al cambiar de página
 
-- **Contexto**: Se solicita replicar la misma transición suave de desplazamiento (`scrollIntoView({ behavior: 'smooth' })` sobre `#content-views`) en los botones numéricos de paginación (`#pagination-numbers`) que la que ya se ejecutaba al navegar con los botones Anterior/Siguiente (ej. de página 2 a página 1).
+- **Contexto**: Se solicita que al hacer clic en cualquier control de paginación (números o flechas Anterior/Siguiente), la vista de Lista restablezca su posición inicial para mostrar la parte superior de la tabla y reproduzca una animación suave con un ligero rebote al final (efecto muelle/spring) que confirme al usuario que los elementos de la tabla se han actualizado.
 - **Decisión**:
-  1. En `src/pages/index.astro`, se añade `const cv = document.getElementById('content-views'); if (cv) cv.scrollIntoView({ behavior: 'smooth' });` dentro del event listener de clic de cada botón numérico de página generado en `paginationNumbers`.
-- **Motivo**: Homogeneizar la experiencia de usuario y la animación de transición al cambiar de página desde cualquier control de la barra de paginación.
-- **Consecuencias**: Al hacer clic en cualquier número de página (1, 2, 3…), la vista se desplaza suavemente hacia arriba mostrando los primeros elementos de la nueva página seleccionada.
+  1. En `src/pages/index.astro`, se define la animación CSS `@keyframes tableBounceUpdate` (`translateY(18px)` -> `translateY(-5px)` -> `translateY(2px)` -> `translateY(0)` con curva `cubic-bezier(0.25, 1.15, 0.45, 1)` de 480ms).
+  2. Se unifica la navegación en `handlePaginationNav(newPage)`, que reinicia `scrollTop = 0` en el contenedor de la tabla/tarjetas (`#list-table-wrapper` / `#list-mobile-cards`), realiza `scrollIntoView({ behavior: 'smooth' })` sobre `#content-views` y desencadena `triggerTableBounceAnimation()`.
+- **Motivo**: Proporcionar retroalimentación visual táctil y fluida que indique claramente la renovación de datos al cambiar de página.
+- **Consecuencias**: Al pulsar cualquier página de la barra de paginación, la tabla vuelve arriba y se desliza con un suave rebote final que confirma la actualización del listado.
+
 
 
 

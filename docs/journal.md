@@ -2,16 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
-## [2026-07-22] — Sesión: Transición suave de desplazamiento al hacer clic en números de paginación (D-077)
+## [2026-07-22] — Sesión: Restablecimiento de scroll superior y animación de rebote al paginar (D-077)
 
 ### Objetivo de la Sesión
-Replicar la animación/transición suave de desplazamiento hacia arriba (`scrollIntoView({ behavior: 'smooth' })` sobre `#content-views`) en los números de paginación al hacer clic en cualquier página (ej. de 1 a 2).
+Garantizar que al cambiar de página en la vista de Lista la tabla se posicione arriba del todo (`scrollTop = 0`), la vista se desplace suavemente hacia el contenido y la tabla realice una animación fluida con un ligero rebote al final (efecto spring) que indique que los elementos se han actualizado.
 
 ### Cambios Realizados
-1. **Página principal (`src/pages/index.astro`)**:
-   - Añadida la llamada a `document.getElementById('content-views').scrollIntoView({ behavior: 'smooth' })` en los event listeners de clic de cada botón numérico generado en `paginationNumbers`.
-   - Eliminada la lógica previa de reseteo instantáneo de `scrollTop`.
-2. **Documentación**: Registrada decisión `D-077` en `docs/decisions.md`.
+1. **Animación CSS (`src/pages/index.astro`)**:
+   - Añadidos la animación `@keyframes tableBounceUpdate` y la clase `.animate-table-bounce` (`translateY(18px)` -> `translateY(-5px)` -> `translateY(2px)` -> `translateY(0)` con curva `cubic-bezier(0.25, 1.15, 0.45, 1)`).
+2. **Navegación unificada `handlePaginationNav()`**:
+   - Resetea `scrollTop = 0` en los contenedores `#list-table-wrapper` y `#list-mobile-cards`.
+   - Realiza desplazamiento suave `scrollIntoView({ behavior: 'smooth' })` a la vista principal.
+   - Ejecuta `triggerTableBounceAnimation()` para animar la entrada de los nuevos datos.
+3. **Documentación**: Registrada decisión `D-077` en `docs/decisions.md`.
 
 ---
 

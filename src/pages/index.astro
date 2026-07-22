@@ -1052,6 +1052,29 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     color: var(--mel-action-primary) !important;
   }
 
+  /* Table item update bounce animation */
+  @keyframes tableBounceUpdate {
+    0% {
+      opacity: 0.3;
+      transform: translateY(18px);
+    }
+    65% {
+      opacity: 1;
+      transform: translateY(-5px);
+    }
+    85% {
+      transform: translateY(2px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-table-bounce {
+    animation: tableBounceUpdate 480ms cubic-bezier(0.25, 1.15, 0.45, 1) forwards;
+  }
+
   /* --- List view: marquee-on-hover for truncated cell text --- */
   .marquee-cell {
     overflow: hidden;
@@ -1886,10 +1909,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-text-secondary tracking-[0.16px] hover:text-mel-action-primary transition-colors duration-200";
             btn.innerHTML = `<span>${p}</span>`;
             btn.addEventListener('click', () => {
-              currentPage = p;
-              filterArchives();
-              const cv = document.getElementById('content-views');
-              if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+              handlePaginationNav(p);
             });
           }
           paginationNumbers.appendChild(btn);
@@ -2321,27 +2341,57 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
   }
 
+  function triggerTableBounceAnimation() {
+    const tableWrapper = document.getElementById('list-table-wrapper');
+    const mobileCards = document.getElementById('list-mobile-cards');
+    const listBody = document.getElementById('list-table-body');
+    const target = (tableWrapper && !tableWrapper.classList.contains('hidden')) ? tableWrapper : (mobileCards || listBody);
+    if (target) {
+      target.classList.remove('animate-table-bounce');
+      void target.offsetWidth; // Force reflow
+      target.classList.add('animate-table-bounce');
+      setTimeout(() => {
+        target.classList.remove('animate-table-bounce');
+      }, 500);
+    }
+  }
+
+  function handlePaginationNav(newPage) {
+    currentPage = newPage;
+    syncState();
+    filterArchives();
+
+    // Reset container scroll position so top items are displayed
+    const tableWrapper = document.getElementById('list-table-wrapper');
+    if (tableWrapper) tableWrapper.scrollTop = 0;
+    const mobileCards = document.getElementById('list-mobile-cards');
+    if (mobileCards) mobileCards.scrollTop = 0;
+    const viewLista = document.getElementById('view-lista');
+    if (viewLista) viewLista.scrollTop = 0;
+
+    // Smooth scroll page view up to content area
+    const cv = document.getElementById('content-views');
+    if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+
+    // Trigger subtle bounce visual cue indicating table items updated
+    triggerTableBounceAnimation();
+  }
+
   // Pagination click handlers — called from initHomePage()
   function bindPaginationEvents() {
     if (btnPrevPage) {
       btnPrevPage.addEventListener('click', () => {
         if (currentPage > 1) {
-          currentPage--;
-          syncState();
-          filterArchives();
-          const cv = document.getElementById('content-views');
-          if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+          handlePaginationNav(currentPage - 1);
         }
       });
     }
 
     if (btnNextPage) {
       btnNextPage.addEventListener('click', () => {
-        currentPage++;
-        syncState();
-        filterArchives();
-        const cv = document.getElementById('content-views');
-        if (cv) cv.scrollIntoView({ behavior: 'smooth' });
+        if (currentPage < totalPages) {
+          handlePaginationNav(currentPage + 1);
+        }
       });
     }
   }
