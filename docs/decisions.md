@@ -777,6 +777,15 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
   - **Corrección robusta**: sustituido el `requestAnimationFrame` de duración fija por un `ResizeObserver` sobre `#map-container`, creado una única vez en `createGoogleMapInstance()` (con `disconnect()` de cualquier observer anterior al recrear la instancia del mapa) — dispara `resize()` en CADA frame en que el contenedor REALMENTE cambia de tamaño, sin depender de temporizaciones adivinadas, cubriendo apertura, cierre y redimensionado de ventana con un único mecanismo. `panTo()` se sigue disparando de inmediato al abrir (fuera del `if (googleMap)` que antes envolvía también el resize).
   - **Verificación**: build limpio, sin errores de consola, el panel sigue abriendo/cerrando con el ancho correcto (320px mínimo comprobado). **No ha sido posible confirmar visualmente que el problema de brusquedad esté resuelto** — los tiles de Google Maps no renderizan en este entorno sandbox en ningún punto de esta sesión, así que este diagnóstico y arreglo se basan en el razonamiento sobre el comportamiento conocido de la API clásica de Google Maps, no en una comprobación visual directa. Pendiente de confirmación del propietario en su propio navegador — si el `ResizeObserver` tampoco resuelve el síntoma, el problema puede estar en otro punto (p. ej. el propio timing de `updateSidePanelDOM()` synchrono bloqueando el primer frame de la transición CSS del panel, no solo el mapa).
 
+## D-076 · Borde de 1px (`border-mel-border`) al grupo de columnas `<colgroup>` de la tabla en Lista
+
+- **Contexto**: Se solicita añadir un borde de 1px (`border-mel-border`) al grupo de columnas `<colgroup>` de la tabla de la vista de Lista en la página principal (`index.astro`).
+- **Decisión**:
+  1. En `src/pages/index.astro`, se añade `class="border border-mel-border"` al elemento `<colgroup>` de la tabla de Lista (`#list-table-wrapper table`).
+- **Motivo**: Delimitar limpiamente las columnas del grupo con la variable de borde propia del Design System.
+- **Consecuencias**: El elemento `<colgroup>` de la tabla de Lista cuenta con un borde de 1px de color `var(--mel-border)`.
+
+
 
 
 

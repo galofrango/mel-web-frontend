@@ -2,6 +2,18 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Añadido borde de 1px a `<colgroup>` en la vista de Lista (D-076)
+
+### Objetivo de la Sesión
+Añadir la clase `border border-mel-border` al elemento `<colgroup>` de la tabla de la vista de Lista.
+
+### Cambios Realizados
+1. **Página principal (`src/pages/index.astro`)**:
+   - Añadida la clase `border border-mel-border` a `<colgroup>` en la tabla de la vista de Lista.
+2. **Documentación**: Registrada decisión `D-076` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Apertura brusca del panel del mapa — segundo intento con ResizeObserver (D-075, ronda 2)
 
 ### Objetivo de la Sesión
