@@ -63,4 +63,5 @@ Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir códig
    - [ ] Verificación manual completada.
    - [ ] Documentación actualizada (`decisions.md`, `architecture.md`, `roadmap.md`).
    - [ ] Entrada de sesión registrada en `docs/journal.md`.
-7. **Commit descriptivo**.
+7. **Comprobación cross-browser antes de publicar** (D-067 — no basta con verificar en uno solo): al menos un navegador basado en Chromium y uno distinto (Safari/WebKit, Firefox), y en modo táctil/dispositivo real siempre que el cambio toque interacción por gesto (sliders, drag, scroll). Presta atención especial a dos puntos ya detectados como inconsistentes entre navegadores: la paginación de la vista Lista (D-067) y la cabecera sticky de su tabla (D-066, aparcada — ver "Problemas Conocidos" en `roadmap.md`).
+8. **Commit descriptivo**.

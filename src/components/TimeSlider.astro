@@ -1,7 +1,15 @@
 ---
 import SliderHandler from './SliderHandler.astro';
 ---
-<div id="slider-track-wrapper" class="relative w-full py-8 select-none cursor-pointer" data-node-id="Slider Bar/Time Slider">
+{/* touch-none (D-068): without an explicit touch-action, a touch-drag that
+    starts on a handle and moves across the track can ALSO be interpreted by
+    the browser as an attempt to pan/scroll the page — the two compete, and
+    the handle visibly jitters while the page rubber-bands sideways for an
+    instant. JS already handles the entire drag itself (pointermove/pointerup
+    on window), so the browser's own touch gesture recognition has nothing
+    useful to do here — telling it not to try removes the conflict at the
+    source, on both the handles (SliderHandler.astro) and the track. */}
+<div id="slider-track-wrapper" class="relative w-full py-8 select-none cursor-pointer touch-none" data-node-id="Slider Bar/Time Slider">
   
   <!-- Inactive Slider Bar Background (8px height, rounded-none, color mel-border) -->
   <div class="h-2 w-full bg-mel-border absolute top-1/2 -translate-y-1/2 rounded-none"></div>

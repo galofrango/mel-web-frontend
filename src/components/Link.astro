@@ -29,7 +29,7 @@ const isDisabled = state === "Disabled";
     id={id}
     data-astro-reload={reload}
   >
-    <span class="relative inline-block text-inherit">
+    <span class="mel-link-text relative inline-block text-inherit min-w-0">
       <slot />
       <span class="mel-link-underline absolute bottom-0 left-0 right-0 h-[1px] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
     </span>
@@ -69,19 +69,29 @@ const isDisabled = state === "Disabled";
 <style>
   /* Apply Lora font styles without hardcoding using Figma token variables */
   .mel-link-active {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
     font-family: var(--font-serif);
     font-size: var(--Font-Size-Body-Roman, 16px);
     font-style: normal;
     font-weight: 500;
     line-height: var(--Line-Height-Body-Roman, 24px);
     letter-spacing: 0.16px;
-    
+
     /* Default color from theme variable */
     color: var(--Text-Secondary, var(--mel-text-secondary));
     background-color: transparent;
+  }
+
+  /* overflow/ellipsis live on the inner text span, NOT on the <a> itself —
+     the chevron below is a sibling of this span, deliberately positioned
+     OUTSIDE the <a>'s own content box (`left-full`, "takes no layout
+     space"); putting overflow:hidden on the <a> clipped that chevron
+     invisible on every hover, everywhere on the site (found while chasing
+     a "missing chevron" report on the event detail's horizontal tags,
+     D-066 — but the bug lived here, not in that specific row). */
+  .mel-link-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .mel-link-active:hover {

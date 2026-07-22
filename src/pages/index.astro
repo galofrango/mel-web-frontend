@@ -282,12 +282,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            decisions.md D-014/D-015; galeria-1.0 es el tag de la rejilla
            antigua de alturas fijas). -->
       <!-- Negative side margins + matching padding make the scroll container clip
-           44px OUTSIDE the grid on the sides and 24px above it, so hovered cards
-           (scale + shadow) aren't cut off at the edges while the grid stays
-           full-width. Bottom breathing room lives on the grid itself (pb) because
-           a scroll container's own padding-bottom is dropped from the scrollable
-           area, so it wouldn't reserve space at the end of the scroll. -->
-      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] overflow-y-auto transition-all duration-500 px-[44px] pt-[24px] relative">
+           44px OUTSIDE the grid on the sides, so hovered cards (scale + shadow)
+           aren't cut off at the edges while the grid stays full-width. Bottom
+           breathing room lives on the grid itself (pb) because a scroll
+           container's own padding-bottom is dropped from the scrollable area,
+           so it wouldn't reserve space at the end of the scroll.
+           pt-0 (D-067, was pt-[24px]): on mobile the gap up to the toolbar
+           already comes from the page's own flex layout — this extra 24px on
+           top of that was pushing the grid down further than intended.
+           lg:mt-[16px]/lg:pt-[8px] (D-064) still stand on desktop, where the
+           opposite problem existed (cards sitting too close during scroll).
+           -mb-[3vh] cancels the page's own pb-[3vh] (the calibrated top/bottom
+           breathing room, rule 9 — not touching that) so the scroll
+           container's own box reaches the literal bottom of the screen
+           instead of stopping 3vh short of it. -->
+      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
         <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
@@ -311,11 +320,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         <div id="gallery-sentinel" class="h-px w-full" aria-hidden="true"></div>
       </div>
 
-      <!-- 2. MAP VIEW (Real Google Map with sliding side panel). top-[24px] instead of
-           inset-0's implicit top-0 matches the gallery's own pt-[24px], which it needed so
-           hovered cards' shadows didn't get clipped against the toolbar — without this, map/list
-           content sat visibly closer to the toolbar than the gallery's first row of cards. -->
-      <div id="view-mapa" class="view-panel hidden absolute top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
+      <!-- 2. MAP VIEW (Real Google Map with sliding side panel). top-0 on mobile,
+           lg:top-[24px] on desktop (D-067) — mirrors the gallery's own pt-0/lg:pt-[8px]
+           split (D-064/D-067): the propietario asked to raise all three home views'
+           content by 24px on mobile specifically, desktop untouched here. -->
+      <div id="view-mapa" class="view-panel hidden absolute top-0 lg:top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
         <div id="map-container" class="flex-1 h-full"></div>
 
         <!-- Dim: solo cuando el panel es bottom sheet (bajo lg). Cubre el slider
@@ -373,6 +382,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                 { label: 'Eventos', count: '0' },
                 { label: 'Artistas', count: '0' },
                 { label: 'Diseñadores', count: '0' },
+                { label: 'Promotores', count: '0' },
               ]}
             />
             <!-- Inset bottom divider (Figma matches: bottom-0 left-24 right-24, color: mel-border) -->
@@ -386,9 +396,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         </div>
       </div>
 
-      <!-- 3. LIST VIEW. pt-[24px] matches the gallery's own top padding (see the note on
-           view-mapa above) so the table sits at the same height as the gallery's first row. -->
-      <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0 pt-[24px]">
+      <!-- 3. LIST VIEW. pt-0 on mobile, lg:pt-[24px] on desktop (D-067) — same split as
+           the gallery/map views above: raise all three home views' content by 24px on
+           mobile specifically, desktop untouched.
+           -mb-[3vh] (D-064, restored in D-066): cancels the page's own pb-[3vh] so the
+           scroll containers inside (#list-mobile-cards/#list-table-wrapper, both flex-1)
+           reach the literal bottom of the screen. Safe again now that pagination-controls
+           lives INSIDE those containers (D-066) instead of as a flex sibling here — nothing
+           left for a negative margin on this element to disturb. -->
+      <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0 pt-0 lg:pt-[24px] -mb-[3vh]">
         <!-- The border lives on the <table> itself (top+bottom), not this wrapper — the wrapper
              is flex-1/stretches to fill whatever vertical space is available, so its own border
              would sit at the wrapper's edge (often below the actual last row, with an empty gap,
@@ -402,7 +418,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              sm:px-12) en todo el rango en que esta lista es visible: las filas
              ya traen su propio pl-24/pr-16 (EventCardList), así que sin esto
              quedaban CON DOBLE margen hasta el borde de pantalla. -->
-        <div id="list-mobile-cards" class="block min-[440px]:hidden -mx-6 sm:-mx-12 flex-1 overflow-y-auto border-t border-b border-mel-border relative">
+        <div id="list-mobile-cards" class="block min-[440px]:hidden -mx-6 sm:-mx-12 flex-1 overflow-y-auto relative">
           <!-- Dynamically populated -->
         </div>
         <div id="list-table-wrapper" class="hidden min-[440px]:block overflow-x-auto w-full flex-1 overflow-y-auto">
@@ -420,9 +436,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               <col style="width:14.75%; min-width:136px;" />
               <col style="width:14.75%; min-width:136px;" />
             </colgroup>
-            <thead class="sticky top-0 z-[2]">
+            <!-- bg-mel-bg-secondary + isolate here too, not just on each
+                 <th> (D-066): `<thead>` inside a `border-collapse` table is
+                 a notorious cross-browser rough edge for `position:sticky`
+                 — table sections don't reliably get their own stacking
+                 context from `position` alone the way a plain <div> would,
+                 so a merely-opaque background isn't enough and a scrolled
+                 row can still paint on top of it. `isolation:isolate`
+                 forces a real stacking context, which is what actually
+                 stops that. -->
+            <thead class="sticky top-0 z-[2] bg-mel-bg-secondary isolate">
               <tr class="h-[40px]">
-                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="evento">
+                <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="evento">
                   <div class="flex items-center justify-between gap-1">
                     <span>evento</span>
                     <span class="sort-icon text-mel-action-secondary shrink-0">
@@ -430,7 +455,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                     </span>
                   </div>
                 </th>
-                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="fecha">
+                <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="fecha">
                   <div class="flex items-center justify-between gap-1">
                     <span>fecha</span>
                     <span class="sort-icon text-mel-action-secondary shrink-0">
@@ -438,7 +463,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                     </span>
                   </div>
                 </th>
-                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="lugar">
+                <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="lugar">
                   <div class="flex items-center justify-between gap-1">
                     <span>lugar</span>
                     <span class="sort-icon text-mel-action-secondary shrink-0">
@@ -446,7 +471,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                     </span>
                   </div>
                 </th>
-                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="localidad">
+                <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="localidad">
                   <div class="flex items-center justify-between gap-1">
                     <span>localidad</span>
                     <span class="sort-icon text-mel-action-secondary shrink-0">
@@ -454,7 +479,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                     </span>
                   </div>
                 </th>
-                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="organiza">
+                <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="organiza">
                   <div class="flex items-center justify-between gap-1">
                     <span>organiza</span>
                     <span class="sort-icon text-mel-action-secondary shrink-0">
@@ -462,7 +487,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                     </span>
                   </div>
                 </th>
-                <th class="sort-header bg-mel-bg-secondary border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="disenador">
+                <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="disenador">
                   <div class="flex items-center justify-between gap-1">
                     <span>diseño</span>
                     <span class="sort-icon text-mel-action-secondary shrink-0">
@@ -480,10 +505,20 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       </div>
     
       <!-- Pagination Controls matching Figma Carousel Navigation 481:234622 -->
-      <!-- pt-10 (40px) is deliberately more than the 24px gap the toolbar itself keeps above the
-           content (view-galería/view-lista's own pt-[24px]) — this module needs more breathing
-           room from whatever's above it than that, not just the same amount. -->
-      <div id="pagination-controls" class="flex gap-4 items-center justify-center pt-10 pb-6 relative w-full select-none shrink-0 bg-mel-bg-primary" style="view-transition-name: mel-pagination;">
+      <!-- pt-6/pb-10 (D-067, tightened up from D-045's pt-10/pb-6): now that this
+           lives INSIDE the list's own scroll container (D-066), closer to the
+           table/cards above and with more breathing room below down to the
+           screen's bottom edge, per the propietario's own read of the spacing.
+           sticky left-0 right-0 (no top/bottom) keeps it horizontally centered
+           on whatever's actually visible on screen even while list-table-wrapper
+           is scrolled sideways (D-057's wide desktop table) — sticky's two axes
+           are independent, so this only affects horizontal position.
+           Starts `hidden`, not `flex` (D-067): Galería is the default active
+           view server-side, and this element had no hidden state of its own in
+           the SSR markup at all — a real FOUC, visible at its stale flex-sibling
+           position for a frame before initHomePage()'s JS ever runs, regardless
+           of which view was actually meant to be active first. -->
+      <div id="pagination-controls" class="hidden gap-4 items-center justify-center pt-6 pb-10 relative sticky left-0 right-0 w-full select-none shrink-0 bg-mel-bg-primary" style="view-transition-name: mel-pagination;">
         <!-- invisible (not hidden/removed) — keeps the button's own layout space reserved so the
              page numbers stay centered, but the arrows themselves aren't shown for now. -->
         <IconButton
@@ -1962,6 +1997,33 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     window.requestAnimationFrame(step);
   }
 
+  // Pagination lives INSIDE whichever list scroll container is currently
+  // active (mobile cards vs desktop table, D-057's min-[440px] breakpoint)
+  // — not as an always-visible footer that permanently eats into the
+  // list's own viewport height. It only becomes visible once the user
+  // actually scrolls to the end of the list (D-066 — reverts the
+  // "always-visible sibling" shape from D-064/D-065, which the
+  // propietario flagged as wrong: "no esté siempre visible sino que
+  // aparezca al final del scroll"). Shared by filterArchives()'s own
+  // repopulate AND switchView()'s tab-click toggle (D-067 — switchView()
+  // had its OWN separate classList.remove('hidden') that showed
+  // pagination-controls at its stale, still-not-reparented SSR position
+  // the moment you clicked the Lista tab, before filterArchives() ever
+  // got a chance to move it — "problemas de carga al entrar en Lista por
+  // primera vez"). Both list containers wipe their own innerHTML on every
+  // repopulate, so this has to re-append every time it's called, after
+  // that reset — moving an existing node via appendChild detaches it from
+  // wherever it was, it's never cloned/duplicated.
+  function relocatePaginationControls() {
+    const pagControls = document.getElementById('pagination-controls');
+    if (!pagControls || pagControls.classList.contains('hidden')) return;
+    const isDesktopList = window.matchMedia('(min-width: 440px)').matches;
+    const target = document.getElementById(isDesktopList ? 'list-table-wrapper' : 'list-mobile-cards');
+    if (target && pagControls.parentElement !== target) {
+      target.appendChild(pagControls);
+    }
+  }
+
   // Filter Archives by Year & Search Query and Recalculate unique counts
   function filterArchives(shouldFitBounds = false) {
     let tempFiltered = archives.filter(item => {
@@ -2199,8 +2261,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           viewsEmptyState.classList.add('flex');
         }
         gridContainer.classList.add('hidden');
-        if (listTableWrapper) listTableWrapper.classList.add('hidden');
-        if (listMobileCards) listMobileCards.classList.add('hidden');
+        // Inline style, not classList — list-table-wrapper's/list-mobile-cards'
+        // OWN base classes are themselves a responsive `hidden`/`block` pair
+        // (min-[440px]:*, D-057) picking mobile cards vs desktop table.
+        // classList.remove('hidden') would strip that pair's unconditional
+        // `hidden` half permanently (nothing ever adds it back except this
+        // same empty-state branch), leaving the table with no display rule
+        // at all below 440px — both instances rendering at once (D-065).
+        // Inline style overrides/clears cleanly without touching that class.
+        if (listTableWrapper) listTableWrapper.style.display = 'none';
+        if (listMobileCards) listMobileCards.style.display = 'none';
         setSidePanelOpenState(false);
       } else {
         if (viewsEmptyState) {
@@ -2208,8 +2278,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           viewsEmptyState.classList.remove('flex');
         }
         gridContainer.classList.remove('hidden');
-        if (listTableWrapper) listTableWrapper.classList.remove('hidden');
-        if (listMobileCards) listMobileCards.classList.remove('hidden');
+        if (listTableWrapper) listTableWrapper.style.display = '';
+        if (listMobileCards) listMobileCards.style.display = '';
 
         // relative: anchors the absolutely-positioned exiting-card clones
         // below to this element instead of the viewport. Deliberately not
@@ -2496,6 +2566,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         const shouldShowPagination = isListActive && totalPages > 1 && filtered.length > 0;
         pagControls.classList.toggle('hidden', !shouldShowPagination);
         pagControls.classList.toggle('flex', shouldShowPagination);
+        relocatePaginationControls();
 
         // Same reserve-space idea as the gallery grid's own pb toggle above,
         // for the list table's scroll wrapper.
@@ -2668,6 +2739,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (viewName === 'lista' && filtered.length > 0 && totalPages > 1) {
         pagControls.classList.remove('hidden');
         pagControls.classList.add('flex');
+        relocatePaginationControls();
       } else {
         pagControls.classList.add('hidden');
         pagControls.classList.remove('flex');
@@ -2968,9 +3040,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // instead of the raw URL.
       document.getElementById('side-panel-address').textContent = extractAddressLabel(sampleEvt?.coordenadas) || 'León';
 
-      // Calculate unique artists and designers
+      // Calculate unique artists, designers and promoters (organiza) — same
+      // 'desconocido'/'varios' exclusions as the home toolbar's own stats
+      // (see initialPromoters above).
       const artistsSet = new Set();
       const designersSet = new Set();
+      const promotersSet = new Set();
       group.events.forEach(evt => {
         if (evt.artistas) {
           evt.artistas.split(/[,;\/]+/).forEach(a => {
@@ -2982,17 +3057,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           const cleanD = evt.disenador.trim().toLowerCase();
           if (cleanD && cleanD !== 'desconocido') designersSet.add(cleanD);
         }
+        if (evt.organiza) {
+          const cleanP = evt.organiza.trim().toLowerCase();
+          if (cleanP && cleanP !== 'desconocido' && cleanP !== 'varios') promotersSet.add(cleanP);
+        }
       });
 
       // Update TagWithLink components inside side panel
       const sideEventsVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Eventos"] .tag-count-val');
       if (sideEventsVal) sideEventsVal.textContent = group.events.length;
-      
+
       const sideArtistsVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Artistas"] .tag-count-val');
       if (sideArtistsVal) sideArtistsVal.textContent = artistsSet.size;
 
       const sideDesignersVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Diseñadores"] .tag-count-val');
       if (sideDesignersVal) sideDesignersVal.textContent = designersSet.size;
+
+      const sidePromotersVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Promotores"] .tag-count-val');
+      if (sidePromotersVal) sidePromotersVal.textContent = promotersSet.size;
 
       // Counts just changed digit count, which can shift each tag's natural
       // width — re-decide equal-vs-content mode (D-059/D-060).
@@ -3525,6 +3607,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (sidePanel && sidePanel.classList.contains('side-panel-open')) {
           updateAdaptiveTagsRow('side-panel-tags-container');
         }
+        // Crossing the 440px list breakpoint (D-057) while the pagination
+        // is visible mid-scroll needs it re-parented into whichever
+        // container just became active (D-066/D-067).
+        relocatePaginationControls();
       });
     }, { signal: wSig });
 
@@ -4169,7 +4255,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     return `
       <div class="highlight-unit shrink-0 flex items-center gap-6 min-w-0">
         <div class="h-12 w-px bg-mel-border shrink-0"></div>
-        <div class="filter-tag flex flex-col gap-2 relative px-0 py-0 bg-transparent transition-all duration-200 items-start text-left min-w-0 shrink-0 w-auto" data-category="${label}">
+        <div class="filter-tag flex flex-col gap-2 relative px-0 py-0 bg-transparent transition-all duration-200 items-start text-left min-w-0 w-auto" data-category="${label}">
           <div class="flex gap-1 items-center relative shrink-0">
             <span class="font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary whitespace-nowrap">${label}</span>
           </div>

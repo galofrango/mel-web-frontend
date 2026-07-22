@@ -8,9 +8,9 @@ interface Props {
 
 const { id, year, direction, class: className = "" } = Astro.props;
 ---
-<div 
-  id={id} 
-  class={`absolute z-40 backdrop-blur-[2px] bg-mel-action-secondary text-mel-text-on-action px-[12px] py-[8px] flex items-center justify-center shadow-[var(--mel-shadow-handle)] select-none cursor-pointer border border-mel-action-secondary ${className}`}
+<div
+  id={id}
+  class={`absolute z-40 backdrop-blur-[2px] bg-mel-action-secondary text-mel-text-on-action px-[12px] py-[8px] flex items-center justify-center shadow-[var(--mel-shadow-handle)] select-none cursor-pointer touch-none border border-mel-action-secondary ${className}`}
   style="height: 36px; min-width: 60px;"
   data-node-id="Slider Handler"
 >

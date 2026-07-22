@@ -37,12 +37,20 @@ const { id, tags, class: className = '' } = Astro.props;
   {tags.map((tag) => (
     <div class="highlight-unit shrink-0 flex items-center gap-6 min-w-0">
       <div class="h-12 w-px bg-mel-border shrink-0"></div>
+      {/* No shrink-0 here (D-067) — the highlight-unit above is capped at
+          max-width:176px (D-061); without room to shrink, this tag rendered
+          at its own full natural content width regardless of that cap,
+          overflowing straight past it (and past the divider that opens the
+          NEXT tag) instead of ellipsis-truncating. Default flex-shrink:1
+          only actually engages when the parent is genuinely narrower than
+          natural content — an uncapped/unconstrained unit still renders at
+          full width exactly as before. */}
       <TagWithLink
         label={tag.label}
         count={tag.count}
         href={tag.href}
         state={tag.state}
-        class="min-w-0 shrink-0 w-auto"
+        class="min-w-0 w-auto"
         hideBorder={true}
       />
     </div>

@@ -2,6 +2,97 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Bug real de visibilidad en Lista (dos estilos a la vez), regresión de la paginación de D-064, borde superior de tabla, verificaciones de galería/hover
+
+### Objetivo de la Sesión
+Revisión del propietario tras D-064: en la vista de Lista, ciertos anchos mostraban a la vez tarjetas compactas Y tabla; la paginación no aparecía bien al final del scroll con espacio hasta el borde; la tabla parecía sin borde superior; el contenedor de tarjetas en móvil mostraba dos bordes a sangre que se leían como defecto. Pidió también confirmar que el espaciado de 24px de la Galería seguía intacto, y preguntó si el hover ausente en los tags horizontales del detalle era intencional.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-065. Causa real de "dos estilos a la vez": `filterArchives()` hacía `classList.remove('hidden')` en la tabla de escritorio cada vez que había resultados (el caso normal), pero `hidden` era también la única clase que la ocultaba por debajo de 440px (su par responsive `min-[440px]:block`) — al eliminarse para siempre, la tabla quedaba visible en cualquier ancho. Cambiado a `style.display` inline, que no toca esa clase. Los 6 `<th>` de la cabecera ganan `border-t` propio (antes el borde de la tabla podía quedar tapado por el `<thead>` sticky y sus celdas opacas). Revertido el `-mb-[3vh]` de `#view-lista` añadido en D-064 — al ser `#pagination-controls` un hermano flex (no algo dentro de la lista), ese margen negativo tiraba de la paginación hacia arriba, solapándola con la tabla en vez de dejarla con su hueco habitual hasta el borde de pantalla.
+
+### Problemas Encontrados y Resueltos
+- El bug de "dos estilos a la vez" y el "borde doble a sangre" en móvil resultaron ser el MISMO bug (la tabla y las tarjetas visibles simultáneamente) descrito desde dos ángulos distintos.
+- Espaciado de la Galería: verificado sin cambios (~22.9px, cuantización normal del algoritmo de row-span de D-015, no una regresión).
+- Hover en los tags horizontales: verificado que SÍ funciona (color cambia correctamente al pasar el ratón, en la página estática y en el overlay) tras descartar varios falsos negativos causados por la propia herramienta de simulación de ratón de este entorno, que resultó intermitente entre llamadas.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-22] — Sesión: Tiradores del slider táctil "temblando" (falta touch-action), auditoría de tags aparcada explícitamente, checklist cross-browser añadida al flujo de publicación
+
+### Objetivo de la Sesión
+El propietario, sobre la sesión anterior: el chevron/elipsis del texto de los tags SIGUE sin verse pese a que la medición decía que el truncado era correcto — pidió no darlo por resuelto y en su lugar planificar una auditoría dedicada de todas las instancias de `TagWithLink`/`Link.astro` del sitio. La paginación y la cabecera sticky de la tabla van bien en unos navegadores y mal en otros — pidió añadir una comprobación cross-browser al flujo de publicación. Además, reportó (inspeccionando con herramientas táctiles de Chrome/Comet) que los tiradores del slider de fecha "tiemblan" en táctil, con sospecha de un amago de scroll horizontal de la página.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-068. Causa encontrada para el temblor del slider: ni los tiradores (`SliderHandler.astro`) ni el track (`TimeSlider.astro`) declaraban `touch-action`, así que un arrastre táctil podía ser interpretado a la vez por el JS (que mueve el tirador) y por el reconocimiento de gestos nativo del navegador (que intenta hacer scroll de la página) — los dos compitiendo por el mismo gesto. Añadido `touch-none` a ambos. Confirmado por lectura de código que ningún listener de arrastre llama a `preventDefault()` fuera del `pointerdown` inicial, y que la página no tiene overflow horizontal genuino en reposo (medido `scrollWidth` vs `innerWidth`) — el rebote viene específicamente de esta competencia de gestos, no de un elemento desbordando la página.
+
+Documentación: nueva sección "Pendiente de Auditoría" en `roadmap.md` (no cerrar hasta hacer la revisión completa de tags pedida explícitamente). Nuevo paso 7 en el flujo de publicación de `development.md`: comprobación cross-browser (Chromium + WebKit/Firefox, y táctil real cuando aplique), señalando los dos puntos ya detectados como inconsistentes entre navegadores.
+
+### Problemas Encontrados y Resueltos
+- El slider nunca había tenido `touch-action` declarado — un gap real, no una regresión de esta sesión.
+- No se pudo verificar visualmente el arrastre táctil en este entorno (mismo problema de capturas no fiables de la sesión anterior, y sin dispositivo táctil real disponible) — queda pendiente de confirmación del propietario.
+
+### Tareas Pendientes
+- Auditoría dedicada de `TagWithLink`/`Link.astro` en todo el sitio — ver `roadmap.md`, "Pendiente de Auditoría". NO cerrar como resuelto sin esa sesión.
+- Confirmación del propietario en dispositivo táctil real de que el temblor del slider desapareció.
+- Diagnosticar la diferencia real entre navegadores para la paginación de Lista y la cabecera sticky de su tabla.
+
+---
+
+## [2026-07-22] — Sesión: Desbordamiento real del chevron/texto en tags (causa distinta a D-066), bug real de carga de la paginación, centrado horizontal, vistas de inicio 24px más arriba en móvil
+
+### Objetivo de la Sesión
+Nueva ronda con capturas: el chevron seguía sin verse en algunos tags Y el texto se desbordaba sin truncar (con la opción explícita de aparcar esto para una auditoría dedicada si era muy grande); la paginación seguía con problemas de carga al entrar en Lista por primera vez, además de pedir que se mantenga centrada horizontalmente con scroll y algo más pegada a la tabla arriba con más aire abajo; el asomo de contenido sobre la cabecera de la tabla se aparca explícitamente; subir 24px el contenedor principal de Galería/Mapa/Lista en móvil.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-067. La causa del desbordamiento: `.highlight-unit` está capado a `max-width:176px` (D-061), pero el `TagWithLink` que contiene llevaba `shrink-0`, impidiéndole encogerse dentro de ese cap — el texto se desbordaba en vez de truncar con elipsis. Quitado `shrink-0` en `AdaptiveTagsRow.astro` y su espejo del overlay. La causa del bug de carga de la paginación: `switchView()` tenía su propia lógica de visibilidad independiente de la que D-066 había añadido solo en `filterArchives()`, y `#pagination-controls` no tenía ningún estado `hidden` en su propio SSR — un FOUC real. Centralizado en una función compartida `relocatePaginationControls()`, y el elemento arranca `hidden` en el servidor. Añadido `sticky left-0 right-0` para mantenerla centrada en lo visible aunque la tabla se desplace horizontalmente, y ajustado su espaciado (`pt-10 pb-6` → `pt-6 pb-10`). Las tres vistas de inicio (`#view-galería`/`#view-mapa`/`#view-lista`) suben 24px en móvil, manteniendo su alineación mutua.
+
+### Problemas Encontrados y Resueltos
+- El servidor de Vite volvió a romperse (mismo error que en la sesión anterior) — reiniciado de nuevo.
+- Las capturas de pantalla del navegador demostraron NO reflejar cambios reales incluso con el servidor sano (confirmado forzando `document.body.style.background = 'red'` y viendo que no aparecía en la captura, en más de una pestaña) — sin causa identificada. A partir de este punto, toda verificación se hizo leyendo el HTML servido directamente por `curl`, el único método fiable disponible en este entorno para esta sesión.
+
+### Tareas Pendientes
+- Confirmación visual del propietario en un navegador real de todos los cambios de esta sesión — las capturas de este entorno no son fiables.
+- Cabecera sticky de la tabla de Lista con asomo de contenido — aparcada explícitamente, ver `docs/roadmap.md`.
+
+---
+
+## [2026-07-22] — Sesión: Chevron ausente (bug real, no falso negativo), paginación de Lista incorporada al scroll, servidor de dev reiniciado tras invalidar verificaciones previas
+
+### Objetivo de la Sesión
+El propietario corrigió tres afirmaciones de la sesión anterior con capturas nuevas y cerró con "No me gusta que me engañen": el chevron de los enlaces seguía sin verse (yo había confirmado solo el cambio de color, no el icono); la petición de la paginación nunca fue "que llegue al borde de pantalla" sino "que aparezca al final del scroll, no que esté siempre visible"; la tabla seguía sin borde superior visible y con contenido asomando por encima de la cabecera durante el scroll; las líneas horizontales de las tarjetas en móvil seguían ahí.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-066. Durante la investigación del chevron se descubrió que el servidor de Vite llevaba un error real en sus logs (`Failed to load url astro:server-app.js`) que invalidaba screenshots de forma intermitente — confirmado forzando `document.body.style.background = 'red'` y comprobando que no se reflejaba en la captura. Reiniciar el servidor resolvió la verificación. Con el servidor sano, la causa real del chevron: `Link.astro`'s `.mel-link-active` (el `<a>`) tenía `overflow:hidden` para truncar su propio texto, y ese mismo overflow recortaba el chevron — posicionado deliberadamente FUERA de la caja del enlace — en cualquier instancia del sitio, no solo en la fila horizontal de esta sesión. Movido el overflow/ellipsis al span interno de texto. La paginación de Lista se re-parenta ahora por JS al final de la tabla/tarjetas activa (dentro del contenedor con scroll, no como hermano fijo), visible solo al llegar al final. Cabecera de tabla con fondo propio (mejora parcial, no resuelve del todo un asomo de contenido en puntos concretos del scroll — comunicado como deuda técnica, no como arreglado). Bordes horizontales de las tarjetas de Lista en móvil eliminados, tras preguntar explícitamente en vez de suponer.
+
+### Problemas Encontrados y Resueltos
+- Servidor de dev en estado degradado tras una sesión de HMR muy larga — reiniciado.
+- El chevron ERA un bug real (no un falso negativo de la herramienta como se concluyó antes) — la corrección anterior solo había verificado el color del hover, no el icono.
+- El asomo de contenido sobre la cabecera sticky de la tabla resultó ser un problema de renderizado persistente (sticky + table + border-collapse) que resistió cinco intentos de fix por CSS — documentado honestamente como deuda técnica pendiente, no como resuelto.
+
+### Tareas Pendientes
+- Cabecera sticky de la tabla de Lista con asomo de contenido en puntos concretos del scroll — requiere convertirla a un header simulado por JS (`position:fixed`), como ya hace el sitio para la foto fijada del detalle de evento. Ver `docs/roadmap.md`.
+
+---
+
+## [2026-07-22] — Sesión: Tag "Promotores" en el panel del mapa, más separación entre toolbar y Galería durante el scroll, contenedores de scroll hasta el borde real de la pantalla
+
+### Objetivo de la Sesión
+Tres peticiones: añadir el conteo de Promotores al panel de eventos del mapa (última tag, igual que la toolbar); separar 16px la Galería de la toolbar en escritorio (los elementos quedaban pegados durante el scroll); hacer que los contenedores de scroll de Galería y Lista lleguen hasta el borde real de la pantalla.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-064. `populateSidePanel()` calcula ahora un `promotersSet` (mismo criterio que la toolbar) y lo vuelca en una 4ª tag del panel. `#view-galería` cambia `pt-[24px]` por `pt-[24px] lg:pt-[8px] lg:mt-[16px]` en escritorio — mueve 16px de padding (que desaparece nada más empezar el scroll) a margin (que nunca desaparece), sin mover la posición de la primera fila en reposo. `#view-galería` y `#view-lista` ganan `-mb-[3vh]`, cancelando el `pb-[3vh]` calibrado de la página solo para ellos (mismo recurso de márgenes negativos que ya usaba la Galería en los lados) para que lleguen al borde real de la pantalla en vez de quedarse ~27px cortos.
+
+### Problemas Encontrados y Resueltos
+- Ninguno nuevo — cambios verificados directamente por medición en navegador (`getBoundingClientRect()` contra `innerHeight`).
+
+### Tareas Pendientes
+- Ninguna nueva. Verificación del panel del mapa con datos reales de un marcador sigue bloqueada por la misma limitación del entorno sandbox (sin tiles de mapa) señalada en sesiones anteriores.
+
+---
+
 ## [2026-07-22] — Sesión: La fuente incorrecta del overlay no era una carrera (CSS con scope de Astro no llega a HTML por innerHTML), colchón de seguridad bajo la foto fijada durante el scroll
 
 ### Objetivo de la Sesión
