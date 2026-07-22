@@ -1178,13 +1178,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
      393px fijo que ahogaba el mapa. */
   @media (min-width: 1024px) {
     #map-side-panel.side-panel-open {
-      width: calc((100% - 264px) / 3 + 72px);
-      /* Same 320px floor as ToggleSelector.astro's own min-width (D-045) —
-         right at the low end of `lg`, the 4-column formula alone can dip
-         below that (D-061). */
-      min-width: 320px;
+      width: max(320px, calc((100% - 264px) / 3 + 72px));
       border-left-width: 1px;
+      box-shadow: -8px 0 24px -4px rgba(0, 0, 0, 0.12), -2px 0 6px -1px rgba(0, 0, 0, 0.06);
     }
+  }
+
+  /* Ocultar el primer divisor vertical en las tags del panel lateral */
+  #side-panel-tags-container .highlight-unit:first-child > .bg-mel-border {
+    display: none !important;
   }
 
   /* Bajo lg: bottom sheet. Su borde superior llega justo por debajo del slider
@@ -3040,7 +3042,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (justAutoOpened && googleMap) {
         googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
         googleMap.setZoom(15);
-        setTimeout(() => populateSidePanel(locationGroups[activeSidePanelKey]), 500);
+        setTimeout(() => populateSidePanel(locationGroups[activeSidePanelKey]), 1000);
       } else {
         populateSidePanel(locationGroups[activeSidePanelKey]);
       }

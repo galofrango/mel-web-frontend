@@ -796,6 +796,18 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Proporcionar retroalimentación visual táctil y fluida que indique claramente la renovación de datos al cambiar de página.
 - **Consecuencias**: Al pulsar cualquier página de la barra de paginación, la tabla vuelve arriba y se desliza con un suave rebote final que confirma la actualización del listado.
 
+## D-078 · Transición fluida con `max()`, sombra lateral, retardo de 1s al auto-abrir y ocultación de divisor en tags de `#map-side-panel`
+
+- **Contexto**: El panel lateral del mapa (`#map-side-panel`) presentaba un salto brusco al abrirse en escritorio debido a la presencia de `min-width: 320px` que anulaba la animación progresiva desde `0px`. Además, se requería añadir una sombra ligera proyectada sobre el mapa, ocultar el primer divisor de las etiquetas del panel y dar un retardo de 1s al desplegar el panel cuando se navega mediante enlace de lugar (`?location=...`) manteniendo centrado instantáneo en el mapa.
+- **Decisión**:
+  1. En `src/pages/index.astro`, se sustituye `width: calc(...)` y `min-width: 320px` por `width: max(320px, calc((100% - 264px) / 3 + 72px))` en `@media (min-width: 1024px)`, permitiendo que el ancho transicione de `0px` a su tamaño final de forma continua y fluida.
+  2. Se añade `box-shadow: -8px 0 24px -4px rgba(0, 0, 0, 0.12), -2px 0 6px -1px rgba(0, 0, 0, 0.06)` a la clase `.side-panel-open` en escritorio, proyectando una sombra sutil a la izquierda sobre el mapa.
+  3. Se incrementa el temporizador de auto-apertura del panel al llegar por URL de lugar a `1000ms` (`setTimeout(..., 1000)`), asegurando que `googleMap.setCenter()` y `setZoom()` actúen de inmediato sin delays mientras el panel aguarda 1 segundo completo.
+  4. Se añade la regla CSS `#side-panel-tags-container .highlight-unit:first-child > .bg-mel-border { display: none !important; }` para ocultar el divisor vertical de la primera etiqueta ("Eventos").
+- **Motivo**: Corregir la brusquedad visual del panel, mejorar la profundidad jerárquica con el mapa y optimizar la experiencia de usuario al navegar desde enlaces directos a lugares.
+- **Consecuencias**: El panel lateral de escritorio se abre con total fluidez de 0px a su tamaño final, proyecta sombra sobre el mapa, muestra la primera etiqueta sin divisor y se sincroniza limpiamente con la carga inicial del mapa en URLs con parámetro de ubicación.
+
+
 
 
 

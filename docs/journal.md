@@ -2,6 +2,21 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Optimización de la animación del panel del mapa, sombras, tags y retardo de lugar (D-078)
+
+### Objetivo de la Sesión
+Eliminar el salto brusco en la apertura del panel del mapa (`#map-side-panel`) en escritorio, proyectar sombra lateral sobre el mapa, ocultar el primer divisor vertical en sus etiquetas y dar un retardo de 1 segundo a la apertura del panel al navegar desde enlaces directos a lugares.
+
+### Cambios Realizados
+1. **Página principal (`src/pages/index.astro`)**:
+   - Reemplazado `width: calc(...)` y `min-width: 320px` por `width: max(320px, calc(...))` en la media query `@media (min-width: 1024px)`.
+   - Añadida sombra lateral `box-shadow: -8px 0 24px -4px rgba(0, 0, 0, 0.12)...` sobre `#map-side-panel.side-panel-open`.
+   - Aumentado el `setTimeout` de auto-apertura del panel a `1000ms` al venir por parámetro URL `location`, preservando la inmediatez de `setCenter()` y `setZoom()` del mapa.
+   - Ocultado el primer divisor vertical en `#side-panel-tags-container` mediante `#side-panel-tags-container .highlight-unit:first-child > .bg-mel-border { display: none !important; }`.
+2. **Documentación**: Registrada decisión `D-078` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Restablecimiento de scroll superior y animación de rebote al paginar (D-077)
 
 ### Objetivo de la Sesión
