@@ -294,26 +294,63 @@ body {
   scrollbar-width: none;
 }
 
-/* Event details tags on mobile (Figma 369:32751): the desktop sidebar becomes a
-   horizontally scrollable row where each tag shrinks to its content and gets a
-   vertical divider on its left (except the first). Applies to both the static
-   event page's TagWithLink instances (.filter-tag) and the SPA overlay's
-   JS-templated tags (direct children of the row). */
-@media (max-width: 1023px) {
-  .event-tags-row > * {
-    flex-shrink: 0;
-    width: auto;
-  }
-  .event-tags-row > *:not(:first-child) {
-    border-left: 1px solid var(--mel-border);
-    padding-left: 24px;
-  }
-  /* Values never wrap in the row layout — each tag is exactly as wide as its
-     content and the row itself scrolls instead. */
-  .event-tags-row .tag-value-text,
-  .event-tags-row .tag-count-val {
-    white-space: nowrap;
-    width: auto;
+/* Shared responsive TagWithLink row (D-059/D-060) — home toolbar Highlights,
+   the event detail's horizontal tags row, and the map side panel all use
+   AdaptiveTagsRow.astro for markup and this same CSS for the two layout
+   modes a client-side measurement (updateAdaptiveTagsRow(), duplicated by
+   hand into each page's own <script>, see AGENTS.md rule 7) switches
+   between. Keyed off the stable `.adaptive-tags-row` class, not an
+   instance's own id, so one ruleset covers every instance regardless of how
+   many tags it has. */
+/* Hard cap per highlight-unit (divider + tag together, D-061): a tag never
+   grows past 176px no matter how much room an equal-width column would
+   otherwise give it — applies in both layout modes. In `grid-equal` the
+   unit just stops stretching past 176px inside its (possibly wider) column,
+   leaving the extra column space empty rather than the tag stretching. */
+.adaptive-tags-row .highlight-unit {
+  max-width: 176px;
+}
+.adaptive-tags-row.highlights-grid-equal {
+  display: grid;
+  /* grid-auto-flow:column + grid-auto-columns, not grid-template-columns:
+     repeat(N,...) — this makes every instance equal-width automatically no
+     matter how many highlight-units it has (4 on the home toolbar, 5 on the
+     event detail, 3 on the map panel), with no per-instance CSS needed. */
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 0 32px;
+  overflow: visible;
+}
+/* flex-grow, not width:100% — .highlight-unit is itself a flex row (divider
+   + gap-6 + .filter-tag), so a naive 100% here would count the divider's own
+   25px (1px line + 24px gap) TWICE, overflowing the grid cell by exactly
+   that much (a real bug, found and fixed while building this — D-059).
+   flex-grow correctly fills only what's actually left over after the
+   divider+gap. */
+.adaptive-tags-row.highlights-grid-equal .highlight-unit .filter-tag {
+  flex: 1 1 auto;
+  width: auto;
+}
+/* Content-sized fallback: each unit hugs its own content; the row bleeds to
+   the true right screen edge and scrolls instead of compressing anything
+   below readable width — right-only (not the sitewide symmetric -mx-6/-mx-12
+   bleed trick, which breaks the equal-width JS math when this row shares a
+   line with a sibling like the Toggle, D-059/D-060): the row's own LEFT edge
+   never needs to move, only its right edge needs room to overflow into. */
+.adaptive-tags-row.highlights-flex-content {
+  display: flex;
+  width: calc(100% + 24px);
+  padding-right: 24px;
+  /* flex-shrink:0 — this row is itself a flex ITEM of its own parent
+     (the home toolbar, or a flex-col container elsewhere); without this the
+     parent's flex algorithm claws the bleed width straight back down to fit
+     its line, since a bare `width` only sets the flex-basis suggestion. */
+  flex-shrink: 0;
+}
+@media (min-width: 640px) {
+  .adaptive-tags-row.highlights-flex-content {
+    width: calc(100% + 48px);
+    padding-right: 48px;
   }
 }
 

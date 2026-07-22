@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import TagWithLink from '../../components/TagWithLink.astro';
+import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 import Link from '../../components/Link.astro';
 import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
@@ -207,13 +208,20 @@ const designerDisplay = getTagDisplay(eventData.designer);
            (32px) is the resting gap to the image below, exactly per spec
            regardless of pagination. -->
       <div id="detail-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <div class="event-tags-row flex flex-row gap-6 min-w-0 overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12">
-          <TagWithLink label="Fecha" count={dateDisplay.text} state={dateDisplay.isUnknown ? "Disabled" : "Default"} hideBorder={true} />
-          <TagWithLink label="Lugar" count={locationDisplay.text} state={locationDisplay.isUnknown ? "Disabled" : "Default"} href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`} hideBorder={true} />
-          <TagWithLink label="Localidad" count={localityDisplay.text} state={localityDisplay.isUnknown ? "Disabled" : "Default"} href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`} hideBorder={true} />
-          <TagWithLink label="Organiza" count={organizerDisplay.text} state={organizerDisplay.isUnknown ? "Disabled" : "Default"} href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`} hideBorder={true} />
-          <TagWithLink label="Diseño" count={designerDisplay.text} state={designerDisplay.isUnknown ? "Disabled" : "Default"} href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`} hideBorder={true} />
-        </div>
+        <!-- AdaptiveTagsRow.astro (D-059/D-060), shared with the home
+             toolbar and the map side panel. No sibling to negotiate space
+             with — updateDetailTagsRow() below just decides equal-vs-content
+             against the row's own available width. -->
+        <AdaptiveTagsRow
+          id="detail-tags-fixed-row"
+          tags={[
+            { label: 'Fecha', count: dateDisplay.text, state: dateDisplay.isUnknown ? 'Disabled' : 'Default' },
+            { label: 'Lugar', count: locationDisplay.text, state: locationDisplay.isUnknown ? 'Disabled' : 'Default', href: locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}` },
+            { label: 'Localidad', count: localityDisplay.text, state: localityDisplay.isUnknown ? 'Disabled' : 'Default', href: localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}` },
+            { label: 'Organiza', count: organizerDisplay.text, state: organizerDisplay.isUnknown ? 'Disabled' : 'Default', href: organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}` },
+            { label: 'Diseño', count: designerDisplay.text, state: designerDisplay.isUnknown ? 'Disabled' : 'Default', href: designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}` },
+          ]}
+        />
       </div>
       <!-- Reserves flow space for the fixed tags row below `lg`, right after
            the header's own spacer — so the image column (first in the grid
@@ -326,7 +334,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              of a flat 40px gap that leaves the column visibly shorter than
              the image next to it. -->
         <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section" style="view-transition-name: event-tags;">
-          <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
+          <div class="hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
             <TagWithLink
               label="Fecha"
               count={dateDisplay.text}
@@ -606,6 +614,38 @@ const designerDisplay = getTagDisplay(eventData.designer);
       headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
     }
 
+    // Adaptive TagWithLink row (D-059/D-060) — same generic algorithm as
+    // index.astro's own updateAdaptiveTagsRow() (duplicated by hand, no
+    // shared client JS module system here — AGENTS.md rule 7): decides
+    // between the "equal width" grid mode and the "content-sized" flex
+    // fallback (bleeds+scrolls right) by real measurement. This row never
+    // shares its line with anything, so there's no reserved width to
+    // negotiate — just equal-vs-content against its own available width.
+    const ADAPTIVE_ROW_GAP = 32;
+    function updateAdaptiveTagsRow(rowId) {
+      const row = document.getElementById(rowId);
+      if (!row) return;
+      const container = row.parentElement;
+      if (!container) return;
+
+      row.classList.remove('highlights-grid-equal');
+      row.classList.add('highlights-flex-content');
+      row.style.width = '';
+
+      const units = [...row.querySelectorAll('.highlight-unit')];
+      if (!units.length) return;
+      const naturalWidths = units.map(u => u.getBoundingClientRect().width);
+      const maxNatural = Math.max(...naturalWidths);
+      const containerWidth = container.getBoundingClientRect().width;
+
+      const equalShare = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
+      if (equalShare >= maxNatural) {
+        row.classList.remove('highlights-flex-content');
+        row.classList.add('highlights-grid-equal');
+        row.style.width = '100%';
+      }
+    }
+
     // Pins the tags row directly below the fixed header (V2 layout, made
     // definitive — mirrors the overlay's updateOverlayFixedTags() exactly).
     // No self-correcting probe needed: unlike the overlay, this page has no
@@ -637,6 +677,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         imageSticky.style.left = '';
         imageSticky.style.width = '';
         imageSticky.style.margin = '';
+        imageSticky.style.paddingBottom = '';
         imageCrop.style.height = '';
         imageSentinel.style.height = '';
         return;
@@ -669,6 +710,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         imageSticky.style.left = '';
         imageSticky.style.width = '';
         imageSticky.style.margin = '';
+        imageSticky.style.paddingBottom = '';
         imageCrop.style.height = `${IMAGE_MAX_H}px`;
         imageSentinel.style.height = '0px';
         return;
@@ -711,6 +753,18 @@ const designerDisplay = getTagDisplay(eventData.designer);
       // margin to a `fixed` box too — left uncleared, it'd double up with the
       // left:0 above and render 24-48px past the left edge too.
       imageSticky.style.margin = '0';
+      // Safety buffer, ONLY while pinned (D-063): on a fast/momentum scroll,
+      // the compositor can paint a frame or two ahead of this handler (which
+      // runs on the JS thread on every scroll tick) — content passing
+      // underneath the box can briefly render a sliver above the box's own
+      // exact computed bottom edge before the next tick catches up, poking
+      // into what should be opaque. Extending the box's own opaque
+      // background (already bg-mel-bg-primary) a bit past the crop's real
+      // bottom absorbs that slop; the sentinel math above already accounts
+      // for whatever this box's current total height is, so this doesn't
+      // shift anything else. Cleared in the two branches above (rest state,
+      // desktop) so it never adds to the resting 32px gap after the photo.
+      imageSticky.style.paddingBottom = '24px';
 
       // Pinned at the header's bottom edge, unconditionally — the box never
       // slides up behind the header, no matter how far the page scrolls.
@@ -767,10 +821,12 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // scheduling throttles it adequately on its own.
     ensureScrollRunway();
     updateStickyImage();
+    updateAdaptiveTagsRow('detail-tags-fixed-row');
     window.addEventListener('scroll', updateStickyImage, { passive: true, signal: wSig });
     window.addEventListener('resize', () => {
       ensureScrollRunway();
       updateStickyImage();
+      updateAdaptiveTagsRow('detail-tags-fixed-row');
     }, { signal: wSig });
 
     // Web fonts (Space Grotesk / Lora) are still loading at astro:page-load
@@ -781,6 +837,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
       document.fonts.ready.then(() => {
         ensureScrollRunway();
         updateStickyImage();
+        // The tags row's equal-vs-content decision (D-060) is measured
+        // against real rendered text widths — at page-load time that's
+        // still the fallback font, narrower than the real Lora serif
+        // values. Re-measure once fonts have actually swapped in, or a
+        // borderline case can wrap onto two lines instead of ellipsizing
+        // (D-061).
+        updateAdaptiveTagsRow('detail-tags-fixed-row');
       });
     }
 

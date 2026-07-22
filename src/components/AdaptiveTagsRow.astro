@@ -1,0 +1,50 @@
+---
+// Shared structure for every horizontally-adaptive TagWithLink row on the
+// site (D-059/D-060): home toolbar Highlights, the event detail's tags row
+// when in horizontal format, and the map side panel. Renders server-side in
+// content-sized mode (a sane, non-empty default before JS runs); the actual
+// mode switching (equal-width vs content-sized+scroll) is driven client-side
+// by updateAdaptiveTagsRow() — duplicated by hand into event/[id].astro and
+// index.astro's own <script> blocks (this project has no shared client JS
+// module system; see AGENTS.md rule 7 on mirrored JS). The CSS for both
+// modes lives once in global.css (.adaptive-tags-row / .highlights-*),
+// keyed off the stable `.adaptive-tags-row` class rather than the row's own
+// id, so it applies identically no matter how many tags a given instance has
+// (grid-auto-flow:column + grid-auto-columns avoids hardcoding a column
+// count per instance).
+import TagWithLink from './TagWithLink.astro';
+
+interface Tag {
+  label: string;
+  count: number | string;
+  href?: string;
+  state?: 'Default' | 'Disabled';
+}
+
+interface Props {
+  id: string;
+  tags: Tag[];
+  class?: string;
+}
+
+const { id, tags, class: className = '' } = Astro.props;
+---
+{/* No max-w-full here: the content-sized fallback deliberately renders WIDER
+    than its container (width: calc(100% + Npx) in global.css, D-060) to
+    bleed past the right padding — a max-width:100% cap would clip that
+    straight back down regardless of the explicit width. */}
+<div id={id} class={`adaptive-tags-row highlights-flex-content min-w-0 flex gap-8 items-center overflow-x-auto no-scrollbar ${className}`}>
+  {tags.map((tag) => (
+    <div class="highlight-unit shrink-0 flex items-center gap-6 min-w-0">
+      <div class="h-12 w-px bg-mel-border shrink-0"></div>
+      <TagWithLink
+        label={tag.label}
+        count={tag.count}
+        href={tag.href}
+        state={tag.state}
+        class="min-w-0 shrink-0 w-auto"
+        hideBorder={true}
+      />
+    </div>
+  ))}
+</div>

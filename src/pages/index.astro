@@ -5,6 +5,7 @@ import MenuItem from '../components/MenuItem.astro';
 import SideMenu from '../components/SideMenu.astro';
 import TimeSlider from '../components/TimeSlider.astro';
 import TagWithLink from '../components/TagWithLink.astro';
+import AdaptiveTagsRow from '../components/AdaptiveTagsRow.astro';
 import ToggleSelector from '../components/ToggleSelector.astro';
 import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
@@ -236,61 +237,38 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <!-- Filter Tags and View Switcher (Figma node 341:26425). True
            flex-wrap, not a `lg` breakpoint switch: the Toggle sits beside the
            tags row whenever both fit at their natural sizes, and drops to
-           its own full-width line the moment they don't — regardless of the
-           exact pixel width that happens at, since it depends on how wide
-           the tags row's own content currently is (event/artist/designer/
-           promoter counts), not a fixed number. Toggle: `grow` so it fills
-           whatever's left on its line (the row's own `min-w-[320px]`
-           handles never going below that, see ToggleSelector.astro) —
-           alone on a wrapped line, grow expands it to that line's full
-           width for free, no separate "stacked" styling needed. Tags row:
-           no grow/shrink (`shrink-0`, no `flex-1`) — it always renders at
-           its own natural content width and never gets squeezed to make
-           room for the Toggle; that's what forces the WRAP instead. mt-0
-           lg:mt-2: below lg the extra 8px this row used to add on top of
-           the parent's gap-6 is dropped, so the slider→highlights gap is
-           24px (was 32) in the adaptable-width tags mode; kept at lg+
-           (32px) since that wasn't the reported issue. -->
-      <div class="flex flex-wrap items-center gap-x-6 gap-y-6 mt-0 lg:mt-2">
-        <!-- Event Stats Tags (TagWithLink). Each tag sizes to its own
-             content; the row only scrolls (internally, clipped to its own
-             box — no negative-margin bleed here, see below) in the rare
-             case its own natural width doesn't even fit ALONE on a wrapped
-             line; normally it just renders at its natural width. Dividers
-             are their OWN elements (not each tag's own border-l, see the
-             map side panel's `#side-panel-tags-container` for the original
-             of this pattern) — hideBorder on every tag removes their
-             individually-baked-in padding, which used to make the
-             gap-before-a-divider and gap-after-it uneven, and also produced
-             a stray leading divider before "Eventos" (a border-l with
-             nothing in front of it). Real sibling dividers + a flat gap-6
-             (24px, Figma 341:26425) apply that spacing UNIFORMLY between
-             every adjacent pair — tag-to-divider and divider-to-tag alike —
-             and there's simply no divider element before the first tag or
-             after the last one to begin with. max-w-full (not the
-             negative-margin/explicit-width bleed trick used elsewhere on
-             the site): in a flex-wrap row sharing a line with the Toggle,
-             an unconditional negative margin shifts this box regardless of
-             whether it's actually overflowing, throwing off the gap to the
-             Toggle sitting right next to it — max-w-full simply stops it
-             from ever exceeding its own line's width and lets
-             overflow-x-auto scroll internally past that, without needing
-             to escape past the page's own side padding. -->
-        <div class="shrink-0 max-w-full flex gap-6 items-center overflow-x-auto no-scrollbar">
-          {tags.map((tag, idx) => (
-            <>
-              {idx > 0 && <div class="h-12 w-px bg-mel-border shrink-0"></div>}
-              <TagWithLink label={tag.label} count={tag.count} class="shrink-0 w-auto" hideBorder={true} />
-            </>
-          ))}
-        </div>
+           its own full-width line the moment they don't. gap-y-8 (32px,
+           D-060): the propietario asked for at least 32px of vertical gap
+           between the tags and a wrapped Toggle — mt-0 lg:mt-2 (unrelated:
+           the slider→toolbar gap) stays as-is. -->
+      <div id="home-highlights-toolbar" class="flex flex-wrap items-center gap-x-6 gap-y-8 mt-0 lg:mt-2">
+        <!-- Event Stats Tags — AdaptiveTagsRow.astro (D-059/D-060), shared
+             with the event detail's horizontal tags row and the map side
+             panel. Layout mode (equal-width grid vs content-sized+scroll)
+             is decided by updateAdaptiveTagsRow() in the script below, from
+             real measurement rather than a fixed breakpoint. -->
+        <AdaptiveTagsRow id="home-highlights-tags" tags={tags} />
 
-        <!-- View Selector Toggle: grows to fill the rest of its line, never
-             narrower than its own min-w-[320px] (ToggleSelector.astro). -->
-        <div class="grow min-w-[320px]">
+        <!-- View Selector Toggle: grows to fill the rest of its line. Capped
+             at 4 grid columns (matching the map side panel's own identical
+             formula, D-026 — 4/12 columns with a 24px gap) ONLY while it's
+             actually sharing that line with the tags row — toggled via
+             .toggle-shares-line by updateHomeToolbarLayout() below, since a
+             static max-width would otherwise also clamp it once it wraps
+             onto its own line alone, where it should span the full width
+             instead (the propietario caught this: "cuando pasa debajo de
+             las tags, debe ocupar el ancho total de la pantalla"). Never
+             narrower than 320px in either state. -->
+        <div id="home-toggle-wrapper" class="grow min-w-[320px]">
           <ToggleSelector />
         </div>
       </div>
+
+      <style>
+        #home-toggle-wrapper.toggle-shares-line {
+          max-width: calc((100% - 264px) / 3 + 72px);
+        }
+      </style>
     </div>
 
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
@@ -382,21 +360,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             </div>
           </div>
           
-          <!-- Highlight / Tag Section using the TagWithLink component with horizontal overflow (Figma matches: pb-[32px] px-[24px]).
-               gap-8 (32px, D-043's sitewide minimum) applies uniformly to every
-               adjacent pair here — tag-to-divider and divider-to-tag alike, so
-               every divider keeps exactly 32px on both sides. justify-between
-               spreads the row across the panel's full width with even gaps
-               when there's room (same reasoning as the Highlights row above);
-               degrades to normal packed/scrollable flow once it overflows. -->
+          <!-- Highlight / Tag Section — AdaptiveTagsRow.astro (D-059/D-060),
+               shared with the home toolbar and the event detail's horizontal
+               tags row. Layout mode (equal-width grid vs content-sized+
+               scroll+bleed) is decided by updateAdaptiveTagsRow() below, no
+               sibling to negotiate space with so it's always "alone" against
+               the panel's own width. -->
           <div class="pb-[32px] px-[24px] flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
-            <div class="flex gap-8 justify-between items-center overflow-x-auto no-scrollbar -mx-[24px] w-[calc(100%+48px)] px-[24px]" id="side-panel-tags-container">
-              <TagWithLink label="Eventos" count="0" class="shrink-0 w-auto" hideBorder={true} />
-              <div class="h-12 w-[1px] bg-mel-border shrink-0"></div>
-              <TagWithLink label="Artistas" count="0" class="shrink-0 w-auto" hideBorder={true} />
-              <div class="h-12 w-[1px] bg-mel-border shrink-0"></div>
-              <TagWithLink label="Diseñadores" count="0" class="shrink-0 w-auto" hideBorder={true} />
-            </div>
+            <AdaptiveTagsRow
+              id="side-panel-tags-container"
+              tags={[
+                { label: 'Eventos', count: '0' },
+                { label: 'Artistas', count: '0' },
+                { label: 'Diseñadores', count: '0' },
+              ]}
+            />
             <!-- Inset bottom divider (Figma matches: bottom-0 left-24 right-24, color: mel-border) -->
             <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
           </div>
@@ -661,7 +639,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            the resting gap to the image below, exactly per spec regardless of
            pagination. -->
       <div id="overlay-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <div class="event-tags-row flex flex-row gap-6 min-w-0 overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12" id="overlay-tags-sidebar-mobile">
+        <!-- AdaptiveTagsRow structure (D-059/D-060), same component as the
+             home toolbar and the map side panel — populated dynamically via
+             makeAdaptiveTagHtml() below (JS mirror of AdaptiveTagsRow.astro
+             + TagWithLink.astro's own markup, AGENTS.md rule 7) since this
+             is the SPA overlay, not server-rendered. -->
+        <div class="adaptive-tags-row highlights-flex-content min-w-0 flex gap-8 items-center overflow-x-auto no-scrollbar" id="overlay-tags-sidebar-mobile">
           <!-- Populated dynamically via JS (mirrors #overlay-tags-sidebar, the lg+ instance) -->
         </div>
       </div>
@@ -673,16 +656,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <!-- Main info structure (wrapped in a div we can transition/fade during event switches) -->
       <div id="overlay-details-content" class="w-full flex-1 flex flex-col justify-between transition-opacity duration-300">
 
-        <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). lg:h-[400px] pins the
-             row's own height to the image column's fixed height — without it, column 3's actual
-             content height (which shifts by a couple px depending on how the artist list wraps)
-             set the row's height instead, which in turn moved the Anterior/Siguiente nav below at
-             mt-[280px] by that same couple of pixels from one event to the next.
+        <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). NO
+             fixed height on the grid itself (D-061 — a leftover `lg:h-[400px]`
+             here, from before D-055's mt-auto/pt-[104px] nav positioning
+             existed, pinned the grid's own box to the image column's 400px
+             regardless of column 3's real content height; with a long artist
+             list, column 3 visually overflowed past that box and the nav
+             block below — a normal-flow sibling measuring its 104px gap from
+             the grid's artificially short bottom edge, not column 3's real
+             one — ended up overlapping it). Mirrors event/[id].astro exactly,
+             which never had this fixed height: the grid's own height is just
+             the tallest column's real content height (`items-start`), and
+             D-055's own mechanism already guards the nav's minimum gap
+             correctly once that's true.
              On mobile the same three blocks reflow per Figma 369:32751: image first (full-bleed,
              pinned, shrinking — mirrors event/[id].astro), then the tags as a horizontally
              scrollable row, then the info column — a real grid at every breakpoint, `order` doing
              the mobile reflow (see each column's own comment). -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-start w-full lg:h-[400px]">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-start w-full">
 
           <!-- Column 2: Image Box. order-1 (lg:order-2 restores the desktop middle-column
                position) puts it first below `lg`, matching Figma 369:32751's image-then-tags-
@@ -760,7 +751,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                for the full rationale) instead of a flat 40px gap that left
                this column visibly shorter. -->
           <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0">
-            <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0" id="overlay-tags-sidebar">
+            <div class="hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0" id="overlay-tags-sidebar">
               <!-- Populated dynamically via JS (desktop only — mobile uses #overlay-tags-sidebar-mobile) -->
             </div>
           </div>
@@ -1480,6 +1471,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   @media (min-width: 1024px) {
     #map-side-panel.side-panel-open {
       width: calc((100% - 264px) / 3 + 72px);
+      /* Same 320px floor as ToggleSelector.astro's own min-width (D-045) —
+         right at the low end of `lg`, the 4-column formula alone can dip
+         below that (D-061). */
+      min-width: 320px;
       border-left-width: 1px;
     }
   }
@@ -2944,15 +2939,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (backdrop) backdrop.classList.toggle('side-panel-open', open);
   }
 
-  // El bottom sheet del mapa (bajo lg) arranca justo por debajo del slider de
-  // tiempo, dejándolo a la vista bajo el DIM. Su alto (top) no es fijo: se mide
-  // el borde inferior del slider y se publica en --mel-sheet-top (lo consume la
-  // media query del sheet). Se recalcula al abrir y en cada resize.
+  // El bottom sheet del mapa (bajo lg) arranca justo por encima del slider de
+  // tiempo, tapándolo del todo bajo el DIM (D-060 — antes se anclaba al borde
+  // INFERIOR del slider, dejándolo a la vista; el propietario pidió que suba
+  // hasta cubrirlo entero). Su alto (top) no es fijo: se mide el borde
+  // SUPERIOR del slider y se publica en --mel-sheet-top (lo consume la media
+  // query del sheet). Se recalcula al abrir y en cada resize.
   function syncSheetTop() {
     const slider = document.getElementById('slider-track-wrapper');
     if (!slider) return;
-    const bottom = Math.round(slider.getBoundingClientRect().bottom);
-    document.documentElement.style.setProperty('--mel-sheet-top', bottom + 'px');
+    const top = Math.round(slider.getBoundingClientRect().top);
+    document.documentElement.style.setProperty('--mel-sheet-top', top + 'px');
   }
 
   // Populate side panel details dynamically
@@ -2997,6 +2994,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const sideDesignersVal = document.querySelector('#side-panel-tags-container .filter-tag[data-category="Diseñadores"] .tag-count-val');
       if (sideDesignersVal) sideDesignersVal.textContent = designersSet.size;
 
+      // Counts just changed digit count, which can shift each tag's natural
+      // width — re-decide equal-vs-content mode (D-059/D-060).
+      updateAdaptiveTagsRow('side-panel-tags-container');
+
       // Populate event cards list inside side panel
       const listContainer = document.getElementById('side-panel-event-list');
       listContainer.innerHTML = '';
@@ -3029,6 +3030,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       updateSidePanelDOM();
       sidePanel.style.opacity = '1';
       setSidePanelOpenState(true);
+      // The panel animates its width in over 300ms (opening from 0 on
+      // desktop, D-026's push-the-map transition) — the tags row's initial
+      // measurement above ran against that stale (still-collapsing) width,
+      // so re-decide once the transition has settled.
+      setTimeout(() => updateAdaptiveTagsRow('side-panel-tags-container'), 310);
       if (googleMap) {
         setTimeout(() => {
           google.maps.event.trigger(googleMap, "resize");
@@ -3334,6 +3340,78 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // -------------------------------------------------------
   // initHomePage — re-runs on every astro:page-load
   // -------------------------------------------------------
+  // Adaptive TagWithLink row (D-059/D-060): decides between the "equal
+  // width" grid mode (default, Figma 341:26425 — every highlight-unit the
+  // same width) and the "content-sized" flex fallback (each unit hugs its
+  // own content, row bleeds+scrolls right) by REAL measurement, not a
+  // fixed breakpoint. Generic over the number of units (the CSS uses
+  // grid-auto-columns, not a hardcoded column count) and over whether the
+  // row shares its line with another element (a Toggle, say) via
+  // `opts.getReservedWidth` — pass it when there's a sibling to negotiate
+  // space with, omit it for a row that's always alone (event detail tags,
+  // map side panel, event overlay's mobile tags row). Module-scope (not
+  // nested in initHomePage) since renderOverlayEvent() also needs it.
+  // Duplicated by hand into event/[id].astro's own <script> (AGENTS.md rule
+  // 7 — no shared client JS module system here).
+  const ADAPTIVE_ROW_GAP = 32; // between highlight-units, in either mode
+
+  function updateAdaptiveTagsRow(rowId, opts = {}) {
+    const row = document.getElementById(rowId);
+    if (!row) return;
+    const container = opts.containerId ? document.getElementById(opts.containerId) : row.parentElement;
+    if (!container) return;
+
+    // 1. Force content-sized mode first — this is the only state in which
+    // each highlight-unit's rendered width reliably reflects its own
+    // natural (max-content) size, unaffected by any grid-equal sizing
+    // this function may have applied on an earlier tick.
+    row.classList.remove('highlights-grid-equal');
+    row.classList.add('highlights-flex-content');
+    row.style.width = '';
+
+    const units = [...row.querySelectorAll('.highlight-unit')];
+    if (!units.length) return;
+    const naturalWidths = units.map(u => u.getBoundingClientRect().width);
+    const maxNatural = Math.max(...naturalWidths);
+    const containerWidth = container.getBoundingClientRect().width;
+
+    // 2. Would an equal share still fit each unit's own content if the
+    // row shares its line with whatever opts.getReservedWidth() reserves
+    // (e.g. a Toggle + the gap to it)? Skipped entirely when there's
+    // nothing to share with (reserved === 0) — falls straight through to
+    // the "alone" check below, which is then just the same math against
+    // the row's own full container width.
+    const reserved = opts.getReservedWidth ? opts.getReservedWidth(containerWidth) : 0;
+    if (reserved > 0) {
+      const spaceIfSharing = containerWidth - reserved;
+      const equalShareIfSharing = (spaceIfSharing - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
+      if (equalShareIfSharing >= maxNatural) {
+        row.classList.remove('highlights-flex-content');
+        row.classList.add('highlights-grid-equal');
+        row.style.width = `${spaceIfSharing}px`;
+        return true;
+      }
+    }
+
+    // 3. Sharing doesn't work (or there's nothing to share with) — would
+    // an equal share of the FULL container width work once any sibling
+    // has wrapped away (native flex-wrap resolves that on its own, purely
+    // from the row's rendered width no longer leaving it room)?
+    const equalShareAlone = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
+    if (equalShareAlone >= maxNatural) {
+      row.classList.remove('highlights-flex-content');
+      row.classList.add('highlights-grid-equal');
+      row.style.width = '100%';
+      return false;
+    }
+
+    // 4. Neither fits — stay in content-sized mode (already applied in
+    // step 1): each unit keeps its own natural width, and the row bleeds
+    // + scrolls past the right edge instead of compressing anything
+    // unreadable.
+    return false;
+  }
+
   function initHomePage() {
     // Let the gallery replay its first-load entrance animation for whichever
     // render actually settles out of the several that happen synchronously
@@ -3439,11 +3517,74 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         galleryResizePending = false;
         syncSheetTop(); // el top del bottom sheet depende de la posición del slider
         const cards = document.querySelectorAll('#gallery-grid .gallery-item');
-        if (!cards.length) return;
-        const colWidth = cards[0].clientWidth;
-        cards.forEach(card => sizeGalleryCard(card, colWidth));
+        if (cards.length) {
+          const colWidth = cards[0].clientWidth;
+          cards.forEach(card => sizeGalleryCard(card, colWidth));
+        }
+        const sidePanel = document.getElementById('map-side-panel');
+        if (sidePanel && sidePanel.classList.contains('side-panel-open')) {
+          updateAdaptiveTagsRow('side-panel-tags-container');
+        }
       });
     }, { signal: wSig });
+
+    // Home toolbar specifically: the Toggle's own target width if it had
+    // room is capped at 4/12 grid columns (same formula as the map side
+    // panel, D-026 — 4 cols with a 24px gap out of 12 cols/11 gaps total,
+    // hence -264/3+72), but never below its 320px floor even when that
+    // exceeds the cap — and that cap ONLY applies while it's actually
+    // sharing the line with the tags row (toggled via .toggle-shares-line):
+    // once it wraps onto its own line, it should fill the FULL width
+    // instead, same padding as everything else on the page (the propietario
+    // was explicit about this), which is exactly what plain `grow` already
+    // gives it once nothing is competing for space on that line.
+    function updateHomeToolbarLayout() {
+      const toolbar = document.getElementById('home-highlights-toolbar');
+      const toggleWrapper = document.getElementById('home-toggle-wrapper');
+      if (!toolbar || !toggleWrapper) return;
+      const isSharing = updateAdaptiveTagsRow('home-highlights-tags', {
+        containerId: 'home-highlights-toolbar',
+        getReservedWidth: (toolbarWidth) => {
+          const fourColWidth = (toolbarWidth - 264) / 3 + 72;
+          const toggleWidth = Math.max(320, fourColWidth);
+          return toggleWidth + 24; // + the row↔Toggle gap
+        },
+      });
+      toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
+    }
+
+    updateHomeToolbarLayout();
+    let highlightsResizePending = false;
+    window.addEventListener('resize', () => {
+      if (highlightsResizePending) return;
+      highlightsResizePending = true;
+      requestAnimationFrame(() => {
+        highlightsResizePending = false;
+        updateHomeToolbarLayout();
+      });
+    }, { signal: wSig });
+
+    // Every AdaptiveTagsRow's equal-vs-content decision (D-060) is measured
+    // against real rendered text widths — at page-load time that's still
+    // the fallback font, narrower than the real Lora serif values. Once
+    // fonts actually swap in, re-measure whichever rows are live right now,
+    // or a borderline case can wrap onto two lines instead of ellipsizing
+    // (D-061). The map panel's and overlay's rows only get re-measured if
+    // currently open/visible — closed ones get a fresh, already-settled
+    // measurement whenever they're next populated.
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        updateHomeToolbarLayout();
+        const sidePanel = document.getElementById('map-side-panel');
+        if (sidePanel && sidePanel.classList.contains('side-panel-open')) {
+          updateAdaptiveTagsRow('side-panel-tags-container');
+        }
+        const overlayEl = document.getElementById('event-details-overlay');
+        if (overlayEl && !overlayEl.classList.contains('hidden')) {
+          updateAdaptiveTagsRow('overlay-tags-sidebar-mobile');
+        }
+      });
+    }
 
     // Bind all event listeners
     bindSliderEvents();
@@ -3738,6 +3879,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       window.addEventListener('resize', () => {
         ensureOverlayScrollRunway();
         updateOverlayStickyImage();
+        if (!overlayScrollEl.classList.contains('hidden')) {
+          updateAdaptiveTagsRow('overlay-tags-sidebar-mobile');
+        }
       }, { signal: wSig });
     }
   }
@@ -3832,6 +3976,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       imageSticky.style.left = '';
       imageSticky.style.width = '';
       imageSticky.style.margin = '';
+      imageSticky.style.paddingBottom = '';
       imageCrop.style.height = '';
       imageSentinel.style.height = '';
       return;
@@ -3859,6 +4004,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       imageSticky.style.left = '';
       imageSticky.style.width = '';
       imageSticky.style.margin = '';
+      imageSticky.style.paddingBottom = '';
       imageCrop.style.height = `${OVERLAY_IMAGE_MAX_H}px`;
       imageSentinel.style.height = '0px';
       return;
@@ -3896,6 +4042,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // left/width below and render past both true screen edges.
     imageSticky.style.position = 'fixed';
     imageSticky.style.margin = '0';
+    // Safety buffer, ONLY while pinned (D-063 — mirrors event/[id].astro's
+    // own copy of this fix): on a fast/momentum scroll the compositor can
+    // paint a frame or two ahead of this handler (runs on the JS thread on
+    // every scroll tick) — content passing underneath the box can briefly
+    // render a sliver above the box's own exact computed bottom edge before
+    // the next tick catches up, poking into what should be opaque.
+    // Extending the box's own opaque background (bg-mel-bg-primary) a bit
+    // past the crop's real bottom absorbs that slop; the sentinel math
+    // above already accounts for whatever this box's current total height
+    // is, so this doesn't shift anything else. Cleared in the two branches
+    // above (rest state, desktop) so it never adds to the resting 32px gap
+    // after the photo.
+    imageSticky.style.paddingBottom = '24px';
 
     // #overlay-details-content carries `transition: transform` for its own
     // open/close animation, and Chrome computes a live `matrix(...)` for any
@@ -3979,6 +4138,49 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     `;
   }
 
+  // JS mirror of AdaptiveTagsRow.astro + TagWithLink.astro's own rendered
+  // markup (hideBorder, alignment Left, no titleIcon — AGENTS.md rule 7),
+  // used ONLY for #overlay-tags-sidebar-mobile (the tags row once it's in
+  // horizontal format, D-060). The lg+ vertical sidebar keeps makeTagHtml()
+  // below — a different layout (label/value stacked, spread down a fixed
+  // column height), not the horizontally-adaptive one.
+  function makeAdaptiveTagHtml(label, value, href) {
+    const isUnknown = !value || value.toLowerCase() === 'desconocido' || value.toLowerCase() === 'no detallados';
+    const displayVal = isUnknown ? 'desconocido' : value;
+    // Link.astro's own `.mel-link-active`/`.mel-link-underline` styling
+    // (font, color, ellipsis, hover underline) lives in a component-scoped
+    // <style> block — Astro compiles that scope to a per-component hashed
+    // attribute selector that only elements Astro itself renders receive.
+    // This markup is injected via innerHTML on the client, so it never gets
+    // that attribute and those scoped rules silently never match — a real,
+    // persistent bug (not a timing/race issue): every linked tag rendered
+    // sans-serif in the body font instead of Lora (D-062). Fixed by
+    // spelling out the same styling as plain Tailwind utilities instead of
+    // depending on the scoped class names at all.
+    const valueInner = (!isUnknown && href)
+      ? `<a href="${href}" class="group relative inline-flex items-center gap-1 no-underline min-w-0 max-w-full justify-start text-left overflow-hidden text-ellipsis whitespace-nowrap font-serif font-medium text-[16px] leading-[24px] tracking-[0.16px] text-mel-text-secondary hover:text-mel-action-primary bg-transparent transition-colors">
+          <span class="relative inline-block text-inherit">
+            <span class="tag-count-val">${displayVal}</span>
+            <span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+          </span>
+          <svg class="absolute left-full ml-1 top-1/2 -translate-y-1/2 w-3 h-3 text-inherit opacity-0 group-hover:opacity-100 transition-all duration-200 transform translate-x-[-4px] group-hover:translate-x-0 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+        </a>`
+      : `<span class="tag-count-val block w-full min-w-0 max-w-full overflow-hidden text-ellipsis whitespace-nowrap font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] ${isUnknown ? 'text-mel-text-tertiary' : 'text-mel-text-secondary'} select-text">${displayVal}</span>`;
+    return `
+      <div class="highlight-unit shrink-0 flex items-center gap-6 min-w-0">
+        <div class="h-12 w-px bg-mel-border shrink-0"></div>
+        <div class="filter-tag flex flex-col gap-2 relative px-0 py-0 bg-transparent transition-all duration-200 items-start text-left min-w-0 shrink-0 w-auto" data-category="${label}">
+          <div class="flex gap-1 items-center relative shrink-0">
+            <span class="font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary whitespace-nowrap">${label}</span>
+          </div>
+          <div class="flex h-[24px] items-center relative shrink-0 w-full min-w-0">
+            ${valueInner}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   function renderOverlayEvent(eventItem, panelEvents) {
     // 1. Text & Basic Details (desktop title + its mobile twin above the grid)
     document.getElementById('overlay-event-title').textContent = eventItem.evento;
@@ -4008,7 +4210,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const sidebar = document.getElementById('overlay-tags-sidebar');
     sidebar.innerHTML = tagsHtml;
     const sidebarMobile = document.getElementById('overlay-tags-sidebar-mobile');
-    if (sidebarMobile) sidebarMobile.innerHTML = tagsHtml;
+    if (sidebarMobile) {
+      sidebarMobile.innerHTML = `
+        ${makeAdaptiveTagHtml("Fecha", eventItem.fecha)}
+        ${makeAdaptiveTagHtml("Lugar", eventItem.lugar, `/?view=mapa&location=${encodeURIComponent(eventItem.lugar)}`)}
+        ${makeAdaptiveTagHtml("Localidad", eventItem.localidad, `/?search=${encodeURIComponent(eventItem.localidad)}`)}
+        ${makeAdaptiveTagHtml("Organiza", eventItem.organiza, `/?search=${encodeURIComponent(eventItem.organiza)}`)}
+        ${makeAdaptiveTagHtml("Diseño", eventItem.disenador, `/?search=${encodeURIComponent(eventItem.disenador)}`)}
+      `;
+      updateAdaptiveTagsRow('overlay-tags-sidebar-mobile');
+    }
 
     // 3. Artists List
     const artistsContainer = document.getElementById('overlay-artists-container');

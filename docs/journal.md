@@ -2,6 +2,90 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: La fuente incorrecta del overlay no era una carrera (CSS con scope de Astro no llega a HTML por innerHTML), colchón de seguridad bajo la foto fijada durante el scroll
+
+### Objetivo de la Sesión
+El propietario, probando en Chrome real el fix de D-061, reportó que la fuente incorrecta persistía siempre ("no se cambia nunca que yo vea") — contradiciendo el diagnóstico de carrera con fuentes — y pidió que la caja de la foto fijada del detalle de evento tenga un margen/padding con fondo durante el scroll, para no dejar asomar el texto que pasa por debajo.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-062 y D-063. La causa real de la fuente: el CSS con scope de componente de `Link.astro` (clases `.mel-link-active`/`.mel-link-underline`) solo se aplica a elementos que Astro renderiza server-side con su atributo hasheado — el mirror JS `makeAdaptiveTagHtml()` del overlay (D-060) inyecta HTML vía `innerHTML`, así que esas clases nunca hicieron nada, con o sin carrera de por medio. Reescrito para llevar la maquetación como utilidades de Tailwind explícitas en vez de depender de esas clases. Añadido `padding-bottom:24px` a la caja de la foto fijada, solo mientras está en modo `position:fixed` (limpiado en reposo y en escritorio), en `event/[id].astro` y su espejo en `index.astro`.
+
+### Problemas Encontrados y Resueltos
+- Diagnóstico erróneo en D-061 (carrera con fuentes) corregido tras medición directa en navegador real — recordatorio de que "parece un bug, no una carrera" del propietario era la pista correcta.
+- Las herramientas de simulación de scroll de este entorno sandbox se comportaron de forma inconsistente (timeouts, estados contradictorios entre `scrollTo()` directo y gestos simulados) al intentar verificar visualmente el colchón bajo la foto — no fue posible una confirmación visual completa en este entorno; el cambio en sí es seguro y mínimo (un padding condicional, sin tocar la lógica de sincronización existente).
+
+### Tareas Pendientes
+- Confirmación visual del propietario en navegador real del colchón bajo la foto durante un scroll genuino (gesto de rueda/trackpad), no verificable en este sandbox.
+
+---
+
+## [2026-07-22] — Sesión: Fix de la carrera con fuentes web (causa real del salto a dos líneas), solape de navegación en el overlay, ancho máx. 176px por tag, ancho mín. 320px del panel del mapa
+
+### Objetivo de la Sesión
+Dos bugs reales reportados con capturas sobre el trabajo de D-060 (fila de tags a veces con dos líneas y con la fuente incorrecta en el detalle de evento; navegación Anterior/Siguiente solapando contenido en el overlay de escritorio) más dos ajustes de diseño explícitos (ancho máximo de 176px por tag incluyendo el divisor; ancho mínimo de 320px para el panel lateral del mapa).
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-061. La causa real de las dos líneas resultó ser una condición de carrera: `updateAdaptiveTagsRow()` decidía el modo de layout con la fuente de repuesto (antes de que Lora terminara de cargar), y al cargar la fuente real (más ancha) el texto ya no cabía — de ahí que ambos síntomas (dos líneas + fuente incorrecta) aparecieran juntos en la misma captura. Fix: re-medir en `document.fonts.ready` en las tres instancias. El solape de navegación no tenía relación con D-060: la rejilla de 3 columnas del overlay SPA conservaba un `lg:h-[400px]` fijo, heredado de un esquema de posicionamiento anterior a D-055, que hacía que el bloque de navegación (con su propio `pt-[104px]` de D-055) midiera su holgura desde un borde artificial en vez del borde real de la columna de info cuando ésta era más alta. Fix: eliminado ese alto fijo, igualando la rejilla a `event/[id].astro` (que nunca lo tuvo). Añadidos `max-width:176px` en `.highlight-unit` y `min-width:320px` en `#map-side-panel`.
+
+### Problemas Encontrados y Resueltos
+- Ambos bugs reportados por el propietario resultaron tener causas estructurales bien definidas (no cosméticas): una condición de carrera con fuentes web, y una altura fija heredada de un esquema de layout ya sustituido por D-055 pero nunca limpiada del overlay.
+
+### Tareas Pendientes
+- Ninguna nueva. Verificación completa del panel del mapa (tiles, apertura real) sigue pendiente de un navegador real por la misma limitación de entorno ya señalada en la sesión anterior.
+
+---
+
+## [2026-07-22] — Sesión: Componente `AdaptiveTagsRow` reutilizado en detalle/mapa, Toggle a ancho completo al caer solo, sangrado a la derecha, panel del mapa tapa el slider
+
+### Objetivo de la Sesión
+Cuatro precisiones más del propietario sobre el toolbar de D-059: (1) el Toggle, al caer bajo las tags por falta de sitio, debe ocupar el ancho TOTAL del toolbar (mismo padding que el resto de la página) — el tope de 4 columnas era, sin querer, incondicional; (2) al menos 32px de separación vertical entre tags y Toggle al apilarse; (3) la fila de tags debe sangrar por el margen derecho de la pantalla cuando su contenido ya no puede encogerse más; (4) la misma estructura y componente deben reutilizarse en la fila de tags horizontal del detalle de evento (`event/[id].astro` + overlay SPA) y en el panel de eventos del mapa, que además debe subir hasta tapar por completo el slider de fecha de la home.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-060. Nuevo componente `src/components/AdaptiveTagsRow.astro` que centraliza la estructura de D-059 para cualquier número de tags; CSS de ambos modos movido a `global.css` con selectores `.adaptive-tags-row.highlights-*` (no ligados al id de cada instancia). El tope de ancho del Toggle pasa a ser condicional (`.toggle-shares-line`, activada por JS solo mientras comparte línea con las tags). Migradas las tres instancias: panel del mapa (`#side-panel-tags-container`), `event/[id].astro` (`#detail-tags-fixed`, vía el propio componente Astro) y el overlay SPA (`#overlay-tags-sidebar-mobile`, vía un nuevo `makeAdaptiveTagHtml()` que sustituye al `makeTagHtml()` anterior, cuya maquetación no coincidía con el componente real). `syncSheetTop()` ahora mide el borde superior del slider de tiempo (antes el inferior), así el bottom sheet del mapa sube hasta taparlo del todo. Eliminado el CSS `.event-tags-row`, ya sin consumidores.
+
+### Problemas Encontrados y Resueltos
+- El sangrado a la derecha (`width: calc(100% + 24px)`) no se aplicaba en el navegador — `getComputedStyle().width` seguía devolviendo el ancho del contenedor. Causa: la fila es en sí misma un ítem flex de su propio padre, y sin `flex-shrink:0` el algoritmo flex del padre recorta el `width` (que sin ese ajuste solo actúa como sugerencia de `flex-basis`) de vuelta al hueco disponible. Corregido añadiendo `flex-shrink:0` a `.highlights-flex-content`.
+- Un `max-w-full` heredado de una versión anterior del componente (y copiado a mano en el wrapper estático del overlay en `index.astro`) capaba el `width: calc(100% + Npx)` de vuelta al 100% — eliminado de ambos sitios.
+- El mapa no llegó a renderizar tiles en el navegador del entorno sandbox de verificación (limitación del entorno, no del código) — la comprobación real de apertura del panel y tapado del slider queda pendiente de confirmación manual del propietario en un navegador normal.
+
+### Tareas Pendientes
+- Confirmación visual del propietario del flujo completo del panel del mapa (apertura + tapado del slider), no verificable en el navegador del entorno de esta sesión.
+
+---
+
+## [2026-07-22] — Sesión: Rediseño del toolbar de la home — Toggle con tope de 4 columnas, ancho igual por defecto con caída a contenido
+
+### Objetivo de la Sesión
+Cuatro precisiones del propietario sobre el toolbar (Highlights + Toggle), con capturas de referencia y el nodo Figma 341:26425: el Toggle debe topar en 4 columnas (mínimo 320px) al compartir fila con las tags; el divisor pasa a vivir dentro de cada módulo de highlight, siempre a 24px del texto; las 4 tags usan ancho IGUAL por defecto (no por contenido) con 32px entre módulos; ese ancho igual solo cede a ancho-por-contenido+scroll cuando una columna se quedaría más estrecha que su propio contenido; y el divisor de "Eventos" no debe desaparecer nunca (revirtiendo D-058, hecho apenas un rato antes en esta misma sesión).
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-059. Cada tag pasa a ser una "highlight-unit" con su propio divisor integrado (gap-6/24px interno). Nueva función `updateHighlightsLayout()` (ejecutada en `astro:page-load` y resize) que mide el ancho natural real de cada unidad y decide entre modo `grid-equal` (rejilla de 4 columnas exactamente iguales, 32px de gutter) y modo `flex-content` (cada unidad a su ancho real, con scroll) — sin depender de ningún breakpoint fijo. El Toggle gana un `max-w` con la misma fórmula de "4 de 12 columnas" que ya usa el panel del mapa (D-026). El `hidden lg:block` de D-058 se elimina del divisor de "Eventos".
+
+### Problemas Encontrados y Resueltos
+- Bug real detectado por medición (`scrollWidth − clientWidth`): la regla `.filter-tag { width:100% }` del modo `grid-equal` no descontaba el espacio que el propio divisor+gap de la unidad ya ocupaba, desbordando la celda en exactamente esos 25px. Corregido con `flex:1 1 auto` en vez de `width:100%`.
+- Un fallo de HMR de Vite (no recargaba `global.css` correctamente) dejó el navegador ejecutando JS desactualizado durante parte de la verificación, produciendo resultados que no coincidían con un cálculo manual de control — resuelto forzando recarga dura antes de seguir depurando, evitando perseguir un bug que en realidad no existía en el código fuente.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
+## [2026-07-22] — Sesión: El separador antes de "Eventos" vuelve en escritorio (columna 1 de la rejilla), sigue oculto en móvil
+
+### Objetivo de la Sesión
+El propietario aportó una captura con una rejilla de 12 columnas superpuesta sobre el toolbar de la home en escritorio: el Toggle mide 4 columnas y los separadores caen al comienzo de las columnas 1, 3, 5 y 7 — incluyendo un separador antes de "Eventos" que D-048 había quitado por considerarlo un elemento fantasma. Antes de tocar código se confirmó explícitamente si debía restaurarse.
+
+### Cambios Realizados
+Ver `docs/decisions.md` D-058. El separador antes de "Eventos" reaparece, pero solo desde `lg` (escritorio) — en móvil sigue oculto, tal y como el propietario ya había pedido explícitamente en la ronda anterior para esa misma captura de referencia (imagen 3, móvil).
+
+### Problemas Encontrados y Resueltos
+- Ninguno; cambio puntual, verificado por medición directa a 375px (`display:none`) y 1440px (`display:block`, alineado al margen de página) antes de darlo por cerrado.
+
+### Tareas Pendientes
+- Ninguna nueva.
+
+---
+
 ## [2026-07-22] — Sesión: Ancho mínimo de celda 136px en Lista y breakpoint móvil a 440px (D-057)
 
 ### Objetivo de la Sesión
