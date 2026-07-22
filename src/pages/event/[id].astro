@@ -5,6 +5,7 @@ import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 import Link from '../../components/Link.astro';
 import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
+import IconButton from '../../components/IconButton.astro';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
 // sheet fresh on every visit instead of baking it in at build time, so new
@@ -147,10 +148,42 @@ const designerDisplay = getTagDisplay(eventData.designer);
        padding is 40px on mobile/tablet (<lg) — the nav block ends up right
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
-       this scroll behavior). -->
-  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)] px-6 sm:px-12">
-    <!-- Main Box Container (Figma 1224px wide) -->
-    <div id="detail-page-container" class="w-full max-w-[1224px] flex-1 flex flex-col justify-between select-none lg:min-h-[calc(100vh-var(--mel-header-pt-desktop)*2)]">
+       this scroll behavior).
+
+       max-w-[1440px] + lg:px-[108px] matches index.astro/info.astro/
+       exposiciones.astro's own outer container exactly (same breakpoint,
+       same 108px value) — before this the page had no lg:px override at
+       all and relied on #detail-page-container's own max-w-[1224px] to cap
+       content width instead, which gave it DIFFERENT side margins from
+       every other page for any viewport between 640px and ~1320px (48px
+       here vs. the other pages' progressive/108px margin in that range).
+       At >=1440px both approaches land on the same 1224px content width
+       (1440 - 108*2), so this only changes the 640-1440px range. -->
+  <div class="w-full max-w-[1440px] mx-auto min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)] px-6 sm:px-12 lg:px-[108px]">
+    <!-- Main Box Container (Figma 1224px wide) — width now comes entirely
+         from the outer container's own max-w/padding math above, so no
+         max-w here anymore (kept redundant caps in sync was the risk).
+
+         No forced lg:min-h, no flex-1, justify-start not justify-between
+         (D-083 ronda 3, final): the page builds top-down and is exactly as
+         tall as its content needs, full stop — no pinning #detail-nav-block
+         to the bottom of the viewport, no minimum-distance floor against
+         the bottom edge.
+
+         The REAL mechanism doing the bottom-pinning all along wasn't
+         #detail-nav-block's own lg:mt-auto (removing that alone did
+         nothing) — it was THIS element's flex-1 (stretching it to fill the
+         outer wrapper's unconditional min-h-screen) combined with
+         justify-between: at `lg`, #detail-header-spacer/#detail-tags-fixed-
+         spacer/#detail-scroll-runway are all lg:hidden (not real flex
+         items, display:none), leaving exactly two flex children — the
+         content grid and the nav block — so justify-between put 100% of
+         the leftover height in that one gap, identical in effect to
+         mt-auto regardless of what the nav block's own margin said. Fixed
+         at the actual source this time: no flex-1 (nothing forces this
+         container taller than its content), justify-start (no free space
+         to distribute even if there were any). -->
+    <div id="detail-page-container" class="w-full flex flex-col justify-start select-none">
 
       <!-- Fixed Header (X + Mobile Title), Figma "Screen / Event Details"
            (369:32751) PageHeader + "No Scrolling Content": pinned at the true
@@ -170,20 +203,25 @@ const designerDisplay = getTagDisplay(eventData.designer);
         id="detail-sticky-header"
         class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0"
       >
-        <!-- Close Button (X) at Top Left -->
-        <a
+        <!-- Close Button (X) at Top Left — DS IconButton (Phantom, 40px,
+             Figma 111:3929). lg:mt-1 (4px): the 40px hit-box already lands
+             much closer to HeaderTitle's own 48px-tall centered row than the
+             old bare 24px icon did (measured 4px off vs. 12px before), so a
+             small nudge is enough — no wrapper/centering hack needed. Below
+             `lg` untouched (no HeaderTitle row to compare against there,
+             this page has its own fixed mobile header instead).
+             lg:mb-14 (56px): distance from the X down to the content row
+             below it (image/tags/info columns) — propietario-specified
+             value, D-083 ronda 2 (previously 64px/lg:mb-16, an unexplained
+             literal with no documented rationale). -->
+        <IconButton
           id="detail-close-btn"
           href="/"
-          class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0"
+          icon="x"
+          type="phantom"
+          class="mb-8 lg:mb-14 lg:mt-1"
           aria-label="Cerrar detalles de evento"
-          data-node-id="536:47449"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </a>
-
+        />
         <!-- Mobile-only Event Title: on mobile (Figma 369:32751) the title sits
              between the close button and the image; on desktop it lives at the
              top of the Info column instead. -->
@@ -335,11 +373,23 @@ const designerDisplay = getTagDisplay(eventData.designer);
              the image next to it. -->
         <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section" style="view-transition-name: event-tags;">
           <div class="hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
+            <!-- class="w-full" overrides TagWithLink's own default w-[184px]
+                 (a Figma-literal value: this grid column is Figma's "184px"
+                 only exactly at a 1440px viewport — from 1024px up to 1440px
+                 it's genuinely narrower, e.g. 157px at 1280px after D-080's
+                 breakpoint unification). A fixed 184px box doesn't shrink
+                 with its column, so it overflowed into the image column
+                 next to it — w-full makes each tag fill its REAL column
+                 width instead, letting its own built-in ellipsis truncation
+                 (TagWithLink.astro's .tag-count-val) do its job against
+                 whatever that width actually is, always leaving the grid's
+                 own gap-6 (24px) to the image column intact. -->
             <TagWithLink
               label="Fecha"
               count={dateDisplay.text}
               state={dateDisplay.isUnknown ? "Disabled" : "Default"}
               hideBorder={true}
+              class="w-full"
             />
             <TagWithLink
               label="Lugar"
@@ -347,6 +397,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={locationDisplay.isUnknown ? "Disabled" : "Default"}
               href={locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}`}
               hideBorder={true}
+              class="w-full"
             />
             <TagWithLink
               label="Localidad"
@@ -354,6 +405,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={localityDisplay.isUnknown ? "Disabled" : "Default"}
               href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
               hideBorder={true}
+              class="w-full"
             />
             <TagWithLink
               label="Organiza"
@@ -361,6 +413,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={organizerDisplay.isUnknown ? "Disabled" : "Default"}
               href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
               hideBorder={true}
+              class="w-full"
             />
             <TagWithLink
               label="Diseño"
@@ -368,6 +421,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={designerDisplay.isUnknown ? "Disabled" : "Default"}
               href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
               hideBorder={true}
+              class="w-full"
             />
           </div>
         </div>
@@ -438,10 +492,17 @@ const designerDisplay = getTagDisplay(eventData.designer);
            scroll end already leaves the nav pinned at that same spot. -->
       <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
-      <!-- Navigation block (positioned exactly 280px below the image container and
-           columns on desktop, top-aligned). On mobile it's a 2-column row under a
-           divider, with Anterior/Siguiente side by side (Figma 575:83196). -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto lg:pt-[104px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
+      <!-- Navigation block (D-083 ronda 4). On desktop (`lg`): a constant
+           96px gap below whatever's above it — the image/tags/info grid
+           normally, or further down if the description/artists block
+           grows and pushes it lower in the flow. No viewport-height
+           relationship at all: not pinned to the bottom of the screen, no
+           minimum-distance floor against the bottom edge (see decisions.md
+           D-083 for the full history). On mobile it's a 2-column row under
+           a divider, with Anterior/Siguiente side by side (Figma
+           575:83196), unchanged — still 40px there (its own separate JS
+           mechanism, ensureScrollRunway/NAV_BOTTOM_GUARD, D-072). -->
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
@@ -497,17 +558,16 @@ const designerDisplay = getTagDisplay(eventData.designer);
         class={`relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 ${imageUrls.length > 1 ? 'pb-4' : 'pb-8'} h-[76vh] max-w-[92vw] aspect-square`}
         data-node-id="841:40541"
       >
-        <!-- Close Button (40px, offset half-outside the top-right corner) -->
-        <button
+        <!-- Close Button (40px, offset half-outside the top-right corner) —
+             DS IconButton (Primary, Figma 111:3929). Position kept via the
+             component's own `class` passthrough. -->
+        <IconButton
           id="overlay-close-btn"
-          class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary hover:text-mel-text-on-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
+          icon="x"
+          type="primary"
+          class="absolute -top-5 -right-5 z-50"
           aria-label="Cerrar vista grande"
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        </button>
+        />
 
         <!-- Image Box: fills the modal, sliding track mirrors the main carousel's transition (no autoplay here) -->
         <div id="overlay-image-box" class="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center">

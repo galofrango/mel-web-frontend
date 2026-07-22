@@ -1,15 +1,20 @@
 ---
 /**
  * IconButton.astro
- * Standardized Lucide Icon Button Component matching Figma specifications.
- * 
- * - type="primary": Solid background #490815, dropshadow, hover bg #981932, text #f7f3f5
- * - type="phantom": Transparent bg, no border, text #490815, hover text #981932
- * 
+ * Standardized Icon Button Component matching Figma "Icon Button" (111:3929).
+ *
+ * - type="primary": Solid background (Resting: action-secondary, Hover:
+ *   action-primary, Pressed: text-tertiary), drop shadow + blur, icon in
+ *   text-on-action.
+ * - type="phantom": Transparent bg, no border/shadow (Resting: action-
+ *   secondary, Hover: action-primary, Pressed: action-tertiary).
+ *
  * Size norms:
  * - size=40: Houses a 24px icon with 3px stroke width
  * - size=24: Houses a 16px icon with 2px stroke width
  */
+import Icon from './Icon.astro';
+
 interface Props {
   icon: 'x' | 'search' | 'chevron-left' | 'chevron-right' | 'menu';
   size?: 40 | 24;
@@ -18,16 +23,18 @@ interface Props {
   class?: string;
   id?: string;
   'aria-label'?: string;
+  href?: string; // Renders as <a> instead of <button> — e.g. a close control that's really a link to another page (see event/[id].astro's own click-intercept + hard-reload pattern, D-074).
 }
 
-const { 
-  icon, 
-  size = 40, 
+const {
+  icon,
+  size = 40,
   type: propType,
   variant,
-  class: className = '', 
+  class: className = '',
   id,
-  'aria-label': ariaLabel
+  'aria-label': ariaLabel,
+  href
 } = Astro.props;
 
 // Determine final DS type
@@ -38,44 +45,27 @@ const sizeClasses = size === 40 ? 'w-10 h-10' : 'w-6 h-6';
 const iconSize = size === 40 ? 24 : 16;
 const strokeWidth = size === 40 ? 3 : 2;
 
-// Determine variant design tokens
-const variantClasses = finalType === 'primary' 
-  ? 'bg-mel-action-secondary text-mel-text-on-action backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] hover:bg-mel-action-primary hover:text-mel-text-on-action-primary'
-  : 'bg-transparent text-mel-action-secondary hover:text-mel-action-primary hover:bg-transparent';
+// Determine variant design tokens (Resting/Hover/Pressed per Figma 111:3929)
+const variantClasses = finalType === 'primary'
+  ? 'bg-mel-action-secondary text-mel-text-on-action backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] hover:bg-mel-action-primary hover:text-mel-text-on-action-primary active:bg-mel-text-tertiary active:text-mel-text-on-action'
+  : 'bg-transparent text-mel-action-secondary hover:text-mel-action-primary hover:bg-transparent active:text-mel-action-tertiary';
 ---
 
-<button 
-  id={id}
-  class={`flex items-center justify-center cursor-pointer transition-all duration-200 shrink-0 outline-none rounded-none border-none ${sizeClasses} ${variantClasses} ${className}`}
-  aria-label={ariaLabel}
->
-  {icon === 'x' && (
-    <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round">
-      <line x1="18" y1="6" x2="6" y2="18"></line>
-      <line x1="6" y1="6" x2="18" y2="18"></line>
-    </svg>
-  )}
-  {icon === 'search' && (
-    <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="11" cy="11" r="8"></circle>
-      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-    </svg>
-  )}
-  {icon === 'chevron-left' && (
-    <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 18 9 12 15 6"></polyline>
-    </svg>
-  )}
-  {icon === 'chevron-right' && (
-    <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="9 18 15 12 9 6"></polyline>
-    </svg>
-  )}
-  {icon === 'menu' && (
-    <svg width={iconSize} height={iconSize} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round">
-      <line x1="3" y1="12" x2="21" y2="12"></line>
-      <line x1="3" y1="6" x2="21" y2="6"></line>
-      <line x1="3" y1="18" x2="21" y2="18"></line>
-    </svg>
-  )}
-</button>
+{href ? (
+  <a
+    id={id}
+    href={href}
+    class={`flex items-center justify-center cursor-pointer transition-all duration-200 shrink-0 outline-none no-underline ${sizeClasses} ${variantClasses} ${className}`}
+    aria-label={ariaLabel}
+  >
+    <Icon icon={icon} size={iconSize} strokeWidth={strokeWidth} />
+  </a>
+) : (
+  <button
+    id={id}
+    class={`flex items-center justify-center cursor-pointer transition-all duration-200 shrink-0 outline-none rounded-none border-none ${sizeClasses} ${variantClasses} ${className}`}
+    aria-label={ariaLabel}
+  >
+    <Icon icon={icon} size={iconSize} strokeWidth={strokeWidth} />
+  </button>
+)}

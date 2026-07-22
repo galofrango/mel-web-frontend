@@ -2,6 +2,64 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: `IconButton` alineado a Figma, estado Pressed, migración de cierres/menú (D-081)
+
+### Objetivo de la Sesión
+El propietario señaló que la X de cierre del detalle de evento, el cierre del lightbox y el botón de menú deberían usar un `IconButton` de 40px del DS — según su Figma (nodo `111:3929`, link aportado) — y pidió sustituir los iconos de Apple/SF Symbols que usó en Figma por iconos libres tipo Lucide.
+
+### Investigación y Cambios Realizados
+1. Contrastado el `IconButton.astro` ya existente contra el Figma real vía Figma Dev Mode MCP: ya usaba SVGs estilo Lucide (no Apple) y ya cubría Primary/Phantom en 40/24px con los tokens correctos — no hacía falta pedir nada al propietario para los iconos.
+2. Añadido el estado **Pressed** que faltaba (Primary → `text-tertiary`; Phantom → `action-tertiary`, tokens ya existentes).
+3. Extraído `Icon.astro` (SVG puro, sin chrome) para que `MenuItem.astro` pueda usar el mismo icono sin anidar un `<button>` dentro de otro.
+4. `IconButton` gana un prop `href` opcional para renderizar `<a>` cuando el "botón" es en realidad un enlace interceptado por JS (caso de `detail-close-btn`, D-074).
+5. Migrados a `IconButton`: la X de cierre del detalle de evento, el cierre del lightbox y (vía `Icon.astro`) el icono del botón de menú.
+6. Verificado en navegador: build limpio, sin errores de consola, capturas de los tres puntos confirmando el render correcto.
+
+### Decisiones Tomadas
+- Ver D-081 en `docs/decisions.md`.
+
+### Próximos Pasos
+- Pendiente explícitamente aparcado: alineación vertical de la X del detalle de evento contra la cabecera genérica del sitio (ver D-080 follow-up) — se difiere a una pasada dedicada, sin compensar la posición ahora para no desechar el trabajo.
+- Candidato opcional no incluido: migrar el botón de modo color (luna/sol) de `SideMenu.astro` al mismo patrón, si el propietario lo pide.
+
+## [2026-07-23] — Sesión: cierre del desfase de la X, Anterior/Siguiente con distancia fija, fix de regresión en tags del detalle (D-082/D-083/D-084)
+
+### Objetivo de la Sesión
+Retomar los tres pendientes de la sesión anterior: el desfase vertical de la X del detalle de evento, si seguía teniendo sentido como patrón de cierre, la distancia de Anterior/Siguiente al contenido/borde inferior, y — nuevo, reportado con una captura — el tag "Localidad" solapándose con la foto.
+
+### Investigación y Cambios Realizados
+1. **Desfase de la X**: medido en navegador, ya reducido de 12px a 4px solo por la migración a `IconButton` de 40px (D-081). Cerrado con `lg:mt-1` — centro de la X y del título coinciden exactamente (69px).
+2. **X vs. "Volver"**: el propietario aclaró que el detalle de evento se sigue comportando como un overlay (multi-origen, secuencia filtrada, restauración exacta de estado) aunque su implementación ya no lo sea — se descarta cualquier alternativa de "Volver"/"Inicio", la X es la correcta semánticamente. Documentado en D-082.
+3. **Anterior/Siguiente — tres rondas dentro de la sesión** (ver D-083 completo en `decisions.md`):
+   - Ronda 1: eliminar `mt-auto`/`min-h:100vh` por distancia fija — mal interpretado, revertido (rompía el paradigma del sitio, contenido flotando arriba en pantallas altas).
+   - Ronda 2: mantener `mt-auto` pero subir el suelo contra el borde inferior a `18vh` — tampoco era lo pedido (el propietario señaló que ese espacio queda siempre POR DEBAJO de la navegación, no es la distancia al contenido) — pidió explícitamente abandonar tanto el "pegado al fondo" como cualquier suelo mínimo al borde.
+   - Ronda 3 (diagnóstico real): `lg:mt-auto` en el nav-block era redundante con `flex-1`+`justify-between` en su contenedor padre — con los `lg:hidden` intermedios fuera del flujo flex a escritorio, solo quedan 2 hijos, así que `justify-between` ya hacía el 100% del trabajo de "pegar al fondo" por su cuenta; quitar `mt-auto` en la ronda 1 no había cambiado nada visible por eso. Arreglado en el sitio correcto: sin `flex-1`, `justify-start` en vez de `justify-between`, y el nav-block usa su `mt-10` (40px) base en cualquier tamaño, sin overrides de breakpoint. Verificado: 40px exactos al contenido, sin scroll si cabe, scroll natural si no cabe; móvil (mecanismo JS independiente, D-072) sin cambios.
+   - De paso (ronda 2, se mantiene): fijada la distancia de la X al contenido en 56px (`lg:mb-14`), respondiendo a una pregunta suelta de la sesión anterior sobre el valor sin documentar.
+4. **Regresión de tags en el detalle de evento**: el propietario reportó (con captura) el tag "Localidad" solapándose con la foto. Diagnosticado en navegador: `TagWithLink` usa un ancho fijo `w-[184px]` por defecto, válido solo cuando la columna del grid mide exactamente eso (viewport = 1440px exactos) — el cambio de D-080 (esta sesión) hizo que esa columna fuera más estrecha en el rango 1024-1440px (157px a 1280px, medido), y la caja fija de 184px se desbordaba sobre la imagen independientemente del contenido. Corregido con `class="w-full"` en las 5 instancias, dejando que el truncado por elipsis ya existente en el componente actúe sobre el ancho real. D-084.
+
+### Decisiones Tomadas
+- Ver D-082, D-083 y D-084 en `docs/decisions.md`.
+
+### Próximos Pasos
+- Ninguno pendiente de esta ronda.
+
+## [2026-07-22] — Sesión: Unificación de márgenes/breakpoints entre páginas (D-080)
+
+### Objetivo de la Sesión
+El propietario reportó discrepancias de márgenes, altura de cabecera y breakpoints entre Inicio, Detalle de Evento e Info, pidiendo diagnóstico y unificación — priorizando no tocar Inicio (la página más delicada, con panel del mapa) salvo si hacía falta.
+
+### Investigación y Cambios Realizados
+1. Comparados los cuatro contenedores exteriores (`index.astro`, `info.astro`, `exposiciones.astro`, `event/[id].astro`): la altura de cabecera ya era consistente; el margen lateral de 108px divergía en el breakpoint de activación (`md` en Info/Exposiciones vs. `lg` en Inicio) y estaba completamente ausente en Evento (usaba un `max-w-[1224px]` interno con padding fijo en vez del mismo patrón progresivo).
+2. Info/Exposiciones: `md:px-[108px]` → `lg:px-[108px]`.
+3. Evento: contenedor exterior alineado al mismo patrón (`max-w-[1440px] mx-auto ... lg:px-[108px]`), retirado el `max-w-[1224px]` interno redundante.
+4. Verificado en navegador: padding computado igual en las cuatro páginas a 900px (48px) y 1280px (108px); capturas de Detalle de Evento en escritorio y móvil confirman que el layout de foto/carrusel/columnas no se alteró.
+
+### Decisiones Tomadas
+- Ver D-080 en `docs/decisions.md`.
+
+### Próximos Pasos
+- Ninguno pendiente de esta ronda — Inicio no requirió cambios (era ya el patrón de referencia).
+
 ## [2026-07-22] — Sesión: Acotación de divisor de tags y alineación adaptativa de paddings en Bottom Sheet (D-079)
 
 ### Objetivo de la Sesión

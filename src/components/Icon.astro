@@ -1,0 +1,48 @@
+---
+/**
+ * Icon.astro
+ * Raw Lucide-style icon paths (lucide.dev, MIT), hand-copied as inline SVG —
+ * no external icon font/library dependency. Shared by IconButton.astro (which
+ * wraps one of these in the DS button chrome) and by MenuItem.astro (which
+ * needs the bare icon markup, not a nested <button>, since it's already a
+ * button itself — nesting interactive elements is invalid HTML).
+ */
+interface Props {
+  icon: 'x' | 'search' | 'chevron-left' | 'chevron-right' | 'menu';
+  size?: number;
+  strokeWidth?: number;
+  class?: string;
+}
+
+const { icon, size = 24, strokeWidth = 2, class: className = '' } = Astro.props;
+---
+
+{icon === 'x' && (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" class={className}>
+    <line x1="18" y1="6" x2="6" y2="18"></line>
+    <line x1="6" y1="6" x2="18" y2="18"></line>
+  </svg>
+)}
+{icon === 'search' && (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" class={className}>
+    <circle cx="11" cy="11" r="8"></circle>
+    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+  </svg>
+)}
+{icon === 'chevron-left' && (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" class={className}>
+    <polyline points="15 18 9 12 15 6"></polyline>
+  </svg>
+)}
+{icon === 'chevron-right' && (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" class={className}>
+    <polyline points="9 18 15 12 9 6"></polyline>
+  </svg>
+)}
+{icon === 'menu' && (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" class={className}>
+    <line x1="3" y1="12" x2="21" y2="12"></line>
+    <line x1="3" y1="6" x2="21" y2="6"></line>
+    <line x1="3" y1="18" x2="21" y2="18"></line>
+  </svg>
+)}

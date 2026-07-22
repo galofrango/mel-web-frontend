@@ -1,24 +1,26 @@
 ---
+import Icon from './Icon.astro';
+
 interface Props {
   id?: string;
 }
 
 const { id } = Astro.props;
 ---
-<button 
-  id={id} 
-  class="flex gap-4 h-10 items-center relative bg-transparent border-none cursor-pointer group outline-none select-none text-left" 
+<button
+  id={id}
+  class="flex gap-4 h-10 items-center relative bg-transparent border-none cursor-pointer group outline-none select-none text-left"
   data-node-id="Menú Item"
 >
   <span class="hidden md:inline font-sans font-bold text-[22px] leading-[28px] tracking-[-0.44px] text-mel-text-primary group-hover:text-mel-action-primary transition-colors duration-200 select-none">
     Menú
   </span>
-  <!-- Custom 40px icon holder behaving as a single hover unit with valid non-nested HTML -->
-  <div class="w-10 h-10 flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200 shrink-0">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-      <line x1="3" y1="12" x2="21" y2="12"></line>
-      <line x1="3" y1="6" x2="21" y2="6"></line>
-      <line x1="3" y1="18" x2="21" y2="18"></line>
-    </svg>
+  <!-- Custom 40px icon holder behaving as a single hover unit with valid non-nested HTML —
+       IconButton itself can't be reused here since it renders its own <button>, and
+       nesting an interactive element inside another is invalid HTML (this button IS
+       the interactive element; Icon.astro is the same DS icon markup without the chrome,
+       colors mirror IconButton's Phantom Resting/Hover/Pressed tokens). -->
+  <div class="w-10 h-10 flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-tertiary transition-colors duration-200 shrink-0">
+    <Icon icon="menu" size={24} strokeWidth={3} />
   </div>
 </button>
