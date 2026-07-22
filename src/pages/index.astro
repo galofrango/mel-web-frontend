@@ -1200,6 +1200,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
+  // Sort column/direction survive a hard reload (sessionStorage) — without
+  // this, navigating into an event and back (a real page reload since D-072)
+  // would silently drop whatever order the visitor picked in Lista, and the
+  // Galería's own order (below) depends on this same value.
+  let __melSavedSort = null;
+  try {
+    const raw = sessionStorage.getItem('mel-sort-state');
+    if (raw) __melSavedSort = JSON.parse(raw);
+  } catch (e) {}
+
   if (!window._melState) {
     window._melState = {
       archives: [...initialArchives],
@@ -1209,8 +1219,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       searchQuery: "",
       activeSidePanelKey: null,
       currentPage: 1,
-      currentSortCol: null,
-      currentSortDir: 'asc',
+      currentSortCol: __melSavedSort ? __melSavedSort.col : null,
+      currentSortDir: __melSavedSort ? __melSavedSort.dir : 'asc',
       ABSOLUTE_MIN_YEAR: 2004,
       ABSOLUTE_MAX_YEAR: 2019,
       currentDetailGroup: null,
@@ -1366,10 +1376,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // Orden aleatorio ESTABLE por sesión: cada evento recibe una clave al azar
   // la primera vez que se le ve y la conserva — así un cambio de filtro no
   // rebaraja lo que ya está en pantalla (el FLIP puede seguir cada tarjeta)
-  // y añadir lotes nunca recoloca nada. Cada carga de página = orden nuevo.
-  const galleryRandomKeys = new Map();
+  // y añadir lotes nunca recoloca nada. Persistida en sessionStorage (no solo
+  // en memoria) porque, desde D-072, volver de un evento es una recarga dura
+  // real — sin esto, cada visita a un evento rebarajaba la Galería al volver.
+  // Una pestaña/sesión nueva del navegador sí genera un orden nuevo.
+  let galleryRandomKeys = new Map();
+  try {
+    const raw = sessionStorage.getItem('mel-gallery-random-keys');
+    if (raw) galleryRandomKeys = new Map(Object.entries(JSON.parse(raw)));
+  } catch (e) {}
+  function saveGalleryRandomKeys() {
+    try {
+      sessionStorage.setItem('mel-gallery-random-keys', JSON.stringify(Object.fromEntries(galleryRandomKeys)));
+    } catch (e) {}
+  }
   function galleryRandKey(id) {
-    if (!galleryRandomKeys.has(id)) galleryRandomKeys.set(id, Math.random());
+    if (!galleryRandomKeys.has(id)) {
+      galleryRandomKeys.set(id, Math.random());
+      saveGalleryRandomKeys();
+    }
     return galleryRandomKeys.get(id);
   }
 
@@ -1820,9 +1845,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
       // La galería va por libre (D-015): ignora la paginación (scroll
-      // infinito por lotes) y el orden de `filtered` (orden aleatorio
-      // estable por sesión). `paginated` sigue siendo el corte de la lista.
-      galleryOrderedCache = [...filtered].sort((a, b) => galleryRandKey(a.idMel) - galleryRandKey(b.idMel));
+      // infinito por lotes). Su orden es aleatorio estable por sesión —
+      // EXCEPTO si el visitante ha elegido explícitamente un orden en Lista
+      // (currentSortCol), en cuyo caso la Galería adopta ese mismo orden
+      // (y los mismos filtros, ya aplicados en `filtered` por igual para
+      // ambas vistas) en vez del aleatorio. `paginated` sigue siendo el
+      // corte de la lista.
+      galleryOrderedCache = currentSortCol
+        ? [...filtered]
+        : [...filtered].sort((a, b) => galleryRandKey(a.idMel) - galleryRandKey(b.idMel));
       if (galleryVisibleCount < PAGE_SIZE) galleryVisibleCount = PAGE_SIZE;
       const galleryShown = galleryOrderedCache.slice(0, galleryVisibleCount);
 
@@ -3654,6 +3685,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       currentSortCol = col;
       currentSortDir = 'asc';
     }
+    try {
+      sessionStorage.setItem('mel-sort-state', JSON.stringify({ col: currentSortCol, dir: currentSortDir }));
+    } catch (e) {}
 
     // Update Header Icons UI
     const headers = document.querySelectorAll('.sort-header');

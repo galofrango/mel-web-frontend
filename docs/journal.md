@@ -2,6 +2,22 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-22] — Sesión: Orden de la Galería estable por sesión y sincronizado con Lista (D-073)
+
+### Objetivo de la Sesión
+Corregir una regresión directa de D-072: al ser ahora una recarga dura real, cada visita a un evento reordenaba aleatoriamente la Galería al volver. Además, sincronizar el orden de la Galería con el orden elegido por el visitante en Lista (columnas ordenables), en vez de mantener siempre un orden aleatorio propio.
+
+### Cambios Realizados
+1. `galleryRandomKeys` persistido en `sessionStorage` (`mel-gallery-random-keys`) — estable durante toda la sesión del navegador, ya no se regenera en cada recarga dura.
+2. `currentSortCol`/`currentSortDir` persistidos en `sessionStorage` (`mel-sort-state`) — el orden elegido en Lista también sobrevive a una recarga dura.
+3. La Galería usa el orden de `filtered` (ya ordenado por columna + filtrado) en vez del aleatorio, únicamente cuando hay un `currentSortCol` activo.
+4. Verificado en navegador: ordenar Lista por "Evento" y cambiar a Galería muestra el mismo orden alfabético; dos recargas duras consecutivas sin sort activo devuelven exactamente el mismo orden aleatorio.
+
+### Decisiones Tomadas
+- Ver decisión D-073 en `docs/decisions.md`.
+
+---
+
 ## [2026-07-22] — Sesión: Eliminación del overlay SPA del detalle de evento (Opción B, D-072)
 
 ### Objetivo de la Sesión
