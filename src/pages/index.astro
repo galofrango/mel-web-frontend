@@ -419,7 +419,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              ya traen su propio pl-24/pr-16 (EventCardList), así que sin esto
              quedaban CON DOBLE margen hasta el borde de pantalla. -->
         <div id="list-mobile-cards" class="block min-[440px]:hidden -mx-6 sm:-mx-12 flex-1 overflow-y-auto relative">
-          <!-- Dynamically populated -->
+          <div id="list-mobile-cards-items"></div>
+          <div id="pagination-controls-mobile" class="pagination-controls-container hidden gap-4 items-center justify-center pt-6 pb-10 relative left-0 right-0 w-full select-none shrink-0 bg-mel-bg-primary">
+            <IconButton
+              icon="chevron-left"
+              size={40}
+              type="phantom"
+              aria-label="Página anterior"
+              class="btn-prev-page invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+            />
+            <div class="pagination-numbers flex gap-4 items-center relative"></div>
+            <IconButton
+              icon="chevron-right"
+              size={40}
+              type="phantom"
+              aria-label="Página siguiente"
+              class="btn-next-page invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+            />
+          </div>
         </div>
         <div id="list-table-wrapper" class="hidden min-[440px]:block overflow-x-auto w-full flex-1 overflow-y-auto">
           <table class="w-full text-left text-sm border-collapse border-t border-b border-mel-border min-w-[816px]" style="table-layout:fixed;">
@@ -436,15 +453,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               <col style="width:14.75%; min-width:136px;" />
               <col style="width:14.75%; min-width:136px;" />
             </colgroup>
-            <!-- bg-mel-bg-secondary + isolate here too, not just on each
-                 <th> (D-066): `<thead>` inside a `border-collapse` table is
-                 a notorious cross-browser rough edge for `position:sticky`
-                 — table sections don't reliably get their own stacking
-                 context from `position` alone the way a plain <div> would,
-                 so a merely-opaque background isn't enough and a scrolled
-                 row can still paint on top of it. `isolation:isolate`
-                 forces a real stacking context, which is what actually
-                 stops that. -->
             <thead class="sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate">
               <tr class="h-[40px]">
                 <th class="sort-header bg-mel-bg-secondary border-t border-b border-l border-r border-mel-border pl-4 pr-2 py-2 text-[13px] font-sans font-bold leading-4 text-mel-text-primary tracking-[1.56px] uppercase cursor-pointer select-none min-w-[136px]" data-col="evento">
@@ -501,45 +509,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               <!-- Dynamically populated -->
             </tbody>
           </table>
+
+          <div id="pagination-controls-desktop" class="pagination-controls-container hidden gap-4 items-center justify-center pt-6 pb-10 relative sticky left-0 right-0 w-full select-none shrink-0 bg-mel-bg-primary" style="view-transition-name: mel-pagination;">
+            <IconButton
+              icon="chevron-left"
+              size={40}
+              type="phantom"
+              aria-label="Página anterior"
+              class="btn-prev-page invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+            />
+            <div class="pagination-numbers flex gap-4 items-center relative"></div>
+            <IconButton
+              icon="chevron-right"
+              size={40}
+              type="phantom"
+              aria-label="Página siguiente"
+              class="btn-next-page invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
+            />
+          </div>
         </div>
-      </div>
-    
-      <!-- Pagination Controls matching Figma Carousel Navigation 481:234622 -->
-      <!-- pt-6/pb-10 (D-067, tightened up from D-045's pt-10/pb-6): now that this
-           lives INSIDE the list's own scroll container (D-066), closer to the
-           table/cards above and with more breathing room below down to the
-           screen's bottom edge, per the propietario's own read of the spacing.
-           sticky left-0 right-0 (no top/bottom) keeps it horizontally centered
-           on whatever's actually visible on screen even while list-table-wrapper
-           is scrolled sideways (D-057's wide desktop table) — sticky's two axes
-           are independent, so this only affects horizontal position.
-           Starts `hidden`, not `flex` (D-067): Galería is the default active
-           view server-side, and this element had no hidden state of its own in
-           the SSR markup at all — a real FOUC, visible at its stale flex-sibling
-           position for a frame before initHomePage()'s JS ever runs, regardless
-           of which view was actually meant to be active first. -->
-      <div id="pagination-controls" class="hidden gap-4 items-center justify-center pt-6 pb-10 relative sticky left-0 right-0 w-full select-none shrink-0 bg-mel-bg-primary" style="view-transition-name: mel-pagination;">
-        <!-- invisible (not hidden/removed) — keeps the button's own layout space reserved so the
-             page numbers stay centered, but the arrows themselves aren't shown for now. -->
-        <IconButton
-          id="btn-prev-page"
-          icon="chevron-left"
-          size={40}
-          type="phantom"
-          aria-label="Página anterior"
-          class="invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
-        />
-        <div id="pagination-numbers" class="flex gap-4 items-center relative">
-          <!-- Dynamically populated page buttons -->
-        </div>
-        <IconButton
-          id="btn-next-page"
-          icon="chevron-right"
-          size={40}
-          type="phantom"
-          aria-label="Página siguiente"
-          class="invisible disabled:opacity-0 disabled:pointer-events-none transition-opacity duration-200"
-        />
       </div>
 
     </div>
@@ -1755,40 +1743,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // aparezca al final del scroll"). Shared by filterArchives()'s own
   // repopulate AND switchView()'s tab-click toggle (D-067 — switchView()
   // had its OWN separate classList.remove('hidden') that showed
-  // pagination-controls at its stale, still-not-reparented SSR position
-  // the moment you clicked the Lista tab, before filterArchives() ever
-  // got a chance to move it — "problemas de carga al entrar en Lista por
-  // primera vez"). Both list containers wipe their own innerHTML on every
-  // repopulate, so this has to re-append every time it's called, after
-  // that reset — moving an existing node via appendChild detaches it from
-  // wherever it was, it's never cloned/duplicated.
-  function relocatePaginationControls() {
-    const pagControls = document.getElementById('pagination-controls');
-    // Deliberately does NOT bail out while `hidden` (D-085 ronda 2): with
-    // several triggers firing close together (search + a pagination click +
-    // a slider drag, each wrapped in their own document.startViewTransition()
-    // call), the View Transition API can skip/reorder pending transitions —
-    // the callback that ends up "winning" isn't reliably the last one
-    // invoked in program order. If a losing call's own detach-before-wipe
-    // step (see filterArchives()'s mobile branch) had already parked this
-    // element in document.body as a safe holding spot, and THAT call also
-    // happened to compute shouldShowPagination=false, the old early-return
-    // here left it stranded in body — permanently, since document.body has
-    // no listener re-checking this, and a later, correct call could toggle
-    // `hidden` off again without ever fixing the parent (this function only
-    // gets called from the exact code paths that also toggle `hidden`, so
-    // the two were silently drifting out of sync). Position is now always
-    // corrected regardless of visibility — a hidden element sitting in the
-    // right container is harmless; one sitting in document.body is a latent
-    // "appears nowhere / appears at the very end of <body>" bug waiting for
-    // the next moment it's un-hidden.
-    if (!pagControls) return;
-    const isDesktopList = window.matchMedia('(min-width: 440px)').matches;
-    const target = document.getElementById(isDesktopList ? 'list-table-wrapper' : 'list-mobile-cards');
-    if (target && pagControls.parentElement !== target) {
-      target.appendChild(pagControls);
-    }
-  }
+
 
   // Filter Archives by Year & Search Query and Recalculate unique counts
   function filterArchives(shouldFitBounds = false) {
@@ -1909,47 +1864,65 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (galleryVisibleCount < PAGE_SIZE) galleryVisibleCount = PAGE_SIZE;
       const galleryShown = galleryOrderedCache.slice(0, galleryVisibleCount);
 
-      // Update pagination UI controls
-      if (paginationNumbers) {
-        paginationNumbers.innerHTML = '';
-        for (let p = 1; p <= totalPages; p++) {
-          const btn = document.createElement('button');
-          if (p === currentPage) {
-            btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-action-primary tracking-[0.16px]";
-            btn.innerHTML = `
-              <span>${p}</span>
-              <div class="absolute bottom-1 left-0 right-0 h-[2px] flex justify-center">
-                <svg width="12" height="2" viewBox="0 0 12 2" fill="none" class="text-mel-action-primary">
-                  <path d="M1 1C4.33333 1 7.66667 1 11 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-              </div>
-            `;
+      // Update pagination UI controls across desktop and mobile containers
+      document.querySelectorAll('.pagination-controls-container').forEach(pagControls => {
+        const pagNumbers = pagControls.querySelector('.pagination-numbers');
+        const btnPrev = pagControls.querySelector('.btn-prev-page');
+        const btnNext = pagControls.querySelector('.btn-next-page');
+
+        if (pagNumbers) {
+          pagNumbers.innerHTML = '';
+          for (let p = 1; p <= totalPages; p++) {
+            const btn = document.createElement('button');
+            if (p === currentPage) {
+              btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-action-primary tracking-[0.16px]";
+              btn.innerHTML = `
+                <span>${p}</span>
+                <div class="absolute bottom-1 left-0 right-0 h-[2px] flex justify-center">
+                  <svg width="12" height="2" viewBox="0 0 12 2" fill="none" class="text-mel-action-primary">
+                    <path d="M1 1C4.33333 1 7.66667 1 11 1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </div>
+              `;
+            } else {
+              btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-text-secondary tracking-[0.16px] hover:text-mel-action-primary transition-colors duration-200";
+              btn.innerHTML = `<span>${p}</span>`;
+              btn.addEventListener('click', () => {
+                handlePaginationNav(p);
+              });
+            }
+            pagNumbers.appendChild(btn);
+          }
+        }
+        
+        if (btnPrev) {
+          if (currentPage === 1) {
+            btnPrev.setAttribute('disabled', 'true');
           } else {
-            btn.className = "relative shrink-0 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer font-serif font-medium text-[16px] leading-[24px] text-mel-text-secondary tracking-[0.16px] hover:text-mel-action-primary transition-colors duration-200";
-            btn.innerHTML = `<span>${p}</span>`;
-            btn.addEventListener('click', () => {
-              handlePaginationNav(p);
+            btnPrev.removeAttribute('disabled');
+          }
+          if (!btnPrev._hasListener) {
+            btnPrev._hasListener = true;
+            btnPrev.addEventListener('click', () => {
+              if (currentPage > 1) handlePaginationNav(currentPage - 1);
             });
           }
-          paginationNumbers.appendChild(btn);
         }
-      }
-      
-      if (btnPrevPage) {
-        if (currentPage === 1) {
-          btnPrevPage.setAttribute('disabled', 'true');
-        } else {
-          btnPrevPage.removeAttribute('disabled');
+        
+        if (btnNext) {
+          if (currentPage === totalPages) {
+            btnNext.setAttribute('disabled', 'true');
+          } else {
+            btnNext.removeAttribute('disabled');
+          }
+          if (!btnNext._hasListener) {
+            btnNext._hasListener = true;
+            btnNext.addEventListener('click', () => {
+              if (currentPage < totalPages) handlePaginationNav(currentPage + 1);
+            });
+          }
         }
-      }
-      
-      if (btnNextPage) {
-        if (currentPage === totalPages) {
-          btnNextPage.setAttribute('disabled', 'true');
-        } else {
-          btnNextPage.removeAttribute('disabled');
-        }
-      }
+      });
 
       // 3. Populate Gallery Grid View
       const gridContainer = document.getElementById('gallery-grid');
@@ -2313,31 +2286,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // Móvil: mismo dataset paginado, tarjetas EventCardList compactas
         // (Figma 439:142691) en vez de la tabla ancha de escritorio.
         const mobileListContainer = document.getElementById('list-mobile-cards');
-        if (mobileListContainer && paginated.length > 0) {
-          // #pagination-controls lives INSIDE this same container once
-          // relocatePaginationControls() has moved it here (which happens
-          // the very first time the list is shown on mobile) — wiping via
-          // innerHTML destroys whatever's currently inside, pagination
-          // included, and it never comes back: relocatePaginationControls()
-          // re-fetches it by id further down, but a destroyed node is gone
-          // for good, not just detached. Move it out to a safe parking spot
-          // first so the wipe below can't reach it; relocatePaginationControls()
-          // puts it back where it belongs a few lines later in this same
-          // synchronous pass, so there's nothing to see mid-flight even
-          // inside a View Transition. This was the root cause behind
-          // "aparece cuando le da la gana" — it wasn't inconsistent, it was
-          // a one-way trip: fine until the second repopulate on mobile.
-          const pagControlsEl = document.getElementById('pagination-controls');
-          if (pagControlsEl && pagControlsEl.parentElement === mobileListContainer) {
-            document.body.appendChild(pagControlsEl);
-          }
-          mobileListContainer.innerHTML = '';
+        const mobileListItems = document.getElementById('list-mobile-cards-items') || mobileListContainer;
+        if (mobileListItems && paginated.length > 0) {
+          mobileListItems.innerHTML = '';
           paginated.forEach((item, idx) => {
             const row = document.createElement('div');
             row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
             row.dataset.id = item.idMel;
             row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
-            mobileListContainer.appendChild(row);
+            mobileListItems.appendChild(row);
           });
         }
       }
@@ -2347,20 +2304,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // table/grid don't stretch to reach it. Hiding it here (on top of
       // switchView()'s own view-based show/hide) covers that. Desde D-015 la
       // galería pagina por scroll infinito: el módulo es solo de la lista.
-      const pagControls = document.getElementById('pagination-controls');
-      if (pagControls) {
-        const listViewCheck = document.getElementById('view-lista');
-        const isListActive = listViewCheck && !listViewCheck.classList.contains('hidden');
-        const shouldShowPagination = isListActive && totalPages > 1 && filtered.length > 0;
+      const listViewCheck = document.getElementById('view-lista');
+      const isListActive = listViewCheck && !listViewCheck.classList.contains('hidden');
+      const shouldShowPagination = isListActive && totalPages > 1 && filtered.length > 0;
+      document.querySelectorAll('.pagination-controls-container').forEach(pagControls => {
         pagControls.classList.toggle('hidden', !shouldShowPagination);
         pagControls.classList.toggle('flex', shouldShowPagination);
-        relocatePaginationControls();
-
-        // Same reserve-space idea as the gallery grid's own pb toggle above,
-        // for the list table's scroll wrapper.
-        const listWrapper = document.getElementById('list-table-wrapper');
-        if (listWrapper) listWrapper.classList.toggle('pb-[7vh]', totalPages <= 1);
-      }
+      });
 
       updateMapMarkers(shouldFitBounds);
     };
@@ -2516,17 +2466,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
 
     // Solo la lista pagina (la galería usa scroll infinito desde D-015).
-    const pagControls = document.getElementById('pagination-controls');
-    if (pagControls) {
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+    document.querySelectorAll('.pagination-controls-container').forEach(pagControls => {
       if (viewName === 'lista' && filtered.length > 0 && totalPages > 1) {
         pagControls.classList.remove('hidden');
         pagControls.classList.add('flex');
-        relocatePaginationControls();
       } else {
         pagControls.classList.add('hidden');
         pagControls.classList.remove('flex');
       }
-    }
+    });
 
     // Initialize or refresh Google map on switch to 'mapa'. On a soft (Astro
     // SPA) navigation away from and back to this page, mapInitialized/googleMap
@@ -3423,10 +3372,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (sidePanel && sidePanel.classList.contains('side-panel-open')) {
           updateAdaptiveTagsRow('side-panel-tags-container');
         }
-        // Crossing the 440px list breakpoint (D-057) while the pagination
-        // is visible mid-scroll needs it re-parented into whichever
-        // container just became active (D-066/D-067).
-        relocatePaginationControls();
       });
     }, { signal: wSig });
 

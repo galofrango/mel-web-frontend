@@ -2,6 +2,20 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Paginación al final del scroll e inmutable (D-085 solución definitiva)
+
+### Objetivo de la Sesión
+Resolver la causa raíz del bug de paginación desaparecida al hacer scroll en Lista, cambiar de pestaña a Galería/Mapa y regresar a la Lista.
+
+### Cambios Realizados
+1. **Página principal (`src/pages/index.astro`)**:
+   - Insertados de forma estática los contenedores de paginación `#pagination-controls-desktop` al final de `#list-table-wrapper` y `#pagination-controls-mobile` al final de `#list-mobile-cards`.
+   - Eliminada la función `relocatePaginationControls()` y toda manipulación dinámica de nodos con `appendChild()`.
+   - Corregida la variable `totalPages` dentro de `switchView()` (que era `undefined` y forzaba el ocultamiento de la paginación al volver a Lista).
+2. **Documentación**: Registrada decisión `D-085` en `docs/decisions.md` y actualizado `docs/journal.md`.
+
+---
+
 ## [2026-07-23] — Sesión: causa raíz de la paginación de Lista desaparecida en móvil (D-085)
 
 ### Objetivo de la Sesión
