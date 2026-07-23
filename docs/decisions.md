@@ -999,6 +999,26 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
   3. Mantener siempre el flujo asíncrono probado en cliente: el mapa se centra (`googleMap.panTo`), `populateSidePanel()` abre el panel mediante `setSidePanelOpenState(true)` con retardo acotado (300ms delay), y el listener del botón de cierre se gestiona manualmente sin depender del AbortController reactivo de la página para evitar que quede huérfano.
 - **Motivo**: Priorizar la estabilidad del mapa y la usabilidad del panel (poder cerrar siempre la ventana) sobre cualquier intento de animación o pre-renderizado experimental.
 
+## D-087 · Eliminación de animaciones de entrada/FLIP en la Galería y simplificación del orden aleatorio
+
+- **Contexto**: Las animaciones de entrada (`intro-in`, `reveal-pending`, `reveal-in`, escalonados) y el almacenamiento del orden aleatorio en `sessionStorage` (`galleryRandomKeys`) producían disconformidades visuales (tarjetas rebarajándose en cliente tras la carga inicial de SSR, comportamiento inconsistente de scroll al volver de un evento).
+- **Decisión**:
+  1. **Renderizado instantáneo y limpio**: Se eliminan todas las animaciones de entrada, FLIP y observadores de revelado (`revealObserver`) en la rejilla de la Galería. Las tarjetas se renderizan e insertan directamente de forma inmediata.
+  2. **Coherencia SSR ↔ JS sin `sessionStorage`**: El script de cliente recibe `initialArchives: shuffledArchives` desde el servidor en la directiva `define:vars`. En cada carga o recarga (F5), los arrays del estado local `_s.archives` se actualizan con la respuesta fresca de SSR. Cada recarga (F5) produce un orden aleatorio completamente nuevo y fresco.
+  3. **Preservación del DOM SSR en primera carga**: Para evitar el salto de layout ("todo roto") al entrar por primera vez, el primer renderizado en cliente (`isFirstDOMUpdate`) conserva las 32 tarjetas ya renderizadas en el marcado HTML por el servidor en lugar de vaciar `#gallery-grid` y reconstruirlas vía JS.
+  4. **Restauración directa de scroll**: Al volver de la ficha de un evento (`pendingReturnState`), se restaura la cantidad de tarjetas visibles (`galleryVisibleCount`) tras la inicialización del slider, permitiendo que la rejilla alcance la altura necesaria y la posición de scroll se recupere con precisión.
+  5. **Eliminación del re-ordenado cronológico por defecto**: Se elimina el bloque `else` de `filterArchives()` que forzaba una reordenación cronológica por fecha cuando `currentSortCol` era nulo. Al arrancar la página, la Galería mantiene intacto el orden aleatorio inicial procedente de SSR sin sustituirlo por el orden cronológico al cabo de unos instantes.
+
+## D-088 · Eliminación del salto de layout del Selector de Vista (Toggle) en la cabecera en escritorio
+
+- **Contexto**: Durante la carga inicial de la página (SSR), la fila de etiquetas (`#home-highlights-tags`) renderizaba con la clase `highlights-flex-content` (ancho `calc(100% + 48px)`), provocando que el contenedor del selector de vista (`#home-toggle-wrapper`) fuera desplazado a una segunda línea por debajo de las etiquetas. Cuando el JavaScript del cliente se ejecutaba unos instantes después y conmutaba el modo adaptativo a la misma línea, el selector "saltaba" repentinamente a la primera línea junto a las etiquetas.
+- **Decisión**:
+  1. En el marcado SSR inicial, se añade por defecto la clase `toggle-shares-line` a `#home-toggle-wrapper`.
+  2. En CSS para escritorio (`@media (min-width: 1024px)`), la fila de etiquetas dentro del toolbar se ajusta a `width: auto; flex-shrink: 1;`.
+  3. Esto asegura que en el marcado HTML renderizado desde el servidor, el selector de vista se ubique en la misma línea junto a las etiquetas desde el primer fotograma, eliminando por completo cualquier salto de layout (CLS) mientras la página termina de cargar.
+
+
+
 
 
 

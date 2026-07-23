@@ -260,7 +260,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              instead (the propietario caught this: "cuando pasa debajo de
              las tags, debe ocupar el ancho total de la pantalla"). Never
              narrower than 320px in either state. -->
-        <div id="home-toggle-wrapper" class="grow min-w-[320px]">
+        <div id="home-toggle-wrapper" class="grow min-w-[320px] toggle-shares-line">
           <ToggleSelector />
         </div>
       </div>
@@ -268,6 +268,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <style>
         #home-toggle-wrapper.toggle-shares-line {
           max-width: calc((100% - 264px) / 3 + 72px);
+        }
+        @media (min-width: 1024px) {
+          #home-highlights-toolbar .adaptive-tags-row.highlights-flex-content {
+            width: auto;
+            flex-shrink: 1;
+          }
         }
       </style>
     </div>
@@ -689,26 +695,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     min-height: 280px;
   }
 
-  /* Revelado al hacer scroll (a nivel de tarjeta, independiente de cómo se
-     alineen: sirve igual para cualquier layout futuro de la galería). Las
-     tarjetas que nacen fuera del viewport esperan ocultas (.reveal-pending)
-     y animan su entrada cuando el IntersectionObserver las ve llegar. */
-  .gallery-item.reveal-pending {
-    opacity: 0;
-  }
-  @keyframes gallery-reveal {
-    from {
-      opacity: 0;
-      transform: translate3d(0, 32px, 0);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(0, 0, 0);
-    }
-  }
-  .gallery-item.reveal-in {
-    animation: gallery-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  }
   .gallery-item:hover {
     transform: scale(1.025) !important;
     z-index: 30 !important;
@@ -732,24 +718,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       opacity: 1;
       transform: scale(1) translateY(0);
     }
-  }
-
-  /* Gallery entrance on first load: each card drifts in from the
-     bottom-right, staggered so the sweep reads as starting from that
-     corner (see the JS in bindInitialCardClicks()). */
-  @keyframes gallery-item-intro {
-    from {
-      opacity: 0;
-      transform: translate3d(36px, 36px, 0);
-    }
-    to {
-      opacity: 1;
-      transform: translate3d(0, 0, 0);
-    }
-  }
-
-  .gallery-item.intro-in {
-    animation: gallery-item-intro 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   /* List view: rows genuinely new to the visible page (not just reordered)
@@ -1207,7 +1175,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 </style>
 
 <!-- Client Side Scripting for complete interactivity -->
-<script define:vars={{ initialArchives }}>
+<script define:vars={{ initialArchives: shuffledArchives }}>
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
@@ -1377,39 +1345,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   const GALLERY_ROW = 4;   // grid-auto-rows del contenedor, en px
   const GALLERY_GAP = 24;  // hueco entre tarjetas (mel-l), horizontal y vertical
 
-  // Cuántas tarjetas muestra la galería ahora mismo (crece por lotes de
-  // PAGE_SIZE con el scroll; los filtros/búsquedas lo resetean).
   let galleryVisibleCount = PAGE_SIZE;
-  // `filtered` reordenado con las claves aleatorias — lo consume el append.
   let galleryOrderedCache = [];
-  let revealObserver = null;
   let sentinelObserver = null;
   let mapResizeObserver = null;
-
-  // Orden aleatorio ESTABLE por sesión: cada evento recibe una clave al azar
-  // la primera vez que se le ve y la conserva — así un cambio de filtro no
-  // rebaraja lo que ya está en pantalla (el FLIP puede seguir cada tarjeta)
-  // y añadir lotes nunca recoloca nada. Persistida en sessionStorage (no solo
-  // en memoria) porque, desde D-072, volver de un evento es una recarga dura
-  // real — sin esto, cada visita a un evento rebarajaba la Galería al volver.
-  // Una pestaña/sesión nueva del navegador sí genera un orden nuevo.
-  let galleryRandomKeys = new Map();
-  try {
-    const raw = sessionStorage.getItem('mel-gallery-random-keys');
-    if (raw) galleryRandomKeys = new Map(Object.entries(JSON.parse(raw)));
-  } catch (e) {}
-  function saveGalleryRandomKeys() {
-    try {
-      sessionStorage.setItem('mel-gallery-random-keys', JSON.stringify(Object.fromEntries(galleryRandomKeys)));
-    } catch (e) {}
-  }
-  function galleryRandKey(id) {
-    if (!galleryRandomKeys.has(id)) {
-      galleryRandomKeys.set(id, Math.random());
-      saveGalleryRandomKeys();
-    }
-    return galleryRandomKeys.get(id);
-  }
 
   // Fija el row-span de una tarjeta a partir del ratio de su imagen y el
   // ancho de columna actual. `width` es opcional (una pasada de resize lo
@@ -1461,30 +1400,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     return card;
   }
 
-  // Revelado al scroll: primera visita de cada tarjeta al observer — si nace
-  // fuera del viewport se oculta (.reveal-pending) hasta que el scroll la
-  // trae, y entonces anima su entrada con un pequeño escalonado.
-  function handleRevealEntries(entries) {
-    let staggerIdx = 0;
-    entries.forEach(entry => {
-      const card = entry.target;
-      if (entry.isIntersecting) {
-        if (card.classList.contains('reveal-pending')) {
-          card.style.animationDelay = `${staggerIdx * 45}ms`;
-          staggerIdx++;
-          card.classList.remove('reveal-pending');
-          card.classList.add('reveal-in');
-        }
-        if (revealObserver) revealObserver.unobserve(card);
-      } else if (!card.classList.contains('reveal-pending') && !card.classList.contains('reveal-in')) {
-        // Fuera del viewport en su primera pasada: el intro de primera carga
-        // ya no le aplica (habría quedado "gastado" sin verse).
-        card.classList.remove('intro-in');
-        card.classList.add('reveal-pending');
-      }
-    });
-  }
-
   // Scroll infinito: el centinela (#gallery-sentinel, hermano de la rejilla)
   // entra en el margen de precarga y se añade el siguiente lote SIN tocar lo
   // ya colocado. Búsquedas y filtros no interfieren: resetean
@@ -1499,11 +1414,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     galleryVisibleCount += next.length;
     next.forEach((item, i) => {
       const card = buildGalleryCard(item, startIdx + i);
-      // Un lote nuevo nace siempre por debajo del viewport: directo a
-      // reveal-pending, sin esperar a la primera pasada del observer.
-      card.classList.add('reveal-pending');
       gridContainer.appendChild(card);
-      if (revealObserver) revealObserver.observe(card);
       const img = card.querySelector('img');
       if (img && img.complete) measureFlyerImg(img);
     });
@@ -1872,19 +1783,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           return currentSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
         });
       }
-    } else {
-      // Default order: chronological ascending
-      tempFiltered.sort((a, b) => {
-        const parseDate = (dStr) => {
-          if (!dStr || dStr === 'SIN FECHA') return 0;
-          const parts = dStr.split('/');
-          if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
-          const parts2 = dStr.split('-');
-          if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
-          return 0;
-        };
-        return parseDate(a.fecha) - parseDate(b.fecha);
-      });
     }
 
     filtered = tempFiltered;
@@ -1942,9 +1840,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // (y los mismos filtros, ya aplicados en `filtered` por igual para
       // ambas vistas) en vez del aleatorio. `paginated` sigue siendo el
       // corte de la lista.
-      galleryOrderedCache = currentSortCol
-        ? [...filtered]
-        : [...filtered].sort((a, b) => galleryRandKey(a.idMel) - galleryRandKey(b.idMel));
+      galleryOrderedCache = [...filtered];
       if (galleryVisibleCount < PAGE_SIZE) galleryVisibleCount = PAGE_SIZE;
       const galleryShown = galleryOrderedCache.slice(0, galleryVisibleCount);
 
@@ -2011,55 +1907,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // 3. Populate Gallery Grid View
       const gridContainer = document.getElementById('gallery-grid');
 
-      // FLIP reorder animation (same technique as the list view): record
-      // each card's current position before wiping the grid, so cards that
-      // persist across a filter/search/sort change can glide from their old
-      // spot to their new one instead of just popping into place — the date
-      // slider was the one thing that still didn't reorder with any motion.
-      // Cards that are about to disappear entirely (no longer in the new
-      // filtered set) don't just get wiped out instantly either — they get
-      // cloned into a fixed-in-place, fading placeholder first (see below),
-      // which is what made removals look abrupt next to the smooth entrance
-      // cards already had.
-      const galleryViewEl = document.getElementById('view-galería');
-      const isGalleryVisible = galleryViewEl && !galleryViewEl.classList.contains('hidden');
-      const oldCardRects = new Map();
-      const exitingCardClones = [];
-      if (isGalleryVisible && gallerySettled && !isFirstDOMUpdate) {
-        const newIdsSet = new Set(galleryShown.map(item => item.idMel));
-        const gridRectForExit = gridContainer.getBoundingClientRect();
-        Array.from(gridContainer.children).forEach(card => {
-          if (!card.dataset || !card.dataset.id) return;
-          const cardRect = card.getBoundingClientRect();
-          oldCardRects.set(card.dataset.id, cardRect);
-          if (!newIdsSet.has(card.dataset.id)) {
-            // Positioned absolutely *relative to the grid itself* (not the
-            // viewport) so it stays inside the same overflow-clipped scroll
-            // container as everything else, instead of a position:fixed
-            // clone that would ignore that clipping and could show up
-            // overlapping unrelated page chrome below the grid.
-            const clone = card.cloneNode(true);
-            // El clon es puro atrezzo de salida: sin id, ni el FLIP del
-            // siguiente render ni el observer de revelado deben verlo.
-            delete clone.dataset.id;
-            clone.style.position = 'absolute';
-            clone.style.left = (cardRect.left - gridRectForExit.left) + 'px';
-            clone.style.top = (cardRect.top - gridRectForExit.top) + 'px';
-            clone.style.width = cardRect.width + 'px';
-            clone.style.height = cardRect.height + 'px';
-            clone.style.margin = '0';
-            clone.style.zIndex = '1';
-            clone.style.pointerEvents = 'none';
-            exitingCardClones.push(clone);
-          }
-        });
-      }
-
-      // Las tarjetas antiguas van a desaparecer: suelta sus observaciones de
-      // revelado antes de recrearlas (el rebuild vuelve a armar las nuevas).
-      if (revealObserver) revealObserver.disconnect();
-      gridContainer.innerHTML = '';
-
       const viewsEmptyState = document.getElementById('views-empty-state');
       const listTableWrapper = document.getElementById('list-table-wrapper');
       const listMobileCards = document.getElementById('list-mobile-cards');
@@ -2083,20 +1930,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       }
 
       if (filtered.length === 0) {
+        if (gridContainer) gridContainer.innerHTML = '';
         if (viewsEmptyState) {
           viewsEmptyState.innerHTML = getEmptyStateHtml();
           viewsEmptyState.classList.remove('hidden');
           viewsEmptyState.classList.add('flex');
         }
         gridContainer.classList.add('hidden');
-        // Inline style, not classList — list-table-wrapper's/list-mobile-cards'
-        // OWN base classes are themselves a responsive `hidden`/`block` pair
-        // (min-[440px]:*, D-057) picking mobile cards vs desktop table.
-        // classList.remove('hidden') would strip that pair's unconditional
-        // `hidden` half permanently (nothing ever adds it back except this
-        // same empty-state branch), leaving the table with no display rule
-        // at all below 440px — both instances rendering at once (D-065).
-        // Inline style overrides/clears cleanly without touching that class.
         if (listTableWrapper) listTableWrapper.style.display = 'none';
         if (listMobileCards) listMobileCards.style.display = 'none';
         setSidePanelOpenState(false);
@@ -2109,121 +1949,23 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
 
-        // relative: anchors the absolutely-positioned exiting-card clones
-        // below to this element instead of the viewport. Deliberately not
-        // giving this its own overflow:hidden too — an exiting card is
-        // positioned using its *old* (pre-removal) coordinates, which can
-        // sit below the grid's new, possibly-shorter content height once
-        // other cards are gone, and clipping at the grid's own box would cut
-        // it off immediately instead of letting it fade. The ancestor
-        // #view-galería's own overflow-y-auto already contains everything
-        // to the actual visible scroll area, which is what matters.
-        // El pb fijo reserva el aire inferior: en galería ya no hay módulo de
-        // paginación (scroll infinito), así que siempre el hueco grande.
         gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh] relative`;
-        galleryShown.forEach((item, i) => {
-          const card = buildGalleryCard(item, i);
-          if (!gallerySettled) card.classList.add('intro-in');
-          gridContainer.appendChild(card);
-        });
-        // Repesca: las imágenes ya en caché pueden haber completado antes de
-        // que su onload inline llegara a registrarse tras el innerHTML.
-        gridContainer.querySelectorAll('img').forEach(img => {
-          if (img.complete) measureFlyerImg(img);
-        });
-
-        // First-load entrance: SOLO las tarjetas que caen dentro del viewport
-        // inicial reproducen el intro escalonado. Las que nacen por debajo del
-        // pliegue pasan a reveal-pending (opacity 0) para animarse al llegar
-        // el scroll — antes se les ponía intro-in a todas, así que las de
-        // abajo "gastaban" su animación invisibles y nunca se revelaban al
-        // hacer scroll (bug reportado en móvil, donde casi todo nace fuera de
-        // vista). El observer (armado más abajo) revela las pendientes.
-        if (!gallerySettled) {
-          const rootBottom = galleryViewEl ? galleryViewEl.getBoundingClientRect().bottom : window.innerHeight;
-          const visibleIntro = [];
-          gridContainer.querySelectorAll('.gallery-item.intro-in').forEach(card => {
-            if (card.getBoundingClientRect().top < rootBottom) {
-              visibleIntro.push(card);
-            } else {
-              card.classList.remove('intro-in');
-              card.style.animationDelay = '';
-              card.classList.add('reveal-pending');
-            }
+        if (isFirstDOMUpdate && gridContainer.children.length > 0) {
+          gridContainer.querySelectorAll('img').forEach(img => {
+            if (img.complete) measureFlyerImg(img);
           });
-          // Escalonado sobre las visibles: las últimas en orden (abajo-derecha)
-          // arrancan primero para que la ola entre desde esa esquina.
-          const total = visibleIntro.length;
-          visibleIntro.forEach((card, idx) => {
-            card.style.animationDelay = `${(total - 1 - idx) * 25}ms`;
+        } else {
+          gridContainer.innerHTML = '';
+          galleryShown.forEach((item, i) => {
+            const card = buildGalleryCard(item, i);
+            gridContainer.appendChild(card);
           });
-        } else if (isGalleryVisible && oldCardRects.size > 0) {
-          // FLIP "play" step — cards matched by id (both X and Y, since the
-          // dense grid can reshuffle a card into a completely different
-          // column, not just a different row) glide from old to new; cards
-          // genuinely new to the visible page fade in instead.
-          const newCards = Array.from(gridContainer.children).filter(c => c.dataset && c.dataset.id);
-          const toPlay = [];
-          newCards.forEach(card => {
-            const oldRect = oldCardRects.get(card.dataset.id);
-            if (oldRect) {
-              const newRect = card.getBoundingClientRect();
-              const deltaX = oldRect.left - newRect.left;
-              const deltaY = oldRect.top - newRect.top;
-              if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) {
-                card.style.transition = 'none';
-                card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-                toPlay.push(card);
-              }
-            } else {
-              card.classList.add('intro-in');
-              card.style.animationDelay = '0ms';
-            }
-          });
-          if (toPlay.length > 0) {
-            void gridContainer.offsetHeight;
-            requestAnimationFrame(() => {
-              toPlay.forEach(card => {
-                card.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
-                card.style.transform = '';
-              });
-              setTimeout(() => {
-                toPlay.forEach(card => { card.style.transition = ''; card.style.transform = ''; });
-              }, 420);
-            });
-          }
-        }
-
-        // Play the exit fade for cards that dropped out of the filtered
-        // set entirely — appended into the (now rebuilt) grid so they sit
-        // in the same clipped scroll container as everything else, then
-        // faded + shrunk away and removed once the transition finishes.
-        if (exitingCardClones.length > 0) {
-          exitingCardClones.forEach(clone => gridContainer.appendChild(clone));
-          void gridContainer.offsetHeight;
-          requestAnimationFrame(() => {
-            exitingCardClones.forEach(clone => {
-              clone.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-              clone.style.opacity = '0';
-              clone.style.transform = 'scale(0.94)';
-            });
-            setTimeout(() => {
-              exitingCardClones.forEach(clone => clone.remove());
-            }, 320);
-          });
-        }
-        isFirstDOMUpdate = false;
-
-        // Arma el revelado al scroll para todas las tarjetas recién creadas:
-        // las que ya están a la vista quedan como están (intro/FLIP); las que
-        // nacen por debajo del viewport se ocultan y entran animadas al llegar
-        // el scroll (ver handleRevealEntries).
-        if (revealObserver) {
-          Array.from(gridContainer.children).forEach(card => {
-            if (card.dataset && card.dataset.id) revealObserver.observe(card);
+          gridContainer.querySelectorAll('img').forEach(img => {
+            if (img.complete) measureFlyerImg(img);
           });
         }
       }
+      isFirstDOMUpdate = false;
 
       // 4. Populate List view (matching the paginated dataset of size 32)
       const listBody = document.getElementById('list-table-body');
@@ -3390,6 +3132,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     gallerySettled = false;
     isFirstDOMUpdate = true;
 
+    // Refresh archives with fresh initialArchives from server on page load/reload if default view
+    if (!_s.searchQuery && (!_s.minYear || _s.minYear === 2004) && (!_s.maxYear || _s.maxYear === 2019) && !_s.currentSortCol) {
+      _s.archives = [...initialArchives];
+      _s.filtered = [...initialArchives];
+    }
+
     // Re-sync local aliases from persisted state
     archives           = _s.archives;
     filtered           = _s.filtered;
@@ -3454,24 +3202,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       window._melAutoOpenTimeout = null;
     }
 
-    // --- Galería masonry 2.1 (D-015) ---
-    // Siembra las claves aleatorias con el orden que ya pintó el servidor
-    // (él también baraja): la primera pasada de filtros reproduce ese orden
-    // en vez de re-barajar visiblemente lo que ya está en pantalla.
-    if (galleryRandomKeys.size === 0) {
-      const ssrCards = document.querySelectorAll('#gallery-grid .gallery-item');
-      ssrCards.forEach((card, idx) => {
-        if (card.dataset.id) galleryRandomKeys.set(card.dataset.id, (idx + 0.5) / ssrCards.length);
-      });
-    }
     galleryVisibleCount = PAGE_SIZE;
 
     const galleryViewRoot = document.getElementById('view-galería');
-    if (revealObserver) revealObserver.disconnect();
-    revealObserver = galleryViewRoot
-      ? new IntersectionObserver(handleRevealEntries, { root: galleryViewRoot, rootMargin: '0px 0px 5% 0px', threshold: 0.01 })
-      : null;
-
     if (sentinelObserver) sentinelObserver.disconnect();
     sentinelObserver = null;
     const gallerySentinel = document.getElementById('gallery-sentinel');
@@ -3822,14 +3555,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       }
     } catch (e) {}
 
-    // D-087: When returning from an event detail page, skip the first-load
-    // intro animation so cards below the fold aren't marked as reveal-pending
-    // (opacity: 0) before scroll position is restored.
-    gallerySettled = !!pendingReturnState;
-
     // Initialize state and render
     calculateDynamicBounds();
     updateSlider();
+    if (pendingReturnState && pendingReturnState.galleryVisibleCount > galleryVisibleCount) {
+      galleryVisibleCount = pendingReturnState.galleryVisibleCount;
+    }
     bindInitialCardClicks();
     initSortHeaders();
 
@@ -3844,27 +3575,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       switchView('galería');
     }
 
-    // Everything above runs synchronously, including any filterArchives()
-    // calls triggered along the way (e.g. the search box's own startup
-    // dispatch) — deferring to a macrotask means gallerySettled only flips
-    // once all of those have actually happened, so a genuine later render
-    // still gets the intro, but a real user interaction afterwards won't.
-    // Two filterArchives() calls happen synchronously above (this function's
-    // own updateSlider() call, and the search box's own startup dispatch),
-    // each wrapped in document.startViewTransition() — starting a second
-    // transition while one is still pending defers/supersedes the first, so
-    // their performDOMUpdates() callbacks don't necessarily settle in the
-    // same tick a plain setTimeout(…, 0) would catch. A short, generous delay
-    // covers that without risking a real (much later) user interaction ever
-    // seeing gallerySettled still false.
-    //
-    // Restoring saveReturnState()'s scroll/map position piggybacks on this
-    // same delay: updateSlider()'s own startup call schedules a
-    // performDOMUpdates() rebuild of #gallery-grid a frame later, which
-    // momentarily clamps the scroller's content back down — setting
-    // scrollTop any earlier than this just gets overwritten by that rebuild.
     setTimeout(() => {
-      gallerySettled = true;
       if (pendingReturnState) {
         const restoreScroll = (el, targetTop, attemptsLeft) => {
           if (!el) return;

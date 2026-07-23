@@ -2,6 +2,44 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Eliminación de animaciones de Galería y simplificación de orden aleatorio (D-087)
+
+### Objetivo de la Sesión
+El propietario solicitó eliminar todas las animaciones de entrada y revelado de la Galería (`intro-in`, `reveal-pending`, FLIP, escalonados) así como el guardado del orden en `sessionStorage` (`galleryRandomKeys`), asegurando que en cada recarga de página (F5) la Galería se pueble con un orden aleatorio nuevo de forma limpia e instantánea.
+
+### Cambios Realizados
+1. **Directiva `define:vars`**: Se pasa `initialArchives: shuffledArchives` desde el servidor al script de cliente en `index.astro`. Esto garantiza que la hidratación en cliente comparta exactamente el mismo orden aleatorio que el marcado SSR generado para la petición actual, evitando cualquier rebarajado o salto tras cargar. En cada F5 / recarga, el servidor genera un nuevo `shuffledArchives` fresco.
+2. **Eliminación de animaciones y observadores de Galería**:
+   - Eliminadas las reglas CSS `@keyframes gallery-item-intro`, `@keyframes gallery-reveal`, `.intro-in`, `.reveal-pending` y `.reveal-in`.
+   - Eliminados `handleRevealEntries`, `revealObserver` y la lógica FLIP de la rejilla (`oldCardRects`, `exitingCardClones`).
+   - Las tarjetas de la galería se insertan e integran directamente de forma limpia e inmediata.
+3. **Persistencia de orden eliminada**:
+   - Eliminadas `galleryRandomKeys`, `saveGalleryRandomKeys`, `galleryRandKey` y las lecturas/escrituras en `sessionStorage['mel-gallery-random-keys']`.
+4. **Restauración de Scroll al volver de Evento**:
+   - Ajustada la restauración de `galleryVisibleCount` desde `pendingReturnState` para ejecutarse tras `updateSlider()`, permitiendo que al volver de un evento la rejilla recupere inmediatamente todas las tarjetas cargadas previamente y restaure la posición de scroll exacta.
+5. **Causa raíz del re-ordenado por fecha resuelta**:
+   - Descubierto el bloque `else` en `filterArchives()` que forzaba una reordenación cronológica por fecha cuando `currentSortCol` era nulo. Al eliminar este bloque, la Galería conserva el orden aleatorio inicial procedente del marcado SSR sin sustituirlo por el orden por fechas a los pocos instantes de cargar.
+
+### Decisiones Tomadas
+- Registradas las decisiones `D-087` y `D-088` en `docs/decisions.md`.
+
+---
+
+## [2026-07-23] — Sesión: Fijado del Selector de Vista (Toggle) en marcado SSR de escritorio (D-088)
+
+### Objetivo de la Sesión
+El propietario detectó que al cargar la página en conexiones lentas, el selector de vista (Toggle) aparecía durante unos instantes en una segunda línea por debajo de las etiquetas antes de saltar a su posición definitiva al lado de las mismas.
+
+### Cambios Realizados
+1. Añadida la clase `toggle-shares-line` por defecto al contenedor `#home-toggle-wrapper` en el marcado HTML SSR de `src/pages/index.astro`.
+2. Añadida la regla CSS para escritorio (`@media (min-width: 1024px)`) para que la fila de etiquetas en el toolbar use `width: auto; flex-shrink: 1;` desde el renderizado SSR inicial.
+3. Comprobado que el selector de vista se ubique en la primera línea junto a las etiquetas desde el fotograma 0 de SSR sin salto ni movimiento al hidratar.
+
+### Decisiones Tomadas
+- Registrada la decisión `D-088` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-23] — Sesión: Reajuste táctil, espaciado de 32px y aparcado de experimentos (3D Tilt y F5 reset)
 
 ### Objetivo de la Sesión
