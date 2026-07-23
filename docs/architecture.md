@@ -131,3 +131,20 @@ Página de la Sala de Exposiciones. Implementa el componente `<EmptyState varian
 1. **Gestión de Ciclo de Vida Idempotente**: Todo el código de cliente se inicializa en el evento `astro:page-load`. Los event listeners de `window` utilizan `AbortController` para ser destruidos y recreados en cada navegación SPA sin acumular bindings.
 2. **Aislamiento de Blend Modes (`isolation: isolate`)**: Todo contenedor que agrupe capas con `mix-blend-multiply` o `mix-blend-screen` debe incluir `isolation: isolate` para evitar artefactos de renderizado en el lienzo del navegador.
 3. **Coalescing con `requestAnimationFrame`**: Transiciones pesadas o actualizaciones de vista durante operaciones de arrastre (como el slider de tiempo) se agrupan en ciclos de rAF para no saturar `document.startViewTransition`.
+
+---
+
+## Garantías de Escalabilidad, Costes y Sostenibilidad Tecnológica
+
+1. **Escalabilidad del Volumen de Datos (Proyección a 8.000+ Flyers)**:
+   - **Hoja de Google Sheets como CMS**: Google Sheets admite hasta 10.000.000 de celdas por documento. Para un catálogo proyectado de 8.000 flyers (~160.000 celdas), el archivo utiliza apenas el 1,6% de la capacidad total de Google Sheets. El endpoint de consulta `gviz/tq` devuelve el dataset comprimido en milisegundos durante la petición SSR.
+   - **Renderizado Adaptativo y Paginación por Lotes**: La vista Galería utiliza paginación por lotes (`PAGE_SIZE = 30`) con scroll infinito e `IntersectionObserver`, descargando imágenes solo a medida que entran en el viewport. La vista Lista y el Mapa instancian nodos en memoria de forma optimizada. El navegador solo gestiona en DOM los elementos que el usuario visualiza en pantalla, evitando saturación de memoria.
+   - **Red CDN Global para Imágenes**: Las imágenes alojadas en Google Drive se sirven a través del endpoint optimizado de thumbnails de Google (`drive.google.com/thumbnail`), garantizando compresión de ancho de banda y velocidad de red sin costes de almacenamiento ni servidor propio.
+
+2. **Independencia de Licencias y Tecnologías de Pago**:
+   - **Código Abierto Nativo (Licencia MIT)**: La pila tecnológica principal (**Astro 7**, **JavaScript Vanilla**, **Tailwind CSS 4**) se basa 100% en software libre y código abierto. No existe dependencia de soluciones de pago, librerías cerradas o suscripciones SaaS propietarias.
+   - **Navegación Fluida Nativa W3C**: La transición en caliente entre páginas utiliza la especificación nativa `View Transitions API` recomendada por el W3C y soportada en los motores modernos (Chromium, WebKit, Gecko).
+
+3. **Modelo de Coste 0€/mes de Infraestructura**:
+   - **Hosting SSR Serverless (Vercel / Cloudflare Pages)**: El renderizado SSR de Astro procesa peticiones livianas sin almacenar bases de datos complejas en servidor. El consumo encaja holgadamente dentro de los límites gratuitos mensuales de plataformas como Vercel o Cloudflare Pages (100 GB/mes de transferencia y 1.000.000 de ejecuciones serverless), resultando en un **coste operativo de 0€/mes**.
+   - **Portabilidad Total**: En caso de crecimiento exponencial de tráfico en el futuro, la arquitectura no está atada a ninguna plataforma: puede desplegarse en cualquier servidor VPS básico (Node.js/Docker) por un coste mínimo y fijo.

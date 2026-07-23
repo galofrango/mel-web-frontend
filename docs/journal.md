@@ -2,6 +2,19 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Precarga inteligente y navegación fluida entre eventos mediante View Transitions (D-090)
+
+### Objetivo de la Sesión
+Eliminar la espera de red y la pantalla en blanco al navegar entre eventos manteniendo la arquitectura de URLs de servidor reales (`/event/[id]`), garantizando escalabilidad a 8.000+ flyers a coste 0€.
+
+### Cambios Realizados
+1. **Precarga W3C (`prefetch`)**: Inyectadas etiquetas `<link rel="prefetch">` para los eventos colindantes (*Anterior/Siguiente*) en `event/[id].astro` y listeners de `pointerenter` en las tarjetas de la Home (`index.astro`).
+2. **Enrutado Nativo en Caliente (`Layout.astro`)**: Exportada la función nativa `navigate()` de `astro:transitions/client` a `window.__melNavigate`.
+3. **Estado Dinámico tras Transiciones (`event/[id].astro`)**: Transportados `data-image-urls` y `data-event-id` en `#event-detail-data` para evitar desincronización de variables al encadenar saltos entre múltiples eventos.
+4. **Documentación**: Registrada decisión `D-090` en `docs/decisions.md`, actualizado `docs/journal.md` y redactada la sección de **Garantías de Escalabilidad, Costes y Sostenibilidad Tecnológica** en `docs/architecture.md`.
+
+---
+
 ## [2026-07-23] — Sesión: rango de años dinámico + throttle del slider restringido a táctil (D-090)
 
 ### Objetivo de la Sesión

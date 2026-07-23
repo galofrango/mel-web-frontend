@@ -1450,6 +1450,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         ${item.fecha ? `<p class="font-serif font-medium text-[12px] leading-[16px] tracking-[0.15px] text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
       </div>
     `;
+    card.addEventListener('pointerenter', () => {
+      prefetchEventUrl(item.idMel, { search: searchQuery });
+    }, { once: true });
     card.addEventListener('click', () => {
       openLightbox(item);
     });
@@ -1704,6 +1707,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // two /event/[id] URLs, which is exactly why the overlay was built in
   // the first place. /event/[id] already reads ?search=/?location=/?view=
   // to compute its own filtered Anterior/Siguiente and its own return link.
+  function prefetchEventUrl(idMel, { search = '', location = '' } = {}) {
+    if (!idMel) return;
+    const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
+    const params = new URLSearchParams();
+    params.set('view', activeViewName);
+    if (location) {
+      params.set('location', location);
+    } else if (search) {
+      params.set('search', search);
+    }
+    const url = `/event/${idMel}?${params.toString()}`;
+    if (!document.querySelector(`link[rel="prefetch"][href="${url}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = url;
+      document.head.appendChild(link);
+    }
+  }
+
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
     saveReturnState();
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
@@ -1715,15 +1737,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       params.set('search', search);
     }
     const url = `/event/${idMel}?${params.toString()}`;
-    // Same fade-out-then-hard-navigate pattern already used by EmptyState's
-    // back button — softens the otherwise-abrupt white flash of a real
-    // navigation (see D-072: hard reload was chosen over Astro's
-    // ClientRouter to avoid its stale-snapshot cache bug, so this fade is
-    // plain CSS/JS, not a View Transition). The destination page fades in
-    // on its own via the sitewide @keyframes in Layout.astro.
-    document.body.style.transition = 'opacity 0.2s ease';
-    document.body.style.opacity = '0';
-    setTimeout(() => { window.location.href = url; }, 200);
+    if (typeof window.__melNavigate === 'function') {
+      window.__melNavigate(url);
+    } else {
+      document.body.style.transition = 'opacity 0.15s ease';
+      document.body.style.opacity = '0';
+      setTimeout(() => { window.location.href = url; }, 150);
+    }
   }
 
   function openLightbox(item) {
@@ -1766,6 +1786,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   function bindInitialCardClicks() {
     document.querySelectorAll('.gallery-item').forEach(card => {
+      card.addEventListener('pointerenter', () => {
+        const id = card.dataset.id;
+        if (id) prefetchEventUrl(id, { search: searchQuery });
+      }, { once: true });
       card.addEventListener('click', () => {
         const id = card.dataset.id;
         const item = archives.find(x => x.idMel === id);
@@ -2352,6 +2376,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
             row.dataset.id = item.idMel;
             row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
+            row.addEventListener('pointerenter', () => {
+              prefetchEventUrl(item.idMel, { search: searchQuery });
+            }, { once: true });
+            row.addEventListener('click', () => {
+              navigateToEvent(item.idMel, { search: searchQuery });
+            });
             mobileListItems.appendChild(row);
           });
         }
@@ -2895,6 +2925,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
+        card.addEventListener('pointerenter', () => {
+          prefetchEventUrl(evt.idMel, { location: evt.lugar });
+        }, { once: true });
         card.addEventListener('click', () => {
           navigateToEvent(evt.idMel, { location: evt.lugar });
         });

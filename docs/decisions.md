@@ -880,6 +880,18 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Lograr un panel de lugar con jerarquía tipográfica limpia, espaciados más compactos y alineación pixel-perfect con los márgenes de 48px del layout en pantallas medianas / tabletas.
 - **Consecuencias**: El panel del mapa muestra una cabecera más ligera y equilibrada, el listado se adosa directamente tras los tags sin divisores redundantes y las tarjetas encajan milimétricamente con las cabeceras de fondo.
 
+## D-090 · Precarga inteligente (`prefetch`) y navegación fluida entre eventos mediante `View Transitions` nativas
+
+- **Contexto**: Las navegaciones entre páginas de evento (`/event/[id]`) realizaban una recarga dura que reseteaba la ventana a blanco durante casi 1 segundo. El propietario solicitó eliminar la pantalla en blanco manteniendo la arquitectura de URLs reales e independientes de servidor (`/event/[id]`) aprobada en `D-072`.
+- **Decisión**:
+  1. Se implementa precarga nativa W3C (`<link rel="prefetch">` y `prefetchEventUrl`) para descargar en segundo plano las páginas de eventos colindantes (*Anterior/Siguiente*) y las tarjetas sobre las que el usuario pasa el puntero (`pointerenter`).
+  2. Se expone la función de enrutado nativo `window.__melNavigate` desde `astro:transitions/client` en `Layout.astro`.
+  3. Las navegaciones de detalle de evento a detalle de evento (`/event/A` → `/event/B`) y desde la home a evento se ejecutan mediante `window.__melNavigate(url)`, activando `View Transitions` nativas sin parón ni pantalla en blanco.
+  4. Para evitar desincronización de datos tras múltiples saltos consecutivos, `src/pages/event/[id].astro` transporta `data-image-urls` y `data-event-id` en el contenedor `#event-detail-data`, leyéndolos de forma dinámica en cada `astro:page-load`.
+  5. La navegación de retorno a la home (`X` → `/`) mantiene la recarga dura limpia (`window.location.href = '/'`) según `D-072` para garantizar el reinicio estable del estado e hidratación de `index.astro`.
+- **Motivo**: Eliminar la espera de red y la pantalla en blanco al hojear eventos, ofreciendo una experiencia instantánea mantenida sobre el estándar oficial del W3C y preservando URLs SSR 100% reales.
+- **Consecuencias**: Cambio instantáneo entre eventos sin pantallas en blanco ni estados corruptos.
+
 - **Ronda 2 — el propietario retoma el problema, ya no lo considera aparcable**: preocupado por lanzar la web con este bug sin resolver. Se revisan los tres intentos anteriores; ninguno tocaba el mismo mecanismo que se identifica ahora. Punto de restauración creado antes de tocar nada: `git tag slider-pre-fix-2026-07-23` (commit `8d85012`).
 - **Diagnóstico nuevo**: dos huecos en el manejo de eventos de puntero, ninguno de los cuales había sido probado en la ronda 1:
   1. Sin `setPointerCapture()` en las manetas, un arrastre táctil rápido puede salir del área de hit-testing de la maneta a mitad de gesto — el navegador puede entonces reinterpretar el gesto como intento de scroll/pan de página, compitiendo con el JS por el mismo gesto. Esto es DISTINTO del intento 1 de la ronda 1 (que fallaba por recalcular coordenadas contra la posición CSS de la propia maneta, cambiante en cada frame, generando un bucle de realimentación) — en este componente, la posición ya se calcula siempre contra `trackWrapper.getBoundingClientRect()` (un elemento estático que nunca se mueve), así que `setPointerCapture()` no tiene ese bucle de realimentación al que enfrentarse.

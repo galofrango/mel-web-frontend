@@ -88,6 +88,8 @@ if (eventIndex === -1) {
 const eventData = eventsList[eventIndex];
 const prevEvent = eventIndex > 0 ? eventsList[eventIndex - 1] : null;
 const nextEvent = eventIndex < eventsList.length - 1 ? eventsList[eventIndex + 1] : null;
+const prevUrl = prevEvent ? `/event/${prevEvent.idMel}` : null;
+const nextUrl = nextEvent ? `/event/${nextEvent.idMel}` : null;
 
 // Map full list of events for client-side search filtering
 const allEvents = eventsList.map((e: any) => ({
@@ -129,6 +131,8 @@ const organizerDisplay = getTagDisplay(eventData.organizer);
 const designerDisplay = getTagDisplay(eventData.designer);
 ---
 <Layout title={eventData.title}>
+  {prevUrl && <link rel="prefetch" href={prevUrl} />}
+  {nextUrl && <link rel="prefetch" href={nextUrl} />}
   <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
   <style is:inline>
     ::view-transition-old(flyer-img-{eventData.idMel}),
@@ -616,10 +620,20 @@ const designerDisplay = getTagDisplay(eventData.designer);
     </div>
 
   </div>
+
+  <div
+    id="event-detail-data"
+    class="hidden"
+    data-image-urls={JSON.stringify(imageUrls)}
+    data-event-id={eventData.idMel}
+  ></div>
 </Layout>
 
-<script define:vars={{ imageUrls, eventId: eventData.idMel, allEvents }}>
+<script define:vars={{ allEvents }}>
   function initPage() {
+    const dataEl = document.getElementById('event-detail-data');
+    const imageUrls = dataEl ? JSON.parse(dataEl.dataset.imageUrls || '[]') : [];
+    const eventId = dataEl ? (dataEl.dataset.eventId || '') : '';
     // Parse search/location/view queries from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const activeView = urlParams.get('view') || 'galería';
@@ -651,10 +665,23 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // /event/[id] con recarga dura. Un solo listener delegado cubre TODOS
     // los enlaces internos de la página (cerrar, tags, artistas,
     // Anterior/Siguiente) sin tener que tocar cada componente por separado.
+    function prefetchUrl(url) {
+      if (!url || document.querySelector(`link[rel="prefetch"][href="${url}"]`)) return;
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = url;
+      document.head.appendChild(link);
+    }
+
     function fadeAndNavigate(url) {
-      document.body.style.transition = 'opacity 0.2s ease';
-      document.body.style.opacity = '0';
-      setTimeout(() => { window.location.href = url; }, 200);
+      // Direct seamless View Transition between events without white screen
+      if (url.includes('/event/') && typeof window.__melNavigate === 'function') {
+        window.__melNavigate(url);
+      } else {
+        document.body.style.transition = 'opacity 0.15s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => { window.location.href = url; }, 150);
+      }
     }
     document.addEventListener('click', (e) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
@@ -969,6 +996,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         if (link) {
           link.href = `/event/${prevEventItem.idMel}?${navParam}`;
           prevHref = link.href;
+          prefetchUrl(prevHref);
         }
         if (text) text.textContent = prevEventItem.title;
       } else {
@@ -985,6 +1013,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         if (link) {
           link.href = `/event/${nextEventItem.idMel}?${navParam}`;
           nextHref = link.href;
+          prefetchUrl(nextHref);
         }
         if (text) text.textContent = nextEventItem.title;
       } else {
