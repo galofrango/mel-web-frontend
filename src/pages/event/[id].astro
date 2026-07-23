@@ -439,7 +439,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
+        <div class="order-3 lg:col-span-5 flex flex-col gap-8 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -447,9 +447,9 @@ const designerDisplay = getTagDisplay(eventData.designer);
           </h2>
 
           <!-- Description + Artists block -->
-          <div class="flex flex-col gap-8 lg:gap-10">
+          <div class="flex flex-col gap-8">
             {eventData.description && (
-              <div class="flex flex-col gap-8 lg:gap-6">
+              <div class="flex flex-col gap-8">
                 <p class="typo-body-sans text-mel-text-primary">
                   {eventData.description}
                 </p>
@@ -501,16 +501,8 @@ const designerDisplay = getTagDisplay(eventData.designer);
       <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
       <!-- Navigation block (D-083 ronda 4). On desktop (`lg`): a constant
-           96px gap below whatever's above it — the image/tags/info grid
-           normally, or further down if the description/artists block
-           grows and pushes it lower in the flow. No viewport-height
-           relationship at all: not pinned to the bottom of the screen, no
-           minimum-distance floor against the bottom edge (see decisions.md
-           D-083 for the full history). On mobile it's a 2-column row under
-           a divider, with Anterior/Siguiente side by side (Figma
-           575:83196), unchanged — still 40px there (its own separate JS
-           mechanism, ensureScrollRunway/NAV_BOTTOM_GUARD, D-072). -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
+           120px gap below the image/tags/info grid box. -->
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[120px] pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>

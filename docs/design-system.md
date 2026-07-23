@@ -90,7 +90,7 @@ Clases utilitarias `typo-*` en `global.css` (responsive, diseño móvil primero 
 | Clase Utilitaria | Móvil | Desktop (≥768px) | Uso principal |
 | --- | --- | --- | --- |
 | `typo-lead` | Sans 17/26 · 500 · −2% | 16/26px | Texto de introducción y resúmenes |
-| `typo-body-sans` | Sans 17/26 · 400 · −2% | 16/26px | Cuerpo de texto Sans estándar |
+| `typo-body-sans` | Sans 17/28 · 400 · −2% | 16/28px | Cuerpo de texto Sans estándar |
 | `typo-body-roman` | Lora 16/24 · 500 · +1% | 15/24px | Valores de datos, celdas y enlaces de artistas |
 | `typo-h3` | Sans 22/28 · 700 · −2% | 25/32 | Encabezados de sección |
 | `typo-caption` | Sans 16/20 · 500 | 14/18px | Captions, notas, badges y botón "Me presta" |
