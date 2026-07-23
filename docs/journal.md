@@ -2,6 +2,32 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: causa raíz de la paginación de Lista desaparecida en móvil (D-085)
+
+### Objetivo de la Sesión
+El propietario reportó de nuevo el problema aparcado desde D-067 de la paginación de Lista apareciendo "cuando le da la gana", especialmente al volver de un evento. Pidió centrarse solo en esto (dejando aparte el temblor del slider, mencionado de pasada).
+
+### Investigación y Cambios Realizados
+1. Intentos de reproducción en escritorio (varias vueltas desde evento, con/sin búsqueda) sin éxito.
+2. El propietario aclaró que lo veía en emulación táctil/móvil — repetidas las pruebas a 390×844, donde sí se reprodujo.
+3. Causa raíz encontrada: `#pagination-controls` se reubica dentro de `#list-mobile-cards` la primera vez que se muestra en móvil; el repoblado de tarjetas hace `innerHTML=''` sobre ese mismo contenedor, destruyendo el nodo (no solo desconectándolo) si ya vivía dentro — la reinserción posterior busca por id y no encuentra nada, porque el nodo está genuinamente destruido. A partir de ahí, la paginación no puede volver a aparecer nunca en esa instancia de página. Escritorio es inmune porque el vaciado ahí toca el `<tbody>`, no el contenedor donde vive la paginación.
+4. Corregido: sacar `#pagination-controls` del contenedor antes de vaciarlo, dejando que la reubicación posterior (en la misma pasada síncrona) la reinserte en su sitio.
+5. Verificado en navegador: dos ciclos completos evento→volver seguidos, más varios repoblados directos, la paginación sobrevive en todos los casos. Escritorio verificado sin regresión.
+
+### Decisiones Tomadas
+- Ver D-085 en `docs/decisions.md`.
+
+### Próximos Pasos
+- Actualizado `roadmap.md`: el problema aparcado #4 (paginación inconsistente entre navegadores) queda resuelto, movido a completadas.
+- Pendiente, mencionado de pasada por el propietario pero fuera de esta sesión: el temblor del slider de fecha en táctil (problema aparcado #2 en `roadmap.md`).
+
+### Ronda 2 (mismo día) — el fix inicial no era suficiente
+El propietario confirmó que el problema seguía ahí tras el primer fix. Segunda investigación, esta vez forzando deliberadamente varios disparadores casi simultáneos (búsqueda + paginación + slider en el mismo tick) para estresar condiciones de carrera entre llamadas de `filterArchives()` solapadas (cada una con su propio `document.startViewTransition()`, que puede saltarse/reordenar transiciones pendientes).
+
+Segunda causa raíz: `relocatePaginationControls()` se negaba a corregir la posición del elemento si estaba oculto (`hidden`) en ese momento — con llamadas solapadas, el elemento podía quedar aparcado en `document.body` (el lugar seguro del primer fix) con `hidden` puesto por una llamada "perdedora" de la carrera, y como el guard bloqueaba la propia corrección justo en ese momento, quedaba huérfano ahí de forma permanente — ninguna llamada posterior lo recuperaba. Reproducido de forma determinista con un test de estrés (varios triggers sin esperar entre medias).
+
+Corregido: `relocatePaginationControls()` ya no depende de la visibilidad para decidir si corrige la posición — siempre la corrige. Verificado repitiendo el test de estrés exacto que antes lo rompía (ahora termina bien colocado) y el ciclo real completo (abrir evento → volver). D-085 ampliado con esta segunda ronda.
+
 ## [2026-07-23] — Sesión: `IconButton` alineado a Figma, estado Pressed, migración de cierres/menú (D-081)
 
 ### Objetivo de la Sesión

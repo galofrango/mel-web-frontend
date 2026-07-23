@@ -1764,7 +1764,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // wherever it was, it's never cloned/duplicated.
   function relocatePaginationControls() {
     const pagControls = document.getElementById('pagination-controls');
-    if (!pagControls || pagControls.classList.contains('hidden')) return;
+    // Deliberately does NOT bail out while `hidden` (D-085 ronda 2): with
+    // several triggers firing close together (search + a pagination click +
+    // a slider drag, each wrapped in their own document.startViewTransition()
+    // call), the View Transition API can skip/reorder pending transitions —
+    // the callback that ends up "winning" isn't reliably the last one
+    // invoked in program order. If a losing call's own detach-before-wipe
+    // step (see filterArchives()'s mobile branch) had already parked this
+    // element in document.body as a safe holding spot, and THAT call also
+    // happened to compute shouldShowPagination=false, the old early-return
+    // here left it stranded in body — permanently, since document.body has
+    // no listener re-checking this, and a later, correct call could toggle
+    // `hidden` off again without ever fixing the parent (this function only
+    // gets called from the exact code paths that also toggle `hidden`, so
+    // the two were silently drifting out of sync). Position is now always
+    // corrected regardless of visibility — a hidden element sitting in the
+    // right container is harmless; one sitting in document.body is a latent
+    // "appears nowhere / appears at the very end of <body>" bug waiting for
+    // the next moment it's un-hidden.
+    if (!pagControls) return;
     const isDesktopList = window.matchMedia('(min-width: 440px)').matches;
     const target = document.getElementById(isDesktopList ? 'list-table-wrapper' : 'list-mobile-cards');
     if (target && pagControls.parentElement !== target) {
@@ -2296,6 +2314,23 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // (Figma 439:142691) en vez de la tabla ancha de escritorio.
         const mobileListContainer = document.getElementById('list-mobile-cards');
         if (mobileListContainer && paginated.length > 0) {
+          // #pagination-controls lives INSIDE this same container once
+          // relocatePaginationControls() has moved it here (which happens
+          // the very first time the list is shown on mobile) — wiping via
+          // innerHTML destroys whatever's currently inside, pagination
+          // included, and it never comes back: relocatePaginationControls()
+          // re-fetches it by id further down, but a destroyed node is gone
+          // for good, not just detached. Move it out to a safe parking spot
+          // first so the wipe below can't reach it; relocatePaginationControls()
+          // puts it back where it belongs a few lines later in this same
+          // synchronous pass, so there's nothing to see mid-flight even
+          // inside a View Transition. This was the root cause behind
+          // "aparece cuando le da la gana" — it wasn't inconsistent, it was
+          // a one-way trip: fine until the second repopulate on mobile.
+          const pagControlsEl = document.getElementById('pagination-controls');
+          if (pagControlsEl && pagControlsEl.parentElement === mobileListContainer) {
+            document.body.appendChild(pagControlsEl);
+          }
           mobileListContainer.innerHTML = '';
           paginated.forEach((item, idx) => {
             const row = document.createElement('div');
