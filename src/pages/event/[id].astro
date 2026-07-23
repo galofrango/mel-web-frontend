@@ -500,42 +500,48 @@ const designerDisplay = getTagDisplay(eventData.designer);
            scroll end already leaves the nav pinned at that same spot. -->
       <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
-      <!-- Navigation block (D-083 ronda 4). On desktop (`lg`): a constant
-           120px gap below the image/tags/info grid box. -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[120px] pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
+      <!-- Navigation block (D-083 ronda 4). On desktop (`lg`): positioned
+           directly underneath Column 2 (Image Box, 5 cols) at 104px distance. -->
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[104px] pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
         
-        <!-- Empty cell for Left Column alignment -->
+        <!-- Empty cell for Column 1 (Tags, 2 cols) -->
         <div class="hidden lg:block lg:col-span-2"></div>
         
-        <!-- Anterior (Right-aligned under middle column) -->
-        <div class="lg:col-span-5 flex justify-end text-right items-center" id="nav-prev-container">
-          {prevEvent && (
-            <TagWithLink
-              label="Anterior"
-              count={prevEvent.title}
-              alignment="Right"
-              href={`/event/${prevEvent.idMel}`}
-              class="w-full max-w-[496px]"
-              hideBorder={true}
-              reload={true}
-            />
-          )}
+        <!-- Directly under Column 2 (Image Box, 5 cols): Anterior and Siguiente -->
+        <div class="col-span-2 lg:col-span-5 grid grid-cols-2 gap-4 lg:gap-6 items-center w-full">
+          <!-- Anterior (Left item inside image's 5 cols) -->
+          <div class="flex justify-start text-left items-center" id="nav-prev-container">
+            {prevEvent && (
+              <TagWithLink
+                label="Anterior"
+                count={prevEvent.title}
+                alignment="Left"
+                href={`/event/${prevEvent.idMel}`}
+                class="w-full"
+                hideBorder={true}
+                reload={true}
+              />
+            )}
+          </div>
+
+          <!-- Siguiente (Right item inside image's 5 cols) -->
+          <div class="flex justify-end text-right items-center" id="nav-next-container">
+            {nextEvent && (
+              <TagWithLink
+                label="Siguiente"
+                count={nextEvent.title}
+                alignment="Right"
+                href={`/event/${nextEvent.idMel}`}
+                class="w-full"
+                hideBorder={true}
+                reload={true}
+              />
+            )}
+          </div>
         </div>
 
-        <!-- Siguiente (Left-aligned under right column with 24px left padding on desktop) -->
-        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center" id="nav-next-container">
-          {nextEvent && (
-            <TagWithLink
-              label="Siguiente"
-              count={nextEvent.title}
-              alignment="Left"
-              href={`/event/${nextEvent.idMel}`}
-              class="w-full max-w-[496px]"
-              hideBorder={true}
-              reload={true}
-            />
-          )}
-        </div>
+        <!-- Empty cell for Column 3 (Info, 5 cols) -->
+        <div class="hidden lg:block lg:col-span-5"></div>
 
       </div>
 
