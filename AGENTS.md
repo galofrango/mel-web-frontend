@@ -98,6 +98,7 @@ Antes de dar cualquier tarea importante por finalizada, debes verificar internam
 12. **Contexto de Apilamiento para Blend Modes (`isolation: isolate`):** Las capas con `mix-blend-multiply` o `mix-blend-screen` requieren `isolation: isolate` en su contenedor padre directo para evitar desvanecimientos anómalos o comportamientos impredecibles con el fondo del navegador.
 13. **Sistema de Estados Vacíos (`EmptyState`):** Utiliza `<EmptyState variant="construction|no-results" />` o su réplica de marcado JS. Implementa el tinte fotográfico duotono (`bg-[var(--mel-primitive-le-900)]` + `mix-blend-screen` sobre imagen en blanco y negro).
 14. **Parámetros Físicos de la Intro CMYK (`IntroAnimation.astro`):** La capa Amarilla se desplaza más (máx 16px, desenfoque máx 1px), la Magenta segunda (8px, desenfoque máx 0.5px) y la Cian permanece estática (0px, sin desenfoque). El despegue usa curva ease-in (`cubic-bezier(0.55, 0.085, 0.68, 0.53)`) de 2100ms y el subtítulo se descompone palabra a palabra con 150ms de retardo acotado a `-90vh` (por debajo de la cian a `-135vh`).
+15. **Estabilidad de la Navegación Evento → Mapa (NUNCA ALTERAR SSR/ANIMACIONES DE ESTE FLUJO):** No intentar añadir transiciones ni cambiar las clases activas de SSR al navegar desde "Lugar" en la ficha del evento a la vista de Mapa. Cambiar la vista SSR por defecto o el flujo de inicialización rompe los event listeners del panel lateral, dejándolo atascado. Conservar siempre la apertura asíncrona cliente (`populateSidePanel`) y la gestión manual del listener de cierre.
 
 ---
 

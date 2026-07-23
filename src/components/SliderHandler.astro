@@ -4,14 +4,15 @@ interface Props {
   year: number;
   direction: 'left' | 'right';
   class?: string;
+  style?: string;
 }
 
-const { id, year, direction, class: className = "" } = Astro.props;
+const { id, year, direction, class: className = "", style = "" } = Astro.props;
 ---
 <div
   id={id}
   class={`absolute z-40 backdrop-blur-[2px] bg-mel-action-secondary text-mel-text-on-action px-[12px] py-[8px] flex items-center justify-center shadow-[var(--mel-shadow-handle)] select-none cursor-pointer touch-none border border-mel-action-secondary ${className}`}
-  style="height: 36px; min-width: 60px;"
+  style={`height: 36px; min-width: 60px; ${style}`}
   data-node-id="Slider Handler"
 >
   <span class="font-sans font-medium text-[16px] leading-[20px] text-mel-text-on-action select-none pointer-events-none">
