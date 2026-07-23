@@ -15,7 +15,7 @@ import SliderHandler from './SliderHandler.astro';
   <div class="h-2 w-full bg-mel-border absolute top-1/2 -translate-y-1/2 rounded-none"></div>
   
   <!-- Active Slider Bar Fill (8px height, rounded-none, action/secondary mel-action-secondary) -->
-  <div id="slider-active-fill" class="h-2 bg-mel-action-secondary absolute top-1/2 -translate-y-1/2 rounded-none" style="left: 0%; right: 0%;"></div>
+  <div id="slider-active-fill" class="h-2 bg-mel-action-secondary absolute top-1/2 -translate-y-1/2 rounded-none" style="left: 54px; right: 54px;"></div>
   
   <!-- Dual range input fields (Hidden visually but kept for state/accessibility) -->
   <input 
@@ -36,8 +36,8 @@ import SliderHandler from './SliderHandler.astro';
   />
 
   <!-- Interactive Slider handlers positioned relative to their tips -->
-  <SliderHandler id="min-handle" year={2004} direction="left" class="top-1/2 -translate-y-1/2" style="left: 0%;" />
-  <SliderHandler id="max-handle" year={2019} direction="right" class="top-1/2 -translate-y-1/2" style="left: 100%; transform: translate(-100%, -50%);" />
+  <SliderHandler id="min-handle" year={2004} direction="left" class="top-1/2 -translate-y-1/2" style="left: 24px;" />
+  <SliderHandler id="max-handle" year={2019} direction="right" class="top-1/2 -translate-y-1/2" style="right: 24px; left: auto;" />
 </div>
 
 <script>
