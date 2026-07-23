@@ -3819,6 +3819,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       }
     } catch (e) {}
 
+    // D-087: When returning from an event detail page, skip the first-load
+    // intro animation so cards below the fold aren't marked as reveal-pending
+    // (opacity: 0) before scroll position is restored.
+    gallerySettled = !!pendingReturnState;
+
     // Initialize state and render
     calculateDynamicBounds();
     updateSlider();
