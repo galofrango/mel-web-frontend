@@ -485,63 +485,46 @@ const designerDisplay = getTagDisplay(eventData.designer);
             />
           </div>
 
-        </div>
+          <!-- Scroll runway spacer (below `lg` only) -->
+          <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
-      </div>
+          <!-- Figma 1px divider above Navigation -->
+          <div class="h-px w-full bg-mel-border"></div>
 
-      <!-- Scroll runway spacer (below `lg` only), deliberately placed BEFORE
-           the nav block: growing it pushes the nav DOWN toward the screen's
-           bottom edge, and scrolling can never continue past the nav (it's
-           the last thing before the page's own 40px bottom padding). Sized
-           by ensureScrollRunway() so that, on content-short events, the nav
-           block's bottom lands exactly 40px above the bottom of the screen
-           (the page container's pb-[40px], the guard against phone nav UI);
-           content-rich events get no extra padding at all — their natural
-           scroll end already leaves the nav pinned at that same spot. -->
-      <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
+          <!-- Navigation block (Figma Dev Mode: 32px gap below Actions & Divider, inside Column 3) -->
+          <div id="detail-nav-block" class="grid grid-cols-2 gap-4 lg:gap-6 items-center w-full" data-name="Navigation Block">
+            <!-- Anterior (Left-aligned) -->
+            <div class="flex justify-start text-left items-center" id="nav-prev-container">
+              {prevEvent && (
+                <TagWithLink
+                  label="Anterior"
+                  count={prevEvent.title}
+                  alignment="Left"
+                  href={`/event/${prevEvent.idMel}`}
+                  class="w-full"
+                  hideBorder={true}
+                  reload={true}
+                />
+              )}
+            </div>
 
-      <!-- Navigation block (D-083 ronda 4). On desktop (`lg`): positioned
-           directly underneath Column 2 (Image Box, 5 cols) at 104px distance. -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[104px] pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block">
-        
-        <!-- Empty cell for Column 1 (Tags, 2 cols) -->
-        <div class="hidden lg:block lg:col-span-2"></div>
-        
-        <!-- Directly under Column 2 (Image Box, 5 cols): Anterior and Siguiente -->
-        <div class="col-span-2 lg:col-span-5 grid grid-cols-2 gap-4 lg:gap-6 items-center w-full">
-          <!-- Anterior (Left item inside image's 5 cols) -->
-          <div class="flex justify-start text-left items-center" id="nav-prev-container">
-            {prevEvent && (
-              <TagWithLink
-                label="Anterior"
-                count={prevEvent.title}
-                alignment="Left"
-                href={`/event/${prevEvent.idMel}`}
-                class="w-full"
-                hideBorder={true}
-                reload={true}
-              />
-            )}
+            <!-- Siguiente (Left-aligned or Right-aligned as Figma) -->
+            <div class="flex justify-start text-left items-center" id="nav-next-container">
+              {nextEvent && (
+                <TagWithLink
+                  label="Siguiente"
+                  count={nextEvent.title}
+                  alignment="Left"
+                  href={`/event/${nextEvent.idMel}`}
+                  class="w-full"
+                  hideBorder={true}
+                  reload={true}
+                />
+              )}
+            </div>
           </div>
 
-          <!-- Siguiente (Right item inside image's 5 cols) -->
-          <div class="flex justify-end text-right items-center" id="nav-next-container">
-            {nextEvent && (
-              <TagWithLink
-                label="Siguiente"
-                count={nextEvent.title}
-                alignment="Right"
-                href={`/event/${nextEvent.idMel}`}
-                class="w-full"
-                hideBorder={true}
-                reload={true}
-              />
-            )}
-          </div>
         </div>
-
-        <!-- Empty cell for Column 3 (Info, 5 cols) -->
-        <div class="hidden lg:block lg:col-span-5"></div>
 
       </div>
 
