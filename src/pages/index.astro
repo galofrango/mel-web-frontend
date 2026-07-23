@@ -2897,7 +2897,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       googleMap.setCenter(ne);
       googleMap.setZoom(15);
     } else {
-      googleMap.fitBounds(bounds);
+      // Padding de seguridad en fitBounds para evitar que el globo/badge de los
+      // marcadores más al norte (ej: Valdepiélago, que se extiende ~40px hacia arriba
+      // desde sus coordenadas lat/lng) quede recortado en el borde superior del mapa.
+      googleMap.fitBounds(bounds, {
+        top: 80,
+        bottom: 40,
+        left: 80,
+        right: 80
+      });
     }
   }
 

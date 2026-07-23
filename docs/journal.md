@@ -2,6 +2,39 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Márgenes de seguridad nativos en `fitBounds()` del mapa (D-088)
+
+### Objetivo de la Sesión
+Eliminar el recorte superior del marcador de Valdepiélago al abrir el mapa y ofrecer un encuadre inicial más aireado y equilibrado.
+
+### Cambios Realizados
+1. **Vista de mapa (`src/pages/index.astro`)**:
+   - Actualizado `googleMap.fitBounds(bounds, { top: 80, bottom: 40, left: 80, right: 80 })` en `fitMapToMarkers()`.
+2. **Documentación**: Registrada decisión `D-088` en `docs/decisions.md` y actualizado `docs/journal.md`.
+
+---
+
+## [2026-07-23] — Sesión: causa real del temblor del slider — ruido táctil a 13px/año, no conflicto de gestos (D-086 ronda 3)
+
+### Objetivo de la Sesión
+El propietario confirmó que el fix de la ronda 2 (`setPointerCapture`/`pointercancel`) no resolvió el temblor, y esta vez describió el síntoma con precisión: el año oscila rápidamente (incluso entre valores no consecutivos) mientras arrastra lentamente, mejorando notablemente a partir de 2016-2017.
+
+### Investigación y Cambios Realizados
+1. Esa descripción descarta por completo la hipótesis de conflicto de gestos de las rondas 1 y 2 — el valor numérico en sí oscila, no hay indicio de que el navegador compita por el gesto.
+2. Medido en navegador: a 390px de viewport, el track útil solo tiene ~198px para cubrir 15 años — **13.2px por año**. Un dedo real tiene ruido de varios píxeles entre muestras de `touchmove`, incluso sosteniendo el dedo quieto; a esa resolución, ese ruido normal basta para que el año redondeado rebote entre dos valores.
+3. Aplicado suavizado exponencial (`smoothedPct += (rawPct - smoothedPct) * 0.35`) sobre la posición del puntero antes de convertirla a año, reseteado en cada nuevo arrastre para no introducir retraso al agarrar el tirador.
+4. Verificado inyectando 20 eventos `pointermove` sintéticos con ±4px de ruido alterno (mayor que el paso de 13px/año) sobre un arrastre lento simulado: la secuencia de años avanza monotónicamente, sin retrocesos. Arrastre con ratón real y clic directo en la barra sin regresión.
+
+### Decisiones Tomadas
+- Ver D-086 (ronda 3) en `docs/decisions.md`.
+
+### Próximos Pasos
+- El propietario debe confirmar en su propio dispositivo táctil.
+- Si no basta, siguiente paso: histéresis explícita por año (no solo suavizado continuo) sobre el mismo mecanismo.
+- Punto de restauración sigue disponible: `git tag slider-pre-fix-2026-07-23`.
+
+---
+
 ## [2026-07-23] — Sesión: Ajuste de colchón de foto pegajosa y anulación de gap en paginación (D-087)
 
 ### Objetivo de la Sesión

@@ -127,12 +127,30 @@ import SliderHandler from './SliderHandler.astro';
     let activePointerId = null;
     let activeHandle = null;
 
+    // D-086 ronda 3: the propietario pinned down the actual symptom — not a
+    // gesture conflict, but the reported year flickering back and forth
+    // between two (sometimes non-adjacent) values while dragging slowly,
+    // easing off past ~2016. At a typical mobile width the usable track is
+    // only ~13px per year (198px / 15 years at 390px viewport) — a real
+    // finger's touch coordinate is nowhere near as stable as a mouse
+    // cursor at that resolution, so ordinary contact-area noise between
+    // two consecutive touchmove samples is enough to swing the rounded
+    // year back and forth on its own, with nothing actually conflicting
+    // for the gesture. Exponentially smoothing the raw pointer position
+    // before converting it to a year absorbs that per-sample noise without
+    // adding perceptible lag — smoothedPct chases the raw pct gradually
+    // instead of snapping to it every event, and resets fresh on every new
+    // drag so the handle still grabs exactly where the finger lands.
+    let smoothedPct = null;
+    const POINTER_SMOOTHING = 0.35; // lower = smoother/more lag, higher = snappier/less filtering
+
     const beginDrag = (e, which) => {
       setDraggingClass(true);
       isDraggingMin = which === 'min';
       isDraggingMax = which === 'max';
       activePointerId = e.pointerId;
       activeHandle = which === 'min' ? minHandle : maxHandle;
+      smoothedPct = null;
       try { activeHandle.setPointerCapture(e.pointerId); } catch (err) {}
       e.stopPropagation();
       e.preventDefault();
@@ -145,7 +163,13 @@ import SliderHandler from './SliderHandler.astro';
     window.addEventListener('pointermove', (e) => {
       if (!isDraggingMin && !isDraggingMax) return;
       const rect = trackWrapper.getBoundingClientRect();
-      const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
+      const rawPct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
+      // First sample of this drag snaps immediately (no lag grabbing the
+      // handle); every one after that eases toward the raw value instead
+      // of jumping straight to it, filtering out the touch-noise jitter
+      // that was flipping the rounded year back and forth.
+      smoothedPct = smoothedPct === null ? rawPct : smoothedPct + (rawPct - smoothedPct) * POINTER_SMOOTHING;
+      const pct = smoothedPct;
 
       if (isDraggingMin) {
         // Clamp: never exceed maxPct
