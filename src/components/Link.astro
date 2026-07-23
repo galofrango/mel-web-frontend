@@ -69,13 +69,6 @@ const isDisabled = state === "Disabled";
 <style>
   /* Apply Lora font styles without hardcoding using Figma token variables */
   .mel-link-active {
-    font-family: var(--font-serif);
-    font-size: var(--Font-Size-Body-Roman, 16px);
-    font-style: normal;
-    font-weight: 500;
-    line-height: var(--Line-Height-Body-Roman, 24px);
-    letter-spacing: 0.16px;
-
     /* Default color from theme variable */
     color: var(--Text-Secondary, var(--mel-text-secondary));
     background-color: transparent;
@@ -103,12 +96,6 @@ const isDisabled = state === "Disabled";
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-family: var(--font-serif);
-    font-size: var(--Font-Size-Body-Roman, 16px);
-    font-style: normal;
-    font-weight: 500;
-    line-height: var(--Line-Height-Body-Roman, 24px);
-    letter-spacing: 0.16px;
     color: var(--Text-Tertiary, var(--mel-text-tertiary));
     user-select: none;
   }
