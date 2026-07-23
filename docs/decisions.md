@@ -880,7 +880,7 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Motivo**: Lograr un panel de lugar con jerarquía tipográfica limpia, espaciados más compactos y alineación pixel-perfect con los márgenes de 48px del layout en pantallas medianas / tabletas.
 - **Consecuencias**: El panel del mapa muestra una cabecera más ligera y equilibrada, el listado se adosa directamente tras los tags sin divisores redundantes y las tarjetas encajan milimétricamente con las cabeceras de fondo.
 
-## D-090 · Precarga inteligente (`prefetch`) y navegación fluida entre eventos mediante `View Transitions` nativas
+## D-090 · Navegación fluida **Morphing v1**: precarga inteligente (`prefetch`) y View Transitions nativas entre eventos
 
 - **Contexto**: Las navegaciones entre páginas de evento (`/event/[id]`) realizaban una recarga dura que reseteaba la ventana a blanco durante casi 1 segundo. El propietario solicitó eliminar la pantalla en blanco manteniendo la arquitectura de URLs reales e independientes de servidor (`/event/[id]`) aprobada en `D-072`.
 - **Decisión**:

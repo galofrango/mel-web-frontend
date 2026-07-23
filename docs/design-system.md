@@ -147,38 +147,27 @@ Patrón mínimo para suavizar una **navegación real de página** (recarga dura 
 /* src/layouts/Layout.astro, aplicado a <body> */
 body { animation: mel-fade-in 0.25s ease; }
 @keyframes mel-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-```
-Se reproduce solo en cada carga de página fresca (toda navegación real es una carga fresca). Nada que llamar, nada que limpiar.
+## Transición Estándar de Página: **Morphing v1** (D-074 / D-090)
 
-**Salida (fade-out) antes de navegar** — JS mínimo, a añadir en el punto donde se decide la URL de destino:
+Toda navegación entre la Home y los eventos o entre eventos colindantes utiliza el sistema unificado **Morphing v1**:
+
+1. **Precarga Silenciosa W3C (`prefetch`)**:
+   - Inyección de etiquetas `<link rel="prefetch">` para los eventos *Anterior* y *Siguiente* en el `<head>` de `event/[id].astro`.
+   - Listener de `pointerenter` en las tarjetas de la Home (`index.astro`) que descarga el HTML del evento antes de pulsar.
+2. **Navegación Fluida con View Transitions**:
+   - `Layout.astro` expone la función de enrutado nativo `window.__melNavigate` (`astro:transitions/client`).
+   - Las navegaciones entre eventos (`/event/A` → `/event/B`) y la apertura desde la Home invocan `window.__melNavigate(url)`, activando `View Transitions` nativas del W3C con morphing orgánico de imágenes (`view-transition-name: flyer-img-[id]`) y fundido cruzado sin pantallas en blanco.
+3. **Persistencia y Recarga Limpia al Cerrar (`X` → `/`)**:
+   - Para proteger el canvas de Google Maps y el masonry de la Home contra desincronizaciones de memoria (regla `D-072`), el botón de cierre ejecuta recarga limpia (`window.location.href = '/'`).
+   - El estado del usuario (filtros, año, vista activa y scroll) se recupera automáticamente mediante `sessionStorage` (`saveReturnState` / `restoreReturnState`).
+
 ```js
-function fadeAndNavigate(url) {
-  document.body.style.transition = 'opacity 0.2s ease';
+// Enrutado nativo Morphing v1
+if (typeof window.__melNavigate === 'function') {
+  window.__melNavigate(url);
+} else {
+  document.body.style.transition = 'opacity 0.15s ease';
   document.body.style.opacity = '0';
-  setTimeout(() => { window.location.href = url; }, 200);
+  setTimeout(() => { window.location.href = url; }, 150);
 }
 ```
-Los 200ms de espera son intencionados: son los que dejan que el fundido se vea antes de que la página se descargue (el bug original de `EmptyState.astro`'s back button era fundir Y navegar en el mismo tick, sin darle tiempo al fundido a jugar).
-
-**Valores fijos del patrón** (no reinventar por sitio): entrada 0.25s / salida 0.2s, siempre `ease`, siempre sobre `body` completo (no un wrapper interno). Si una futura iteración cambia estos valores, actualízalos aquí primero — es la referencia única.
-
-**Cuándo interceptar clics en vez de dejar que el navegador navegue solo**: si el destino es una página con inicialización JS pesada (Home con su galería/mapa/lista, o el propio detalle de evento), evita el `ClientRouter` de Astro por completo — ni siquiera para el trayecto de vuelta. Un enlace normal sin `data-astro-reload` deja que Astro haga una navegación *suave* (fetch + swap de DOM), y el destino se ve con su layout roto unos instantes mientras su JS de inicialización termina de correr (bug real encontrado y corregido en esta misma entrada — los enlaces de Localidad/Organiza/Diseño/Artistas de `event/[id].astro` no llevaban `reload`). La forma más simple de blindarse contra esto en una página entera es UN solo listener de click delegado en `document` que intercepta cualquier `<a href="/...">` interno, hace `preventDefault()` y llama a `fadeAndNavigate(link.href)` — cubre enlaces presentes y futuros sin tocar cada componente:
-```js
-document.addEventListener('click', (e) => {
-  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-  const link = e.target.closest('a[href^="/"]');
-  if (!link) return;
-  e.preventDefault();
-  fadeAndNavigate(link.href);
-}, { signal: wSig });
-```
-(Guarda de modificadores/botón para no robar el "abrir en pestaña nueva" de Cmd/Ctrl+clic o clic central.)
-
-**Por qué recarga dura, no `ClientRouter`** (contexto de D-072): un intento anterior de navegación suave entre dos URLs `/event/[id]` distintas chocó con la caché de snapshot del `ClientRouter`, lo que en su día motivó construir el overlay SPA que D-072 acabó eliminando. La recarga dura es el patrón ya probado en todo el sitio — no reintroducir `ClientRouter` para estas páginas sin volver a investigar y descartar ese problema primero.
-
-**Dónde está implementado hoy**: `navigateToEvent()` en `index.astro` (fade-out, todos los puntos de entrada al detalle: galería, lista, panel de mapa) y el listener delegado de `event/[id].astro` (fade-out + evita el `ClientRouter`, cubre cerrar/Anterior/Siguiente/tags/artistas). El fade-in de `Layout.astro` es sitewide y no necesita registrarse en ningún sitio más.
-
-**Pendiente / candidatos para reutilizar el patrón**: cualquier otro punto del sitio con una recarga dura similar (p. ej. el botón "De acuerdo" de `EmptyState.astro`, que ya fundía pero sin el `setTimeout` — corregirlo para que coincida con esta referencia sería la primera reutilización natural). Evaluar tras confirmación visual del propietario si conviene iterar hacia algo más elaborado (por ejemplo, morphing de la imagen del flyer entre origen y destino).
