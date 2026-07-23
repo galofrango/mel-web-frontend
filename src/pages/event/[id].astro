@@ -278,7 +278,11 @@ const designerDisplay = getTagDisplay(eventData.designer);
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div id="detail-image-column" class="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
+        <div
+          id="detail-image-column"
+          class={`order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full ${imageUrls.length > 1 ? 'mb-[-32px] lg:mb-0' : ''}`}
+          data-name="Image Viewer / Desktop"
+        >
           <!-- Reserves flow space for the pinned image below `lg` (that image
                is `position: fixed` there, removed from normal flow — see
                updateStickyImage()). Held at a CONSTANT height: the box's
@@ -757,6 +761,9 @@ const designerDisplay = getTagDisplay(eventData.designer);
       tagsFixedSpacer.style.height = `${tagsFixed.getBoundingClientRect().height}px`;
     }
 
+    // Safety buffer while pinned: 32px for single images, 0px if pagination dots exist
+    const STICKY_PADDING_BOTTOM = (imageUrls && imageUrls.length > 1) ? '0px' : '32px';
+
     function updateStickyImage() {
       if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop) return;
       updateHeaderSpacer();
@@ -808,23 +815,15 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
       // The sentinel reserves the box's FULL-SIZE footprint (crop at 400px +
       // dots if present), as a constant — NOT the box's current shrunk
-      // height. Measured BEFORE any mutation below (current height plus
-      // however much the crop is currently shrunk — exact whether or not
-      // this event has dots, without hardcoding their height), and set
-      // BEFORE the box switches to `fixed`: setting it after would leave a
-      // forced-layout window where the box has already left normal flow but
-      // the sentinel hasn't grown yet — the page momentarily shorter than
-      // the viewport, which makes the browser clamp the scroll position
-      // back to 0 mid-tick (observed as "can't scroll at all"). A constant
-      // sentinel also means the page's height no longer depends on scroll
-      // position: during the shrink phase, content below rises 1:1 with
-      // scroll while the box's bottom edge also recedes 1:1, so tags stay
-      // exactly 32px (the grid's own gap-8) under it; after the crop
-      // bottoms out at 200px, content simply continues up and passes
-      // underneath the (opaque, z-20) box.
+      // height or the extra paddingBottom safety cushion. Subtracting any
+      // active paddingBottom ensures the sentinel height remains strictly
+      // constant during scroll, keeping the text at a perfectly stable 32px
+      // distance under the photo until it passes underneath.
       const currentBlockHeight = imageSticky.getBoundingClientRect().height;
+      const currentPaddingBottom = parseFloat(window.getComputedStyle(imageSticky).paddingBottom) || 0;
+      const unpaddedBlockHeight = currentBlockHeight - currentPaddingBottom;
       const currentCropHeight = imageCrop.getBoundingClientRect().height;
-      const fullBlockHeight = currentBlockHeight + (IMAGE_MAX_H - currentCropHeight);
+      const fullBlockHeight = unpaddedBlockHeight + (IMAGE_MAX_H - currentCropHeight);
       imageSentinel.style.height = `${fullBlockHeight}px`;
 
       const newCropHeight = Math.max(IMAGE_MIN_H, Math.min(IMAGE_MAX_H, IMAGE_MAX_H - scrolledPast));
@@ -843,18 +842,8 @@ const designerDisplay = getTagDisplay(eventData.designer);
       // margin to a `fixed` box too — left uncleared, it'd double up with the
       // left:0 above and render 24-48px past the left edge too.
       imageSticky.style.margin = '0';
-      // Safety buffer, ONLY while pinned (D-063): on a fast/momentum scroll,
-      // the compositor can paint a frame or two ahead of this handler (which
-      // runs on the JS thread on every scroll tick) — content passing
-      // underneath the box can briefly render a sliver above the box's own
-      // exact computed bottom edge before the next tick catches up, poking
-      // into what should be opaque. Extending the box's own opaque
-      // background (already bg-mel-bg-primary) a bit past the crop's real
-      // bottom absorbs that slop; the sentinel math above already accounts
-      // for whatever this box's current total height is, so this doesn't
-      // shift anything else. Cleared in the two branches above (rest state,
-      // desktop) so it never adds to the resting 32px gap after the photo.
-      imageSticky.style.paddingBottom = '24px';
+      // Safety buffer while pinned: 32px for single image events, 0px if pagination dots exist
+      imageSticky.style.paddingBottom = STICKY_PADDING_BOTTOM;
 
       // Pinned at the header's bottom edge, unconditionally — the box never
       // slides up behind the header, no matter how far the page scrolls.

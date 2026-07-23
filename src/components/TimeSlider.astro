@@ -111,24 +111,37 @@ import SliderHandler from './SliderHandler.astro';
     // Initialize layout
     render();
 
-    // Handle pointerdown on handles
-    minHandle.addEventListener('pointerdown', (e) => {
+    // D-086 ronda 2: capture the pointer on the handle itself as soon as the
+    // drag starts. Without this, a fast touch drag can move far enough per
+    // frame that the browser decides the gesture isn't settled on this
+    // element anymore and starts treating it as a page scroll/pan attempt
+    // instead — the handle and the page then fight over the same gesture,
+    // which is what reads as "trembling". setPointerCapture pins every
+    // subsequent event for this pointerId to the handle regardless of where
+    // the finger actually is on screen, so the browser has no ambiguity to
+    // resolve. This is safe here (unlike a previous, reverted attempt) only
+    // because position math below already reads from trackWrapper's own
+    // rect — a static element that never moves — never from the handle's
+    // own current position, so there's no feedback loop between "where the
+    // handle is drawn" and "where we think the pointer is".
+    let activePointerId = null;
+    let activeHandle = null;
+
+    const beginDrag = (e, which) => {
       setDraggingClass(true);
-      isDraggingMin = true;
-      isDraggingMax = false;
+      isDraggingMin = which === 'min';
+      isDraggingMax = which === 'max';
+      activePointerId = e.pointerId;
+      activeHandle = which === 'min' ? minHandle : maxHandle;
+      try { activeHandle.setPointerCapture(e.pointerId); } catch (err) {}
       e.stopPropagation();
       e.preventDefault();
-    });
+    };
 
-    maxHandle.addEventListener('pointerdown', (e) => {
-      setDraggingClass(true);
-      isDraggingMax = true;
-      isDraggingMin = false;
-      e.stopPropagation();
-      e.preventDefault();
-    });
+    minHandle.addEventListener('pointerdown', (e) => beginDrag(e, 'min'));
+    maxHandle.addEventListener('pointerdown', (e) => beginDrag(e, 'max'));
 
-    // Window level pointermove and pointerup for absolute robustness
+    // Window level pointermove for absolute robustness
     window.addEventListener('pointermove', (e) => {
       if (!isDraggingMin && !isDraggingMax) return;
       const rect = trackWrapper.getBoundingClientRect();
@@ -150,7 +163,15 @@ import SliderHandler from './SliderHandler.astro';
       render();
     }, { signal: sig });
 
-    window.addEventListener('pointerup', () => {
+    // Shared cleanup for both a normal release (pointerup) and an aborted
+    // gesture (pointercancel — the browser can fire this instead of
+    // pointerup on touch, e.g. if it decides mid-gesture to hand the
+    // interaction to something else). Before this, only pointerup was
+    // handled: a pointercancel left isDraggingMin/Max stuck `true` forever,
+    // so pointermove kept moving the handle via JS while the browser had
+    // already reclaimed the gesture on its own end — the two visibly
+    // fighting is the other half of the "trembling" symptom.
+    const endDrag = () => {
       if (isDraggingMin) {
         isDraggingMin = false;
         setDraggingClass(false);
@@ -167,13 +188,21 @@ import SliderHandler from './SliderHandler.astro';
         maxPct = ((yearVal - MIN_YEAR) / RANGE) * 100;
         sliderMax.value = String(yearVal);
         sliderMax.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        return;
       }
+      if (activeHandle !== null && activePointerId !== null) {
+        try { activeHandle.releasePointerCapture(activePointerId); } catch (err) {}
+      }
+      activePointerId = null;
+      activeHandle = null;
       render();
       // Reset justFinishedDrag after the click event has had a chance to fire
-      if (justFinishedDrag) {
-        requestAnimationFrame(() => { justFinishedDrag = false; });
-      }
-    }, { signal: sig });
+      requestAnimationFrame(() => { justFinishedDrag = false; });
+    };
+
+    window.addEventListener('pointerup', endDrag, { signal: sig });
+    window.addEventListener('pointercancel', endDrag, { signal: sig });
 
     // Track Click positioning — suppressed after drags, with cross-over protection
     trackWrapper.addEventListener('click', (e) => {

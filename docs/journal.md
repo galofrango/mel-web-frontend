@@ -1,6 +1,42 @@
 # Diario del Proyecto (Project Journal)
 
-Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
+Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
+
+## [2026-07-23] — Sesión: Ajuste de colchón de foto pegajosa y anulación de gap en paginación (D-087)
+
+### Objetivo de la Sesión
+Ajustar la separación entre la foto pegajosa y el texto en el detalle de evento móvil a 32px exactos, eliminar el salto/desplazamiento al iniciar el scroll y anular el gap sobrante en eventos con paginación de imágenes.
+
+### Cambios Realizados
+1. **Página de detalle (`src/pages/event/[id].astro`)**:
+   - Ajustado `STICKY_PADDING_BOTTOM` a 32px para imágenes únicas y 0px para imágenes con paginación.
+   - Corregida la ecuación de altura del centinela `imageSentinel` restando el `paddingBottom` activo para mantener una distancia 100% constante durante el colapso de la foto.
+   - Añadida la clase `mb-[-32px] lg:mb-0` a `#detail-image-column` para eventos con múltiples imágenes, anulando el `gap-8` sobrante de la retícula padre en móvil.
+2. **Documentación**: Registrada decisión `D-087` en `docs/decisions.md` y actualizado `docs/journal.md`.
+
+---
+
+## [2026-07-23] — Sesión: segundo intento del temblor del slider táctil, con `setPointerCapture` + `pointercancel` (D-086 ronda 2)
+
+### Objetivo de la Sesión
+El propietario, tras usar Gemini para arreglar la paginación de Lista (confirmado funcionando), retoma el temblor del slider en táctil — ya no lo considera aparcable de cara al lanzamiento. Pide revisar el commit `8d85012` (donde Gemini documentó y revirtió tres intentos) para no repetir el mismo camino, y arreglarlo con un punto de restauración a mano.
+
+### Investigación y Cambios Realizados
+1. Creado punto de restauración: `git tag slider-pre-fix-2026-07-23` sobre el commit `8d85012`.
+2. Revisados los tres intentos de Gemini (ver D-086 en `decisions.md`): captura de puntero en manetas (bucle de realimentación), captura en contenedor + `preventDefault` en `touchstart` (rompía clics directos), `overflow-x-hidden` (no resolvía nada). Los tres se revirtieron limpiamente.
+3. Intentada reproducción propia en emulación táctil — la herramienta de arrastre de este entorno no genera eventos de movimiento de suficiente frecuencia como para reproducir el temblor.
+4. Identificados dos huecos de manejo de eventos NO cubiertos por los intentos de Gemini: falta de `setPointerCapture()` en las manetas (con el añadido de que, a diferencia del intento 1 de Gemini, este componente ya calcula posición contra el rect estático del track, no contra la maneta móvil — sin el bucle de realimentación que hizo fallar ese intento) y ausencia total de un listener de `pointercancel` (el drag podía quedar atascado para siempre si el navegador cancelaba el gesto táctil).
+5. Aplicado: `setPointerCapture`/`releasePointerCapture` en las manetas, listener de `pointercancel` compartiendo la misma limpieza que `pointerup`.
+6. Verificado: arrastre con ratón, clic directo en la barra, sin errores de consola, build limpio. **No se pudo verificar con un gesto táctil real** — limitación del entorno, no del análisis.
+
+### Decisiones Tomadas
+- Ver D-086 (ronda 2) en `docs/decisions.md`.
+
+### Próximos Pasos
+- El propietario debe confirmar en su propio entorno táctil si el temblor ha desaparecido.
+- Si persiste: `git reset --hard slider-pre-fix-2026-07-23` (con confirmación previa) recupera el estado exacto anterior a este intento.
+
+---
 
 ## [2026-07-23] — Sesión: Registro de intentos de resolución del temblor del slider en táctil (D-086)
 
