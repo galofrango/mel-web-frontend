@@ -491,15 +491,15 @@ const designerDisplay = getTagDisplay(eventData.designer);
           <!-- Figma 1px divider above Navigation -->
           <div class="h-px w-full bg-mel-border"></div>
 
-          <!-- Navigation block (Figma Dev Mode: 32px gap below Actions & Divider, inside Column 3) -->
-          <div id="detail-nav-block" class="grid grid-cols-2 gap-4 lg:gap-6 items-center w-full" data-name="Navigation Block">
-            <!-- Anterior (Left-aligned) -->
-            <div class="flex justify-start text-left items-center" id="nav-prev-container">
+          <!-- Navigation block (Figma node 1058:113605: flex/grid with 32px gap; Anterior right-aligned, Siguiente left-aligned) -->
+          <div id="detail-nav-block" class="grid grid-cols-2 gap-8 items-center w-full" data-name="Navigation Block">
+            <!-- Anterior (Right-aligned per Figma node 1058:113606) -->
+            <div class="flex justify-end text-right items-center min-w-0" id="nav-prev-container">
               {prevEvent && (
                 <TagWithLink
                   label="Anterior"
                   count={prevEvent.title}
-                  alignment="Left"
+                  alignment="Right"
                   href={`/event/${prevEvent.idMel}`}
                   class="w-full"
                   hideBorder={true}
@@ -508,8 +508,8 @@ const designerDisplay = getTagDisplay(eventData.designer);
               )}
             </div>
 
-            <!-- Siguiente (Left-aligned or Right-aligned as Figma) -->
-            <div class="flex justify-start text-left items-center" id="nav-next-container">
+            <!-- Siguiente (Left-aligned per Figma node 1058:113607) -->
+            <div class="flex justify-start text-left items-center min-w-0" id="nav-next-container">
               {nextEvent && (
                 <TagWithLink
                   label="Siguiente"
