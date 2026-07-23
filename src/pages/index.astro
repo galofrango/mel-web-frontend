@@ -1625,6 +1625,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
     const params = new URLSearchParams();
     params.set('view', activeViewName);
+    if (currentSortCol) {
+      params.set('sort', currentSortCol);
+      params.set('dir', currentSortDir);
+    }
     if (location) {
       params.set('location', location);
     } else if (search) {
@@ -3121,6 +3125,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       _s.archives = [...initialArchives];
       _s.filtered = [...initialArchives];
     }
+    try {
+      if (_s.archives && _s.archives.length > 0) {
+        sessionStorage.setItem('mel-session-order', JSON.stringify(_s.archives.map(x => x.idMel)));
+      }
+    } catch (e) {}
 
     // Re-sync local aliases from persisted state
     archives           = _s.archives;

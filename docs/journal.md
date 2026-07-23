@@ -21,7 +21,26 @@ El propietario solicitó eliminar todas las animaciones de entrada y revelado de
    - Descubierto el bloque `else` en `filterArchives()` que forzaba una reordenación cronológica por fecha cuando `currentSortCol` era nulo. Al eliminar este bloque, la Galería conserva el orden aleatorio inicial procedente del marcado SSR sin sustituirlo por el orden por fechas a los pocos instantes de cargar.
 
 ### Decisiones Tomadas
-- Registradas las decisiones `D-087`, `D-088`, `D-089`, `D-090` y `D-091` en `docs/decisions.md`.
+- Registradas las decisiones `D-087`, `D-088`, `D-089`, `D-090`, `D-091` y `D-092` en `docs/decisions.md`.
+
+---
+
+## [2026-07-23] — Sesión: Sincronización del orden entre eventos (Anterior/Siguiente) (D-092)
+
+### Objetivo de la Sesión
+Sincronizar la navegación entre eventos dentro de la ficha (`/event/[id]`) para que los controles *Anterior* / *Siguiente* (y las flechas del teclado) sigan exactamente la secuencia de la pantalla principal (orden aleatorio de la sesión o la columna activa de la Lista).
+
+### Cambios Realizados
+1. **Persistencia del orden aleatorio de la sesión**:
+   - `initHomePage()` almacena la secuencia de IDs de la sesión en `sessionStorage['mel-session-order']`.
+   - Si no hay ordenación por columna activa, `/event/[id]` usa esta secuencia para avanzar/retroceder respetando la cuadrícula visible.
+2. **Sincronización SSR con columnas de Lista**:
+   - Mapeadas todas las columnas (`evento`, `fecha`, `lugar`, `localidad`, `organiza`, `disenador`) en el frontmatter de `/event/[id]`, ordenando los datos directamente en el servidor.
+3. **Cierre seguro a la vista de origen**:
+   - `closeUrl` se calcula directamente en SSR garantizando que al pulsar cerrar se vuelva a la vista de origen (Lista/Galería) preservando la búsqueda y ordenación intactos.
+
+### Decisiones Tomadas
+- Registradas las decisiones `D-089`, `D-090`, `D-091` y `D-092` en `docs/decisions.md`.
 
 ---
 

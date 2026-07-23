@@ -14,6 +14,23 @@ import IconButton from '../../components/IconButton.astro';
 const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
 const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
 
+const activeView = Astro.url.searchParams.get('view') || 'galería';
+const activeSearch = Astro.url.searchParams.get('search') || '';
+const activeLocation = Astro.url.searchParams.get('location') || '';
+const sortCol = Astro.url.searchParams.get('sort') || '';
+const sortDir = Astro.url.searchParams.get('dir') || 'asc';
+
+const navParams = new URLSearchParams();
+if (activeView) navParams.set('view', activeView);
+if (activeSearch) navParams.set('search', activeSearch);
+if (activeLocation) navParams.set('location', activeLocation);
+if (sortCol) {
+  navParams.set('sort', sortCol);
+  navParams.set('dir', sortDir);
+}
+
+const closeUrl = `/?${navParams.toString()}`;
+
 let eventsList: any[] = [];
 try {
   const response = await fetch(CONFIG_URL);
@@ -75,6 +92,42 @@ try {
       g.carruselItems.sort((a, b) => a.order - b.order);
       return g;
     });
+
+    const dbFieldMap: Record<string, string> = {
+      evento: 'title',
+      fecha: 'date',
+      lugar: 'location',
+      localidad: 'locality',
+      organiza: 'organizer',
+      disenador: 'designer',
+    };
+
+    if (sortCol) {
+      if (sortCol === 'fecha') {
+        eventsList.sort((a: any, b: any) => {
+          const parseDate = (dStr: string) => {
+            if (!dStr || dStr === 'SIN FECHA') return 0;
+            const parts = dStr.split('/');
+            if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0])).getTime();
+            const parts2 = dStr.split('-');
+            if (parts2.length === 3) return new Date(parseInt(parts2[0]), parseInt(parts2[1])-1, parseInt(parts2[2])).getTime();
+            return 0;
+          };
+          const valA = parseDate(a.date);
+          const valB = parseDate(b.date);
+          return sortDir === 'asc' ? valA - valB : valB - valA;
+        });
+      } else {
+        eventsList.sort((a: any, b: any) => {
+          const dbField = dbFieldMap[sortCol] || sortCol;
+          const valA = String(a[dbField] || '').toLowerCase().trim();
+          const valB = String(b[dbField] || '').toLowerCase().trim();
+          if (!valA || valA === 'desconocido') return 1;
+          if (!valB || valB === 'desconocido') return -1;
+          return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        });
+      }
+    }
   }
 } catch (e) {
   console.error("Error fetching event data", e);
@@ -88,8 +141,8 @@ if (eventIndex === -1) {
 const eventData = eventsList[eventIndex];
 const prevEvent = eventIndex > 0 ? eventsList[eventIndex - 1] : null;
 const nextEvent = eventIndex < eventsList.length - 1 ? eventsList[eventIndex + 1] : null;
-const prevUrl = prevEvent ? `/event/${prevEvent.idMel}` : null;
-const nextUrl = nextEvent ? `/event/${nextEvent.idMel}` : null;
+const prevUrl = prevEvent ? `/event/${prevEvent.idMel}?${navParams.toString()}` : null;
+const nextUrl = nextEvent ? `/event/${nextEvent.idMel}?${navParams.toString()}` : null;
 
 // Map full list of events for client-side search filtering
 const allEvents = eventsList.map((e: any) => ({
@@ -220,7 +273,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              literal with no documented rationale). -->
         <IconButton
           id="detail-close-btn"
-          href="/"
+          href={closeUrl}
           icon="x"
           type="phantom"
           class="mb-8 lg:mb-14 lg:mt-1"
@@ -622,7 +675,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
   ></div>
 </Layout>
 
-<script define:vars={{ allEvents }}>
+<script define:vars={{ allEvents, prevUrl, nextUrl }}>
   function initPage() {
     const dataEl = document.getElementById('event-detail-data');
     const imageUrls = dataEl ? JSON.parse(dataEl.dataset.imageUrls || '[]') : [];
@@ -640,7 +693,64 @@ const designerDisplay = getTagDisplay(eventData.designer);
       if (activeView) returnParams.set('view', activeView);
       if (activeSearch) returnParams.set('search', activeSearch);
       if (activeLocation) returnParams.set('location', activeLocation);
+      if (activeSortCol) {
+        returnParams.set('sort', activeSortCol);
+        returnParams.set('dir', activeSortDir);
+      }
       closeBtn.href = `/?${returnParams.toString()}`;
+    }
+
+    let prevHref = prevUrl;
+    let nextHref = nextUrl;
+
+    if (!activeSortCol) {
+      try {
+        const sessionOrderRaw = sessionStorage.getItem('mel-session-order');
+        if (sessionOrderRaw) {
+          const sessionOrderIds = JSON.parse(sessionOrderRaw);
+          const idx = sessionOrderIds.indexOf(eventId);
+          if (idx !== -1) {
+            const prevId = idx > 0 ? sessionOrderIds[idx - 1] : null;
+            const nextId = idx < sessionOrderIds.length - 1 ? sessionOrderIds[idx + 1] : null;
+
+            const makeNavUrl = (targetId) => {
+              if (!targetId) return null;
+              const p = new URLSearchParams(urlParams);
+              return `/event/${targetId}?${p.toString()}`;
+            };
+
+            prevHref = makeNavUrl(prevId);
+            nextHref = makeNavUrl(nextId);
+
+            const prevItem = allEvents.find(e => e.idMel === prevId);
+            const nextItem = allEvents.find(e => e.idMel === nextId);
+
+            const prevContainer = document.getElementById('nav-prev-container');
+            if (prevContainer) {
+              if (prevItem) {
+                const a = prevContainer.querySelector('a');
+                const countSpan = prevContainer.querySelector('.tag-count-val');
+                if (a) a.href = prevHref;
+                if (countSpan) countSpan.textContent = prevItem.title;
+              } else {
+                prevContainer.style.display = 'none';
+              }
+            }
+
+            const nextContainer = document.getElementById('nav-next-container');
+            if (nextContainer) {
+              if (nextItem) {
+                const a = nextContainer.querySelector('a');
+                const countSpan = nextContainer.querySelector('.tag-count-val');
+                if (a) a.href = nextHref;
+                if (countSpan) countSpan.textContent = nextItem.title;
+              } else {
+                nextContainer.style.display = 'none';
+              }
+            }
+          }
+        }
+      } catch (e) {}
     }
 
     // Abort any previous window listeners to prevent duplicates across page transitions

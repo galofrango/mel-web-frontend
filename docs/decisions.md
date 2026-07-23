@@ -1035,7 +1035,15 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Contexto**: Al entrar por primera vez o recargar, las fuentes del sistema (utilizadas como fallback antes de cargar Lora / Space Grotesk) medían temporalmente un ancho ligeramente mayor (~179px por etiqueta), haciendo que el calculador adaptativo creyera falsamente que las etiquetas no cabían junto al selector de vista (Toggle) y desplazara el Toggle a la segunda línea durante unos instantes.
 - **Decisión**:
   1. En `updateAdaptiveTagsRow`, se acota la medición del ancho natural a la cota máxima permitida por CSS (`effectiveMaxNatural = Math.min(maxNatural, 176)`).
-  2. Esto asegura que en escritorio (>= 1024px) el selector de vista se ubique de forma estable en la primera línea junto a las etiquetas desde el primer fotograma, eliminando cualquier salto de layout (CLS) durante la carga de fuentes.
+
+## D-092 · Sincronización de la navegación entre eventos (Anterior/Siguiente) con la sesión y la ordenación activa de columna
+
+- **Contexto**: Se requería que al abrir la ficha de un evento (`/event/[id]`), la navegación entre eventos (*Anterior* / *Siguiente* y flechas `←` / `→`) siguiera la secuencia exacta activa en la pantalla principal (sea el orden aleatorio de la sesión o el orden por columna de la vista de Lista).
+- **Decisión**:
+  1. **Persistencia del orden aleatorio de la sesión**: `initHomePage()` guarda la secuencia de IDs de la sesión en `sessionStorage['mel-session-order']`. Si no hay ordenación por columna activa, `/event/[id]` utiliza esta secuencia para mantener la navegación continua entre carteles.
+  2. **Traducción completa de columnas en SSR**: `navigateToEvent()` transmite `sort` y `dir` en la URL. El servidor en `/event/[id]` mapea todos los nombres de columnas de la Lista (`evento`, `fecha`, `lugar`, `localidad`, `organiza`, `disenador`) a los campos del modelo, ordenando los datos directamente en SSR.
+  3. **Preservación de vista y filtros al cerrar**: La URL de retorno del botón de cerrar (`closeUrl`) se calcula en el servidor garantizando que al cerrar la ficha el visitante regrese siempre a su vista de origen (Lista o Galería) con la búsqueda y ordenación intactos.
+
 
 
 
