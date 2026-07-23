@@ -363,8 +363,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           <!-- Title & Address. pt-16 (no el pt-24 original de Figma) en todas
                las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
           <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] px-6 sm:px-12 lg:px-6 shrink-0 w-full relative">
-            <div class="flex flex-col gap-[16px] items-start justify-center w-full">
-              <h2 id="side-panel-title" class="font-sans font-bold text-[31px] leading-[32px] text-mel-text-primary tracking-[-0.62px] truncate w-full"></h2>
+            <div class="flex flex-col gap-[8px] items-start justify-center w-full">
+              <h2 id="side-panel-title" class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] lg:text-[25px] lg:leading-[32px] lg:tracking-[-0.5px] text-mel-text-primary truncate w-full"></h2>
               <p id="side-panel-address" class="font-serif font-medium text-[15px] leading-[24px] text-mel-text-secondary tracking-[0.15px] truncate w-full"></p>
             </div>
           </div>
@@ -375,7 +375,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                scroll+bleed) is decided by updateAdaptiveTagsRow() below, no
                sibling to negotiate space with so it's always "alone" against
                the panel's own width. -->
-          <div class="pb-[32px] px-6 sm:px-12 lg:px-6 flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
+          <div class="pb-[24px] px-6 sm:px-12 lg:px-6 flex flex-col items-start justify-center w-full z-[2] relative shrink-0">
             <AdaptiveTagsRow
               id="side-panel-tags-container"
               tags={[
@@ -385,8 +385,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                 { label: 'Promotores', count: '0' },
               ]}
             />
-            <!-- Inset bottom divider (Figma matches: bottom-0 left-24 right-24, color: mel-border) -->
-            <div class="absolute bottom-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 h-[1px] bg-mel-border"></div>
           </div>
           
           <!-- Event List (Scrollable) -->
@@ -1366,7 +1364,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-[24px] right-[24px] border-b border-mel-border/60"></div>' : ''}
+      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 border-b border-mel-border/60"></div>' : ''}
     `;
   }
 
@@ -1541,6 +1539,38 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // worked). Coalescing into at most one filterArchives() per animation
   // frame keeps the values live-updating but stops that thrash.
   let sliderUpdateScheduled = false;
+  // D-086 ronda 4: rAF-coalescing alone (below) only guarantees at most one
+  // *scheduled* filterArchives() per frame — it says nothing about how long
+  // that call itself takes once it runs. Rebuilding the gallery/list DOM is
+  // real work (masonry sizing, image handling, row markup), and on a phone's
+  // weaker CPU a big year-range jump can make a single call take well past
+  // one frame's budget, blocking the main thread — which is also where
+  // touchmove events for the slider itself get queued and delivered. That's
+  // the propietario's own diagnosis: Mapa stays smooth because marker
+  // updates are cheap (clusterer diffing, no full rebuild); Galería/Lista
+  // jank specifically on mobile because the rebuild is heavy AND touch
+  // fires far more events/sec than a mouse drag ever does, so the backlog
+  // compounds. Time-throttling the expensive rebuild specifically WHILE
+  // actively dragging (trailing-edge — the last call always still fires,
+  // nothing gets lost) keeps the slider's own live feedback (handle
+  // position, year labels — cheap, CSS/text only, driven entirely inside
+  // TimeSlider.astro) responsive every frame while capping how often the
+  // expensive part can compete for the same thread. A discrete interaction
+  // (click-to-jump, keyboard) isn't throttled at all — this only kicks in
+  // while `#slider-track-wrapper` has D-068's `.dragging` class.
+  let sliderLastFilterAt = 0;
+  let sliderTrailingTimer = null;
+  const SLIDER_DRAG_FILTER_THROTTLE_MS = 120;
+
+  function scheduleFilterArchives() {
+    if (sliderUpdateScheduled) return;
+    sliderUpdateScheduled = true;
+    requestAnimationFrame(() => {
+      sliderUpdateScheduled = false;
+      filterArchives();
+    });
+  }
+
   function updateSlider() {
     if (!sliderMin || !sliderMax) return;
     let val1 = parseInt(sliderMin.value);
@@ -1564,18 +1594,39 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const galleryScroller = document.getElementById('view-galería');
     if (galleryScroller) galleryScroller.scrollTop = 0;
 
-    if (sliderUpdateScheduled) return;
-    sliderUpdateScheduled = true;
-    requestAnimationFrame(() => {
-      sliderUpdateScheduled = false;
-      filterArchives();
-    });
+    const trackWrapper = document.getElementById('slider-track-wrapper');
+    const isDragging = trackWrapper && trackWrapper.classList.contains('dragging');
+
+    if (!isDragging) {
+      if (sliderTrailingTimer) { clearTimeout(sliderTrailingTimer); sliderTrailingTimer = null; }
+      scheduleFilterArchives();
+      return;
+    }
+
+    const now = performance.now();
+    const elapsed = now - sliderLastFilterAt;
+    if (elapsed >= SLIDER_DRAG_FILTER_THROTTLE_MS) {
+      sliderLastFilterAt = now;
+      scheduleFilterArchives();
+    } else if (!sliderTrailingTimer) {
+      sliderTrailingTimer = setTimeout(() => {
+        sliderTrailingTimer = null;
+        sliderLastFilterAt = performance.now();
+        scheduleFilterArchives();
+      }, SLIDER_DRAG_FILTER_THROTTLE_MS - elapsed);
+    }
   }
 
   // Bind Slider Events — called from initHomePage()
   function bindSliderEvents() {
     if (sliderMin) sliderMin.addEventListener('input', updateSlider);
     if (sliderMax) sliderMax.addEventListener('input', updateSlider);
+    // 'change' (D-086, TimeSlider.astro dispatches it on release, after
+    // removing the `dragging` class) guarantees one final, immediate,
+    // un-throttled sync — the last 'input' during a drag may have been
+    // deferred by the throttle above and not caught up yet.
+    if (sliderMin) sliderMin.addEventListener('change', updateSlider);
+    if (sliderMax) sliderMax.addEventListener('change', updateSlider);
   }
 
   // Carousel Render inside Lightbox
@@ -2291,7 +2342,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           mobileListItems.innerHTML = '';
           paginated.forEach((item, idx) => {
             const row = document.createElement('div');
-            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
             row.dataset.id = item.idMel;
             row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
             mobileListItems.appendChild(row);

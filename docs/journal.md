@@ -2,6 +2,61 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Reajuste tipográfico, espaciados y tarjetas adaptativas en panel del mapa (D-089)
+
+### Objetivo de la Sesión
+Reajustar el título del panel de lugar a 28px en móvil y 25px (H3 del DS) en escritorio, compactar distancias verticales, eliminar el divisor horizontal sobrante sobre la lista y alinear las tarjetas de eventos móviles con el padding adaptativo de 48px del layout.
+
+### Cambios Realizados
+1. **Página principal (`src/pages/index.astro`)**:
+   - Actualizado `#side-panel-title` a `text-[28px] lg:text-[25px]`.
+   - Reducido el espacio vertical de la cabecera a `gap-[8px]` y la base de etiquetas a `pb-[24px]`.
+   - Eliminado el divisor horizontal `<div class="bg-mel-border">` de la base de las etiquetas.
+   - Ajustadas las tarjetas móviles `mobile-event-card-list` y sus divisores internos a la escala adaptativa `px-6 sm:px-12 lg:px-6`.
+2. **Documentación**: Registrada decisión `D-089` en `docs/decisions.md` y actualizado `docs/journal.md`.
+
+---
+
+## [2026-07-23] — Sesión: suavizado del slider restringido a táctil (D-086 ronda 5)
+
+### Objetivo de la Sesión
+El propietario confirmó mejora notable en móvil tras la ronda 4 ("ya casi no vibra"). Reportó un efecto secundario nuevo: el tirador se percibe con retraso y una "estela" tipo motion-blur, afectando también a escritorio (con ratón) — algo que no pasaba antes del suavizado de la ronda 3.
+
+### Investigación y Cambios Realizados
+1. Diagnóstico: el suavizado exponencial de la ronda 3 se aplicaba a cualquier tipo de puntero, incluido el ratón (preciso al píxel, sin ruido que filtrar). Con la causa real ya resuelta en la ronda 4, el suavizado pasa a ser un refuerzo secundario, y su coste (retraso perceptible) ya no se justifica de forma universal.
+2. Corregido en `TimeSlider.astro`: el suavizado ahora solo se activa si `e.pointerType` es `touch`/`pen`; con ratón no hay ningún filtrado. Factor de suavizado aligerado de 0.35 a 0.55.
+3. Verificado: arrastre real con ratón en escritorio responde de inmediato, sin estela, sin errores de consola.
+4. Anotado (sin abordar, no pedido): la Lista en móvil no tiene la misma animación de reordenación fluida que la tabla de escritorio/iPad.
+
+### Decisiones Tomadas
+- Ver D-086 (ronda 5) en `docs/decisions.md`.
+
+### Próximos Pasos
+- El propietario debe confirmar la mejora en escritorio y seguir vigilando móvil.
+- Animación de reordenación de la Lista en móvil: pendiente de que se pida explícitamente.
+
+---
+
+## [2026-07-23] — Sesión: causa real del "temblor" — bloqueo del hilo principal por reconstrucción cara de Galería/Lista en móvil (D-086 ronda 4)
+
+### Objetivo de la Sesión
+El propietario probó el fix de suavizado (ronda 3) y notó mejora parcial, pero aportó una observación clave para localizar el problema de verdad: en Mapa el slider va perfecto; en Galería/Lista en móvil falla, peor cuanto mayor es el salto de años, y sospechaba que exigir carga inmediata de los elementos era la causa — extrañado de que en escritorio no pasara pese a más contenido.
+
+### Investigación y Cambios Realizados
+1. Diagnóstico confirmado: `filterArchives()` reconstruye toda la galería/lista (masonry, imágenes, filas) — trabajo real que en un móvil (CPU débil) puede tardar más de un frame para saltos de año grandes, bloqueando el hilo principal justo donde se entregan los eventos táctiles del propio slider. Mapa no sufre esto porque solo hace diff de marcadores. Escritorio no lo nota porque un ratón genera muchos menos eventos/segundo que una superficie táctil, además de tener más CPU.
+2. Aplicado en `index.astro`: `updateSlider()` ahora distingue si hay arrastre activo (`.dragging`, D-068). Sin arrastre, comportamiento idéntico a antes. Con arrastre activo, `filterArchives()` se limita a como mucho una vez cada 120ms (throttle de flanco de bajada, la última llamada siempre se dispara) — la respuesta visual del propio slider (tirador, año) sigue actualizándose cada frame sin cambios, ya que vive aparte en `TimeSlider.astro`.
+3. Añadido un listener de `change` en `index.astro` (evento que `TimeSlider.astro` ya disparaba al soltar pero nadie escuchaba) para forzar sincronización final inmediata al terminar el arrastre.
+4. Nota de entorno: los eventos sintéticos vía JS no completaban el ciclo `requestAnimationFrame` en este navegador de pruebas (confirmado que tampoco lo hacía el código sin tocar) — limitación de la herramienta, no del sitio. Verificado en cambio con un arrastre real (simulado a nivel de sistema operativo): el rango cambió correctamente de 2004-2019 a 2013-2019, con "Eventos" y "Artistas" actualizados y la galería mostrando el contenido correcto.
+
+### Decisiones Tomadas
+- Ver D-086 (ronda 4) en `docs/decisions.md`.
+
+### Próximos Pasos
+- El propietario debe confirmar en su dispositivo táctil real si el temblor ha desaparecido.
+- Punto de restauración sigue disponible: `git tag slider-pre-fix-2026-07-23`.
+
+---
+
 ## [2026-07-23] — Sesión: Márgenes de seguridad nativos en `fitBounds()` del mapa (D-088)
 
 ### Objetivo de la Sesión

@@ -67,9 +67,22 @@ import SliderHandler from './SliderHandler.astro';
     const minValSpan = minHandle.querySelector('span') as HTMLSpanElement;
     const maxValSpan = maxHandle.querySelector('span') as HTMLSpanElement;
 
-    const MIN_YEAR = 2004;
-    const MAX_YEAR = 2019;
-    const RANGE = MAX_YEAR - MIN_YEAR; // 15
+    // Read live from the <input>'s own min/max — index.astro's
+    // calculateDynamicBounds() sets these from the real data range (D-086
+    // ronda 6: this used to be a hardcoded 2004/2019 literal, completely
+    // disconnected from that dynamic computation — harmless while the data
+    // actually spans exactly 2004-2019, but silently wrong the moment it
+    // doesn't, e.g. once older/newer events get added, or a future range
+    // like 1980-2030). Read fresh each time rather than cached once at
+    // init: init-order between this script and index.astro's own isn't
+    // guaranteed, and the bounds can legitimately change later (new data).
+    const getBounds = () => {
+      const min = parseInt(sliderMin.min, 10);
+      const max = parseInt(sliderMin.max, 10);
+      const MIN_YEAR = Number.isFinite(min) ? min : 2004;
+      const MAX_YEAR = Number.isFinite(max) ? max : 2019;
+      return { MIN_YEAR, MAX_YEAR, RANGE: MAX_YEAR - MIN_YEAR || 1 };
+    };
 
     // Continuous percentage states (0 to 100)
     let minPct = 0;
@@ -101,6 +114,7 @@ import SliderHandler from './SliderHandler.astro';
       activeFill.style.left = `calc(96px + (100% - 192px) * ${minPct / 100} - 42px)`;
       activeFill.style.right = `calc(96px + (100% - 192px) * ${(100 - maxPct) / 100} - 42px)`;
 
+      const { MIN_YEAR, RANGE } = getBounds();
       const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);
       const val2 = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
 
@@ -137,12 +151,25 @@ import SliderHandler from './SliderHandler.astro';
     // two consecutive touchmove samples is enough to swing the rounded
     // year back and forth on its own, with nothing actually conflicting
     // for the gesture. Exponentially smoothing the raw pointer position
-    // before converting it to a year absorbs that per-sample noise without
-    // adding perceptible lag — smoothedPct chases the raw pct gradually
-    // instead of snapping to it every event, and resets fresh on every new
-    // drag so the handle still grabs exactly where the finger lands.
+    // before converting it to a year absorbs that per-sample noise —
+    // smoothedPct chases the raw pct gradually instead of snapping to it
+    // every event, and resets fresh on every new drag so the handle still
+    // grabs exactly where the finger lands.
+    //
+    // D-086 ronda 5: the propietario confirmed most of the actual trembling
+    // was the main-thread-blocking issue fixed separately in index.astro
+    // (ronda 4, throttling the expensive re-render during drag) — with
+    // that fixed, this smoothing is doing more harm than good: it was
+    // applying unconditionally to EVERY pointer type, including mouse,
+    // which never had a noise problem to begin with (a mouse cursor is
+    // precise to the pixel) — visible as a laggy "motion blur" trail on
+    // desktop that had never been there before. Smoothing now only kicks
+    // in for touch/pen input (checked once per drag, at pointerdown —
+    // pointerType doesn't change mid-gesture) and uses a lighter factor,
+    // since it's now a secondary safety net rather than the primary fix.
     let smoothedPct = null;
-    const POINTER_SMOOTHING = 0.35; // lower = smoother/more lag, higher = snappier/less filtering
+    let isTouchDrag = false;
+    const POINTER_SMOOTHING = 0.55; // lower = smoother/more lag, higher = snappier/less filtering — touch only
 
     const beginDrag = (e, which) => {
       setDraggingClass(true);
@@ -151,6 +178,7 @@ import SliderHandler from './SliderHandler.astro';
       activePointerId = e.pointerId;
       activeHandle = which === 'min' ? minHandle : maxHandle;
       smoothedPct = null;
+      isTouchDrag = e.pointerType === 'touch' || e.pointerType === 'pen';
       try { activeHandle.setPointerCapture(e.pointerId); } catch (err) {}
       e.stopPropagation();
       e.preventDefault();
@@ -164,13 +192,17 @@ import SliderHandler from './SliderHandler.astro';
       if (!isDraggingMin && !isDraggingMax) return;
       const rect = trackWrapper.getBoundingClientRect();
       const rawPct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
-      // First sample of this drag snaps immediately (no lag grabbing the
-      // handle); every one after that eases toward the raw value instead
-      // of jumping straight to it, filtering out the touch-noise jitter
-      // that was flipping the rounded year back and forth.
-      smoothedPct = smoothedPct === null ? rawPct : smoothedPct + (rawPct - smoothedPct) * POINTER_SMOOTHING;
-      const pct = smoothedPct;
+      // Mouse input is precise to the pixel — no noise to filter, and
+      // smoothing it only adds a laggy trail with nothing to show for it.
+      // First sample of a touch drag snaps immediately (no lag grabbing
+      // the handle); every one after that eases toward the raw value.
+      let pct = rawPct;
+      if (isTouchDrag) {
+        smoothedPct = smoothedPct === null ? rawPct : smoothedPct + (rawPct - smoothedPct) * POINTER_SMOOTHING;
+        pct = smoothedPct;
+      }
 
+      const { MIN_YEAR, RANGE } = getBounds();
       if (isDraggingMin) {
         // Clamp: never exceed maxPct
         minPct = Math.min(pct, maxPct);
@@ -196,6 +228,7 @@ import SliderHandler from './SliderHandler.astro';
     // already reclaimed the gesture on its own end — the two visibly
     // fighting is the other half of the "trembling" symptom.
     const endDrag = () => {
+      const { MIN_YEAR, RANGE } = getBounds();
       if (isDraggingMin) {
         isDraggingMin = false;
         setDraggingClass(false);
@@ -236,6 +269,7 @@ import SliderHandler from './SliderHandler.astro';
       const target = e.target as HTMLElement;
       if (minHandle.contains(target) || maxHandle.contains(target)) return;
 
+      const { MIN_YEAR, RANGE } = getBounds();
       const rect = trackWrapper.getBoundingClientRect();
       const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
       const clickedYear = Math.round((pct / 100) * RANGE + MIN_YEAR);
