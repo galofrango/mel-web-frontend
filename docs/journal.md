@@ -2,6 +2,23 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Reajuste táctil, espaciado de 32px y aparcado de experimentos (3D Tilt y F5 reset)
+
+### Objetivo de la Sesión
+1. Solucionar el "amago" o retardo a dos tiempos al pulsar un flyer en modo táctil en móvil.
+2. Probar espaciado mayor entre tarjetas de la Galería (32px).
+3. Investigar la inestabilidad del 3D Tilt al volver de un evento y el comportamiento de reseteo manual con F5.
+
+### Cambios Realizados y Resultados
+1. **Fix Táctil en Móvil**: Aislada la regla `:hover` en `@media (hover: hover)`. En pantallas táctiles se elimina la animación de pre-hover, abriendo los detalles del evento de forma directa e instantánea.
+2. **Espaciado Galería a 32px**: Actualizado `GALLERY_GAP = 32;` y `gap-x-[32px]` en `src/pages/index.astro`. Los flyers tienen ahora una separación horizontal y vertical más airosa.
+3. **Aparcado de Problemas Conocidos (por indicación del propietario)**:
+   - **3D Tilt al regresar**: Aparcado como problema conocido nº 5 en `docs/roadmap.md`. Queda en la rama experimental `experiment/gallery-3d-tilt` para una revisión futura dedicada sin alterar la rama principal `main`.
+   - **Reinicio en F5**: Aparcado como problema conocido nº 6 en `docs/roadmap.md`.
+4. **Limpieza de Código**: Eliminados todos los intentos temporales de elevación por encima de la interfaz (`z-index: 9999`) y restaurado el estado limpio original en `main`.
+
+---
+
 ## [2026-07-23] — Sesión: Precarga inteligente y navegación fluida entre eventos mediante View Transitions (D-090)
 
 ### Objetivo de la Sesión
