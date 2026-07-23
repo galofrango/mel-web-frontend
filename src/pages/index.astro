@@ -3137,7 +3137,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (justAutoOpened && googleMap) {
         googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
         googleMap.setZoom(15);
-        setTimeout(() => populateSidePanel(locationGroups[activeSidePanelKey], 300), 1000);
+        // Store the timeout ID so initHomePage can cancel it if it re-runs
+        // (e.g. a second astro:page-load) before this fires — otherwise the
+        // panel opens with a dead AbortController and no close listener.
+        window._melAutoOpenTimeout = setTimeout(() => {
+          window._melAutoOpenTimeout = null;
+          populateSidePanel(locationGroups[activeSidePanelKey], 300);
+        }, 1000);
       } else {
         populateSidePanel(locationGroups[activeSidePanelKey]);
       }
@@ -3435,6 +3441,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     window._melAbortCtrl = new AbortController();
     const wSig = window._melAbortCtrl.signal;
 
+    // Cancel any pending auto-open timeout from a previous init cycle.
+    // If initHomePage runs again (e.g. a second astro:page-load during a View
+    // Transition) before the 1000ms auto-open fires, the timeout would open
+    // the panel with a dead AbortController, leaving the close button without
+    // a listener. Cancelling it here prevents that race condition.
+    if (window._melAutoOpenTimeout) {
+      clearTimeout(window._melAutoOpenTimeout);
+      window._melAutoOpenTimeout = null;
+    }
+
     // --- Galería masonry 2.1 (D-015) ---
     // Siembra las claves aleatorias con el orden que ya pintó el servidor
     // (él también baraja): la primera pasada de filtros reproduce ese orden
@@ -3615,12 +3631,28 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // (rather than once inside initGoogleMap()) since the map itself may not
     // get rebuilt on a soft navigation back to this page — but the close
     // button is a fresh DOM node every time and needs its own listener.
+    // NOTE: We deliberately do NOT use { signal: wSig } here. The close
+    // button must remain functional even if initHomePage re-runs (which would
+    // abort wSig), because the auto-open timeout fires 1000ms after init and
+    // opens the panel asynchronously — if the AbortController was replaced
+    // in between, the close button would be dead. We remove the old listener
+    // manually via a stored reference instead.
     const closePanelBtn = document.getElementById('close-map-side-panel');
     const sidePanel = document.getElementById('map-side-panel');
     if (closePanelBtn && sidePanel) {
-      closePanelBtn.addEventListener('click', () => {
+      // Remove any previously attached listener to avoid duplicates
+      if (window._melClosePanelHandler) {
+        closePanelBtn.removeEventListener('click', window._melClosePanelHandler);
+      }
+      window._melClosePanelHandler = () => {
         activeSidePanelKey = null;
         _s.activeSidePanelKey = null;
+        // Cancel any pending auto-open so it can't re-open the panel
+        // immediately after the user closes it.
+        if (window._melAutoOpenTimeout) {
+          clearTimeout(window._melAutoOpenTimeout);
+          window._melAutoOpenTimeout = null;
+        }
         // Drop ?location= so the auto-open check inside updateMapMarkers()
         // doesn't immediately re-match this same place and pop the panel
         // back open next time it runs.
@@ -3642,14 +3674,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // while active. updateMapMarkers()'s diff now treats it as any
         // other non-active marker since activeSidePanelKey is cleared.
         updateMapMarkers(false);
-      }, { signal: wSig });
+      };
+      closePanelBtn.addEventListener('click', window._melClosePanelHandler);
     }
 
     // Tocar el dim (solo existe/es interactivo en móvil, ver su propia
     // media query) cierra el sheet igual que el botón de cerrar.
+    // Same manual listener management as closePanelBtn — must survive
+    // AbortController replacement.
     const sidePanelBackdrop = document.getElementById('map-side-panel-backdrop');
     if (sidePanelBackdrop && closePanelBtn) {
-      sidePanelBackdrop.addEventListener('click', () => closePanelBtn.click(), { signal: wSig });
+      if (window._melBackdropHandler) {
+        sidePanelBackdrop.removeEventListener('click', window._melBackdropHandler);
+      }
+      window._melBackdropHandler = () => closePanelBtn.click();
+      sidePanelBackdrop.addEventListener('click', window._melBackdropHandler);
     }
 
     // Bottom sheet en móvil: arrastrar el tirador hacia abajo lo cierra
