@@ -1291,6 +1291,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // later render triggered by that same cascade doesn't lose it, but a real
   // user-driven filter/sort/search afterwards doesn't replay it either.
   let gallerySettled = true;
+  let isFirstDOMUpdate = true;
 
   // Calculate year of event
   function getYear(dateStr) {
@@ -2024,7 +2025,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const isGalleryVisible = galleryViewEl && !galleryViewEl.classList.contains('hidden');
       const oldCardRects = new Map();
       const exitingCardClones = [];
-      if (isGalleryVisible && gallerySettled) {
+      if (isGalleryVisible && gallerySettled && !isFirstDOMUpdate) {
         const newIdsSet = new Set(galleryShown.map(item => item.idMel));
         const gridRectForExit = gridContainer.getBoundingClientRect();
         Array.from(gridContainer.children).forEach(card => {
@@ -2211,6 +2212,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             }, 320);
           });
         }
+        isFirstDOMUpdate = false;
 
         // Arma el revelado al scroll para todas las tarjetas recién creadas:
         // las que ya están a la vista quedan como están (intro/FLIP); las que
@@ -3386,6 +3388,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // the flag's declaration for why this can't just live in
     // bindInitialCardClicks().
     gallerySettled = false;
+    isFirstDOMUpdate = true;
 
     // Re-sync local aliases from persisted state
     archives           = _s.archives;
