@@ -63,7 +63,7 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border/30 px
         <span class="tag-count-val">{count}</span>
       </Link>
     ) : (
-      <span class={`tag-count-val block w-full ${state === 'Disabled' ? "font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] text-mel-text-tertiary select-text" : "font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px] text-mel-text-secondary select-text"}`}>
+      <span class={`tag-count-val block w-full typo-body-roman ${state === 'Disabled' ? "text-mel-text-tertiary select-text" : "text-mel-text-secondary select-text"}`}>
         {count}
       </span>
     )}
