@@ -468,7 +468,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
                     const isLast = idx === arr.length - 1;
                     return (
                       <span class="inline-flex items-center whitespace-nowrap">
-                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>}
+                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="text-mel-text-secondary mr-2 typo-body-roman">,</span>}
                       </span>
                     );
                   })}
@@ -674,8 +674,8 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
 
     function fadeAndNavigate(url) {
-      // Direct seamless View Transition between events without white screen
-      if (url.includes('/event/') && typeof window.__melNavigate === 'function') {
+      // Direct seamless View Transition for all internal navigations (Morphing v1 return to Home & event-to-event)
+      if (typeof window.__melNavigate === 'function') {
         window.__melNavigate(url);
       } else {
         document.body.style.transition = 'opacity 0.15s ease';
