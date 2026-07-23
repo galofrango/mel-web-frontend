@@ -197,11 +197,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   [shuffledArchives[i], shuffledArchives[j]] = [shuffledArchives[j], shuffledArchives[i]];
 }
 
-// D-085: SSR-side view state detection. Prevents FOUC/flash of the gallery when landing on ?view=mapa or ?view=lista directly.
-const requestedView = Astro.url.searchParams.get('view') || 'galería';
-const isMapaView = requestedView === 'mapa';
-const isListaView = requestedView === 'lista';
-const isGaleriaView = !isMapaView && !isListaView;
 ---
 
 <Layout title="Galería de Diseño">
@@ -302,7 +297,7 @@ const isGaleriaView = !isMapaView && !isListaView;
            breathing room, rule 9 — not touching that) so the scroll
            container's own box reaches the literal bottom of the screen
            instead of stopping 3vh short of it. -->
-      <div id="view-galería" class={`view-panel ${isGaleriaView ? "active" : "hidden"} flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative`}>
+      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
         <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
@@ -330,7 +325,7 @@ const isGaleriaView = !isMapaView && !isListaView;
            lg:top-[24px] on desktop (D-067) — mirrors the gallery's own pt-0/lg:pt-[8px]
            split (D-064/D-067): the propietario asked to raise all three home views'
            content by 24px on mobile specifically, desktop untouched here. -->
-      <div id="view-mapa" class={`view-panel ${isMapaView ? "active" : "hidden"} absolute top-0 lg:top-[24px] right-0 bottom-0 left-0 overflow-hidden flex`}>
+      <div id="view-mapa" class="view-panel hidden absolute top-0 lg:top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
         <div id="map-container" class="flex-1 h-full"></div>
 
         <!-- Dim: solo cuando el panel es bottom sheet (bajo lg). Cubre el slider
@@ -408,7 +403,7 @@ const isGaleriaView = !isMapaView && !isListaView;
            reach the literal bottom of the screen. Safe again now that pagination-controls
            lives INSIDE those containers (D-066) instead of as a flex sibling here — nothing
            left for a negative margin on this element to disturb. -->
-      <div id="view-lista" class={`view-panel ${isListaView ? "active flex" : "hidden"} flex-col justify-start w-full relative flex-1 min-h-0 pt-0 lg:pt-[24px] -mb-[3vh]`}>
+      <div id="view-lista" class="view-panel hidden flex-col justify-start w-full relative flex-1 min-h-0 pt-0 lg:pt-[24px] -mb-[3vh]">
         <!-- The border lives on the <table> itself (top+bottom), not this wrapper — the wrapper
              is flex-1/stretches to fill whatever vertical space is available, so its own border
              would sit at the wrapper's edge (often below the actual last row, with an empty gap,
@@ -2866,8 +2861,11 @@ const isGaleriaView = !isMapaView && !isListaView;
     document.documentElement.style.setProperty('--mel-sheet-top', top + 'px');
   }
 
-  // Populate side panel details dynamically
-  function populateSidePanel(group) {
+  // Populate side panel details dynamically.
+  // delayOpen (ms): when > 0, the CSS slide-in waits that long after the DOM
+  // has been populated — lets the map pan/zoom settle visually before the
+  // panel slides over it (used by the auto-open-from-location-link path).
+  function populateSidePanel(group, delayOpen = 0) {
     const sidePanel = document.getElementById('map-side-panel');
     if (!sidePanel) return;
 
@@ -2956,12 +2954,21 @@ const isGaleriaView = !isMapaView && !isListaView;
       // as a bottom sheet (móvil, ver media query de #map-side-panel).
       updateSidePanelDOM();
       sidePanel.style.opacity = '1';
-      setSidePanelOpenState(true);
-      // The panel animates its width in over 300ms (opening from 0 on
-      // desktop, D-026's push-the-map transition) — the tags row's initial
-      // measurement above ran against that stale (still-collapsing) width,
-      // so re-decide once the transition has settled.
-      setTimeout(() => updateAdaptiveTagsRow('side-panel-tags-container'), 310);
+      if (delayOpen > 0) {
+        // Defer the CSS slide-in so the map has time to pan/zoom into view
+        // before the panel slides over it (D-085 auto-open-from-location path).
+        setTimeout(() => setSidePanelOpenState(true), delayOpen);
+        // Re-measure tags once the panel has finished its width transition
+        // (300ms slide-in CSS + delayOpen offset).
+        setTimeout(() => updateAdaptiveTagsRow('side-panel-tags-container'), delayOpen + 310);
+      } else {
+        setSidePanelOpenState(true);
+        // The panel animates its width in over 300ms (opening from 0 on
+        // desktop, D-026's push-the-map transition) — the tags row's initial
+        // measurement above ran against that stale (still-collapsing) width,
+        // so re-decide once the transition has settled.
+        setTimeout(() => updateAdaptiveTagsRow('side-panel-tags-container'), 310);
+      }
       // Camera starts moving immediately — it animates smoothly on its own,
       // so the map glides into place WHILE the panel opens instead of
       // jumping once it already has. Keeping the map's own tiles in step
@@ -3130,7 +3137,7 @@ const isGaleriaView = !isMapaView && !isListaView;
       if (justAutoOpened && googleMap) {
         googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
         googleMap.setZoom(15);
-        setTimeout(() => populateSidePanel(locationGroups[activeSidePanelKey]), 1000);
+        setTimeout(() => populateSidePanel(locationGroups[activeSidePanelKey], 300), 1000);
       } else {
         populateSidePanel(locationGroups[activeSidePanelKey]);
       }
