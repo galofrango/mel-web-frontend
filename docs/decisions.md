@@ -1016,16 +1016,27 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
   1. En el marcado SSR inicial, se añade por defecto la clase `toggle-shares-line` a `#home-toggle-wrapper`.
   2. En CSS para escritorio (`@media (min-width: 1024px)`), la fila de etiquetas dentro del toolbar se ajusta a `width: auto; flex-shrink: 1;`.
 
-## D-089 · Espaciado de Galería a 32px y restauración condicional de scroll según la navegación de eventos
+## D-089 · Mantenimiento del espaciado de Galería a 24px y simplificación del flujo de regreso de evento
 
-- **Contexto**: El propietario solicitó un espaciado más airoso entre tarjetas de la Galería (32px en horizontal y vertical) y un comportamiento inteligente para la posición de scroll al volver de la ficha de un evento.
+- **Contexto**: Tras evaluar pruebas de espaciado y restauración de scroll, el propietario solicitó mantener la separación original de 24px entre tarjetas (`gap-x-mel-l`, `GALLERY_GAP = 24`) y eliminar la lógica diferida de memorización de scroll al cerrar eventos, retornando al flujo nativo sin saltos.
 - **Decisión**:
-  1. **Espaciado de tarjetas a 32px**: Se actualiza `GALLERY_GAP = 32;` en el script de cliente y la clase de rejilla a `gap-[32px]` en `src/pages/index.astro`.
-  2. **Restauración condicional de scroll**:
-     - Si el usuario hace scroll en la Galería, abre la ficha de un evento y la **cierra directamente** sin haber navegado a otros eventos (Anterior/Siguiente), al volver se recupera la posición exacta de scroll en la que estaba.
-     - Si el usuario **navega entre eventos** dentro de la ficha (`/event/...` a `/event/...`), al cerrar se limpia la posición guardada (`mel-return-state`) y la Galería arranca desde arriba (`scrollTop = 0`), respetando los filtros y búsqueda vigentes.
-  3. **Renderizado completo de lotes acumulados al restaurar scroll**: Cuando se restaura una posición de scroll profunda (`galleryVisibleCount > 32`), el renderizador en cliente reconstruye todos los lotes necesarios (p. ej. 64 o 96 tarjetas) en lugar de omitirlos en la primera carga, asegurando que la rejilla tenga la altura suficiente para que el scroll alcance la tarjeta deseada en mitad de la Galería.
-  4. **Protección contra imágenes no cargadas / peticiones bloqueadas**: Se añade carga perezosa (`loading="lazy"`, `decoding="async"`) y control de error en imágenes (`onerror`) con sustituto local automático para evitar huecos en blanco si Google Drive limita peticiones.
+  1. La rejilla de la Galería mantiene `gap-x-mel-l` y `GALLERY_GAP = 24`.
+  2. Se elimina la lógica de persistencia de scroll diferida (`saveReturnState`, `pendingReturnState`, `restoreScroll`) para evitar complejidad innecesaria y garantizar una navegación nativa limpia.
+
+## D-090 · Estabilidad del orden en Lista durante la sesión y lectura del parámetro `search` en URL
+
+- **Contexto**: Al abrir un evento desde la vista de Lista y volver a la home, la tabla perdía el texto de búsqueda activo y reordenaba aleatoriamente las filas debido a una sobrescritura automática del array en cada navegación.
+- **Decisión**:
+  1. **Lectura de búsqueda en URL**: Al inicializar la home (`initHomePage`), se lee el parámetro `search` de `window.location.search`. Si existe, se asigna al estado `searchQuery` y se rellena el campo del buscador (`search-input`), manteniendo los resultados filtrados intactos al volver del evento.
+  2. **Estabilidad de datos durante la sesión**: Se evita la sobrescritura del array de datos (`_s.archives`) en los navegaciones del cliente. Los datos y el orden de las filas permanecen 100% estables durante toda la sesión, rebarajándose únicamente si el visitante efectúa una recarga dura explícita (F5).
+
+## D-091 · Acotación de medición adaptativa de etiquetas a 176px para evitar salto visual del Toggle
+
+- **Contexto**: Al entrar por primera vez o recargar, las fuentes del sistema (utilizadas como fallback antes de cargar Lora / Space Grotesk) medían temporalmente un ancho ligeramente mayor (~179px por etiqueta), haciendo que el calculador adaptativo creyera falsamente que las etiquetas no cabían junto al selector de vista (Toggle) y desplazara el Toggle a la segunda línea durante unos instantes.
+- **Decisión**:
+  1. En `updateAdaptiveTagsRow`, se acota la medición del ancho natural a la cota máxima permitida por CSS (`effectiveMaxNatural = Math.min(maxNatural, 176)`).
+  2. Esto asegura que en escritorio (>= 1024px) el selector de vista se ubique de forma estable en la primera línea junto a las etiquetas desde el primer fotograma, eliminando cualquier salto de layout (CLS) durante la carga de fuentes.
+
 
 
 

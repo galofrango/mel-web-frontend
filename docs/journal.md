@@ -21,25 +21,26 @@ El propietario solicitó eliminar todas las animaciones de entrada y revelado de
    - Descubierto el bloque `else` en `filterArchives()` que forzaba una reordenación cronológica por fecha cuando `currentSortCol` era nulo. Al eliminar este bloque, la Galería conserva el orden aleatorio inicial procedente del marcado SSR sin sustituirlo por el orden por fechas a los pocos instantes de cargar.
 
 ### Decisiones Tomadas
-- Registradas las decisiones `D-087`, `D-088` y `D-089` en `docs/decisions.md`.
+- Registradas las decisiones `D-087`, `D-088`, `D-089`, `D-090` y `D-091` en `docs/decisions.md`.
 
 ---
 
-## [2026-07-23] — Sesión: Espaciado de Galería a 32px y restauración condicional de scroll (D-089)
+## [2026-07-23] — Sesión: Estabilidad en Lista, restauración de búsqueda en URL y fijado adaptativo del Toggle (D-089, D-090, D-091)
 
 ### Objetivo de la Sesión
-Ajustar la separación de tarjetas de la Galería a 32px en horizontal y vertical y aplicar una restauración inteligente de la posición de scroll al cerrar la ficha de un evento.
+Garantizar la estabilidad total de la vista de Lista al volver de un evento (conservando la búsqueda y el orden de filas) y eliminar el salto visual del selector de vista (Toggle) durante la carga de fuentes web.
 
 ### Cambios Realizados
-1. **Espaciado 32px**: Actualizados `GALLERY_GAP = 32;` y las clases CSS de rejilla a `gap-[32px]` en `src/pages/index.astro`.
-3. **Corrección de scroll al abrir evento a mitad de Galería**:
-   - Se ha ajustado `performDOMUpdates()` para que cuando exista un estado de restauración de scroll con más de 32 tarjetas (`galleryVisibleCount > PAGE_SIZE`), el cliente reconstruya todos los lotes acumulados (p. ej., 64 o 96 tarjetas) en lugar de omitirlos en la primera carga, otorgando a la rejilla la altura necesaria para restaurar el scroll exacto en mitad de la Galería.
-4. **Imágenes no cargadas / huecos en blanco resueltos**:
-   - Añadido `loading="lazy"` y `decoding="async"` a los elementos `<img>` de `FlyerCard.astro` y `buildGalleryCard()`.
-   - Añadido manejador `onerror` con sustituto local automático de flyer (`/flyers/flyer-*.png`) para garantizar que nunca quede un hueco transparente en blanco si el servidor de miniaturas limita peticiones.
+1. **Conservación de búsqueda activa desde la URL**:
+   - En `initHomePage()`, se lee el parámetro `search` de `window.location.search`. Si está presente en la URL al volver de la ficha de evento, se restaura a `searchQuery` y se rellena la caja del buscador (`search-input`), manteniendo los resultados filtrados intactos.
+2. **Estabilidad de datos y orden durante la sesión**:
+   - Se elimina la sobrescritura del array de datos (`_s.archives`) en navigaciones internas del cliente, manteniendo la lista y la galería 100% estables durante toda la sesión. El array solo se rebaraja tras un F5 explícito del usuario.
+3. **Eliminación del salto de layout del Toggle por fuentes perezosas**:
+   - En `updateAdaptiveTagsRow()`, se acota la medición del ancho natural de las etiquetas al tope estricto de CSS (`effectiveMaxNatural = Math.min(maxNatural, 176)`).
+   - Evita falsos positivos de desbordamiento en escritorio durante la carga de fuentes web fallback, manteniendo las etiquetas y el Toggle juntos en la primera línea desde el primer instante.
 
 ### Decisiones Tomadas
-- Registrada la decisión `D-089` en `docs/decisions.md`.
+- Registradas las decisiones `D-089`, `D-090` y `D-091` en `docs/decisions.md`.
 
 ## [2026-07-23] — Sesión: Fijado del Selector de Vista (Toggle) en marcado SSR de escritorio (D-088)
 

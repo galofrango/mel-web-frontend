@@ -304,7 +304,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            container's own box reaches the literal bottom of the screen
            instead of stopping 3vh short of it. -->
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
-        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[32px] auto-rows-[4px] w-full pb-[13vh]">
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
@@ -1343,7 +1343,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // orden aleatorio estable y scroll infinito.
   // -------------------------------------------------------
   const GALLERY_ROW = 4;   // grid-auto-rows del contenedor, en px
-  const GALLERY_GAP = 32;  // hueco entre tarjetas, horizontal y vertical (32px)
+  const GALLERY_GAP = 24;  // hueco entre tarjetas (mel-l), horizontal y vertical
 
   let galleryVisibleCount = PAGE_SIZE;
   let galleryOrderedCache = [];
@@ -1375,13 +1375,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // infinito) — réplica JS de FlyerCard.astro, ver regla 7 de CLAUDE.md.
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
-    const fallbackImg = `/flyers/flyer-${((i % 13) + 1)}.png`;
-    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || fallbackImg;
+    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
     card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] group bg-white transition-all duration-300 cursor-pointer';
     card.dataset.id = item.idMel;
     card.innerHTML = `
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-      <img src="${imgSrc}" alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="if (this.src !== '${fallbackImg}') { this.onerror=null; this.src='${fallbackImg}'; window.__melMeasureFlyer && window.__melMeasureFlyer(this); }" />
+      <img src="${imgSrc}" alt="${escHtml(item.evento)}" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" />
 
       <!-- Blending grid overlay (striped Figma style) -->
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
@@ -1591,25 +1590,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // already round-trips ?view=/?search=/?location=) can restore exactly
   // where they were. URL query params alone cover the shareable filters;
   // scroll/camera position isn't shareable state, so it lives here instead.
-  function saveReturnState() {
-    try {
-      const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
-      const state = { view: activeViewName, galleryVisibleCount };
-      if (activeViewName === 'galería') {
-        const el = document.getElementById('view-galería');
-        state.scrollTop = el ? el.scrollTop : 0;
-      } else if (activeViewName === 'lista') {
-        const el = window.innerWidth >= 440
-          ? document.getElementById('list-table-wrapper')
-          : document.getElementById('list-mobile-cards');
-        state.scrollTop = el ? el.scrollTop : 0;
-      } else if (activeViewName === 'mapa' && googleMap) {
-        const c = googleMap.getCenter();
-        if (c) { state.mapCenter = { lat: c.lat(), lng: c.lng() }; state.mapZoom = googleMap.getZoom(); }
-      }
-      sessionStorage.setItem('mel-return-state', JSON.stringify(state));
-    } catch (e) {}
-  }
+  function saveReturnState() {}
 
   // Real navigation to the static, server-rendered /event/[id] page — this
   // replaced an in-place SPA overlay that used to duplicate its whole
@@ -1641,10 +1622,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
-    saveReturnState();
-    try {
-      sessionStorage.removeItem('mel-event-navigated');
-    } catch (e) {}
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
     const params = new URLSearchParams();
     params.set('view', activeViewName);
@@ -1953,8 +1930,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
 
-        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[32px] auto-rows-[4px] w-full pb-[13vh] relative`;
-        if (isFirstDOMUpdate && gridContainer.children.length > 0 && galleryVisibleCount <= PAGE_SIZE) {
+        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh] relative`;
+        if (isFirstDOMUpdate && gridContainer.children.length > 0) {
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
           });
@@ -3088,6 +3065,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (!units.length) return;
     const naturalWidths = units.map(u => u.getBoundingClientRect().width);
     const maxNatural = Math.max(...naturalWidths);
+    // Hard cap per highlight-unit is 176px (D-061 / global.css): a unit never grows past 176px,
+    // so cap measurement for fallback-font checks to avoid temporary layout wrap on load.
+    const effectiveMaxNatural = Math.min(maxNatural, 176);
     const containerWidth = container.getBoundingClientRect().width;
 
     // 2. Would an equal share still fit each unit's own content if the
@@ -3100,7 +3080,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (reserved > 0) {
       const spaceIfSharing = containerWidth - reserved;
       const equalShareIfSharing = (spaceIfSharing - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
-      if (equalShareIfSharing >= maxNatural) {
+      if (equalShareIfSharing >= effectiveMaxNatural) {
         row.classList.remove('highlights-flex-content');
         row.classList.add('highlights-grid-equal');
         row.style.width = `${spaceIfSharing}px`;
@@ -3113,7 +3093,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // has wrapped away (native flex-wrap resolves that on its own, purely
     // from the row's rendered width no longer leaving it room)?
     const equalShareAlone = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
-    if (equalShareAlone >= maxNatural) {
+    if (equalShareAlone >= effectiveMaxNatural) {
       row.classList.remove('highlights-flex-content');
       row.classList.add('highlights-grid-equal');
       row.style.width = '100%';
@@ -3136,8 +3116,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     gallerySettled = false;
     isFirstDOMUpdate = true;
 
-    // Refresh archives with fresh initialArchives from server on page load/reload if default view
-    if (!_s.searchQuery && (!_s.minYear || _s.minYear === 2004) && (!_s.maxYear || _s.maxYear === 2019) && !_s.currentSortCol) {
+    // Keep archives stable during the session (re-shuffled only on F5 full reload)
+    if (!_s.archives || _s.archives.length === 0) {
       _s.archives = [...initialArchives];
       _s.filtered = [...initialArchives];
     }
@@ -3541,36 +3521,30 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       });
     }
 
-    // Returning from an event detail page (its close button links back with
-    // ?view=/?search=/?location= already, restoring filters) — restore the
-    // scroll position / map camera saveReturnState() stashed before leaving,
-    // since that's not shareable URL state. Read it before the initial
-    // render so a restored galleryVisibleCount renders enough cards for the
-    // scrollTop below to land somewhere real, instead of clamping to 0.
-    let pendingReturnState = null;
-    try {
-      const savedRaw = sessionStorage.getItem('mel-return-state');
-      if (savedRaw) {
-        sessionStorage.removeItem('mel-return-state');
-        pendingReturnState = JSON.parse(savedRaw);
-        if (pendingReturnState.galleryVisibleCount > galleryVisibleCount) {
-          galleryVisibleCount = pendingReturnState.galleryVisibleCount;
-        }
-      }
-    } catch (e) {}
-
     // Initialize state and render
     calculateDynamicBounds();
     updateSlider();
-    if (pendingReturnState && pendingReturnState.galleryVisibleCount > galleryVisibleCount) {
-      galleryVisibleCount = pendingReturnState.galleryVisibleCount;
-    }
     bindInitialCardClicks();
     initSortHeaders();
 
-    // Parse view from URL on load
+    // Parse view, search, and location from URL parameters on load
     const loadParams = new URLSearchParams(window.location.search);
     const viewParam = loadParams.get('view');
+    const searchParam = loadParams.get('search');
+    const locationParam = loadParams.get('location');
+
+    if (searchParam !== null && searchParam !== searchQuery) {
+      searchQuery = searchParam;
+      _s.searchQuery = searchParam;
+      const searchInput = document.getElementById('search-input');
+      if (searchInput) searchInput.value = searchParam;
+    }
+
+    if (locationParam !== null && locationParam !== activeSidePanelKey) {
+      activeSidePanelKey = locationParam;
+      _s.activeSidePanelKey = locationParam;
+    }
+
     if (viewParam === 'mapa') {
       switchView('mapa');
     } else if (viewParam === 'lista') {
@@ -3578,37 +3552,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     } else {
       switchView('galería');
     }
-
-    setTimeout(() => {
-      if (pendingReturnState) {
-        const restoreScroll = (el, targetTop, attemptsLeft) => {
-          if (!el) return;
-          if (el.scrollHeight - el.clientHeight >= targetTop || attemptsLeft <= 0) {
-            el.scrollTop = targetTop;
-          } else {
-            requestAnimationFrame(() => restoreScroll(el, targetTop, attemptsLeft - 1));
-          }
-        };
-        if (pendingReturnState.view === 'galería') {
-          restoreScroll(document.getElementById('view-galería'), pendingReturnState.scrollTop || 0, 120);
-        } else if (pendingReturnState.view === 'lista') {
-          const el = window.innerWidth >= 440
-            ? document.getElementById('list-table-wrapper')
-            : document.getElementById('list-mobile-cards');
-          restoreScroll(el, pendingReturnState.scrollTop || 0, 120);
-        } else if (pendingReturnState.view === 'mapa' && pendingReturnState.mapCenter) {
-          const restoreMapCamera = (attemptsLeft) => {
-            if (googleMap) {
-              googleMap.setCenter(pendingReturnState.mapCenter);
-              googleMap.setZoom(pendingReturnState.mapZoom);
-            } else if (attemptsLeft > 0) {
-              requestAnimationFrame(() => restoreMapCamera(attemptsLeft - 1));
-            }
-          };
-          restoreMapCamera(60);
-        }
-      }
-    }, 200);
   }
 
   // --- List View Sorting and Navigation Actions ---
