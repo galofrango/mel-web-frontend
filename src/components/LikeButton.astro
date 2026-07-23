@@ -9,7 +9,7 @@ const { id, active = false, class: className = "" } = Astro.props;
 ---
 <button
   id={id}
-  class={`content-stretch cursor-pointer flex items-center justify-center py-3 px-4 relative select-none outline-none group border font-sans font-medium text-[16px] leading-[20px] tracking-[0px] ${className}`}
+  class={`content-stretch cursor-pointer flex items-center justify-center py-3 px-4 relative select-none outline-none group border typo-caption ${className}`}
   data-active={active ? "true" : "false"}
 >
   <!-- Centered Label with color transition -->

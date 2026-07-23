@@ -200,12 +200,13 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 500;
-  line-height: 24px;
+  line-height: 26px;
   letter-spacing: -0.02em;
 }
 @media (min-width: 768px) {
   .typo-lead {
     font-size: 16px;
+    line-height: 26px;
   }
 }
 
@@ -213,12 +214,13 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 400;
-  line-height: 24px;
+  line-height: 26px;
   letter-spacing: -0.02em;
 }
 @media (min-width: 768px) {
   .typo-body-sans {
     font-size: 16px;
+    line-height: 26px;
   }
 }
 
@@ -281,12 +283,13 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 700;
-  line-height: 24px;
+  line-height: 26px;
   letter-spacing: -0.02em;
 }
 @media (min-width: 768px) {
   .typo-button {
     font-size: 16px;
+    line-height: 26px;
   }
 }
 
