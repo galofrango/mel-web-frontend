@@ -200,13 +200,13 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 500;
-  line-height: 28px;
+  line-height: 30px;
   letter-spacing: -0.02em;
 }
 @media (min-width: 768px) {
   .typo-lead {
     font-size: 16px;
-    line-height: 28px;
+    line-height: 30px;
   }
 }
 
