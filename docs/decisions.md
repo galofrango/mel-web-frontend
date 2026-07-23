@@ -841,6 +841,17 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
   3. Se define explícitamente `const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;` dentro de `switchView()` para garantizar una evaluación booleana consistente al alternar entre pestañas.
 - **Motivo**: Mantener la barra de paginación integrada al final del scroll del propio listado (UX aprobada por el propietario) eliminando de forma permanente la fragilidad de recolocar nodos por el DOM.
 - **Consecuencias**: Al hacer scroll en la tabla o tarjetas, la paginación aparece de forma nativa al final de los elementos y permanece 100% visible e intacta al cambiar entre Galería, Mapa y Lista.
+
+## D-086 · Registro de intentos de resolución del temblor del slider en táctil (aparcado)
+
+- **Contexto**: Se exploró solucionar la competencia gestual entre el arrastre de los tiradores de `TimeSlider.astro` y el scroll horizontal de la pantalla en emulación táctil/móvil.
+- **Intentos Realizados y Revertidos**:
+  1. **Captura de puntero en manetas (`setPointerCapture` en `minHandle`/`maxHandle`)**: Se descartó porque recalcular las coordenadas de un elemento cuya posición CSS `left` cambia continuamente en cada fotograma generaba un bucle de realimentación que empeoraba la vibración.
+  2. **Captura de puntero en contenedor estático e interceptación de `touchstart`**: Se descartó porque el uso de `preventDefault()` en `touchstart` cancelaba el disparo de eventos sintéticos de clic, impidiendo al usuario pulsar en cualquier punto de la barra para saltar directamente a un año.
+  3. **Restricción de desbordamiento horizontal `overflow-x-hidden` en `html`/`body`**: Se descartó al no eliminar el conflicto gestual de navegación en el inspector móvil.
+- **Decisión**: Revertir todos los cambios realizados en `TimeSlider.astro` y `Layout.astro` dejando la base de código limpia e intacta. El problema queda aparcado explícitamente a petición del propietario para ser abordado en una sesión dedicada.
+- **Consecuencias**: La funcionalidad del slider vuelve a su estado original previo a los experimentos (clicks en la barra plenamente operativos).
+
 - **Diagnóstico**: el componente ya cubría Resting/Hover para Primary/Phantom en 40/24px con los tokens correctos (`--action/secondary`, `--action/primary`, `--text/on-action`, sombra + blur en Primary) — el marcado de Figma confirmó esto pixel a pixel. Faltaba: (1) el estado **Pressed** (Primary → fondo `--text/tertiary` #ad858d; Phantom → texto `--action/tertiary` #7a525a, ambos tokens ya existentes en `global.css`); (2) dos instancias sin migrar en `event/[id].astro` (`detail-close-btn`, la X de cierre de la página, y `overlay-close-btn`, el cierre del lightbox) que replicaban el SVG e IconButton a mano en vez de usar el componente; (3) el botón "Menú" (`MenuItem.astro`) con su propio SVG duplicado, sin poder usar `IconButton` directamente porque este renderiza su propio `<button>` y anidar un botón dentro de otro es HTML inválido (el propio `MenuItem` ya ES el botón interactivo).
 - **Decisión**:
   1. Extraído `src/components/Icon.astro`: los 5 iconos existentes (`x`, `search`, `chevron-left`, `chevron-right`, `menu`) como SVG puro, sin chrome de botón — consumido tanto por `IconButton.astro` (que ahora solo añade el `<button>`/`<a>` y los tokens de color) como por `MenuItem.astro` (que lo inserta directamente dentro de su propio botón).

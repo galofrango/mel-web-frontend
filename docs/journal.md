@@ -2,6 +2,20 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo es mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: Registro de intentos de resolución del temblor del slider en táctil (D-086)
+
+### Objetivo de la Sesión
+Documentar los tres experimentos realizados para resolver la competencia gestual entre el arrastre de los tiradores de `TimeSlider.astro` y el scroll horizontal de la pantalla en emulación táctil/móvil.
+
+### Enfoques Probados y Revertidos
+1. **Captura de puntero en manetas (`setPointerCapture`)**: Generaba bucles de realimentación por el cambio dinámico de `left`.
+2. **Captura de puntero en contenedor e interceptación de `touchstart`**: `preventDefault()` impedía los clics directos en la barra.
+3. **Restricción de desbordamiento horizontal `overflow-x-hidden` en `html`/`body`**: No eliminaba el conflicto gestual de navegación en el inspector móvil.
+
+Todos los cambios en el código fueron revertidos por completo y el problema quedó registrado y aparcado explícitamente en [docs/roadmap.md](docs/roadmap.md) y [docs/decisions.md](docs/decisions.md) (`D-086`).
+
+---
+
 ## [2026-07-23] — Sesión: Paginación al final del scroll e inmutable (D-085 solución definitiva)
 
 ### Objetivo de la Sesión
