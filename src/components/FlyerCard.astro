@@ -28,10 +28,13 @@ const { title, category, location, year, date, image, id } = Astro.props;
   <img
     src={image}
     alt={title}
+    loading="lazy"
+    decoding="async"
     referrerpolicy="no-referrer"
     class="w-full h-auto block pointer-events-none"
     style={`view-transition-name: flyer-img-${id};`}
     onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)"
+    onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);"
   />
 
   <!-- Blending grid overlay (striped Figma style) -->

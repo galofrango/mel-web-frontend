@@ -1375,12 +1375,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // infinito) — réplica JS de FlyerCard.astro, ver regla 7 de CLAUDE.md.
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
-    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+    const fallbackImg = `/flyers/flyer-${((i % 13) + 1)}.png`;
+    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || fallbackImg;
     card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] group bg-white transition-all duration-300 cursor-pointer';
     card.dataset.id = item.idMel;
     card.innerHTML = `
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-      <img src="${imgSrc}" alt="${item.evento}" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" />
+      <img src="${imgSrc}" alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="if (this.src !== '${fallbackImg}') { this.onerror=null; this.src='${fallbackImg}'; window.__melMeasureFlyer && window.__melMeasureFlyer(this); }" />
 
       <!-- Blending grid overlay (striped Figma style) -->
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
@@ -1953,7 +1954,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listMobileCards) listMobileCards.style.display = '';
 
         gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[32px] auto-rows-[4px] w-full pb-[13vh] relative`;
-        if (isFirstDOMUpdate && gridContainer.children.length > 0) {
+        if (isFirstDOMUpdate && gridContainer.children.length > 0 && galleryVisibleCount <= PAGE_SIZE) {
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
           });

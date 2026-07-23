@@ -1024,6 +1024,8 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
   2. **Restauración condicional de scroll**:
      - Si el usuario hace scroll en la Galería, abre la ficha de un evento y la **cierra directamente** sin haber navegado a otros eventos (Anterior/Siguiente), al volver se recupera la posición exacta de scroll en la que estaba.
      - Si el usuario **navega entre eventos** dentro de la ficha (`/event/...` a `/event/...`), al cerrar se limpia la posición guardada (`mel-return-state`) y la Galería arranca desde arriba (`scrollTop = 0`), respetando los filtros y búsqueda vigentes.
+  3. **Renderizado completo de lotes acumulados al restaurar scroll**: Cuando se restaura una posición de scroll profunda (`galleryVisibleCount > 32`), el renderizador en cliente reconstruye todos los lotes necesarios (p. ej. 64 o 96 tarjetas) en lugar de omitirlos en la primera carga, asegurando que la rejilla tenga la altura suficiente para que el scroll alcance la tarjeta deseada en mitad de la Galería.
+  4. **Protección contra imágenes no cargadas / peticiones bloqueadas**: Se añade carga perezosa (`loading="lazy"`, `decoding="async"`) y control de error en imágenes (`onerror`) con sustituto local automático para evitar huecos en blanco si Google Drive limita peticiones.
 
 
 

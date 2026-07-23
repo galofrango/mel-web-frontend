@@ -32,10 +32,11 @@ Ajustar la separación de tarjetas de la Galería a 32px en horizontal y vertica
 
 ### Cambios Realizados
 1. **Espaciado 32px**: Actualizados `GALLERY_GAP = 32;` y las clases CSS de rejilla a `gap-[32px]` en `src/pages/index.astro`.
-2. **Scroll inteligente tras ver eventos**:
-   - Implementado un indicador `mel-event-navigated` en `sessionStorage` que registra si el usuario ha navegado entre eventos (Anterior/Siguiente) dentro del detalle de evento.
-   - Si el usuario abre un evento y lo cierra directamente **sin navegar entre eventos**, la Galería recupera la posición exacta de scroll en la que estaba.
-   - Si el usuario **navega entre eventos** dentro de la ficha, al cerrar se limpia la posición guardada y la Galería inicia arriba (`scrollTop = 0`).
+3. **Corrección de scroll al abrir evento a mitad de Galería**:
+   - Se ha ajustado `performDOMUpdates()` para que cuando exista un estado de restauración de scroll con más de 32 tarjetas (`galleryVisibleCount > PAGE_SIZE`), el cliente reconstruya todos los lotes acumulados (p. ej., 64 o 96 tarjetas) en lugar de omitirlos en la primera carga, otorgando a la rejilla la altura necesaria para restaurar el scroll exacto en mitad de la Galería.
+4. **Imágenes no cargadas / huecos en blanco resueltos**:
+   - Añadido `loading="lazy"` y `decoding="async"` a los elementos `<img>` de `FlyerCard.astro` y `buildGalleryCard()`.
+   - Añadido manejador `onerror` con sustituto local automático de flyer (`/flyers/flyer-*.png`) para garantizar que nunca quede un hueco transparente en blanco si el servidor de miniaturas limita peticiones.
 
 ### Decisiones Tomadas
 - Registrada la decisión `D-089` en `docs/decisions.md`.
