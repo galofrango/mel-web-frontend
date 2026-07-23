@@ -667,6 +667,19 @@ const designerDisplay = getTagDisplay(eventData.designer);
     }
 
     function fadeAndNavigate(url) {
+      if (url && url.includes('/event/')) {
+        try {
+          sessionStorage.setItem('mel-event-navigated', 'true');
+        } catch (e) {}
+      } else {
+        try {
+          if (sessionStorage.getItem('mel-event-navigated') === 'true') {
+            sessionStorage.removeItem('mel-return-state');
+            sessionStorage.removeItem('mel-event-navigated');
+          }
+        } catch (e) {}
+      }
+
       // Direct seamless View Transition for all internal navigations (Morphing v1 return to Home & event-to-event)
       if (typeof window.__melNavigate === 'function') {
         window.__melNavigate(url);

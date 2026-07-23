@@ -1015,7 +1015,16 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Decisión**:
   1. En el marcado SSR inicial, se añade por defecto la clase `toggle-shares-line` a `#home-toggle-wrapper`.
   2. En CSS para escritorio (`@media (min-width: 1024px)`), la fila de etiquetas dentro del toolbar se ajusta a `width: auto; flex-shrink: 1;`.
-  3. Esto asegura que en el marcado HTML renderizado desde el servidor, el selector de vista se ubique en la misma línea junto a las etiquetas desde el primer fotograma, eliminando por completo cualquier salto de layout (CLS) mientras la página termina de cargar.
+
+## D-089 · Espaciado de Galería a 32px y restauración condicional de scroll según la navegación de eventos
+
+- **Contexto**: El propietario solicitó un espaciado más airoso entre tarjetas de la Galería (32px en horizontal y vertical) y un comportamiento inteligente para la posición de scroll al volver de la ficha de un evento.
+- **Decisión**:
+  1. **Espaciado de tarjetas a 32px**: Se actualiza `GALLERY_GAP = 32;` en el script de cliente y la clase de rejilla a `gap-[32px]` en `src/pages/index.astro`.
+  2. **Restauración condicional de scroll**:
+     - Si el usuario hace scroll en la Galería, abre la ficha de un evento y la **cierra directamente** sin haber navegado a otros eventos (Anterior/Siguiente), al volver se recupera la posición exacta de scroll en la que estaba.
+     - Si el usuario **navega entre eventos** dentro de la ficha (`/event/...` a `/event/...`), al cerrar se limpia la posición guardada (`mel-return-state`) y la Galería arranca desde arriba (`scrollTop = 0`), respetando los filtros y búsqueda vigentes.
+
 
 
 

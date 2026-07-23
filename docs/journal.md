@@ -21,9 +21,24 @@ El propietario solicitó eliminar todas las animaciones de entrada y revelado de
    - Descubierto el bloque `else` en `filterArchives()` que forzaba una reordenación cronológica por fecha cuando `currentSortCol` era nulo. Al eliminar este bloque, la Galería conserva el orden aleatorio inicial procedente del marcado SSR sin sustituirlo por el orden por fechas a los pocos instantes de cargar.
 
 ### Decisiones Tomadas
-- Registradas las decisiones `D-087` y `D-088` en `docs/decisions.md`.
+- Registradas las decisiones `D-087`, `D-088` y `D-089` en `docs/decisions.md`.
 
 ---
+
+## [2026-07-23] — Sesión: Espaciado de Galería a 32px y restauración condicional de scroll (D-089)
+
+### Objetivo de la Sesión
+Ajustar la separación de tarjetas de la Galería a 32px en horizontal y vertical y aplicar una restauración inteligente de la posición de scroll al cerrar la ficha de un evento.
+
+### Cambios Realizados
+1. **Espaciado 32px**: Actualizados `GALLERY_GAP = 32;` y las clases CSS de rejilla a `gap-[32px]` en `src/pages/index.astro`.
+2. **Scroll inteligente tras ver eventos**:
+   - Implementado un indicador `mel-event-navigated` en `sessionStorage` que registra si el usuario ha navegado entre eventos (Anterior/Siguiente) dentro del detalle de evento.
+   - Si el usuario abre un evento y lo cierra directamente **sin navegar entre eventos**, la Galería recupera la posición exacta de scroll en la que estaba.
+   - Si el usuario **navega entre eventos** dentro de la ficha, al cerrar se limpia la posición guardada y la Galería inicia arriba (`scrollTop = 0`).
+
+### Decisiones Tomadas
+- Registrada la decisión `D-089` en `docs/decisions.md`.
 
 ## [2026-07-23] — Sesión: Fijado del Selector de Vista (Toggle) en marcado SSR de escritorio (D-088)
 

@@ -304,7 +304,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            container's own box reaches the literal bottom of the screen
            instead of stopping 3vh short of it. -->
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
-        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
+        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[32px] auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
@@ -1343,7 +1343,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // orden aleatorio estable y scroll infinito.
   // -------------------------------------------------------
   const GALLERY_ROW = 4;   // grid-auto-rows del contenedor, en px
-  const GALLERY_GAP = 24;  // hueco entre tarjetas (mel-l), horizontal y vertical
+  const GALLERY_GAP = 32;  // hueco entre tarjetas, horizontal y vertical (32px)
 
   let galleryVisibleCount = PAGE_SIZE;
   let galleryOrderedCache = [];
@@ -1641,6 +1641,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
     saveReturnState();
+    try {
+      sessionStorage.removeItem('mel-event-navigated');
+    } catch (e) {}
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
     const params = new URLSearchParams();
     params.set('view', activeViewName);
@@ -1949,7 +1952,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
 
-        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh] relative`;
+        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-[32px] auto-rows-[4px] w-full pb-[13vh] relative`;
         if (isFirstDOMUpdate && gridContainer.children.length > 0) {
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
