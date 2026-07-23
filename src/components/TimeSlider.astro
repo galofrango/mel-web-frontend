@@ -179,6 +179,15 @@ import SliderHandler from './SliderHandler.astro';
       activeHandle = which === 'min' ? minHandle : maxHandle;
       smoothedPct = null;
       isTouchDrag = e.pointerType === 'touch' || e.pointerType === 'pen';
+      // D-086 ronda 6: index.astro's own drag-time throttle (ronda 4) reads
+      // this to decide whether to throttle the expensive filterArchives()
+      // re-render — that throttle exists purely for touch's high event
+      // rate + weaker mobile CPUs, and was wrongly slowing down mouse
+      // drags on desktop too (same class of mistake as the smoothing in
+      // ronda 3/5, just in the other file). `.dragging` alone doesn't
+      // carry pointer-type info, so it's exposed here explicitly instead
+      // of index.astro guessing.
+      trackWrapper.dataset.pointerType = isTouchDrag ? 'touch' : 'mouse';
       try { activeHandle.setPointerCapture(e.pointerId); } catch (err) {}
       e.stopPropagation();
       e.preventDefault();

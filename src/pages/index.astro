@@ -1596,8 +1596,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
     const trackWrapper = document.getElementById('slider-track-wrapper');
     const isDragging = trackWrapper && trackWrapper.classList.contains('dragging');
+    // D-086 ronda 6: this throttle exists for touch's high event rate +
+    // weaker mobile CPUs (see the comment above SLIDER_DRAG_FILTER_THROTTLE_MS) —
+    // it was applying to ANY drag regardless of input device, including a
+    // mouse on desktop, which never had the problem it exists to solve and
+    // just got a slower, throttled re-render for no reason. TimeSlider.astro
+    // stamps the actual pointer type onto this same element at drag start.
+    const isTouchDragging = isDragging && trackWrapper.dataset.pointerType === 'touch';
 
-    if (!isDragging) {
+    if (!isTouchDragging) {
       if (sliderTrailingTimer) { clearTimeout(sliderTrailingTimer); sliderTrailingTimer = null; }
       scheduleFilterArchives();
       return;

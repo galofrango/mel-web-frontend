@@ -2,6 +2,24 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-23] — Sesión: rango de años dinámico + throttle del slider restringido a táctil (D-090)
+
+### Objetivo de la Sesión
+Dos peticiones del propietario: (1) preparar el slider para intervalos de años más amplios en el futuro (p. ej. 1980-2030), y (2) el throttle de la ronda 4 estaba ralentizando también el arrastre con ratón en escritorio, dejando un halo tipo motion-blur y afectando a la velocidad de la tabla en Lista.
+
+### Investigación y Cambios Realizados
+1. `TimeSlider.astro` tenía `MIN_YEAR=2004`/`MAX_YEAR=2019` fijos en el código, desconectados del cálculo dinámico real que ya existe en `index.astro` (`calculateDynamicBounds()`). Sustituidos por una función `getBounds()` que lee `sliderMin.min`/`.max` en cada uso — siempre refleja el rango real, sin importar cuánto cambien los datos.
+2. Mismo patrón de error que las rondas 3/5: el throttle de 120ms de la ronda 4 se aplicaba a cualquier tipo de entrada, incluido ratón, que nunca tuvo el problema de CPU/frecuencia de eventos que ese throttle resuelve. Corregido: `TimeSlider.astro` anota `trackWrapper.dataset.pointerType` ('touch'/'mouse') al iniciar el arrastre; `index.astro` solo aplica el throttle si es 'touch'.
+3. Verificado: `sliderMin.min`/`.max` se leen correctamente (2004/2019, sin regresión); `pointerType` se marca correctamente para ambos tipos de entrada; arrastre real con ratón en Lista responde de inmediato, sin errores de consola.
+
+### Decisiones Tomadas
+- Ver D-090 en `docs/decisions.md`.
+
+### Próximos Pasos
+- Queda por verificar en dispositivo táctil real que el throttle sigue aplicándose correctamente ahí (la lógica no cambió, solo se acotó su condición de entrada).
+
+---
+
 ## [2026-07-23] — Sesión: Reajuste tipográfico, espaciados y tarjetas adaptativas en panel del mapa (D-089)
 
 ### Objetivo de la Sesión
