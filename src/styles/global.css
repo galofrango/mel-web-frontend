@@ -226,14 +226,14 @@ body {
 
 .typo-body-roman {
   font-family: var(--font-serif);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
   line-height: 24px;
   letter-spacing: 0.01em;
 }
 @media (min-width: 768px) {
   .typo-body-roman {
-    font-size: 12px;
+    font-size: 14px;
   }
 }
 
