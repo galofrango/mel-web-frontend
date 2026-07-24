@@ -1,11 +1,9 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import TagWithLink from '../../components/TagWithLink.astro';
-import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 import Link from '../../components/Link.astro';
 import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
-import IconButton from '../../components/IconButton.astro';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
 // sheet fresh on every visit instead of baking it in at build time, so new
@@ -13,23 +11,6 @@ import IconButton from '../../components/IconButton.astro';
 // (not just the one event) because Anterior/Siguiente need their neighbors.
 const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
 const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
-
-const activeView = Astro.url.searchParams.get('view') || 'galería';
-const activeSearch = Astro.url.searchParams.get('search') || '';
-const activeLocation = Astro.url.searchParams.get('location') || '';
-const sortCol = Astro.url.searchParams.get('sort') || '';
-const sortDir = Astro.url.searchParams.get('dir') || 'asc';
-
-const navParams = new URLSearchParams();
-if (activeView) navParams.set('view', activeView);
-if (activeSearch) navParams.set('search', activeSearch);
-if (activeLocation) navParams.set('location', activeLocation);
-if (sortCol) {
-  navParams.set('sort', sortCol);
-  navParams.set('dir', sortDir);
-}
-
-const closeUrl = `/?${navParams.toString()}`;
 
 let eventsList: any[] = [];
 try {
@@ -92,42 +73,6 @@ try {
       g.carruselItems.sort((a, b) => a.order - b.order);
       return g;
     });
-
-    const dbFieldMap: Record<string, string> = {
-      evento: 'title',
-      fecha: 'date',
-      lugar: 'location',
-      localidad: 'locality',
-      organiza: 'organizer',
-      disenador: 'designer',
-    };
-
-    if (sortCol) {
-      if (sortCol === 'fecha') {
-        eventsList.sort((a: any, b: any) => {
-          const parseDate = (dStr: string) => {
-            if (!dStr || dStr === 'SIN FECHA') return 0;
-            const parts = dStr.split('/');
-            if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0])).getTime();
-            const parts2 = dStr.split('-');
-            if (parts2.length === 3) return new Date(parseInt(parts2[0]), parseInt(parts2[1])-1, parseInt(parts2[2])).getTime();
-            return 0;
-          };
-          const valA = parseDate(a.date);
-          const valB = parseDate(b.date);
-          return sortDir === 'asc' ? valA - valB : valB - valA;
-        });
-      } else {
-        eventsList.sort((a: any, b: any) => {
-          const dbField = dbFieldMap[sortCol] || sortCol;
-          const valA = String(a[dbField] || '').toLowerCase().trim();
-          const valB = String(b[dbField] || '').toLowerCase().trim();
-          if (!valA || valA === 'desconocido') return 1;
-          if (!valB || valB === 'desconocido') return -1;
-          return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        });
-      }
-    }
   }
 } catch (e) {
   console.error("Error fetching event data", e);
@@ -141,8 +86,6 @@ if (eventIndex === -1) {
 const eventData = eventsList[eventIndex];
 const prevEvent = eventIndex > 0 ? eventsList[eventIndex - 1] : null;
 const nextEvent = eventIndex < eventsList.length - 1 ? eventsList[eventIndex + 1] : null;
-const prevUrl = prevEvent ? `/event/${prevEvent.idMel}?${navParams.toString()}` : null;
-const nextUrl = nextEvent ? `/event/${nextEvent.idMel}?${navParams.toString()}` : null;
 
 // Map full list of events for client-side search filtering
 const allEvents = eventsList.map((e: any) => ({
@@ -184,8 +127,6 @@ const organizerDisplay = getTagDisplay(eventData.organizer);
 const designerDisplay = getTagDisplay(eventData.designer);
 ---
 <Layout title={eventData.title}>
-  {prevUrl && <link rel="prefetch" href={prevUrl} />}
-  {nextUrl && <link rel="prefetch" href={nextUrl} />}
   <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
   <style is:inline>
     ::view-transition-old(flyer-img-{eventData.idMel}),
@@ -205,42 +146,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
        padding is 40px on mobile/tablet (<lg) — the nav block ends up right
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
-       this scroll behavior).
-
-       max-w-[1440px] + lg:px-[108px] matches index.astro/info.astro/
-       exposiciones.astro's own outer container exactly (same breakpoint,
-       same 108px value) — before this the page had no lg:px override at
-       all and relied on #detail-page-container's own max-w-[1224px] to cap
-       content width instead, which gave it DIFFERENT side margins from
-       every other page for any viewport between 640px and ~1320px (48px
-       here vs. the other pages' progressive/108px margin in that range).
-       At >=1440px both approaches land on the same 1224px content width
-       (1440 - 108*2), so this only changes the 640-1440px range. -->
-  <div class="w-full max-w-[1440px] mx-auto min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[var(--mel-header-pt-desktop)] px-6 sm:px-12 lg:px-[108px]">
-    <!-- Main Box Container (Figma 1224px wide) — width now comes entirely
-         from the outer container's own max-w/padding math above, so no
-         max-w here anymore (kept redundant caps in sync was the risk).
-
-         No forced lg:min-h, no flex-1, justify-start not justify-between
-         (D-083 ronda 3, final): the page builds top-down and is exactly as
-         tall as its content needs, full stop — no pinning #detail-nav-block
-         to the bottom of the viewport, no minimum-distance floor against
-         the bottom edge.
-
-         The REAL mechanism doing the bottom-pinning all along wasn't
-         #detail-nav-block's own lg:mt-auto (removing that alone did
-         nothing) — it was THIS element's flex-1 (stretching it to fill the
-         outer wrapper's unconditional min-h-screen) combined with
-         justify-between: at `lg`, #detail-header-spacer/#detail-tags-fixed-
-         spacer/#detail-scroll-runway are all lg:hidden (not real flex
-         items, display:none), leaving exactly two flex children — the
-         content grid and the nav block — so justify-between put 100% of
-         the leftover height in that one gap, identical in effect to
-         mt-auto regardless of what the nav block's own margin said. Fixed
-         at the actual source this time: no flex-1 (nothing forces this
-         container taller than its content), justify-start (no free space
-         to distribute even if there were any). -->
-    <div id="detail-page-container" class="w-full flex flex-col justify-start select-none">
+       this scroll behavior). -->
+  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12">
+    <!-- Main Box Container (Figma 1224px wide) -->
+    <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
       <!-- Fixed Header (X + Mobile Title), Figma "Screen / Event Details"
            (369:32751) PageHeader + "No Scrolling Content": pinned at the true
@@ -260,25 +169,20 @@ const designerDisplay = getTagDisplay(eventData.designer);
         id="detail-sticky-header"
         class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0"
       >
-        <!-- Close Button (X) at Top Left — DS IconButton (Phantom, 40px,
-             Figma 111:3929). lg:mt-1 (4px): the 40px hit-box already lands
-             much closer to HeaderTitle's own 48px-tall centered row than the
-             old bare 24px icon did (measured 4px off vs. 12px before), so a
-             small nudge is enough — no wrapper/centering hack needed. Below
-             `lg` untouched (no HeaderTitle row to compare against there,
-             this page has its own fixed mobile header instead).
-             lg:mb-14 (56px): distance from the X down to the content row
-             below it (image/tags/info columns) — propietario-specified
-             value, D-083 ronda 2 (previously 64px/lg:mb-16, an unexplained
-             literal with no documented rationale). -->
-        <IconButton
+        <!-- Close Button (X) at Top Left -->
+        <a
           id="detail-close-btn"
-          href={closeUrl}
-          icon="x"
-          type="phantom"
-          class="mb-8 lg:mb-14 lg:mt-1"
+          href="/"
+          class="w-6 h-6 mb-8 lg:mb-16 flex items-center justify-center text-mel-action-secondary hover:text-mel-action-primary transition-colors cursor-pointer shrink-0"
           aria-label="Cerrar detalles de evento"
-        />
+          data-node-id="536:47449"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </a>
+
         <!-- Mobile-only Event Title: on mobile (Figma 369:32751) the title sits
              between the close button and the image; on desktop it lives at the
              top of the Info column instead. -->
@@ -303,20 +207,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
            (32px) is the resting gap to the image below, exactly per spec
            regardless of pagination. -->
       <div id="detail-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <!-- AdaptiveTagsRow.astro (D-059/D-060), shared with the home
-             toolbar and the map side panel. No sibling to negotiate space
-             with — updateDetailTagsRow() below just decides equal-vs-content
-             against the row's own available width. -->
-        <AdaptiveTagsRow
-          id="detail-tags-fixed-row"
-          tags={[
-            { label: 'Fecha', count: dateDisplay.text, state: dateDisplay.isUnknown ? 'Disabled' : 'Default' },
-            { label: 'Lugar', count: locationDisplay.text, state: locationDisplay.isUnknown ? 'Disabled' : 'Default', href: locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}` },
-            { label: 'Localidad', count: localityDisplay.text, state: localityDisplay.isUnknown ? 'Disabled' : 'Default', href: localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}` },
-            { label: 'Organiza', count: organizerDisplay.text, state: organizerDisplay.isUnknown ? 'Disabled' : 'Default', href: organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}` },
-            { label: 'Diseño', count: designerDisplay.text, state: designerDisplay.isUnknown ? 'Disabled' : 'Default', href: designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}` },
-          ]}
-        />
+        <div class="event-tags-row flex flex-row gap-6 min-w-0 overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12">
+          <TagWithLink label="Fecha" count={dateDisplay.text} state={dateDisplay.isUnknown ? "Disabled" : "Default"} hideBorder={true} />
+          <TagWithLink label="Lugar" count={locationDisplay.text} state={locationDisplay.isUnknown ? "Disabled" : "Default"} href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`} hideBorder={true} />
+          <TagWithLink label="Localidad" count={localityDisplay.text} state={localityDisplay.isUnknown ? "Disabled" : "Default"} href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`} hideBorder={true} />
+          <TagWithLink label="Organiza" count={organizerDisplay.text} state={organizerDisplay.isUnknown ? "Disabled" : "Default"} href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`} hideBorder={true} />
+          <TagWithLink label="Diseño" count={designerDisplay.text} state={designerDisplay.isUnknown ? "Disabled" : "Default"} href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`} hideBorder={true} />
+        </div>
       </div>
       <!-- Reserves flow space for the fixed tags row below `lg`, right after
            the header's own spacer — so the image column (first in the grid
@@ -335,11 +232,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div
-          id="detail-image-column"
-          class={`order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full ${imageUrls.length > 1 ? 'mb-[-32px] lg:mb-0' : ''}`}
-          data-name="Image Viewer / Desktop"
-        >
+        <div id="detail-image-column" class="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
           <!-- Reserves flow space for the pinned image below `lg` (that image
                is `position: fixed` there, removed from normal flow — see
                updateStickyImage()). Held at a CONSTANT height: the box's
@@ -433,32 +326,19 @@ const designerDisplay = getTagDisplay(eventData.designer);
              of a flat 40px gap that leaves the column visibly shorter than
              the image next to it. -->
         <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section" style="view-transition-name: event-tags;">
-          <div class="hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
-            <!-- class="w-full" overrides TagWithLink's own default w-[184px]
-                 (a Figma-literal value: this grid column is Figma's "184px"
-                 only exactly at a 1440px viewport — from 1024px up to 1440px
-                 it's genuinely narrower, e.g. 157px at 1280px after D-080's
-                 breakpoint unification). A fixed 184px box doesn't shrink
-                 with its column, so it overflowed into the image column
-                 next to it — w-full makes each tag fill its REAL column
-                 width instead, letting its own built-in ellipsis truncation
-                 (TagWithLink.astro's .tag-count-val) do its job against
-                 whatever that width actually is, always leaving the grid's
-                 own gap-6 (24px) to the image column intact. -->
+          <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
             <TagWithLink
               label="Fecha"
               count={dateDisplay.text}
               state={dateDisplay.isUnknown ? "Disabled" : "Default"}
               hideBorder={true}
-              class="w-full"
             />
             <TagWithLink
               label="Lugar"
               count={locationDisplay.text}
               state={locationDisplay.isUnknown ? "Disabled" : "Default"}
-              href={locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}`}
+              href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`}
               hideBorder={true}
-              class="w-full"
             />
             <TagWithLink
               label="Localidad"
@@ -466,7 +346,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={localityDisplay.isUnknown ? "Disabled" : "Default"}
               href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
               hideBorder={true}
-              class="w-full"
             />
             <TagWithLink
               label="Organiza"
@@ -474,7 +353,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={organizerDisplay.isUnknown ? "Disabled" : "Default"}
               href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
               hideBorder={true}
-              class="w-full"
             />
             <TagWithLink
               label="Diseño"
@@ -482,7 +360,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
               state={designerDisplay.isUnknown ? "Disabled" : "Default"}
               href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
               hideBorder={true}
-              class="w-full"
             />
           </div>
         </div>
@@ -492,7 +369,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div class="order-3 lg:col-span-5 flex flex-col gap-8 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
+        <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -500,10 +377,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
           </h2>
 
           <!-- Description + Artists block -->
-          <div class="flex flex-col gap-8">
+          <div class="flex flex-col gap-8 lg:gap-10">
             {eventData.description && (
-              <div class="flex flex-col gap-8">
-                <p class="typo-body-sans text-mel-text-primary">
+              <div class="flex flex-col gap-8 lg:gap-6">
+                <p class="font-sans font-normal text-[16px] leading-[24px] tracking-[-0.16px] text-mel-text-primary">
                   {eventData.description}
                 </p>
                 <!-- Figma 1px divider -->
@@ -521,7 +398,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
                     const isLast = idx === arr.length - 1;
                     return (
                       <span class="inline-flex items-center whitespace-nowrap">
-                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="text-mel-text-secondary mr-2 typo-body-roman">,</span>}
+                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>}
                       </span>
                     );
                   })}
@@ -553,16 +430,16 @@ const designerDisplay = getTagDisplay(eventData.designer);
            scroll end already leaves the nav pinned at that same spot. -->
       <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
-      <!-- Navigation block (Original Figma node 1059:113717). On desktop (`lg`):
-           Anterior right-aligned under middle column, Siguiente left-aligned under
-           right column (Info), separated by the grid gap. -->
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 lg:pt-0 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:py-0" data-name="Navigation Block" data-node-id="1059:113717">
+      <!-- Navigation block (positioned exactly 280px below the image container and
+           columns on desktop, top-aligned). On mobile it's a 2-column row under a
+           divider, with Anterior/Siguiente side by side (Figma 575:83196). -->
+      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-[280px] pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center lg:sticky lg:bottom-[40px] lg:z-10 lg:bg-mel-bg-primary lg:py-6" data-name="Navigation Block">
         
-        <!-- Empty cell for Left Column alignment (Column 1: Tags, 2 cols) -->
+        <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
         
         <!-- Anterior (Right-aligned under middle column) -->
-        <div class="lg:col-span-5 flex justify-end text-right items-center min-w-0" id="nav-prev-container">
+        <div class="lg:col-span-5 flex justify-end text-right items-center" id="nav-prev-container">
           {prevEvent && (
             <TagWithLink
               label="Anterior"
@@ -577,7 +454,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         </div>
 
         <!-- Siguiente (Left-aligned under right column with 24px left padding on desktop) -->
-        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center min-w-0" id="nav-next-container">
+        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center" id="nav-next-container">
           {nextEvent && (
             <TagWithLink
               label="Siguiente"
@@ -612,16 +489,17 @@ const designerDisplay = getTagDisplay(eventData.designer);
         class={`relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 ${imageUrls.length > 1 ? 'pb-4' : 'pb-8'} h-[76vh] max-w-[92vw] aspect-square`}
         data-node-id="841:40541"
       >
-        <!-- Close Button (40px, offset half-outside the top-right corner) —
-             DS IconButton (Primary, Figma 111:3929). Position kept via the
-             component's own `class` passthrough. -->
-        <IconButton
+        <!-- Close Button (40px, offset half-outside the top-right corner) -->
+        <button
           id="overlay-close-btn"
-          icon="x"
-          type="primary"
-          class="absolute -top-5 -right-5 z-50"
+          class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
           aria-label="Cerrar vista grande"
-        />
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
 
         <!-- Image Box: fills the modal, sliding track mirrors the main carousel's transition (no autoplay here) -->
         <div id="overlay-image-box" class="relative flex-1 min-h-0 w-full overflow-hidden flex items-center justify-center">
@@ -633,18 +511,11 @@ const designerDisplay = getTagDisplay(eventData.designer);
           >
             {imageUrls.map((img) => (
               <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
-                <!-- max-w/max-h (not w-full/h-full): object-contain alone still
-                     scales UP past the image's natural resolution to fill the
-                     box, which pixelates small/low-res photos. w-auto h-auto
-                     lets it render at its real size by default, capped by
-                     max-w-full/max-h-full so it still shrinks to fit a box
-                     bigger than the image itself — never upscaled, always
-                     centered (the parent's own flex centering). -->
                 <img
                   src={img}
                   alt={eventData.title}
                   referrerpolicy="no-referrer"
-                  class="w-auto h-auto max-w-full max-h-full object-contain"
+                  class="w-full h-full object-contain"
                 />
               </div>
             ))}
@@ -666,28 +537,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
     </div>
 
   </div>
-
-  <div
-    id="event-detail-data"
-    class="hidden"
-    data-image-urls={JSON.stringify(imageUrls)}
-    data-event-id={eventData.idMel}
-  ></div>
 </Layout>
 
-<style>
-  @media (max-width: 1023px) {
-    #detail-tags-fixed {
-      top: 136px;
-    }
-  }
-</style>
-
-<script define:vars={{ allEvents, prevUrl, nextUrl }}>
+<script define:vars={{ imageUrls, eventId: eventData.idMel, allEvents }}>
   function initPage() {
-    const dataEl = document.getElementById('event-detail-data');
-    const imageUrls = dataEl ? JSON.parse(dataEl.dataset.imageUrls || '[]') : [];
-    const eventId = dataEl ? (dataEl.dataset.eventId || '') : '';
     // Parse search/location/view queries from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const activeView = urlParams.get('view') || 'galería';
@@ -701,119 +554,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
       if (activeView) returnParams.set('view', activeView);
       if (activeSearch) returnParams.set('search', activeSearch);
       if (activeLocation) returnParams.set('location', activeLocation);
-      if (activeSortCol) {
-        returnParams.set('sort', activeSortCol);
-        returnParams.set('dir', activeSortDir);
-      }
       closeBtn.href = `/?${returnParams.toString()}`;
-    }
-
-    let prevHref = prevUrl;
-    let nextHref = nextUrl;
-
-    if (!activeSortCol) {
-      try {
-        const sessionOrderRaw = sessionStorage.getItem('mel-session-order');
-        if (sessionOrderRaw) {
-          const sessionOrderIds = JSON.parse(sessionOrderRaw);
-          const idx = sessionOrderIds.indexOf(eventId);
-          if (idx !== -1) {
-            const prevId = idx > 0 ? sessionOrderIds[idx - 1] : null;
-            const nextId = idx < sessionOrderIds.length - 1 ? sessionOrderIds[idx + 1] : null;
-
-            const makeNavUrl = (targetId) => {
-              if (!targetId) return null;
-              const p = new URLSearchParams(urlParams);
-              return `/event/${targetId}?${p.toString()}`;
-            };
-
-            prevHref = makeNavUrl(prevId);
-            nextHref = makeNavUrl(nextId);
-
-            const prevItem = allEvents.find(e => e.idMel === prevId);
-            const nextItem = allEvents.find(e => e.idMel === nextId);
-
-            const prevContainer = document.getElementById('nav-prev-container');
-            if (prevContainer) {
-              if (prevItem) {
-                const a = prevContainer.querySelector('a');
-                const countSpan = prevContainer.querySelector('.tag-count-val');
-                if (a) a.href = prevHref;
-                if (countSpan) countSpan.textContent = prevItem.title;
-              } else {
-                prevContainer.style.display = 'none';
-              }
-            }
-
-            const nextContainer = document.getElementById('nav-next-container');
-            if (nextContainer) {
-              if (nextItem) {
-                const a = nextContainer.querySelector('a');
-                const countSpan = nextContainer.querySelector('.tag-count-val');
-                if (a) a.href = nextHref;
-                if (countSpan) countSpan.textContent = nextItem.title;
-              } else {
-                nextContainer.style.display = 'none';
-              }
-            }
-          }
-        }
-      } catch (e) {}
     }
 
     // Abort any previous window listeners to prevent duplicates across page transitions
     if (window._melAbortCtrl) window._melAbortCtrl.abort();
     window._melAbortCtrl = new AbortController();
     const wSig = window._melAbortCtrl.signal;
-
-    // Fundido v1 (D-074, ver docs/design-system.md): fundido de salida antes
-    // de una navegación real, dando tiempo a que se vea antes de que la
-    // página se descargue. Toda navegación interna de esta página pasa por
-    // aquí en vez de por el ClientRouter de Astro — no solo por el fundido,
-    // sino porque una navegación suave a `/` (Home) deja su layout roto
-    // unos instantes mientras su JS termina de inicializarse (galería/mapa/
-    // lista), el mismo tipo de problema de fondo que D-072 ya evitó para
-    // /event/[id] con recarga dura. Un solo listener delegado cubre TODOS
-    // los enlaces internos de la página (cerrar, tags, artistas,
-    // Anterior/Siguiente) sin tener que tocar cada componente por separado.
-    function prefetchUrl(url) {
-      if (!url || document.querySelector(`link[rel="prefetch"][href="${url}"]`)) return;
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = url;
-      document.head.appendChild(link);
-    }
-
-    function fadeAndNavigate(url) {
-      if (url && url.includes('/event/')) {
-        try {
-          sessionStorage.setItem('mel-event-navigated', 'true');
-        } catch (e) {}
-      } else {
-        try {
-          if (sessionStorage.getItem('mel-event-navigated') === 'true') {
-            sessionStorage.removeItem('mel-return-state');
-            sessionStorage.removeItem('mel-event-navigated');
-          }
-        } catch (e) {}
-      }
-
-      // Direct seamless View Transition for all internal navigations (Morphing v1 return to Home & event-to-event)
-      if (typeof window.__melNavigate === 'function') {
-        window.__melNavigate(url);
-      } else {
-        document.body.style.transition = 'opacity 0.15s ease';
-        document.body.style.opacity = '0';
-        setTimeout(() => { window.location.href = url; }, 150);
-      }
-    }
-    document.addEventListener('click', (e) => {
-      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      const link = e.target.closest('a[href^="/"]');
-      if (!link) return;
-      e.preventDefault();
-      fadeAndNavigate(link.href);
-    }, { signal: wSig });
 
     // Pinned, shrinking image (below `lg`). Figma "Screen / Event Details"
     // (369:32751): the image sticks right below the sticky X+title header and
@@ -859,38 +606,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
       headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
     }
 
-    // Adaptive TagWithLink row (D-059/D-060) — same generic algorithm as
-    // index.astro's own updateAdaptiveTagsRow() (duplicated by hand, no
-    // shared client JS module system here — AGENTS.md rule 7): decides
-    // between the "equal width" grid mode and the "content-sized" flex
-    // fallback (bleeds+scrolls right) by real measurement. This row never
-    // shares its line with anything, so there's no reserved width to
-    // negotiate — just equal-vs-content against its own available width.
-    const ADAPTIVE_ROW_GAP = 32;
-    function updateAdaptiveTagsRow(rowId) {
-      const row = document.getElementById(rowId);
-      if (!row) return;
-      const container = row.parentElement;
-      if (!container) return;
-
-      row.classList.remove('highlights-grid-equal');
-      row.classList.add('highlights-flex-content');
-      row.style.width = '';
-
-      const units = [...row.querySelectorAll('.highlight-unit')];
-      if (!units.length) return;
-      const naturalWidths = units.map(u => u.getBoundingClientRect().width);
-      const maxNatural = Math.max(...naturalWidths);
-      const containerWidth = container.getBoundingClientRect().width;
-
-      const equalShare = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
-      if (equalShare >= maxNatural) {
-        row.classList.remove('highlights-flex-content');
-        row.classList.add('highlights-grid-equal');
-        row.style.width = '100%';
-      }
-    }
-
     // Pins the tags row directly below the fixed header (V2 layout, made
     // definitive — mirrors the overlay's updateOverlayFixedTags() exactly).
     // No self-correcting probe needed: unlike the overlay, this page has no
@@ -912,9 +627,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
       tagsFixedSpacer.style.height = `${tagsFixed.getBoundingClientRect().height}px`;
     }
 
-    // Safety buffer while pinned: 32px for single images, 0px if pagination dots exist
-    const STICKY_PADDING_BOTTOM = (imageUrls && imageUrls.length > 1) ? '0px' : '32px';
-
     function updateStickyImage() {
       if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop) return;
       updateHeaderSpacer();
@@ -925,7 +637,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
         imageSticky.style.left = '';
         imageSticky.style.width = '';
         imageSticky.style.margin = '';
-        imageSticky.style.paddingBottom = '';
         imageCrop.style.height = '';
         imageSentinel.style.height = '';
         return;
@@ -958,7 +669,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
         imageSticky.style.left = '';
         imageSticky.style.width = '';
         imageSticky.style.margin = '';
-        imageSticky.style.paddingBottom = '';
         imageCrop.style.height = `${IMAGE_MAX_H}px`;
         imageSentinel.style.height = '0px';
         return;
@@ -966,15 +676,23 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
       // The sentinel reserves the box's FULL-SIZE footprint (crop at 400px +
       // dots if present), as a constant — NOT the box's current shrunk
-      // height or the extra paddingBottom safety cushion. Subtracting any
-      // active paddingBottom ensures the sentinel height remains strictly
-      // constant during scroll, keeping the text at a perfectly stable 32px
-      // distance under the photo until it passes underneath.
+      // height. Measured BEFORE any mutation below (current height plus
+      // however much the crop is currently shrunk — exact whether or not
+      // this event has dots, without hardcoding their height), and set
+      // BEFORE the box switches to `fixed`: setting it after would leave a
+      // forced-layout window where the box has already left normal flow but
+      // the sentinel hasn't grown yet — the page momentarily shorter than
+      // the viewport, which makes the browser clamp the scroll position
+      // back to 0 mid-tick (observed as "can't scroll at all"). A constant
+      // sentinel also means the page's height no longer depends on scroll
+      // position: during the shrink phase, content below rises 1:1 with
+      // scroll while the box's bottom edge also recedes 1:1, so tags stay
+      // exactly 32px (the grid's own gap-8) under it; after the crop
+      // bottoms out at 200px, content simply continues up and passes
+      // underneath the (opaque, z-20) box.
       const currentBlockHeight = imageSticky.getBoundingClientRect().height;
-      const currentPaddingBottom = parseFloat(window.getComputedStyle(imageSticky).paddingBottom) || 0;
-      const unpaddedBlockHeight = currentBlockHeight - currentPaddingBottom;
       const currentCropHeight = imageCrop.getBoundingClientRect().height;
-      const fullBlockHeight = unpaddedBlockHeight + (IMAGE_MAX_H - currentCropHeight);
+      const fullBlockHeight = currentBlockHeight + (IMAGE_MAX_H - currentCropHeight);
       imageSentinel.style.height = `${fullBlockHeight}px`;
 
       const newCropHeight = Math.max(IMAGE_MIN_H, Math.min(IMAGE_MAX_H, IMAGE_MAX_H - scrolledPast));
@@ -993,8 +711,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
       // margin to a `fixed` box too — left uncleared, it'd double up with the
       // left:0 above and render 24-48px past the left edge too.
       imageSticky.style.margin = '0';
-      // Safety buffer while pinned: 32px for single image events, 0px if pagination dots exist
-      imageSticky.style.paddingBottom = STICKY_PADDING_BOTTOM;
 
       // Pinned at the header's bottom edge, unconditionally — the box never
       // slides up behind the header, no matter how far the page scrolls.
@@ -1051,12 +767,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
     // scheduling throttles it adequately on its own.
     ensureScrollRunway();
     updateStickyImage();
-    updateAdaptiveTagsRow('detail-tags-fixed-row');
     window.addEventListener('scroll', updateStickyImage, { passive: true, signal: wSig });
     window.addEventListener('resize', () => {
       ensureScrollRunway();
       updateStickyImage();
-      updateAdaptiveTagsRow('detail-tags-fixed-row');
     }, { signal: wSig });
 
     // Web fonts (Space Grotesk / Lora) are still loading at astro:page-load
@@ -1067,13 +781,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
       document.fonts.ready.then(() => {
         ensureScrollRunway();
         updateStickyImage();
-        // The tags row's equal-vs-content decision (D-060) is measured
-        // against real rendered text widths — at page-load time that's
-        // still the fallback font, narrower than the real Lora serif
-        // values. Re-measure once fonts have actually swapped in, or a
-        // borderline case can wrap onto two lines instead of ellipsizing
-        // (D-061).
-        updateAdaptiveTagsRow('detail-tags-fixed-row');
       });
     }
 
@@ -1108,20 +815,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
     const navParam = returnNavParams.toString();
 
     // Render navigation dynamically based on active search/location matches (using visibility:hidden to preserve grid layout!)
-    // (fade+hard-navigate on click is handled by the single delegated
-    // listener set up earlier in initPage() — no per-link binding needed.)
-    let prevHref = null, nextHref = null;
     const prevContainer = document.getElementById('nav-prev-container');
     if (prevContainer) {
       if (prevEventItem) {
         prevContainer.classList.remove('invisible');
         const link = prevContainer.querySelector('a');
         const text = prevContainer.querySelector('.tag-count-val');
-        if (link) {
-          link.href = `/event/${prevEventItem.idMel}?${navParam}`;
-          prevHref = link.href;
-          prefetchUrl(prevHref);
-        }
+        if (link) link.href = `/event/${prevEventItem.idMel}?${navParam}`;
         if (text) text.textContent = prevEventItem.title;
       } else {
         prevContainer.classList.add('invisible');
@@ -1134,11 +834,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
         nextContainer.classList.remove('invisible');
         const link = nextContainer.querySelector('a');
         const text = nextContainer.querySelector('.tag-count-val');
-        if (link) {
-          link.href = `/event/${nextEventItem.idMel}?${navParam}`;
-          nextHref = link.href;
-          prefetchUrl(nextHref);
-        }
+        if (link) link.href = `/event/${nextEventItem.idMel}?${navParam}`;
         if (text) text.textContent = nextEventItem.title;
       } else {
         nextContainer.classList.add('invisible');
@@ -1243,18 +939,6 @@ const designerDisplay = getTagDisplay(eventData.designer);
     window.melOverlayKeydownHandler = handleOverlayKeydown;
     document.addEventListener('keydown', window.melOverlayKeydownHandler);
 
-    // Left/right arrow keys step to the previous/next EVENT (Anterior/
-    // Siguiente) — only while the image lightbox above isn't open, since
-    // that already claims the same keys for stepping through this event's
-    // own photos.
-    document.addEventListener('keydown', (e) => {
-      if (overlay && !overlay.classList.contains('hidden')) return;
-      const tag = e.target && e.target.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
-      if (e.key === 'ArrowLeft' && prevHref) { e.preventDefault(); fadeAndNavigate(prevHref); }
-      else if (e.key === 'ArrowRight' && nextHref) { e.preventDefault(); fadeAndNavigate(nextHref); }
-    }, { signal: wSig });
-
     function openOverlay() {
       if (!overlay || !overlayModal) return;
 
@@ -1291,24 +975,19 @@ const designerDisplay = getTagDisplay(eventData.designer);
       }, 300);
     }
 
-    // Click on main image container opens the lightbox from 480px up (D-039)
-    // — below that it instead re-expands the pinned box (animates the
-    // scroll back to the top, which un-shrinks the crop 1:1) if it's
-    // currently compressed by scroll, and does nothing otherwise. D-039
-    // documented this threshold as 480 "in both files", but only the
-    // overlay's own handler actually had it — this file had silently kept
-    // the pre-D-039 value of 1024 ever since. Found and fixed while working
-    // on D-044 (later reverted; this bugfix survives it, being unrelated to
-    // that breakpoint). Hand-rolled timer-driven animation — mirrors the
-    // overlay in index.astro, where native smooth scrolling silently no-ops
-    // in some environments and requestAnimationFrame never ticks in some
-    // sandboxed/throttled contexts, while direct scroll writes always work.
-    // Time-based easing, so a slow timer only lowers the frame rate, never
-    // the duration.
+    // Click on main image container opens the lightbox — desktop only.
+    // Below `lg` it instead re-expands the pinned box (animates the scroll
+    // back to the top, which un-shrinks the crop 1:1) if it's currently
+    // compressed by scroll, and does nothing otherwise. Hand-rolled
+    // timer-driven animation — mirrors the overlay in index.astro, where
+    // native smooth scrolling silently no-ops in some environments and
+    // requestAnimationFrame never ticks in some sandboxed/throttled
+    // contexts, while direct scroll writes always work. Time-based easing,
+    // so a slow timer only lowers the frame rate, never the duration.
     const mainImageContainer = document.getElementById('carousel-main-container');
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
-        if (window.innerWidth < 480) {
+        if (window.innerWidth < 1024) {
           if (window.scrollY > 0) {
             const startY = window.scrollY;
             const t0 = performance.now();
