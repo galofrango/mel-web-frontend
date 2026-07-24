@@ -2,6 +2,21 @@
 
 Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
 
+## [2026-07-24] — Sesión: Estabilización de etiquetas SSR y restauración de layout V2 en detalle de evento (D-093)
+
+### Objetivo de la Sesión
+Corregir la superposición de la barra de etiquetas flotantes (`#detail-tags-fixed`) sobre la cabecera en el detalle de evento durante el renderizado SSR en móvil/tablet y consolidar la arquitectura de layout V2 (cabecera pegajosa, etiquetas fijas bajo el título y foto fija encogible con scroll del contenido inferior).
+
+### Cambios Realizados
+1. **Fallback CSS para SSR (frame 0)**: Se añadió una regla CSS en el servidor `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` en `src/pages/event/[id].astro` para garantizar que la barra de etiquetas flotante aparezca siempre debajo de la cabecera móvil antes de que el script de cliente efectúe su medición dinámica.
+2. **Consolidación del layout V2**: Se restauró la estructura limpia V2 en la ficha de evento conservando el breakpoint responsivo de 1024px (`lg`), garantizando que la foto encogible de 360px a 200px y las etiquetas pegajosas funcionen sin ocluir la cabecera ni la navegación inferior.
+3. **Verificación de build**: `ASTRO_TELEMETRY_DISABLED=1 npm run build` completado correctamente.
+
+### Decisiones Tomadas
+- Registrada la decisión `D-093` en `docs/decisions.md`.
+
+---
+
 ## [2026-07-23] — Sesión: Eliminación de animaciones de Galería y simplificación de orden aleatorio (D-087)
 
 ### Objetivo de la Sesión

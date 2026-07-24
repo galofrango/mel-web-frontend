@@ -1042,7 +1042,13 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Decisión**:
   1. **Persistencia del orden aleatorio de la sesión**: `initHomePage()` guarda la secuencia de IDs de la sesión en `sessionStorage['mel-session-order']`. Si no hay ordenación por columna activa, `/event/[id]` utiliza esta secuencia para mantener la navegación continua entre carteles.
   2. **Traducción completa de columnas en SSR**: `navigateToEvent()` transmite `sort` y `dir` en la URL. El servidor en `/event/[id]` mapea todos los nombres de columnas de la Lista (`evento`, `fecha`, `lugar`, `localidad`, `organiza`, `disenador`) a los campos del modelo, ordenando los datos directamente en SSR.
-  3. **Preservación de vista y filtros al cerrar**: La URL de retorno del botón de cerrar (`closeUrl`) se calcula en el servidor garantizando que al cerrar la ficha el visitante regrese siempre a su vista de origen (Lista o Galería) con la búsqueda y ordenación intactos.
+## D-093 · Fallback de posición SSR para etiquetas flotantes en la ficha de evento
+
+- **Contexto**: En la ficha de evento (`/event/[id]`), en resoluciones móviles y tablet (<1024px), las etiquetas flotantes (`#detail-tags-fixed`) se renderizaban inicialmente a `top: 0` en SSR antes de que el script de cliente calculase su posición exacta, solapando el botón de cierre (X) y el título durante el primer frame de carga.
+- **Decisión**:
+  1. **Fallback CSS para frame 0 (SSR)**: Se añade una regla CSS implícita `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` en el bloque de estilos del servidor para que el elemento se posicione siempre por debajo del header móvil desde la carga inicial, previniendo cualquier parpadeo u oclusión del botón de cierre.
+  2. **Preservación del layout V2 oficial**: Se mantiene la arquitectura aprobada de V2 (cabecera pegajosa + etiquetas fijas + foto fija encogible de 360px a 200px con scroll del contenido inferior) sin alterar los breakpoints de grid ni deformar las columnas de escritorio.
+
 
 
 

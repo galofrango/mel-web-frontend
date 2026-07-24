@@ -675,6 +675,14 @@ const designerDisplay = getTagDisplay(eventData.designer);
   ></div>
 </Layout>
 
+<style>
+  @media (max-width: 1023px) {
+    #detail-tags-fixed {
+      top: 136px;
+    }
+  }
+</style>
+
 <script define:vars={{ allEvents, prevUrl, nextUrl }}>
   function initPage() {
     const dataEl = document.getElementById('event-detail-data');
