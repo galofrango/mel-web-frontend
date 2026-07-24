@@ -940,11 +940,35 @@ const designerDisplay = getTagDisplay(eventData.designer);
       });
     }
 
-    // Left/right arrow keys navigate images while the lightbox is open
+    // Left/right arrow keys navigate images while lightbox is open, or navigate events when lightbox is closed
     function handleOverlayKeydown(e) {
-      if (!overlay || overlay.classList.contains('hidden')) return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); showOverlayImage(overlayIndex - 1); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); showOverlayImage(overlayIndex + 1); }
+      const isInput = e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable);
+      if (isInput) return;
+
+      if (overlay && !overlay.classList.contains('hidden')) {
+        // Lightbox open: navigate carousel photos
+        if (e.key === 'ArrowLeft') { e.preventDefault(); showOverlayImage(overlayIndex - 1); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); showOverlayImage(overlayIndex + 1); }
+      } else {
+        // Normal page view: navigate Previous / Next event
+        const prevLink = document.querySelector('#nav-prev-container a');
+        const nextLink = document.querySelector('#nav-next-container a');
+        if (e.key === 'ArrowLeft' && prevLink) {
+          e.preventDefault();
+          const url = prevLink.getAttribute('href');
+          if (url) {
+            if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
+            else window.location.href = url;
+          }
+        } else if (e.key === 'ArrowRight' && nextLink) {
+          e.preventDefault();
+          const url = nextLink.getAttribute('href');
+          if (url) {
+            if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
+            else window.location.href = url;
+          }
+        }
+      }
     }
     if (window.melOverlayKeydownHandler) {
       document.removeEventListener('keydown', window.melOverlayKeydownHandler);
