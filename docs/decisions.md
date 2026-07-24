@@ -1042,12 +1042,14 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Decisión**:
   1. **Persistencia del orden aleatorio de la sesión**: `initHomePage()` guarda la secuencia de IDs de la sesión en `sessionStorage['mel-session-order']`. Si no hay ordenación por columna activa, `/event/[id]` utiliza esta secuencia para mantener la navegación continua entre carteles.
   2. **Traducción completa de columnas en SSR**: `navigateToEvent()` transmite `sort` y `dir` en la URL. El servidor en `/event/[id]` mapea todos los nombres de columnas de la Lista (`evento`, `fecha`, `lugar`, `localidad`, `organiza`, `disenador`) a los campos del modelo, ordenando los datos directamente en SSR.
-## D-093 · Fallback de posición SSR para etiquetas flotantes en la ficha de evento
+## D-093 · Restablecimiento de separadores verticales de etiquetas, encuadre adaptativo de foto y lightbox en tablet
 
-- **Contexto**: En la ficha de evento (`/event/[id]`), en resoluciones móviles y tablet (<1024px), las etiquetas flotantes (`#detail-tags-fixed`) se renderizaban inicialmente a `top: 0` en SSR antes de que el script de cliente calculase su posición exacta, solapando el botón de cierre (X) y el título durante el primer frame de carga.
+- **Contexto**: Tras restaurar el layout V2 en `/event/[id]`, se identificaron tres desajustes específicos: (1) las etiquetas móviles carecían de sus divisores verticales, (2) el cartel quedaba centrado con franjas en lugar de adaptarse al contenedor, y (3) el modal lightbox no se abría en pantallas tablet ($\ge 480px$).
 - **Decisión**:
-  1. **Fallback CSS para frame 0 (SSR)**: Se añade una regla CSS implícita `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` en el bloque de estilos del servidor para que el elemento se posicione siempre por debajo del header móvil desde la carga inicial, previniendo cualquier parpadeo u oclusión del botón de cierre.
-  2. **Preservación del layout V2 oficial**: Se mantiene la arquitectura aprobada de V2 (cabecera pegajosa + etiquetas fijas + foto fija encogible de 360px a 200px con scroll del contenido inferior) sin alterar los breakpoints de grid ni deformar las columnas de escritorio.
+  1. **Separadores verticales en etiquetas**: Se integra `AdaptiveTagsRow` en `#detail-tags-fixed`, restaurando las líneas divisoras verticales (`border-mel-border`) entre etiquetas.
+  2. **Encuadre adaptativo de foto**: Se actualiza la clase de la imagen principal a `object-cover`, permitiendo que el cartel se adapte y rellene la caja contenedora (`detail-image-crop`).
+  3. **Apertura de Lightbox en Tablet ($\ge 480px$)**: Se ajusta el umbral de activación del visor a `window.innerWidth < 480` para que los clics en la foto en tablets ($\ge 480px$) y escritorio abran el modal lightbox en lugar de animar el scroll a la parte superior.
+  4. **Fallback CSS para SSR (frame 0)**: Se mantiene `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` para impedir la oclusión de la **X** de cierre durante el renderizado inicial en servidor.
 
 
 

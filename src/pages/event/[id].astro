@@ -4,6 +4,8 @@ import TagWithLink from '../../components/TagWithLink.astro';
 import Link from '../../components/Link.astro';
 import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
+import IconButton from '../../components/IconButton.astro';
+import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
 // sheet fresh on every visit instead of baking it in at build time, so new
@@ -207,13 +209,16 @@ const designerDisplay = getTagDisplay(eventData.designer);
            (32px) is the resting gap to the image below, exactly per spec
            regardless of pagination. -->
       <div id="detail-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <div class="event-tags-row flex flex-row gap-6 min-w-0 overflow-x-auto no-scrollbar -mx-6 w-[calc(100%+48px)] px-6 sm:-mx-12 sm:w-[calc(100%+96px)] sm:px-12">
-          <TagWithLink label="Fecha" count={dateDisplay.text} state={dateDisplay.isUnknown ? "Disabled" : "Default"} hideBorder={true} />
-          <TagWithLink label="Lugar" count={locationDisplay.text} state={locationDisplay.isUnknown ? "Disabled" : "Default"} href={locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}`} hideBorder={true} />
-          <TagWithLink label="Localidad" count={localityDisplay.text} state={localityDisplay.isUnknown ? "Disabled" : "Default"} href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`} hideBorder={true} />
-          <TagWithLink label="Organiza" count={organizerDisplay.text} state={organizerDisplay.isUnknown ? "Disabled" : "Default"} href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`} hideBorder={true} />
-          <TagWithLink label="Diseño" count={designerDisplay.text} state={designerDisplay.isUnknown ? "Disabled" : "Default"} href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`} hideBorder={true} />
-        </div>
+        <AdaptiveTagsRow
+          id="detail-tags-fixed-row"
+          tags={[
+            { label: 'Fecha', count: dateDisplay.text, state: dateDisplay.isUnknown ? 'Disabled' : 'Default' },
+            { label: 'Lugar', count: locationDisplay.text, state: locationDisplay.isUnknown ? 'Disabled' : 'Default', href: locationDisplay.isUnknown ? undefined : `/?view=mapa&search=${encodeURIComponent(eventData.location)}` },
+            { label: 'Localidad', count: localityDisplay.text, state: localityDisplay.isUnknown ? 'Disabled' : 'Default', href: localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}` },
+            { label: 'Organiza', count: organizerDisplay.text, state: organizerDisplay.isUnknown ? 'Disabled' : 'Default', href: organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}` },
+            { label: 'Diseño', count: designerDisplay.text, state: designerDisplay.isUnknown ? 'Disabled' : 'Default', href: designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}` },
+          ]}
+        />
       </div>
       <!-- Reserves flow space for the fixed tags row below `lg`, right after
            the header's own spacer — so the image column (first in the grid
@@ -287,7 +292,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
                         src={img}
                         alt={eventData.title}
                         referrerpolicy="no-referrer"
-                        class="w-full h-full object-contain"
+                        class="w-full h-full object-cover"
                         style={idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : ""}
                       />
                     </div>
@@ -538,6 +543,14 @@ const designerDisplay = getTagDisplay(eventData.designer);
 
   </div>
 </Layout>
+
+<style>
+  @media (max-width: 1023px) {
+    #detail-tags-fixed {
+      top: 136px;
+    }
+  }
+</style>
 
 <script define:vars={{ imageUrls, eventId: eventData.idMel, allEvents }}>
   function initPage() {
@@ -987,7 +1000,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
     const mainImageContainer = document.getElementById('carousel-main-container');
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
-        if (window.innerWidth < 1024) {
+        if (window.innerWidth < 480) {
           if (window.scrollY > 0) {
             const startY = window.scrollY;
             const t0 = performance.now();
