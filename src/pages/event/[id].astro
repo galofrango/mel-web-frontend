@@ -71,10 +71,31 @@ try {
       });
     });
 
+    function parseDateToNumber(dateStr) {
+      if (!dateStr || dateStr === 'SIN FECHA') return 0;
+      const slashBits = String(dateStr).split('/');
+      if (slashBits.length === 3) {
+        const d = parseInt(slashBits[0], 10);
+        const m = parseInt(slashBits[1], 10) - 1;
+        const y = parseInt(slashBits[2], 10);
+        return new Date(y, m, d).getTime();
+      }
+      const dashBits = String(dateStr).split('-');
+      if (dashBits.length === 3) {
+        const y = parseInt(dashBits[0], 10);
+        const m = parseInt(dashBits[1], 10) - 1;
+        const d = parseInt(dashBits[2], 10);
+        return new Date(y, m, d).getTime();
+      }
+      return 0;
+    }
+
     eventsList = Object.values(groups).map((g: any) => {
       g.carruselItems.sort((a, b) => a.order - b.order);
       return g;
     });
+
+    eventsList.sort((a, b) => parseDateToNumber(a.date) - parseDateToNumber(b.date));
   }
 } catch (e) {
   console.error("Error fetching event data", e);
@@ -153,33 +174,27 @@ const designerDisplay = getTagDisplay(eventData.designer);
     <!-- Main Box Container (Figma 1224px wide) -->
     <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
-      <!-- Standardized Page Header Block (matches index.astro / info.astro geometry, Rule 10) -->
-      <header
+      <!-- Pinned Header (X + Mobile Title) -->
+      <div
         id="detail-sticky-header"
-        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 lg:mb-14 shrink-0"
+        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 shrink-0"
       >
-        <div class="flex items-center justify-between gap-4 lg:gap-6 w-full h-[48px]">
-          <!-- Mobile Title / Desktop Header Left Slot -->
-          <div class="flex-1 min-w-0">
-            <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary truncate">
-              {eventData.title}
-            </h2>
-          </div>
+        <!-- Close Button (X) at Top Left -->
+        <IconButton
+          id="detail-close-btn"
+          href="/"
+          icon="x"
+          type="phantom"
+          size={40}
+          class="mb-6 lg:mb-14 cursor-pointer shrink-0"
+          aria-label="Cerrar detalles de evento"
+        />
 
-          <!-- Close Button (X) in Header Action Slot -->
-          <div class="shrink-0 flex justify-end">
-            <IconButton
-              id="detail-close-btn"
-              href="/"
-              icon="x"
-              type="phantom"
-              size={40}
-              class="cursor-pointer shrink-0"
-              aria-label="Cerrar detalles de evento"
-            />
-          </div>
-        </div>
-      </header>
+        <!-- Mobile-only Event Title: sits below close button X -->
+        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary">
+          {eventData.title}
+        </h2>
+      </div>
 
       <!-- Reserves flow space for the now-fixed header below `lg` (fixed
            elements are removed from normal flow) — height synced to the
@@ -318,7 +333,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              column's own fixed height and spreads the tags across it instead
              of a flat 40px gap that leaves the column visibly shorter than
              the image next to it. -->
-        <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section" style="view-transition-name: event-tags;">
+        <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section">
           <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
             <TagWithLink
               label="Fecha"
@@ -367,7 +382,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info" style="view-transition-name: event-info;">
+        <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -434,33 +449,27 @@ const designerDisplay = getTagDisplay(eventData.designer);
         <div class="hidden lg:block lg:col-span-2"></div>
         
         <!-- Anterior (Right-aligned under middle column) -->
-        <div class="lg:col-span-5 flex justify-end text-right items-center" id="nav-prev-container">
-          {prevEvent && (
-            <TagWithLink
-              label="Anterior"
-              count={prevEvent.title}
-              alignment="Right"
-              href={`/event/${prevEvent.idMel}`}
-              class="w-full max-w-[496px]"
-              hideBorder={true}
-              reload={true}
-            />
-          )}
+        <div class={`lg:col-span-5 flex justify-end text-right items-center ${!prevEvent ? "invisible" : ""}`} id="nav-prev-container">
+          <TagWithLink
+            label="Anterior"
+            count={prevEvent ? prevEvent.title : "Anterior"}
+            alignment="Right"
+            href={prevEvent ? `/event/${prevEvent.idMel}` : "#"}
+            class="w-full max-w-[496px]"
+            hideBorder={true}
+          />
         </div>
 
         <!-- Siguiente (Left-aligned under right column with 24px left padding on desktop) -->
-        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center" id="nav-next-container">
-          {nextEvent && (
-            <TagWithLink
-              label="Siguiente"
-              count={nextEvent.title}
-              alignment="Left"
-              href={`/event/${nextEvent.idMel}`}
-              class="w-full max-w-[496px]"
-              hideBorder={true}
-              reload={true}
-            />
-          )}
+        <div class={`lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center ${!nextEvent ? "invisible" : ""}`} id="nav-next-container">
+          <TagWithLink
+            label="Siguiente"
+            count={nextEvent ? nextEvent.title : "Siguiente"}
+            alignment="Left"
+            href={nextEvent ? `/event/${nextEvent.idMel}` : "#"}
+            class="w-full max-w-[496px]"
+            hideBorder={true}
+          />
         </div>
 
       </div>
@@ -791,26 +800,34 @@ const designerDisplay = getTagDisplay(eventData.designer);
       });
     }
 
-    // Dynamic Navigation filtering based on activeSearch or activeLocation results
+    // Read active navigation vector from sessionStorage.
+    // The active vector is maintained by index.astro (initial load, filters,
+    // table sort, or map panel click). If absent or stale, falls back to
+    // chronological order (allEvents).
     let filteredEvents = [];
-    if (activeLocation) {
-      // If location parameter is present, restrict navigation ONLY to events matching this location
-      filteredEvents = allEvents.filter(item => item.location.toLowerCase() === activeLocation.toLowerCase());
-    } else {
-      // Otherwise filter by search query
-      filteredEvents = allEvents.filter(item => {
-        if (!activeSearch) return true;
-        const q = activeSearch.toLowerCase().trim();
-        return item.title.toLowerCase().includes(q) ||
-               item.location.toLowerCase().includes(q) ||
-               item.locality.toLowerCase().includes(q) ||
-               item.artists.toLowerCase().includes(q) ||
-               item.organizer.toLowerCase().includes(q) ||
-               item.designer.toLowerCase().includes(q);
-      });
+    try {
+      const storedOrder = sessionStorage.getItem('mel-active-nav-sequence');
+      if (storedOrder) {
+        const ids = JSON.parse(storedOrder);
+        if (Array.isArray(ids) && ids.length > 0) {
+          const mapById = new Map(allEvents.map(e => [e.idMel, e]));
+          const ordered = ids.map(id => mapById.get(id)).filter(Boolean);
+          if (ordered.length > 0) filteredEvents = ordered;
+        }
+      }
+    } catch (err) {
+      // Fallback to chronological
     }
+    if (filteredEvents.length === 0) filteredEvents = allEvents;
 
-    const curIdx = filteredEvents.findIndex(x => x.idMel === eventId);
+    let curIdx = filteredEvents.findIndex(x => x.idMel === eventId);
+    // Fallback: if the current event is not in the stored vector (direct URL
+    // access without a session, or stale vector), fall back silently to
+    // chronological order so navigation always works.
+    if (curIdx === -1) {
+      filteredEvents = allEvents;
+      curIdx = filteredEvents.findIndex(x => x.idMel === eventId);
+    }
     const prevEventItem = curIdx > 0 ? filteredEvents[curIdx - 1] : null;
     const nextEventItem = curIdx < filteredEvents.length - 1 ? filteredEvents[curIdx + 1] : null;
 
@@ -821,6 +838,16 @@ const designerDisplay = getTagDisplay(eventData.designer);
     if (activeLocation) returnNavParams.set('location', activeLocation);
     const navParam = returnNavParams.toString();
 
+    // Helper for smooth View Transitions navigation on click
+    const handleNavClick = (e) => {
+      const a = e.currentTarget;
+      const url = a ? a.getAttribute('href') : null;
+      if (url && typeof window.__melNavigate === 'function') {
+        e.preventDefault();
+        window.__melNavigate(url);
+      }
+    };
+
     // Render navigation dynamically based on active search/location matches (using visibility:hidden to preserve grid layout!)
     const prevContainer = document.getElementById('nav-prev-container');
     if (prevContainer) {
@@ -828,7 +855,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
         prevContainer.classList.remove('invisible');
         const link = prevContainer.querySelector('a');
         const text = prevContainer.querySelector('.tag-count-val');
-        if (link) link.href = `/event/${prevEventItem.idMel}?${navParam}`;
+        if (link) {
+          link.href = `/event/${prevEventItem.idMel}?${navParam}`;
+          link.addEventListener('click', handleNavClick, { signal: wSig });
+        }
         if (text) text.textContent = prevEventItem.title;
       } else {
         prevContainer.classList.add('invisible');
@@ -841,7 +871,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
         nextContainer.classList.remove('invisible');
         const link = nextContainer.querySelector('a');
         const text = nextContainer.querySelector('.tag-count-val');
-        if (link) link.href = `/event/${nextEventItem.idMel}?${navParam}`;
+        if (link) {
+          link.href = `/event/${nextEventItem.idMel}?${navParam}`;
+          link.addEventListener('click', handleNavClick, { signal: wSig });
+        }
         if (text) text.textContent = nextEventItem.title;
       } else {
         nextContainer.classList.add('invisible');
@@ -945,30 +978,20 @@ const designerDisplay = getTagDisplay(eventData.designer);
         else if (e.key === 'ArrowRight') { e.preventDefault(); showOverlayImage(overlayIndex + 1); }
       } else {
         // Normal page view: navigate Previous / Next event
-        const prevLink = document.querySelector('#nav-prev-container a');
-        const nextLink = document.querySelector('#nav-next-container a');
-        if (e.key === 'ArrowLeft' && prevLink) {
+        if (e.key === 'ArrowLeft' && prevEventItem) {
           e.preventDefault();
-          const url = prevLink.getAttribute('href');
-          if (url) {
-            if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
-            else window.location.href = url;
-          }
-        } else if (e.key === 'ArrowRight' && nextLink) {
+          const url = `/event/${prevEventItem.idMel}?${navParam}`;
+          if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
+          else window.location.href = url;
+        } else if (e.key === 'ArrowRight' && nextEventItem) {
           e.preventDefault();
-          const url = nextLink.getAttribute('href');
-          if (url) {
-            if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
-            else window.location.href = url;
-          }
+          const url = `/event/${nextEventItem.idMel}?${navParam}`;
+          if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
+          else window.location.href = url;
         }
       }
     }
-    if (window.melOverlayKeydownHandler) {
-      document.removeEventListener('keydown', window.melOverlayKeydownHandler);
-    }
-    window.melOverlayKeydownHandler = handleOverlayKeydown;
-    document.addEventListener('keydown', window.melOverlayKeydownHandler);
+    document.addEventListener('keydown', handleOverlayKeydown, { signal: wSig });
 
     function openOverlay() {
       if (!overlay || !overlayModal) return;
@@ -1129,25 +1152,5 @@ const designerDisplay = getTagDisplay(eventData.designer);
       var(--mel-border) 7px,
       var(--mel-border) 8px
     );
-  }
-
-  /* Custom dissolve view transitions for details page info/tags panels */
-  ::view-transition-old(event-info),
-  ::view-transition-old(event-tags) {
-    animation: fade-out 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
-  }
-  ::view-transition-new(event-info),
-  ::view-transition-new(event-tags) {
-    animation: fade-in 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
-  }
-
-  @keyframes fade-out {
-    from { opacity: 1; }
-    to { opacity: 0; }
-  }
-
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
   }
 </style>

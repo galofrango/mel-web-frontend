@@ -95,17 +95,6 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
 <style is:global>
   body {
     font-family: 'Space Grotesk', sans-serif;
-    /* Softens every hard navigation's entrance (see D-072/D-074) — a plain
-       CSS keyframe replays on its own on every fresh page load, no JS/timing
-       needed. Paired with the fade-OUT some pages trigger via body.style
-       .opacity before navigating away (EmptyState's back button, and event
-       detail navigation in index.astro/[id].astro). */
-    animation: mel-fade-in 0.25s ease;
-  }
-
-  @keyframes mel-fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
   }
 
   /* Blocks the browser's native "drag this image out" gesture site-wide,

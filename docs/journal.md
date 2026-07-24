@@ -15,11 +15,22 @@ Resolver las tres incidencias reportadas en la ficha de evento (`/event/[id]`): 
 5. **Verificación de build**: `ASTRO_TELEMETRY_DISABLED=1 npm run build` completado correctamente.
 
 ### Decisiones Tomadas
-- Registradas las decisiones `D-093` y `D-094` en `docs/decisions.md`.
+- Registradas las decisiones `D-093`, `D-094` y `D-095` en `docs/decisions.md`.
 
 ### Auditación y Estandarización Tipográfica (D-094)
 - **Asignación de `typo-body-sans`**: Se asignó la clase utilitaria `.typo-body-sans` al elemento `<p>` de la descripción del evento en `src/pages/event/[id].astro` (antes usaba clases Tailwind aisladas `font-sans ...`).
 - **Estandarización de `typo-body-roman` (Lora)**: Se reemplazaron todas las instancias de estilos Serif ad-hoc por `.typo-body-roman` a nivel de componente (`EventCardList.astro`, `EventHeader.astro`, `EventInfoBox.astro`, `/info.astro`, y los renderizadores cliente de la tabla de Lista, paginación y panel del mapa en `index.astro`).
+
+### Consolidación y Registro de Incidencias Pendientes (D-095)
+- **Regla de Prohibición de Commits Autónomos (Regla 16 en `AGENTS.md`)**: Documentada e incorporada la directiva estricta de no commitear ni declarar trabajos como validados de forma autónoma.
+- **Registro de 4 Pendientes en `roadmap.md`**:
+  1. Altura de la cabecera en el detalle de evento.
+  2. Ritmos/espaciados entre los elementos de la columna derecha de información en escritorio (título, descripción, artistas, divisor, tags, etc.).
+  3. Adaptación de la fila de etiquetas `#detail-tags-fixed` al ancho total en teléfonos móviles de pantalla grande.
+### Descorrelación Inicial Galería/Lista y Re-sincronización Cronológica (D-096)
+- **Descorrelación inicial**: La Lista muestra los eventos ordenados cronológicamente por fecha (`initialArchives`), mientras la Galería muestra su mosaico aleatorio inicial (`shuffledArchives`).
+- **Re-sincronización tras acción del usuario**: Ante cualquier filtro, búsqueda, slider de años o reordenación de columna en Lista, ambas vistas se sincronizan en la misma secuencia cronológica (o de columna).
+- **Vector Único de Navegación**: Inicializado y mantenido ordenado cronológicamente por fecha por defecto.
 
 ---
 

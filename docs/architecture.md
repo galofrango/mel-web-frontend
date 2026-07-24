@@ -111,6 +111,28 @@ Página de la Sala de Exposiciones. Implementa el componente `<EmptyState varian
 | `<SideMenu />` | Menú lateral deslizable con selector de tema, disparo de la intro y enlaces de navegación. |
 | `<TagWithLink />` | Etiqueta de metadata (*OVERLINE + Valor*) con truncado mediante `ellipsis` indispensable. |
 
+## Arquitectura de Navegación Sitewide: Modelo Cronológico Determinista (`Vector Único`)
+
+La navegación entre eventos (*Anterior* / *Siguiente* y flechas de teclado en la ficha de detalle `/event/[id]`) se rige por el **Modelo Cronológico Determinista**, controlado por un único array JSON de IDs en `sessionStorage['mel-active-nav-sequence']`:
+
+> **Principio Fundamental**: La secuencia de navegación entre flyers en la ficha de detalle avanza **siempre en orden cronológico por fecha** (de más antiguo a más reciente: 2004 ➔ 2019). Este orden determinista solo cambia si el usuario reordena explícitamente la tabla en la vista Lista. La Galería de la Home conserva su mosaico aleatorio visual para fomentar la exploración en la portada.
+
+### 1. Mutaciones del Vector de Navegación
+
+| Situación del usuario | Comportamiento del Vector (`sessionStorage['mel-active-nav-sequence']`) |
+|---|---|
+| **Navegación general por defecto (Carga/F5)** | Vector completo ordenado **cronológicamente por fecha** (2004 ➔ 2019). |
+| **Filtros / Buscador / Tags activos** | Subconjunto de eventos filtrados, ordenados **cronológicamente por fecha**. Al borrar el filtro, vuelve a estar disponible la totalidad del archivo cronológico. |
+| **Abrir evento desde el Mapa** | **En el instante del clic**, se extrae la lista de eventos visibles en el panel de esa sala/recinto y se guardan ordenados **cronológicamente por fecha**. |
+| **Reordenación explícita en Lista** | Si el usuario hace clic en una columna para ordenar la tabla (p. ej. alfabético por *Lugar* u *Organizador*), esa ordenación específica sobrescribe el vector. |
+
+### 2. Resolución de la Navegación en `/event/[id]`
+
+- La plantilla de detalle lee `sessionStorage['mel-active-nav-sequence']` e identifica `curIdx` por su propio `idMel`.
+- **Anterior** = `curIdx - 1` · **Siguiente** = `curIdx + 1`.
+- Al hacer clic en los botones o pulsar las flechas del teclado (`ArrowLeft` / `ArrowRight`), se ejecuta `window.__melNavigate()` manteniendo el contexto.
+- **Acceso directo por URL (Fallback)**: Si se accede directamente a la ficha desde un enlace externo sin `sessionStorage` previo (o si su ID no está en el vector), la navegación recae de forma transparente en el **orden cronológico por fecha**.
+
 ---
 
 ## Bus de Eventos (Eventos Personalizados en `window`)

@@ -1175,7 +1175,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 </style>
 
 <!-- Client Side Scripting for complete interactivity -->
-<script define:vars={{ initialArchives: shuffledArchives }}>
+<script define:vars={{ initialArchives: shuffledArchives, chronologicalArchives: initialArchives }}>
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
@@ -1772,6 +1772,27 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
     filtered = tempFiltered;
 
+    // Update active navigation sequence vector in sessionStorage.
+    // If no explicit table column sort is set, order chronologically by date (2004 -> 2019).
+    // If a column sort is set (e.g. Lista view column header click), use that exact order.
+    try {
+      let navSeq = [...filtered];
+      if (!currentSortCol) {
+        navSeq.sort((a, b) => {
+          const parseDate = (dStr) => {
+            if (!dStr || dStr === 'SIN FECHA') return 0;
+            const parts = dStr.split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
+            const parts2 = dStr.split('-');
+            if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
+            return 0;
+          };
+          return parseDate(a.fecha) - parseDate(b.fecha);
+        });
+      }
+      sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(navSeq.map(x => x.idMel)));
+    } catch (e) {}
+
     // 1. Calculate dynamic statistics on the fly
     const filteredArtists = new Set();
     const filteredDesigners = new Set();
@@ -1816,7 +1837,26 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (currentPage > totalPages) currentPage = totalPages;
       if (currentPage < 1) currentPage = 1;
       
-      const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+      // On initial state (no filter, search, or sort active), Lista is displayed
+      // chronologically by date (2004 -> 2019) while Galería displays its visual
+      // random mosaic (D-096). As soon as the user interacts (filters, searches,
+      // or sorts), both views resynchronize in the same sequence.
+      let listDataset = filtered;
+      const isInitialState = !currentSortCol && !searchQuery && minYear === ABSOLUTE_MIN_YEAR && maxYear === ABSOLUTE_MAX_YEAR;
+      if (isInitialState) {
+        listDataset = [...filtered].sort((a, b) => {
+          const parseDate = (dStr) => {
+            if (!dStr || dStr === 'SIN FECHA') return 0;
+            const parts = String(dStr).split('/');
+            if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
+            const parts2 = String(dStr).split('-');
+            if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
+            return 0;
+          };
+          return parseDate(a.fecha) - parseDate(b.fecha);
+        });
+      }
+      const paginated = listDataset.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
       // La galería va por libre (D-015): ignora la paginación (scroll
       // infinito por lotes). Su orden es aleatorio estable por sesión —
@@ -2662,6 +2702,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           prefetchEventUrl(evt.idMel, { location: evt.lugar });
         }, { once: true });
         card.addEventListener('click', () => {
+          try {
+            const parseDate = (dStr) => {
+              if (!dStr || dStr === 'SIN FECHA') return 0;
+              const parts = String(dStr).split('/');
+              if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
+              const parts2 = String(dStr).split('-');
+              if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
+              return 0;
+            };
+            const sortedGroupEvents = [...group.events].sort((a, b) => parseDate(a.fecha) - parseDate(b.fecha));
+            sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(sortedGroupEvents.map(x => x.idMel)));
+          } catch (e) {}
           navigateToEvent(evt.idMel, { location: evt.lugar });
         });
         listContainer.appendChild(card);
@@ -3125,9 +3177,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       _s.archives = [...initialArchives];
       _s.filtered = [...initialArchives];
     }
+    // Write the current session order as the active navigation vector.
+    // This key is also written by the map panel (on click) and the list sort
+    // to reflect their own context — the Home always resets it to the full
+    // session order (filtered or unfiltered) so navigation is coherent when
+    // returning from a detail page to the Home.
     try {
-      if (_s.archives && _s.archives.length > 0) {
-        sessionStorage.setItem('mel-session-order', JSON.stringify(_s.archives.map(x => x.idMel)));
+      if (chronologicalArchives && chronologicalArchives.length > 0) {
+        sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(chronologicalArchives.map(x => x.idMel)));
       }
     } catch (e) {}
 
