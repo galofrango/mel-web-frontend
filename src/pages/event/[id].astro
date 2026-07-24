@@ -149,7 +149,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
-  <div class="min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12">
+  <div class="w-full max-w-[1440px] mx-auto min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
     <!-- Main Box Container (Figma 1224px wide) -->
     <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
@@ -780,9 +780,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
     ensureScrollRunway();
     updateStickyImage();
     window.addEventListener('scroll', updateStickyImage, { passive: true, signal: wSig });
+    let resizeRaf = null;
     window.addEventListener('resize', () => {
-      ensureScrollRunway();
-      updateStickyImage();
+      if (resizeRaf) cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        ensureScrollRunway();
+        updateStickyImage();
+      });
     }, { signal: wSig });
 
     // Web fonts (Space Grotesk / Lora) are still loading at astro:page-load
