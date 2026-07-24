@@ -153,42 +153,33 @@ const designerDisplay = getTagDisplay(eventData.designer);
     <!-- Main Box Container (Figma 1224px wide) -->
     <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
 
-      <!-- Fixed Header (X + Mobile Title), Figma "Screen / Event Details"
-           (369:32751) PageHeader + "No Scrolling Content": pinned at the true
-           viewport top below `lg` from the very first frame — genuinely
-           `position: fixed`, not `sticky`. `sticky` was tried first, but it
-           only pins once scrolled past its own natural (padded) resting
-           position, so there was a real, visible window where it still moved
-           with the page — unacceptable per the propietario's explicit "fija,
-           sin hacer scroll en ningún momento". Being fixed from the start
-           means it's out of normal flow immediately, so #detail-header-spacer
-           right after it reserves its height for the content that follows
-           (see updateStickyImage()) — pb-8 lives on the wrapper itself (not
-           as the title's own mb-8) so that measurement is reliable: a margin
-           on the last child can collapse through into the parent's own box,
-           but padding never does. -->
-      <div
+      <!-- Standardized Page Header Block (matches index.astro / info.astro geometry, Rule 10) -->
+      <header
         id="detail-sticky-header"
-        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0"
+        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 lg:mb-14 shrink-0"
       >
-        <!-- Close Button (X) at Top Left -->
-        <IconButton
-          id="detail-close-btn"
-          href="/"
-          icon="x"
-          type="phantom"
-          size={40}
-          class="mb-8 lg:mb-14 lg:mt-1 cursor-pointer shrink-0"
-          aria-label="Cerrar detalles de evento"
-        />
+        <div class="flex items-center justify-between gap-4 lg:gap-6 w-full h-[48px]">
+          <!-- Mobile Title / Desktop Header Left Slot -->
+          <div class="flex-1 min-w-0">
+            <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary truncate">
+              {eventData.title}
+            </h2>
+          </div>
 
-        <!-- Mobile-only Event Title: on mobile (Figma 369:32751) the title sits
-             between the close button and the image; on desktop it lives at the
-             top of the Info column instead. -->
-        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary">
-          {eventData.title}
-        </h2>
-      </div>
+          <!-- Close Button (X) in Header Action Slot -->
+          <div class="shrink-0 flex justify-end">
+            <IconButton
+              id="detail-close-btn"
+              href="/"
+              icon="x"
+              type="phantom"
+              size={40}
+              class="cursor-pointer shrink-0"
+              aria-label="Cerrar detalles de evento"
+            />
+          </div>
+        </div>
+      </header>
 
       <!-- Reserves flow space for the now-fixed header below `lg` (fixed
            elements are removed from normal flow) — height synced to the
