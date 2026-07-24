@@ -9,7 +9,7 @@ Resolver las tres incidencias reportadas en la ficha de evento (`/event/[id]`): 
 
 ### Cambios Realizados
 1. **Separadores verticales en etiquetas**: Reemplazada la fila manual por el componente `AdaptiveTagsRow` en `#detail-tags-fixed`, restituyendo los divisores verticales (`border-mel-border`) entre etiquetas.
-2. **Foto adaptada a la caja contenedora**: Cambiada la clase de la imagen principal a `w-full h-full object-cover` para que la imagen se adapte perfectamente al marco `detail-image-crop`.
+2. **Escalado fluido de la foto en scroll móvil (`fit` mode)**: Configurado el contenedor de la imagen en `h-full` de `#detail-image-crop` con la clase `object-contain`, de modo que cuando la caja se estrecha con el scroll móvil (de 360px a 200px), el cartel entero escala dinámicamente para mantenerse 100% visible en modo *fit*, sin sufrir recortes recortados (*crop*) ni deformaciones/rellenos (*fill/cover*).
 3. **Lightbox habilitado en tablet ($\ge 480px$)**: Ajustado el umbral en `mainImageContainer.addEventListener('click', ...)` de `window.innerWidth < 1024` a `window.innerWidth < 480`. En pantallas $\ge 480px$ (tablets y escritorio), al hacer clic sobre el cartel se abre el modal lightbox a pantalla completa.
 4. **Fallback CSS para SSR (frame 0)**: Mantenido `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` para prevenir solapamiento con el botón de cierre durante la carga inicial.
 5. **Verificación de build**: `ASTRO_TELEMETRY_DISABLED=1 npm run build` completado correctamente.

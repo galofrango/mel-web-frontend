@@ -274,7 +274,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
             <div id="detail-image-crop" class="relative w-full overflow-hidden flex flex-col justify-center lg:h-[400px]">
               <button
                 id="carousel-main-container"
-                class="relative w-full h-[360px] lg:h-[400px] shrink-0 overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
+                class="relative w-full h-full lg:h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
                 aria-label="Siguiente imagen"
               >
                 <!-- Custom background image matching Figma specifications exactly (flipped 180deg horizontally) -->
@@ -292,7 +292,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
                         src={img}
                         alt={eventData.title}
                         referrerpolicy="no-referrer"
-                        class="w-full h-full object-cover"
+                        class="w-full h-full object-contain"
                         style={idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : ""}
                       />
                     </div>

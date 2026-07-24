@@ -1047,7 +1047,7 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Contexto**: Tras restaurar el layout V2 en `/event/[id]`, se identificaron tres desajustes específicos: (1) las etiquetas móviles carecían de sus divisores verticales, (2) el cartel quedaba centrado con franjas en lugar de adaptarse al contenedor, y (3) el modal lightbox no se abría en pantallas tablet ($\ge 480px$).
 - **Decisión**:
   1. **Separadores verticales en etiquetas**: Se integra `AdaptiveTagsRow` en `#detail-tags-fixed`, restaurando las líneas divisoras verticales (`border-mel-border`) entre etiquetas.
-  2. **Encuadre adaptativo de foto**: Se actualiza la clase de la imagen principal a `object-cover`, permitiendo que el cartel se adapte y rellene la caja contenedora (`detail-image-crop`).
+  2. **Escalado fluido de foto en scroll móvil (`fit` mode)**: El contenedor de imagen pasa a ocupar `h-full` de `#detail-image-crop` con la clase `object-contain`, haciendo que al encoger la caja durante el scroll móvil (360px → 200px) el cartel escale progresivamente para adaptarse al alto disponible sin recortes superiores/inferiores ni desbordamientos (`object-cover`).
   3. **Apertura de Lightbox en Tablet ($\ge 480px$)**: Se ajusta el umbral de activación del visor a `window.innerWidth < 480` para que los clics en la foto en tablets ($\ge 480px$) y escritorio abran el modal lightbox en lugar de animar el scroll a la parte superior.
   4. **Fallback CSS para SSR (frame 0)**: Se mantiene `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` para impedir la oclusión de la **X** de cierre durante el renderizado inicial en servidor.
 
