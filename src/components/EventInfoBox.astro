@@ -17,11 +17,11 @@ const cleanArtists = artists ? artists.split(/[,;\/]+/).map(a => a.trim()).filte
       Descripción
     </h3>
     {description ? (
-      <p class="font-serif font-medium text-lg leading-relaxed text-mel-text-primary whitespace-pre-line">
+      <p class="typo-body-roman text-mel-text-primary whitespace-pre-line">
         {description}
       </p>
     ) : (
-      <p class="font-serif font-medium text-lg leading-relaxed text-mel-text-secondary italic">
+      <p class="typo-body-roman text-mel-text-secondary italic">
         Sin descripción detallada.
       </p>
     )}

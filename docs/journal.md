@@ -15,7 +15,11 @@ Resolver las tres incidencias reportadas en la ficha de evento (`/event/[id]`): 
 5. **Verificación de build**: `ASTRO_TELEMETRY_DISABLED=1 npm run build` completado correctamente.
 
 ### Decisiones Tomadas
-- Registrada la decisión `D-093` en `docs/decisions.md`.
+- Registradas las decisiones `D-093` y `D-094` en `docs/decisions.md`.
+
+### Auditación y Estandarización Tipográfica (D-094)
+- **Asignación de `typo-body-sans`**: Se asignó la clase utilitaria `.typo-body-sans` al elemento `<p>` de la descripción del evento en `src/pages/event/[id].astro` (antes usaba clases Tailwind aisladas `font-sans ...`).
+- **Estandarización de `typo-body-roman` (Lora)**: Se reemplazaron todas las instancias de estilos Serif ad-hoc por `.typo-body-roman` a nivel de componente (`EventCardList.astro`, `EventHeader.astro`, `EventInfoBox.astro`, `/info.astro`, y los renderizadores cliente de la tabla de Lista, paginación y panel del mapa en `index.astro`).
 
 ---
 

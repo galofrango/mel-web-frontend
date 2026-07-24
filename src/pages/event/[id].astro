@@ -385,7 +385,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
           <div class="flex flex-col gap-8 lg:gap-10">
             {eventData.description && (
               <div class="flex flex-col gap-8 lg:gap-6">
-                <p class="font-sans font-normal text-[16px] leading-[24px] tracking-[-0.16px] text-mel-text-primary">
+                <p class="typo-body-sans text-mel-text-primary">
                   {eventData.description}
                 </p>
                 <!-- Figma 1px divider -->
@@ -403,7 +403,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
                     const isLast = idx === arr.length - 1;
                     return (
                       <span class="inline-flex items-center whitespace-nowrap">
-                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="text-mel-text-secondary mr-2 font-serif font-medium text-[15px] leading-[24px] tracking-[0.15px]">,</span>}
+                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
                       </span>
                     );
                   })}

@@ -1048,8 +1048,13 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Decisión**:
   1. **Separadores verticales en etiquetas**: Se integra `AdaptiveTagsRow` en `#detail-tags-fixed`, restaurando las líneas divisoras verticales (`border-mel-border`) entre etiquetas.
   2. **Escalado fluido de foto en scroll móvil (`fit` mode)**: El contenedor de imagen pasa a ocupar `h-full` de `#detail-image-crop` con la clase `object-contain`, haciendo que al encoger la caja durante el scroll móvil (360px → 200px) el cartel escale progresivamente para adaptarse al alto disponible sin recortes superiores/inferiores ni desbordamientos (`object-cover`).
-  3. **Apertura de Lightbox en Tablet ($\ge 480px$)**: Se ajusta el umbral de activación del visor a `window.innerWidth < 480` para que los clics en la foto en tablets ($\ge 480px$) y escritorio abran el modal lightbox en lugar de animar el scroll a la parte superior.
-  4. **Fallback CSS para SSR (frame 0)**: Se mantiene `@media (max-width: 1023px) { #detail-tags-fixed { top: 136px; } }` para impedir la oclusión de la **X** de cierre durante el renderizado inicial en servidor.
+## D-094 · Estandarización de clases utilitarias `typo-body-sans` y `typo-body-roman` a nivel de componente
+
+- **Contexto**: Diversos elementos en la plantilla de evento (`/event/[id]`), componentes (`EventCardList`, `EventHeader`, `EventInfoBox`) y renderizadores JS (`buildEventCardListHtml`, celdas de la tabla de Lista, paginación, etc.) utilizaban clases Tailwind ad-hoc (`font-sans ...`, `font-serif ...`) en lugar de vincularse a los tokens semánticos globales del sistema de diseño.
+- **Decisión**:
+  1. Se asigna la clase `.typo-body-sans` al párrafo de descripción en la plantilla de evento (`/event/[id].astro`).
+  2. Se sustituyen todas las clases tipográficas Serif aisladas por `.typo-body-roman` a nivel de componente en todo el sitio (`EventCardList.astro`, `EventHeader.astro`, `EventInfoBox.astro`, `/info.astro`, y los renderizadores cliente de la vista de Lista y el mapa en `index.astro`).
+  3. De este modo, cualquier ajuste futuro sobre los tokens tipográficos globales en `global.css` repercutirá automáticamente y de manera homogénea en toda la aplicación.
 
 
 
