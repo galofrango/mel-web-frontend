@@ -50,6 +50,14 @@
 
 ## Ideas Pendientes (sin compromiso)
 
+- **Pliegue de papel del bottom sheet como imagen**: la cabecera del bottom
+  sheet (Figma 656:70560) lleva una esquina doblada que no se ha conseguido
+  emular en CSS de forma convincente. Hoy queda solo el corte de la esquina
+  (`clip-path`), sin doblez. El propietario propone resolverlo aportando la
+  cabecera como **imagen, en versión clara y oscura**. Ver el cuadro de
+  variantes descartadas en `design-system.md` antes de intentarlo otra vez en
+  CSS.
+
 - **Cierre del panel lateral del mapa más explícito**: hoy se cierra pulsando el
   nombre/dirección o volviendo a pulsar el marcador, sin más aviso que el
   cursor. El propietario reconoce que es poco intuitivo; si alguien se pierde,

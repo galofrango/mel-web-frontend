@@ -170,7 +170,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
-  <div class="w-full max-w-[1440px] mx-auto min-h-dvh bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
+  <div class="w-full max-w-[1440px] mx-auto min-h-dvh bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
     <!-- Main Box Container (Figma 1224px wide).
          data-event-id / data-image-urls: la identidad del evento viaja en el
          DOM, no solo en las variables de `define:vars`. Esas quedan congeladas
@@ -191,18 +191,24 @@ const designerDisplay = getTagDisplay(eventData.designer);
       <!-- Pinned Header (X + Mobile Title) -->
       <div
         id="detail-sticky-header"
-        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-8 pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 shrink-0"
+        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-[calc(10vh-40px)] pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 shrink-0"
       >
-        <!-- Close Button (X) at Top Left -->
-        <IconButton
-          id="detail-close-btn"
-          href="/"
-          icon="x"
-          type="phantom"
-          size={40}
-          class="mb-6 lg:mb-14 cursor-pointer shrink-0"
-          aria-label="Cerrar detalles de evento"
-        />
+        <!-- Close Button (X) at Top Left. Va dentro de una fila de 48px con el
+             icono centrado, que es exactamente lo que pasa en las demás
+             páginas: allí el botón de menú (40px) se centra en la fila del
+             título, que mide 48. Sin esta fila la X quedaba 4px más alta que
+             el icono de menú al ir de una página a otra. -->
+        <div class="flex items-center h-[48px] mb-4 lg:mb-12">
+          <IconButton
+            id="detail-close-btn"
+            href="/"
+            icon="x"
+            type="phantom"
+            size={40}
+            class="cursor-pointer shrink-0"
+            aria-label="Cerrar detalles de evento"
+          />
+        </div>
 
         <!-- Mobile-only Event Title: sits below close button X -->
         <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary">

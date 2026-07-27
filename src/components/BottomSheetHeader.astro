@@ -32,31 +32,12 @@ const { notch = 40, height = 56, handleId, class: className = '' } = Astro.props
   data-node-id="269:11222"
   data-name="Bottom Sheet Header"
 >
-  <!-- Pliegue (dog-ear): triángulo superior derecho OPACO, un punto MÁS CLARO
-       que el papel —la cara del reverso, que recoge más luz— con su sombra
-       cayendo hacia abajo-izquierda sobre el propio panel. El `drop-shadow`
-       sigue el contorno real del triángulo, así que la sombra nace justo en la
-       diagonal del doblez.
-       Tres cosas que NO es, cada una probada y descartada:
-        · Más OSCURO que el papel (bg-secondary): se leía como un parche de
-          color pegado en la esquina, no como papel.
-        · Un recorte transparente (clip-path sobre el sheet), que es
-          literalmente lo que hace el diseño en Figma: allí el hueco cae sobre
-          un lienzo del mismo color y no se nota, pero aquí deja ver el mapa
-          atenuado y parece una ventana.
-        · Del MISMO color exacto que el papel: entonces solo queda la sombra, y
-          resulta tan sutil que el pliegue desaparece.
-       El aclarado va con color-mix sobre el token semántico, así que funciona
-       igual en claro y en oscuro sin fijar ningún color a mano. -->
-  <div
-    class="absolute top-0 right-0"
-    style={`width:${notch}px; height:${notch}px;
-            background: color-mix(in oklab, var(--mel-bg-primary) 78%, white);
-            clip-path: polygon(0 0, 100% 0, 100% 100%);
-            filter: drop-shadow(-4px 4px 5px rgb(var(--mel-shadow-rgb) / 0.28));`}
-    aria-hidden="true"
-    data-name="Pliegue"
-  ></div>
+  <!-- El pliegue NO se pinta aquí: la esquina superior derecha va simplemente
+       CORTADA en el propio sheet (clip-path, ver la media query de
+       #map-side-panel). Se intentó emular el doblez del diseño de tres maneras
+       (triángulo más oscuro, más claro, y del mismo color con sombra) y ninguna
+       convencía; queda pendiente resolverlo con una imagen de cabecera para
+       claro y oscuro — ver "Ideas Pendientes" en roadmap.md. -->
 
   <!-- Tirador: rectángulo recto (SIN redondear), color borde. -->
   <div
