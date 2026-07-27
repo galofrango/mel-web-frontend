@@ -48,6 +48,15 @@
 - **Estandarización completa de `TagWithLink`/`Link.astro` en todo el sitio** (D-067): tras varias rondas de fixes puntuales (D-062 fuente, D-066 chevron clipado, D-067 desbordamiento por `shrink-0`), el propietario reporta que en algunos tags el texto SÍ trunca pero sigue sin verse ni el "…" ni el chevron — pese a que la medición (`scrollWidth`/`clientWidth`) decía que el truncado era correcto. Pidió explícitamente **no dar esto por resuelto** y en su lugar revisar en una sesión dedicada TODAS las instancias del sitio que usan `TagWithLink`/`Link.astro` (real o replicado a mano en JS: `makeTagHtml`, `makeAdaptiveTagHtml`, la tabla de Lista, los enlaces de artistas) para confirmar que todas se comportan exactamente igual, en vez de seguir parcheando caso por caso.
 - **Temblor del slider de fecha en táctil / emulación móvil**: se intentaron tres enfoques en `TimeSlider.astro` y `Layout.astro` (ver `D-086` en `docs/decisions.md`): (1) captura de puntero `setPointerCapture` en manetas móviles, (2) captura de puntero en la barra estática `#slider-track-wrapper` con `e.preventDefault()` en `touchstart` (descartada porque rompía los clics directos sobre la barra para saltar a un año), y (3) restricción de desbordamiento horizontal `overflow-x-hidden` en `html`/`body`. Los cambios se revirtieron por completo y se aparcaron explícitamente a petición del propietario para ser analizados en una sesión dedicada.
 
+## Ideas Pendientes (sin compromiso)
+
+- **Cierre del panel lateral del mapa más explícito**: hoy se cierra pulsando o
+  arrastrando hacia la derecha desde el nombre/dirección o desde la franja de
+  16px del borde izquierdo (mano de agarrar como único aviso). El propietario
+  reconoce que es poco intuitivo sin más señal; si alguien se pierde, la
+  alternativa sería un botón propio en otro punto del panel. No abordar salvo
+  que se pida.
+
 ## Problemas Conocidos (Aparcados Explícitamente)
 
 *No abordar sin solicitud explícita del propietario:*

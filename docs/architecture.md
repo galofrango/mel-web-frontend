@@ -183,9 +183,12 @@ su `href`, para no dejar enlaces obsoletos vivos debajo.
 ### El panel del mapa se cierra distinto según su forma
 
 - **Como panel lateral (`lg+`) no hay X**: su fila se oculta entera para ganar
-  altura, y el cierre es pulsar de nuevo sobre el **nombre/dirección** del local
-  (`#side-panel-header-toggle`, mismo manejador que la X: limpia `?location=` y
-  devuelve el marcador a reposo).
+  altura. Se cierra de tres maneras, todas por el mismo manejador (limpia
+  `?location=` y devuelve el marcador a reposo): pulsando el **nombre/dirección**
+  del local, **arrastrando hacia la derecha** desde ahí o desde la franja de
+  16px del borde izquierdo (`#side-panel-grab-edge`, que muestra la mano de
+  agarrar como aviso), o **volviendo a pulsar su marcador** en el mapa. Pulsar
+  el marcador de OTRO local cambia de local, no cierra.
 - **Como bottom sheet (`<lg`) se mantiene la X**, más el dim y el tirador de
   arrastre. Ahí la cabecera es texto inerte.
 
