@@ -94,6 +94,19 @@ Página estática SSR para enlaces directos por ID de evento (`/event/MEL-XXXX`)
 ### `src/pages/info.astro`
 Página informativa (*Proyecto / Equipo / Contacto*) poblada desde la hoja. Acordeones desplegables con tinte fotográfico duotono en imágenes.
 
+### `src/pages/event/[id].astro` — gestos sobre la foto
+
+Con más de una imagen, el carrusel de la ficha y el lightbox se pasan de foto
+**deslizando el dedo**. El gesto convive con el toque (expandir la imagen /
+volver arriba): solo cuenta como deslizamiento si recorre más de 45px en
+horizontal y avanza más en horizontal que en vertical —así un scroll sobre la
+foto no cambia de imagen—, y en ese caso se suprime en captura el `click` que el
+navegador dispara al soltar, para no expandir sin querer. Solo con puntero
+táctil: con ratón mandan las flechas y los puntos.
+
+Un identificador de evento que no existe hace `rewrite` a `/404` (no
+`redirect` a la home): conserva la URL fallida a la vista y da el 404 real.
+
 ### `src/pages/404.astro`
 
 Página de error, deliberadamente mínima: cabecera y menú, sin toolbar, slider ni

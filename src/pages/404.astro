@@ -8,6 +8,12 @@ import EmptyState from '../components/EmptyState.astro';
 // cabecera y el menú, sin toolbar, sin slider ni vistas — quien llega aquí no ha
 // pedido explorar el archivo, se ha topado con una dirección que no existe, así
 // que lo único útil es reconocerlo y ofrecer la vuelta al inicio.
+//
+// El estado se fija a mano porque a esta página también se llega por `rewrite`
+// desde /event/[id] cuando el identificador no existe, y un rewrite conserva el
+// 200 de la ruta original: sin esto, un enlace roto respondería "todo correcto"
+// a buscadores y clientes mientras enseña un 404 por pantalla.
+Astro.response.status = 404;
 ---
 
 <Layout title="404">

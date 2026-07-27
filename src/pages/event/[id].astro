@@ -103,7 +103,11 @@ try {
 
 const eventIndex = eventsList.findIndex((e: any) => e.idMel === Astro.params.id);
 if (eventIndex === -1) {
-  return Astro.redirect('/');
+  // Un enlace roto a un evento va al 404, no de vuelta al inicio: devolver a la
+  // home en silencio dejaba al visitante creyendo que había pulsado mal. Se usa
+  // `rewrite` y no `redirect` para conservar la URL fallida a la vista (y el
+  // código 404 real, que lo fija la propia página).
+  return Astro.rewrite('/404');
 }
 
 const eventData = eventsList[eventIndex];
@@ -1163,6 +1167,51 @@ const designerDisplay = getTagDisplay(eventData.designer);
     window.addEventListener('resize', () => {
       updateCarousel(currentIndex);
     }, { signal: wSig });
+
+    // Deslizar con el dedo para cambiar de foto, cuando hay más de una. Se usa
+    // tanto en el carrusel de la ficha como en el lightbox, así que la lógica
+    // vive aquí una sola vez.
+    //
+    // Convive con el toque, que sigue haciendo lo suyo (expandir la imagen /
+    // volver arriba): solo se considera deslizamiento si el dedo recorre más de
+    // 45px en horizontal Y avanza más en horizontal que en vertical — así un
+    // scroll vertical sobre la foto no cambia de imagen. Cuando sí ha sido
+    // deslizamiento, se suprime el `click` que el navegador dispara después,
+    // para no expandir la imagen sin querer al terminar el gesto.
+    function habilitarDeslizamiento(zona, irA, indiceActual) {
+      if (!zona || !imageUrls || imageUrls.length <= 1) return;
+
+      const MINIMO = 45;
+      let x0 = null, y0 = null, huboDeslizamiento = false;
+
+      zona.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
+        x0 = e.clientX; y0 = e.clientY; huboDeslizamiento = false;
+      }, { signal: wSig });
+
+      zona.addEventListener('pointerup', (e) => {
+        if (x0 === null) return;
+        const dx = e.clientX - x0;
+        const dy = e.clientY - y0;
+        x0 = null; y0 = null;
+        if (Math.abs(dx) < MINIMO || Math.abs(dx) <= Math.abs(dy)) return;
+        huboDeslizamiento = true;
+        irA(indiceActual() + (dx < 0 ? 1 : -1));   // arrastrar a la izquierda = siguiente
+      }, { signal: wSig });
+
+      zona.addEventListener('pointercancel', () => { x0 = null; y0 = null; }, { signal: wSig });
+
+      // Va en captura para llegar antes que el listener de expandir.
+      zona.addEventListener('click', (e) => {
+        if (!huboDeslizamiento) return;
+        huboDeslizamiento = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }, { capture: true, signal: wSig });
+    }
+
+    habilitarDeslizamiento(mainImageContainer, (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
+    habilitarDeslizamiento(document.getElementById('overlay-image-box'), showOverlayImage, () => overlayIndex);
 
     // Initialize carousel and autoplay
     if (imageUrls && imageUrls.length > 0) {
