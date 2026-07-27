@@ -233,7 +233,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
-  <div class="w-full max-w-[1440px] mx-auto h-dvh overflow-hidden lg:h-auto lg:min-h-dvh lg:overflow-visible bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
+  <div class="w-full max-w-[1440px] mx-auto min-h-dvh bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
     <!-- Main Box Container (Figma 1224px wide).
          data-event-id / data-image-urls: la identidad del evento viaja en el
          DOM, no solo en las variables de `define:vars`. Esas quedan congeladas
@@ -246,7 +246,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          `astro:page-load`, la identidad siempre es la de la página visible. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none flex-1 min-h-0 lg:flex-none"
+      class="w-full max-w-[1224px] flex flex-col select-none"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
@@ -305,7 +305,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div id="detail-image-column" class="shrink-0 w-full h-[200px] overflow-visible lg:h-[400px] lg:order-2 lg:col-span-5 flex flex-col items-center relative lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
+        <div id="detail-image-column" class="w-full lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
 
           <!-- Pinned image box (Figma 369:32751: min-h-[200px] on scroll).
                Below `lg`, updateStickyImage() drives `position: fixed` plus
@@ -319,7 +319,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                unwanted extra space below the photo). -->
           <div
             id="detail-image-sticky"
-            class="absolute top-0 left-0 right-0 lg:static z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent"
+            class="flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent"
           >
             <!-- Crop window: THIS is what shrinks (400px→200px), via
                  overflow-hidden — not the photo itself. The photo (button
@@ -408,7 +408,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div id="detail-scroll" class="flex-1 min-h-0 overflow-y-auto lg:flex-none lg:overflow-visible lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pt-[192px] lg:pt-0 pl-0 lg:pl-6" data-name="Info">
+        <div id="detail-scroll" class="lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pt-8 lg:pt-0 pl-0 lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -610,44 +610,17 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     window._melDetailAbortCtrl = new AbortController();
     const wSig = window._melDetailAbortCtrl.signal;
 
-    // La ficha usa el mismo andamiaje que la home: el documento NO se
-    // desplaza (envoltorio a `h-dvh` + `overflow: hidden`) y lo único que
-    // scrollea es #detail-scroll. Cabecera, tags y foto son hijos normales
-    // fuera de ese contenedor, así que son inmóviles POR CONSTRUCCIÓN — no
-    // hay nada que reposicionar y por tanto nada que se pueda descolocar.
+    // La ficha de evento es una PÁGINA NORMAL: el documento se desplaza y no
+    // hay ni un solo elemento fijo o pegajoso. Es lo más robusto que puede
+    // haber en un móvil — la barra del navegador se repliega y devuelve
+    // pantalla, y no hay nada anclado que el navegador pueda re-anclar a
+    // mitad de un gesto (que era D-103).
     //
-    // Antes eran tres elementos `position: fixed` con un espaciador cada uno
-    // reservándoles el hueco a mano y una pista de scroll compensando el
-    // descuadre. En un móvil eso no se sostiene: la barra de URL redimensiona
-    // el viewport de maquetación al replegarse y el navegador re-ancla los
-    // elementos fijos a mitad del gesto (D-103). Sin scroll de documento, la
-    // barra no se repliega y el problema no existe.
-    //
-    // Bonus: la navegación queda pegada abajo sola, que es exactamente lo que
-    // ensureScrollRunway() simulaba a mano midiendo y rellenando.
-    const contenedorScroll = document.getElementById('detail-scroll');
-    const imageCrop = document.getElementById('detail-image-crop');
-    // Rango del recorte por debajo de `lg`. El máximo es 40px MENOR que los
-    // 400px fijos de la foto (la foto sigue a 400 y centrada, ver el
-    // comentario del recorte en el marcado, así que en reposo ya se recortan
-    // 20px por arriba y por abajo); en escritorio manda su clase lg:h-[400px].
-    const IMAGE_MAX_H = 360;
-    const IMAGE_MIN_H = 200;
-
-    // Lo único que sigue reaccionando al scroll. Una propiedad, un elemento,
-    // cero lecturas de geometría: nada que ver con las cuatro escrituras de
-    // posición por fotograma que hacía updateStickyImage().
-    // La columna reserva 200px fijos y la caja desborda por encima del
-    // contenido, así que encoger el recorte NO cambia el alto del contenedor
-    // que se desplaza. Sin esa invariante el encogido se realimenta: la foto
-    // encoge, el contenedor crece, queda menos recorrido, el scroll se recorta
-    // solo y la foto vuelve a crecer.
-    function encogerFoto() {
-      if (!imageCrop) return;
-      if (window.innerWidth >= 1024) { imageCrop.style.height = ''; return; }
-      const desplazado = contenedorScroll ? contenedorScroll.scrollTop : 0;
-      imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - desplazado)}px`;
-    }
+    // Fueron cayendo, por este orden: los tres `position: fixed` con sus
+    // espaciadores y la pista de scroll (D-105), y después el contenedor con
+    // scroll propio, porque impedía que la barra del navegador se replegara y
+    // dejaba la foto fuera del área desplazable — no se podía arrastrar sobre
+    // ella, que es media pantalla.
 
     // Reparto del ancho de la fila de tags (D-059/D-060), gemelo reducido de
     // updateAdaptiveTagsRow() en index.astro: aquí la fila nunca comparte
@@ -705,21 +678,17 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }
     }
 
-    encogerFoto();
     ajustarFilaTags();
-    if (contenedorScroll) {
-      contenedorScroll.addEventListener('scroll', encogerFoto, { passive: true, signal: wSig });
-    }
     let resizeRaf = null;
     window.addEventListener('resize', () => {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      resizeRaf = requestAnimationFrame(() => { ajustarFilaTags(); encogerFoto(); });
+      resizeRaf = requestAnimationFrame(ajustarFilaTags);
     }, { signal: wSig });
 
     // Las fuentes web todavía están cargando en `astro:page-load`, así que el
     // primer reparto de ancho mide con la tipografía de respaldo.
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => { ajustarFilaTags(); encogerFoto(); });
+      document.fonts.ready.then(ajustarFilaTags);
     }
 
     // Read active navigation vector from sessionStorage.
@@ -1122,15 +1091,6 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </script>
 
 <style>
-  /* El anclaje de scroll (activo por defecto) pelea con el encogido de la
-     foto: Chrome intenta mantener el contenido visualmente quieto cuando una
-     caja cambia de tamaño y empuja la posición de scroll para compensar, lo
-     que realimenta al propio oyente. El recorte es el único elemento cuya
-     altura cambia solo desde el script, nunca por contenido moviéndose, así
-     que desactivarlo aquí es seguro. */
-  #detail-image-crop {
-    overflow-anchor: none;
-  }
 
   /* Custom Typography style sheets mapping Figma tokens */
   .typo-tag-label {

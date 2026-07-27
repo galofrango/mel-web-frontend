@@ -1165,3 +1165,12 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
   2. `loading="lazy"` y `decoding="async"` en las réplicas JS y en info, recuperando la paridad con los componentes Astro.
 - **Por qué la carga diferida es segura aquí**: `.gallery-item.unsized` ya reserva `min-height: 280px`, así que las tarjetas de abajo ocupan sitio real y el navegador no las da por visibles. Sin ese hueco reservado, la carga diferida no habría servido de nada.
 - **Resultado medido**: de **96 descargas al entrar a 9**. Recorriendo la galería entera se descargan las 50 tarjetas y quedan **0 sin dimensionar** — el masonry cuadra igual.
+
+## D-105 · La ficha de evento vuelve a ser una página normal
+
+- **Recorrido**: la ficha era la única pantalla del sitio que desplazaba el documento con elementos `position: fixed` — tres, cada uno con un espaciador reservándole el hueco a mano y una pista de scroll compensando el descuadre. De ahí salieron D-102 y D-103. El primer intento de arreglo de raíz fue copiar el andamiaje de la home (`h-dvh` + contenedor interno con scroll). **Falló por dos motivos, los dos detectados por el propietario en el teléfono**:
+  1. Con un contenedor interno, el documento no se desplaza, así que **la barra del navegador no se repliega nunca** y no devuelve pantalla. Es justo lo que el propietario valora de la página de información.
+  2. La caja de la foto quedaba fuera del área desplazable, así que **no se podía arrastrar sobre ella** — media pantalla muerta al tacto.
+- **Decisión**: la ficha de evento no ancla nada. Documento desplazable, cero `fixed`, cero `sticky`, cero contenedores con scroll propio. Cabecera, tags y foto se van hacia arriba con el contenido, que es lo que el propietario pidió explícitamente para la X.
+- **Se pierde el encogido de la foto**, y no por descuido: dependía de que algo se desplazara por dentro y obligaba a que la foto tapase contenido para no realimentarse (encoge la foto → crece el contenedor → queda menos recorrido → el scroll se recorta → la foto vuelve a crecer). Sin él, la página no tiene una sola línea de JS ligada al scroll.
+- **Dato medido que corrige una creencia previa**: la cabecera de `info.astro` **no se sale por arriba**. Es `sticky top-0` y su borde superior se queda clavado en 0 a cualquier altura (medido a 0, 150, 400 y 786px). Lo que se percibe como "sube" es la barra del navegador replegándose y devolviendo pantalla — que solo ocurre si el documento se desplaza.
