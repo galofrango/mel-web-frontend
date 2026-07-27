@@ -246,7 +246,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          `astro:page-load`, la identidad siempre es la de la página visible. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-[calc(10vh-40px)] lg:pt-0"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
@@ -268,7 +268,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            una página a otra el icono no dé un salto. -->
       <div
         id="detail-sticky-header"
-        class="w-full bg-mel-bg-primary pt-[calc(10vh-40px)] lg:bg-transparent lg:pt-0 shrink-0 lg:contents"
+        class="w-full bg-mel-bg-primary lg:bg-transparent shrink-0 lg:contents"
       >
         <!-- La X va dentro de una fila de 48px con el icono centrado, que es
              exactamente lo que pasa en las demás páginas: allí el botón de
@@ -297,7 +297,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            A partir de `lg` se desmonta: el título vive en la columna de info y
            los tags en su propia columna. -->
       <div id="detail-titulo-tags" class="w-full pb-8 lg:pb-0 lg:contents">
-        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-4">
+        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-8">
           {eventData.title}
         </h2>
 
@@ -334,7 +334,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
           <div
             id="detail-image-sticky"
             class:list={[
-              "sticky z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent",
+              "z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent",
               /* Sin paginación no hay nada que separe la foto del contenido, así
                  que la propia caja lleva un faldón macizo de 32px por el que el
                  contenido pasa por debajo. Con paginación sobra: los 24px de
@@ -652,6 +652,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     const filaX = document.getElementById('detail-sticky-header');
     const tituloTags = document.getElementById('detail-titulo-tags');
     const columnaFoto = document.getElementById('detail-image-column');
+    const cajaFoto = document.getElementById('detail-image-sticky');
+    const raizPagina = document.getElementById('detail-page-container');
     const imageCrop = document.getElementById('detail-image-crop');
     const IMAGE_MAX_H = 360;
     const IMAGE_MIN_H = 200;
@@ -668,6 +670,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         raiz.style.removeProperty('--mel-cab-fija');
         if (columnaFoto) columnaFoto.style.height = '';
         if (imageCrop) imageCrop.style.height = '';
+        raizPagina.classList.remove('fijada', 'revelada');
         return;
       }
       raiz.style.setProperty('--mel-cab-x', `${filaX.getBoundingClientRect().height}px`);
@@ -677,14 +680,20 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // el documento se acortaría a mitad de scroll, el navegador recolocaría
       // la posición y la foto volvería a crecer. Se mide con el recorte a su
       // tamaño máximo para que el valor no dependa de dónde esté el scroll.
-      if (columnaFoto && imageCrop) {
-        const alto = imageCrop.getBoundingClientRect().height;
+      // Hueco reservado para la foto, de alto CONSTANTE. Se mide con el
+      // recorte a su máximo y con la caja todavía en flujo, porque una vez
+      // fija la columna mediría cero y el documento se quedaría sin recorrido.
+      if (columnaFoto && imageCrop && cajaFoto) {
+        const altoPrevio = imageCrop.style.height;
+        const fijadaAntes = raizPagina.classList.contains('fijada');
+        raizPagina.classList.remove('fijada');
         imageCrop.style.height = `${IMAGE_MAX_H}px`;
         columnaFoto.style.height = '';
-        columnaFoto.style.height = `${columnaFoto.getBoundingClientRect().height}px`;
+        columnaFoto.style.height = `${cajaFoto.getBoundingClientRect().height}px`;
         inicioEncogido = Math.max(0,
-          columnaFoto.getBoundingClientRect().top + window.scrollY - tituloTags.getBoundingClientRect().height);
-        imageCrop.style.height = `${alto}px`;
+          cajaFoto.getBoundingClientRect().top + window.scrollY - tituloTags.getBoundingClientRect().height);
+        imageCrop.style.height = altoPrevio;
+        if (fijadaAntes) raizPagina.classList.add('fijada');
       }
     }
 
@@ -694,10 +703,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       const y = window.scrollY;
       if (window.innerWidth >= 1024) { ultimoY = y; return; }
 
-      // La foto empieza a encoger justo cuando llega a su posición pegada, no
-      // antes: si no, se despega del contenido y abre un hueco creciente.
+      // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
+      // Antes de ese punto va en flujo normal: fijarla desde el principio la
+      // colocaría sobre el título, porque `fixed` no sabe de reposo.
+      const pasado = Math.max(0, y - inicioEncogido);
+      raizPagina.classList.toggle('fijada', pasado > 0);
       if (imageCrop) {
-        const pasado = Math.max(0, y - inicioEncogido);
         imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado)}px`;
       }
 
@@ -705,8 +716,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // evita que el temblor de un dedo quieto la haga parpadear.
       if (cabecera) {
         const dy = y - ultimoY;
-        if (dy < -4 || y <= 0) cabecera.classList.add('revelada');
-        else if (dy > 4) cabecera.classList.remove('revelada');
+        if (y <= 0) raizPagina.classList.remove('revelada');
+        else if (dy < -4) raizPagina.classList.add('revelada');
+        else if (dy > 4) raizPagina.classList.remove('revelada');
       }
       ultimoY = y;
     }
@@ -1188,13 +1200,27 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       top: calc(-1 * var(--mel-cab-x, 92px));
       transition: transform 0.25s ease;
     }
-    /* Al arrastrar hacia abajo baja de golpe y la X vuelve a asomar. */
-    #detail-cabecera.revelada {
-      transform: translateY(var(--mel-cab-x, 92px));
-    }
-    /* La foto se queda justo debajo de la parte siempre visible. */
-    #detail-image-sticky {
+    /* La foto va FIJA, no pegajosa: `sticky` se suelta cuando acaba su
+       contenedor, y por ahí la foto se escapaba hacia arriba por detrás de la
+       cabecera justo al llegar a su tamaño mínimo. Fija se queda donde está
+       para siempre y el contenido le pasa por debajo. Su `top` sale de una
+       variable medida una vez al iniciar — no de leer en vivo el rectángulo de
+       otro elemento fijo, que es lo que se descolocaba en el móvil (D-103).
+       El hueco lo reserva #detail-image-column, con alto congelado. */
+    .fijada #detail-image-sticky {
+      position: fixed;
       top: var(--mel-cab-fija, 144px);
+      left: 0;
+      right: 0;
+      margin: 0;
+      width: 100%;
+      transition: transform 0.25s ease;
+    }
+    /* Al revelarse la X, cabecera y foto bajan LO MISMO: si solo bajara la
+       cabecera, se comería la parte de arriba de la foto. */
+    .revelada #detail-cabecera,
+    .revelada #detail-image-sticky {
+      transform: translateY(var(--mel-cab-x, 92px));
     }
   }
 
