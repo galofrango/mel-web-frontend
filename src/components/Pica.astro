@@ -4,4 +4,7 @@ interface Props {
 }
 const { class: className = "" } = Astro.props;
 ---
-<div class={`w-[3px] h-[20px] bg-mel-action-secondary animate-mel-cursor shrink-0 ${className}`} data-node-id="500:244103"></div>
+<!-- Caret falso del título en reposo. 5x24 (antes 3x20): el propietario lo veía
+     demasiado fino y bajo para leerse como un cursor de verdad. El parpadeo vive
+     en global.css (.animate-mel-cursor). -->
+<div class={`w-[5px] h-[24px] bg-mel-action-secondary animate-mel-cursor shrink-0 ${className}`} data-node-id="500:244103"></div>

@@ -302,6 +302,18 @@ body {
   mix-blend-mode: screen;
 }
 
+/* Parpadeo de los carets falsos (Pica del título en reposo y el del buscador
+   vacío). Vive aquí y no en HeaderTitle.astro porque lo usan dos componentes
+   distintos: cuando estaba dentro de HeaderTitle y ese bloque se limpió, la
+   Pica del título dejó de parpadear sin que nada lo delatara. */
+@keyframes mel-cursor-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.animate-mel-cursor {
+  animation: mel-cursor-blink 1s steps(1, end) infinite;
+}
+
 /* Custom styled scrollbars for horizontal carousel */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

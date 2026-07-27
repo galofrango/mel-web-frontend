@@ -28,6 +28,19 @@ import IconButton from './IconButton.astro';
     class="hidden h-full flex items-center justify-between relative w-full transition-all duration-200"
   >
     <div class="flex flex-1 items-center relative h-full">
+      <!-- Caret falso SOLO mientras el campo está vacío (estado placeholder),
+           para que se parezca al del título en reposo: mismo 5x24 y mismo
+           parpadeo. En cuanto se escribe una letra desaparece y toma el relevo
+           el caret NATIVO del navegador — el de verdad, el único que se puede
+           poner entre dos letras para corregir y que sigue a las flechas y a la
+           selección. Mientras se ve el falso, el nativo se oculta
+           (caret-transparent, lo pone el JS) para no ver dos. -->
+      <div
+        id="search-fake-caret"
+        class="hidden absolute left-0 top-1/2 -translate-y-1/2 w-[5px] h-[24px] bg-mel-action-primary animate-mel-cursor pointer-events-none z-10"
+        aria-hidden="true"
+      ></div>
+
       <!-- Caret NATIVO del navegador (caret-mel-action-primary), no uno pintado
            a mano. El anterior era un <div> absoluto colocado midiendo el ancho
            del texto con un span espejo: se veía bien escribiendo al final, pero
@@ -101,6 +114,7 @@ import IconButton from './IconButton.astro';
     
     const activeInput = document.getElementById('search-active-input') as HTMLInputElement;
     const placeholderShadow = document.getElementById('search-placeholder-shadow');
+    const fakeCaret = document.getElementById('search-fake-caret');
 
     const filledText = document.getElementById('search-filled-text');
 
@@ -150,12 +164,17 @@ import IconButton from './IconButton.astro';
 
     window.addEventListener('resize', remeasure);
 
-    // El caret ya es el nativo del navegador y se coloca solo. Lo único que
-    // queda por ajustar es el hueco de 6px a la izquierda: da aire al caret
-    // cuando el campo está vacío, pero sobra en cuanto hay texto.
-    function ajustarHuecoIzquierdo() {
+    // Con el campo vacío se enseña el caret FALSO (grueso y parpadeante, igual
+    // que la Pica del título) y se esconde el nativo; en cuanto hay una letra
+    // se invierte, porque a partir de ahí hace falta el de verdad para poder
+    // colocarse entre caracteres. El hueco de 6px a la izquierda solo existe
+    // mientras está el falso: es el sitio que ocupa.
+    function ajustarCaret() {
       if (!activeInput) return;
-      activeInput.classList.toggle('pl-[6px]', activeInput.value.length === 0);
+      const vacio = activeInput.value.length === 0;
+      activeInput.classList.toggle('pl-[6px]', vacio);
+      activeInput.classList.toggle('caret-transparent', vacio);
+      if (fakeCaret) fakeCaret.classList.toggle('hidden', !vacio);
     }
 
     function setState(state: 'default' | 'placeholder' | 'filling' | 'filled', val = "") {
@@ -196,11 +215,11 @@ import IconButton from './IconButton.astro';
       else if (state === 'placeholder') {
         stateActive?.classList.remove('hidden');
         activeInput?.focus();
-        ajustarHuecoIzquierdo();
+        ajustarCaret();
       } 
       else if (state === 'filling') {
         stateActive?.classList.remove('hidden');
-        ajustarHuecoIzquierdo();
+        ajustarCaret();
       } 
       else if (state === 'filled') {
         stateFilled?.classList.remove('hidden');
@@ -226,7 +245,7 @@ import IconButton from './IconButton.astro';
       } else {
         setState('placeholder');
       }
-      ajustarHuecoIzquierdo();
+      ajustarCaret();
       dispatchSearch(val.trim());
     });
 
@@ -255,7 +274,7 @@ import IconButton from './IconButton.astro';
         activeInput.focus();
         const len = val.length;
         activeInput.setSelectionRange(len, len);
-        ajustarHuecoIzquierdo();
+        ajustarCaret();
       }
     });
 
@@ -347,10 +366,17 @@ import IconButton from './IconButton.astro';
     transform-origin: left center;
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  /* Resting state with hover: line grows right and contracts left */
-  #search-box-container[data-state="default"]:hover::after {
-    transform: scaleX(1);
-    transform-origin: left center;
+  /* Resting state with hover: line grows right and contracts left.
+     Acotado a punteros que de verdad tienen hover: en táctil el navegador deja
+     el :hover "pegado" al último elemento tocado hasta que se toca otra cosa,
+     así que al cerrar el buscador con la X el subrayado se quedaba puesto aun
+     habiendo vuelto al estado de reposo. En escritorio pasaba lo mismo mientras
+     el puntero siguiera sobre la caja. */
+  @media (hover: hover) and (pointer: fine) {
+    #search-box-container[data-state="default"]:hover::after {
+      transform: scaleX(1);
+      transform-origin: left center;
+    }
   }
   /* Active states: line expands to full width */
   #search-box-container[data-state="placeholder"]::after,

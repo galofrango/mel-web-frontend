@@ -237,37 +237,46 @@ import IconButton from './IconButton.astro';
       });
     }
 
-    // Anclas de la MISMA página (p. ej. pulsar "Equipo" estando ya en /info).
-    // El navegador no hace nada visible al navegar a un hash de la página en la
-    // que ya estás, así que el menú se quedaba abierto y sin moverse. Aquí se
-    // cierra el menú y se baja hasta la sección a mano. A otras páginas no se
-    // toca: sigue siendo una navegación normal.
+    // Todo enlace del menú espera a que el panel termine de replegarse antes
+    // de navegar. Antes la navegación arrancaba en el mismo instante del clic y
+    // el menú desaparecía de golpe, tapado por la página entrante; ahora se ve
+    // salir siempre. Cuesta los 300ms de su transición, asumido a propósito.
+    //
+    // Dos casos:
+    //  · Ancla de la MISMA página (p. ej. "Equipo" estando ya en /info): el
+    //    navegador no hace nada visible al ir a un hash de la página actual, así
+    //    que se escribe el hash y se avisa con un `hashchange` sintético
+    //    (pushState no lo emite por sí solo). Quien escucha ese evento —
+    //    info.astro— es el que despliega los acordeones de la sección y baja
+    //    hasta ella, y así el comportamiento es idéntico llegando desde fuera.
+    //  · Cualquier otro destino: navegación normal, solo que diferida.
     if (sideMenu) {
-      sideMenu.querySelectorAll('a[href*="#"]').forEach(enlace => {
+      sideMenu.querySelectorAll('a[href]').forEach(enlace => {
         enlace.addEventListener('click', (e) => {
+          // Los enlaces con lógica propia (Inicio e Intro estando ya en la home)
+          // ya han hecho preventDefault antes de llegar aquí: cierran el menú
+          // por su cuenta y no navegan a ninguna parte.
+          if (e.defaultPrevented) return;
+
+          const href = enlace.getAttribute('href');
+          if (!href || href.startsWith('#') === false && href.startsWith('/') === false) return;
+
           let destino;
           try { destino = new URL(enlace.href, window.location.href); } catch (err) { return; }
-          if (destino.pathname !== window.location.pathname || !destino.hash) return;
 
-          const seccion = document.getElementById(destino.hash.slice(1));
-          if (!seccion) return;
+          const mismaPagina = destino.pathname === window.location.pathname && !!destino.hash;
 
           e.preventDefault();
           closeMenu();
-          // El hash entra en el historial para que "atrás" deshaga el salto y
-          // el enlace siga siendo compartible.
-          try { window.history.pushState({}, '', destino.hash); } catch (err) {}
-          // Se espera a que el menú termine de replegarse (300ms de su propia
-          // transición): abrirlo bloquea el scroll del <body> y el desplazamiento
-          // lanzado antes de que se restituya acababa en lo alto de la página en
-          // vez de en la sección. Se calcula la posición a mano en lugar de usar
-          // scrollIntoView porque este último se veía interrumpido por el propio
-          // cierre; el `scroll-mt` de la sección se resta a mano para que no
-          // quede tapada por la cabecera fija.
+
           setTimeout(() => {
-            const margen = parseFloat(getComputedStyle(seccion).scrollMarginTop) || 0;
-            const destinoY = seccion.getBoundingClientRect().top + window.scrollY - margen;
-            window.scrollTo({ top: Math.max(0, destinoY), behavior: 'smooth' });
+            if (mismaPagina) {
+              try { window.history.pushState({}, '', destino.hash); } catch (err) {}
+              window.dispatchEvent(new HashChangeEvent('hashchange'));
+              return;
+            }
+            if (typeof window.__melNavigate === 'function') window.__melNavigate(destino.href);
+            else window.location.href = destino.href;
           }, 320);
         });
       });

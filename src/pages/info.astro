@@ -372,11 +372,10 @@ function linkify(s) {
       const targetSection = document.getElementById(targetId);
       
       if (targetSection) {
-        // Scroll into view smoothly
-        targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        // Go through all (sheet-driven, dynamic) sections and expand
-        // accordions inside the target section, collapse the others
+        // Primero los acordeones, DESPUÉS el scroll (antes era al revés): al
+        // plegar las secciones que no son el destino, todo lo que queda por
+        // encima encoge y el destino sube, así que un scroll lanzado antes
+        // apuntaba a una posición que dejaba de ser válida a mitad de camino.
         document.querySelectorAll('section[data-info-section]').forEach(sec => {
           const items = sec.querySelectorAll('.accordion-item');
           const shouldExpand = sec.id === targetId;
@@ -395,6 +394,13 @@ function linkify(s) {
             }
           });
         });
+
+        // El desplegado/plegado es una transición de 300ms sobre
+        // grid-template-rows: hasta que termina, la altura de la página sigue
+        // cambiando y con ella la posición del destino. Se espera a que asiente.
+        setTimeout(() => {
+          targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 320);
       }
     }
 
