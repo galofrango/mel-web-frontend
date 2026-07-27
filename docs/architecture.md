@@ -111,29 +111,66 @@ Página de la Sala de Exposiciones. Implementa el componente `<EmptyState varian
 | `<SideMenu />` | Menú lateral deslizable con selector de tema, disparo de la intro y enlaces de navegación. |
 | `<TagWithLink />` | Etiqueta de metadata (*OVERLINE + Valor*) con truncado mediante `ellipsis` indispensable. |
 
-## Arquitectura de Navegación Sitewide: Modelo Cronológico Determinista (`Vector Único`)
+## Contrato de Navegación (fuente única de verdad)
 
-La navegación entre eventos (*Anterior* / *Siguiente* y flechas de teclado en la ficha de detalle `/event/[id]`) se rige por el **Modelo Cronológico Determinista**, controlado por un único array JSON de IDs en `sessionStorage['mel-active-nav-sequence']`:
+Esta sección define **qué hace el sitio** al navegar. Es la referencia normativa:
+si el código o cualquier otro documento la contradicen, manda esta sección. Las
+decisiones que llevaron hasta aquí (y las alternativas descartadas) viven en
+`decisions.md`, que **no debe reescribir estas reglas**, solo enlazarlas.
 
-> **Principio Fundamental**: La secuencia de navegación entre flyers en la ficha de detalle avanza **siempre en orden cronológico por fecha** (de más antiguo a más reciente: 2004 ➔ 2019). Este orden determinista solo cambia si el usuario reordena explícitamente la tabla en la vista Lista. La Galería de la Home conserva su mosaico aleatorio visual para fomentar la exploración en la portada.
+### Principio: una sola secuencia
 
-### 1. Mutaciones del Vector de Navegación
+Existe **una única secuencia activa** de eventos que gobierna a la vez la
+Galería, la Lista y la navegación *Anterior/Siguiente* de la ficha de detalle.
+Las tres cosas muestran siempre el mismo orden. Se materializa en
+`sessionStorage['mel-active-nav-sequence']` (array de `idMel`).
 
-| Situación del usuario | Comportamiento del Vector (`sessionStorage['mel-active-nav-sequence']`) |
+### Reglas
+
+| Situación | Comportamiento |
 |---|---|
-| **Navegación general por defecto (Carga/F5)** | Vector completo ordenado **cronológicamente por fecha** (2004 ➔ 2019). |
-| **Filtros / Buscador / Tags activos** | Subconjunto de eventos filtrados, ordenados **cronológicamente por fecha**. Al borrar el filtro, vuelve a estar disponible la totalidad del archivo cronológico. |
-| **Abrir evento desde el Mapa** | **En el instante del clic**, se extrae la lista de eventos visibles en el panel de esa sala/recinto y se guardan ordenados **cronológicamente por fecha**. |
-| **Reordenación explícita en Lista** | Si el usuario hace clic en una columna para ordenar la tabla (p. ej. alfabético por *Lugar* u *Organizador*), esa ordenación específica sobrescribe el vector. |
+| **Sesión nueva** (pestaña nueva, sin `sessionStorage`) | El servidor baraja el archivo; ese primer barajado se congela como secuencia de la sesión en `sessionStorage['mel-session-order']`. Galería y Lista lo muestran por igual. |
+| **Recarga (F5)** | Se reutiliza la secuencia de la sesión: el orden **no** cambia. Solo una pestaña nueva genera un orden nuevo. Es el precio de que cerrar un evento devuelva al sitio exacto, y fue una decisión explícita del propietario. |
+| **Filtrar / buscar / mover el slider de años** | **Solo oculta.** Nada se reordena: el resultado es siempre una subsecuencia del orden vigente, en las tres vistas. Al limpiar el filtro reaparece lo oculto en su sitio. |
+| **Ordenar una columna en Lista** | Ese orden pasa a ser la secuencia activa, y lo adoptan también la Galería y la navegación entre eventos. Se persiste en `sessionStorage['mel-sort-state']`. |
+| **Abrir un evento desde el panel del mapa** | La secuencia se acota a los eventos **de ese local**, en el orden en que se ven en el panel (que ya arrastra rango de años y búsqueda activos). |
+| **Anterior / Siguiente y flechas ←/→** | Recorren la secuencia activa. Lo filtrado no existe para ellas: se salta. |
+| **Acceso directo por URL** (enlace externo, sin sesión) | No hay secuencia guardada: se recae en el orden cronológico que sirve el SSR de `/event/[id]`. |
 
-### 2. Resolución de la Navegación en `/event/[id]`
+> **Consecuencia asumida**: como la secuencia por defecto es aleatoria,
+> *Anterior/Siguiente* también lo es mientras no se ordene nada en Lista. Es lo
+> coherente con "una sola secuencia": la navegación recorre lo que el visitante
+> acaba de ver, no un orden paralelo invisible.
 
-- La plantilla de detalle lee `sessionStorage['mel-active-nav-sequence']` e identifica `curIdx` por su propio `idMel`.
-- **Anterior** = `curIdx - 1` · **Siguiente** = `curIdx + 1`.
-- Al hacer clic en los botones o pulsar las flechas del teclado (`ArrowLeft` / `ArrowRight`), se ejecuta `window.__melNavigate()` manteniendo el contexto.
-- **Acceso directo por URL (Fallback)**: Si se accede directamente a la ficha desde un enlace externo sin `sessionStorage` previo (o si su ID no está en el vector), la navegación recae de forma transparente en el **orden cronológico por fecha**.
+### Volver al sitio de origen
 
----
+Al abrir un evento se guarda el contexto completo en
+`sessionStorage['mel-return-state']`; al volver se restaura y se consume. La URL
+de vuelta transporta lo compartible (`view`, `search`, `location`); lo que no
+cabe en una URL viaja en ese blob: **rango de años, orden de columna, página de
+Lista, lotes cargados del scroll infinito, posición de scroll de cada vista y
+cámara del mapa**.
+
+Tres detalles del entorno que condicionan la implementación y no son opcionales:
+
+1. **`astro:page-load` dispara también en la ficha de evento** tras una
+   navegación suave (los listeners viven en `document` y sobreviven al salto).
+   `initHomePage()` sale inmediatamente si no encuentra `#gallery-grid`; sin ese
+   guard, el estado de vuelta se consumía nada más aterrizar en el evento.
+2. **`initHomePage()` se ejecuta dos veces por navegación.** El estado de vuelta
+   se guarda en `_melState` con caducidad (~4s) y se aplica en ambas pasadas: la
+   segunda reseteaba página, lotes y scroll justo después de la primera.
+3. **El scroll se restaura con reintentos por temporizador**, no de una vez: el
+   masonry mide cada tarjeta cuando carga su imagen, así que el alto útil crece
+   durante el primer segundo y fijarlo antes lo clampa a 0. Se usa `setInterval`
+   y no `requestAnimationFrame` porque este se congela en pestañas en segundo
+   plano. Cualquier gesto de scroll del visitante cancela los reintentos.
+
+### Fluidez
+
+Las navegaciones home ⇄ evento y evento ⇄ evento usan el enrutado nativo de
+Astro (`window.__melNavigate`, View Transitions) con precarga `<link
+rel="prefetch">` de los colindantes, para que no haya pantallas en blanco.
 
 ## Bus de Eventos (Eventos Personalizados en `window`)
 

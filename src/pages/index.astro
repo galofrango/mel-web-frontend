@@ -1175,7 +1175,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 </style>
 
 <!-- Client Side Scripting for complete interactivity -->
-<script define:vars={{ initialArchives: shuffledArchives, chronologicalArchives: initialArchives }}>
+<script define:vars={{ initialArchives: shuffledArchives }}>
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
@@ -1219,6 +1219,36 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     };
   }
   const _s = window._melState;
+
+  // Secuencia única de la sesión (contrato de navegación, docs/architecture.md).
+  // El servidor baraja el archivo en CADA render, así que sin esto volver de la
+  // ficha de un evento reordenaría la galería bajo los pies del visitante y
+  // "volver al mismo sitio" sería imposible. La sesión se queda con el primer
+  // barajado que le sirvieron y lo reutiliza mientras dure la pestaña; pestaña
+  // nueva = orden nuevo, que es lo que se buscaba con el aleatorio.
+  //
+  // Tiene que ir aquí y no dentro de initHomePage(): _melState nace ya con
+  // `archives` poblado desde el SSR, así que cualquier guard del tipo
+  // "si está vacío" no llega a dispararse nunca en una carga real.
+  (function seedSessionOrder() {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem('mel-session-order') || 'null');
+      if (Array.isArray(saved) && saved.length) {
+        const byId = new Map(_s.archives.map(x => [x.idMel, x]));
+        const restored = saved.map(id => byId.get(id)).filter(Boolean);
+        // Solo se acepta si cubre el archivo entero: si la hoja ha cambiado
+        // (eventos añadidos o borrados) se descarta y se resiembra, en vez de
+        // dejar fuera de la secuencia los que falten.
+        if (restored.length === _s.archives.length) {
+          _s.archives = restored;
+          return;
+        }
+      }
+    } catch (e) {}
+    try {
+      sessionStorage.setItem('mel-session-order', JSON.stringify(_s.archives.map(x => x.idMel)));
+    } catch (e) {}
+  })();
 
   // Aliases (writable via _s.xxx = ...)
   let archives             = _s.archives;
@@ -1584,13 +1614,146 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     }
   }
 
-  // Saves the visitor's current browsing context (view, scroll position,
-  // map camera) to sessionStorage right before leaving `/` for an event's
-  // detail page, so returning (via the detail page's close button, which
-  // already round-trips ?view=/?search=/?location=) can restore exactly
-  // where they were. URL query params alone cover the shareable filters;
-  // scroll/camera position isn't shareable state, so it lives here instead.
-  function saveReturnState() {}
+  // Guarda el contexto de navegación justo antes de salir de `/` hacia la
+  // ficha de un evento, para que al cerrarla se vuelva EXACTAMENTE al mismo
+  // sitio. La URL de vuelta ya lleva lo compartible (vista, búsqueda,
+  // localidad); lo que no cabe en una URL — scroll, lotes cargados del scroll
+  // infinito, página de Lista, cámara del mapa, rango de años — vive aquí.
+  // Se guarda en sessionStorage (no en memoria) para sobrevivir también a un
+  // F5 hecho dentro de la propia ficha de evento.
+  function saveReturnState() {
+    try {
+      const view = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
+      const state = {
+        view,
+        page: currentPage,
+        galleryVisibleCount,
+        sortCol: currentSortCol,
+        sortDir: currentSortDir,
+        minYear,
+        maxYear,
+        panelKey: activeSidePanelKey,
+        scroll: {
+          galeria: document.getElementById('view-galería')?.scrollTop || 0,
+          listaTable: document.getElementById('list-table-wrapper')?.scrollTop || 0,
+          listaCards: document.getElementById('list-mobile-cards')?.scrollTop || 0,
+        },
+        map: null,
+      };
+      if (googleMap && typeof googleMap.getCenter === 'function') {
+        const c = googleMap.getCenter();
+        if (c) state.map = { lat: c.lat(), lng: c.lng(), zoom: googleMap.getZoom() };
+      }
+      sessionStorage.setItem('mel-return-state', JSON.stringify(state));
+    } catch (e) {}
+  }
+
+  // Contrapartida de saveReturnState(). Se consume UNA sola vez (se borra al
+  // leerla): así una vuelta restaura el sitio, pero una visita posterior a `/`
+  // por cualquier otra vía arranca limpia.
+  //
+  // Va en dos fases porque el arranque de initHomePage() pisa parte de lo que
+  // queremos restaurar: updateSlider() resetea currentPage y galleryVisibleCount
+  // y manda la galería arriba del todo, así que el rango de años tiene que
+  // aplicarse ANTES (para que el primer render ya salga filtrado) y la posición
+  // dentro de ese resultado DESPUÉS.
+  // El estado de vuelta vive en `_s` (no en una variable suelta) y con fecha de
+  // caducidad porque astro:page-load dispara DOS veces por navegación suave:
+  // la segunda pasada de initHomePage() volvía a resetear página, lotes y
+  // scroll justo después de que la primera los hubiera restaurado. Aplicándolo
+  // en ambas pasadas, la restauración aguanta; la caducidad evita que una
+  // visita posterior a `/` reviva un sitio viejo.
+  const RETURN_STATE_TTL_MS = 4000;
+
+  function readReturnState() {
+    try {
+      const raw = sessionStorage.getItem('mel-return-state');
+      if (raw) {
+        sessionStorage.removeItem('mel-return-state');
+        _s.pendingReturn = JSON.parse(raw);
+        _s.pendingReturnUntil = Date.now() + RETURN_STATE_TTL_MS;
+      } else if (_s.pendingReturnUntil && Date.now() > _s.pendingReturnUntil) {
+        _s.pendingReturn = null;
+      }
+    } catch (e) {
+      _s.pendingReturn = null;
+    }
+    // Fase 1 — filtros que deben estar puestos antes del primer render.
+    const st = _s.pendingReturn;
+    if (!st) return;
+    if (Number.isFinite(st.minYear) && sliderMin) sliderMin.value = String(st.minYear);
+    if (Number.isFinite(st.maxYear) && sliderMax) sliderMax.value = String(st.maxYear);
+    // TimeSlider siembra la posición de sus tiradores desde estos mismos
+    // inputs, pero puede haberse inicializado ya (el orden entre los dos
+    // scripts de astro:page-load no está garantizado): se le pide repintar.
+    if (typeof window._melRenderSlider === 'function') window._melRenderSlider();
+    if (st.sortCol) {
+      currentSortCol = st.sortCol;
+      currentSortDir = st.sortDir || 'asc';
+      syncState();
+      updateSortHeaderIcons();
+    }
+  }
+
+  // Insiste en devolver un contenedor a `target` mientras su contenido siga
+  // creciendo (imágenes cargando ⇒ alto final desconocido al principio).
+  function restoreScroll(containerId, target, timeoutMs = 2500) {
+    if (!target) return;
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    // Con setInterval y no requestAnimationFrame a propósito: rAF se congela en
+    // pestañas en segundo plano, y esta restauración tiene que completarse
+    // aunque el visitante cambie de pestaña mientras vuelve.
+    const deadline = Date.now() + timeoutMs;
+    const cancel = () => { stop(); };
+    const stop = () => {
+      clearInterval(timer);
+      el.removeEventListener('wheel', cancel);
+      el.removeEventListener('touchstart', cancel);
+      el.removeEventListener('pointerdown', cancel);
+    };
+    // Se reafirma hasta agotar el plazo, no solo hasta acertar una vez: la
+    // segunda pasada de initHomePage() manda el scroll a 0 después de que la
+    // primera ya lo hubiera colocado, así que "acertar" no es sinónimo de
+    // "haber terminado".
+    const timer = setInterval(() => {
+      if (Math.abs(el.scrollTop - target) > 2) el.scrollTop = target;
+      if (Date.now() >= deadline) stop();
+    }, 50);
+    el.addEventListener('wheel', cancel, { once: true, passive: true });
+    el.addEventListener('touchstart', cancel, { once: true, passive: true });
+    el.addEventListener('pointerdown', cancel, { once: true, passive: true });
+  }
+
+  function applyReturnState() {
+    const st = _s.pendingReturn;
+    if (!st) return;
+
+    // Fase 2 — posición dentro del resultado ya filtrado.
+    currentPage = st.page || 1;
+    galleryVisibleCount = Math.max(PAGE_SIZE, st.galleryVisibleCount || PAGE_SIZE);
+    syncState();
+    filterArchives();
+
+    // El scroll no se puede fijar de una sola vez: el masonry de la galería
+    // mide cada tarjeta cuando su imagen termina de cargar, así que el alto
+    // del contenedor va creciendo durante el primer segundo largo. Fijar
+    // scrollTop antes de que dé de sí lo clampa (acababa en 0). Se reintenta
+    // frame a frame hasta que la posición aguanta, con tope de tiempo — y se
+    // abandona en cuanto el visitante toca el scroll, para no pelearse con él.
+    const s = st.scroll || {};
+    restoreScroll('view-galería', s.galeria);
+    restoreScroll('list-table-wrapper', s.listaTable);
+    restoreScroll('list-mobile-cards', s.listaCards);
+
+    // La cámara del mapa solo se restaura si el mapa ya existe. Si se vuelve a
+    // la vista Mapa, se crea de forma diferida: en ese caso el paneo hacia el
+    // local de `?location=` (D-075) ya deja la cámara donde corresponde.
+    if (st.map && googleMap && typeof googleMap.setCenter === 'function') {
+      googleMap.setCenter({ lat: st.map.lat, lng: st.map.lng });
+      if (Number.isFinite(st.map.zoom)) googleMap.setZoom(st.map.zoom);
+    }
+  }
 
   // Real navigation to the static, server-rendered /event/[id] page — this
   // replaced an in-place SPA overlay that used to duplicate its whole
@@ -1622,6 +1785,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
+    saveReturnState();
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
     const params = new URLSearchParams();
     params.set('view', activeViewName);
@@ -1772,25 +1936,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
     filtered = tempFiltered;
 
-    // Update active navigation sequence vector in sessionStorage.
-    // If no explicit table column sort is set, order chronologically by date (2004 -> 2019).
-    // If a column sort is set (e.g. Lista view column header click), use that exact order.
+    // El vector de navegación de la ficha de evento ES la secuencia visible:
+    // `filtered` ya lleva el orden de la sesión (o el de la columna elegida en
+    // Lista) y ya excluye lo que no pasa los filtros, así que Anterior/Siguiente
+    // recorre exactamente lo que el visitante está viendo, sin reordenar nada
+    // por su cuenta (contrato de navegación, architecture.md).
     try {
-      let navSeq = [...filtered];
-      if (!currentSortCol) {
-        navSeq.sort((a, b) => {
-          const parseDate = (dStr) => {
-            if (!dStr || dStr === 'SIN FECHA') return 0;
-            const parts = dStr.split('/');
-            if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
-            const parts2 = dStr.split('-');
-            if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
-            return 0;
-          };
-          return parseDate(a.fecha) - parseDate(b.fecha);
-        });
-      }
-      sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(navSeq.map(x => x.idMel)));
+      sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(filtered.map(x => x.idMel)));
     } catch (e) {}
 
     // 1. Calculate dynamic statistics on the fly
@@ -1837,26 +1989,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (currentPage > totalPages) currentPage = totalPages;
       if (currentPage < 1) currentPage = 1;
       
-      // On initial state (no filter, search, or sort active), Lista is displayed
-      // chronologically by date (2004 -> 2019) while Galería displays its visual
-      // random mosaic (D-096). As soon as the user interacts (filters, searches,
-      // or sorts), both views resynchronize in the same sequence.
-      let listDataset = filtered;
-      const isInitialState = !currentSortCol && !searchQuery && minYear === ABSOLUTE_MIN_YEAR && maxYear === ABSOLUTE_MAX_YEAR;
-      if (isInitialState) {
-        listDataset = [...filtered].sort((a, b) => {
-          const parseDate = (dStr) => {
-            if (!dStr || dStr === 'SIN FECHA') return 0;
-            const parts = String(dStr).split('/');
-            if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
-            const parts2 = String(dStr).split('-');
-            if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
-            return 0;
-          };
-          return parseDate(a.fecha) - parseDate(b.fecha);
-        });
-      }
-      const paginated = listDataset.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+      // Galería y Lista comparten SIEMPRE la misma secuencia (`filtered`): la
+      // de la sesión mientras no se ordene nada, o la columna elegida en Lista
+      // en cuanto se ordene. Filtrar/buscar solo oculta, nunca reordena — antes
+      // la Lista saltaba a orden aleatorio en cuanto había una búsqueda activa
+      // y volvía a cronológico al borrarla.
+      const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
       // La galería va por libre (D-015): ignora la paginación (scroll
       // infinito por lotes). Su orden es aleatorio estable por sesión —
@@ -1975,7 +2113,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listMobileCards) listMobileCards.style.display = '';
 
         gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh] relative`;
-        if (isFirstDOMUpdate && gridContainer.children.length > 0) {
+        // En el primer render se conservan las tarjetas que ya vinieron del SSR
+        // (solo se miden) para no destruir el marcado servido... pero SOLO si
+        // coinciden con lo que toca pintar. No coinciden en dos casos reales:
+        // al recargar dentro de una sesión (el servidor baraja de nuevo y la
+        // sesión manda su propio orden) y al volver de una ficha de evento con
+        // filtros restaurados (el SSR sirve el archivo entero). Sin esta
+        // comprobación, ambos casos se quedaban mostrando el HTML del servidor.
+        const ssrIds = Array.from(gridContainer.children).map(el => el.dataset.id);
+        const targetIds = galleryShown.map(x => x.idMel);
+        const ssrMatchesTarget = ssrIds.length === targetIds.length
+          && ssrIds.every((id, i) => id === targetIds[i]);
+        if (isFirstDOMUpdate && gridContainer.children.length > 0 && ssrMatchesTarget) {
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
           });
@@ -2702,17 +2851,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           prefetchEventUrl(evt.idMel, { location: evt.lugar });
         }, { once: true });
         card.addEventListener('click', () => {
+          // Al entrar desde el panel, Anterior/Siguiente queda acotado a los
+          // eventos DE ESE LOCAL, en el mismo orden en que se ven en el panel.
+          // `group.events` sale de `filtered`, así que ya arrastra el rango de
+          // años, la búsqueda activa y el orden de la secuencia — no hay que
+          // reordenarlo aquí (antes se forzaba cronológico y la navegación no
+          // coincidía con lo que el visitante acababa de ver en la lista).
           try {
-            const parseDate = (dStr) => {
-              if (!dStr || dStr === 'SIN FECHA') return 0;
-              const parts = String(dStr).split('/');
-              if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
-              const parts2 = String(dStr).split('-');
-              if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
-              return 0;
-            };
-            const sortedGroupEvents = [...group.events].sort((a, b) => parseDate(a.fecha) - parseDate(b.fecha));
-            sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(sortedGroupEvents.map(x => x.idMel)));
+            sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(group.events.map(x => x.idMel)));
           } catch (e) {}
           navigateToEvent(evt.idMel, { location: evt.lugar });
         });
@@ -3164,6 +3310,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   function initHomePage() {
+    // astro:page-load también dispara en OTRAS páginas tras una navegación
+    // suave: los listeners viven en `document` y sobreviven al salto, aunque
+    // el script de esta página ya no se vuelva a evaluar. Casi todo lo de
+    // abajo se auto-protege buscando elementos que allí no existen, pero
+    // readReturnState() no: consumía (y borraba) el estado de vuelta nada
+    // más aterrizar en la ficha del evento, justo después de guardarlo, así
+    // que al cerrar ya no quedaba nada que restaurar.
+    if (!document.getElementById('gallery-grid')) return;
+
     // Let the gallery replay its first-load entrance animation for whichever
     // render actually settles out of the several that happen synchronously
     // below (slider init, the search box's own startup dispatch...) — see
@@ -3172,21 +3327,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     gallerySettled = false;
     isFirstDOMUpdate = true;
 
-    // Keep archives stable during the session (re-shuffled only on F5 full reload)
+    // Red de seguridad: si el estado llega vacío (p. ej. una carga en la que la
+    // hoja no respondió), se repuebla desde lo que sí haya servido el SSR.
     if (!_s.archives || _s.archives.length === 0) {
       _s.archives = [...initialArchives];
       _s.filtered = [...initialArchives];
     }
-    // Write the current session order as the active navigation vector.
-    // This key is also written by the map panel (on click) and the list sort
-    // to reflect their own context — the Home always resets it to the full
-    // session order (filtered or unfiltered) so navigation is coherent when
-    // returning from a detail page to the Home.
-    try {
-      if (chronologicalArchives && chronologicalArchives.length > 0) {
-        sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(chronologicalArchives.map(x => x.idMel)));
-      }
-    } catch (e) {}
 
     // Re-sync local aliases from persisted state
     archives           = _s.archives;
@@ -3589,6 +3735,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
     // Initialize state and render
     calculateDynamicBounds();
+    // Fase 1 de la vuelta desde una ficha de evento: deja puestos rango de años
+    // y orden ANTES del primer render, para no pintar el archivo entero y
+    // volver a pintarlo filtrado un frame después.
+    readReturnState();
     updateSlider();
     bindInitialCardClicks();
     initSortHeaders();
@@ -3618,6 +3768,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     } else {
       switchView('galería');
     }
+
+    // Fase 2 de la vuelta: página, lotes cargados y scroll, ya con la vista
+    // correcta montada.
+    applyReturnState();
   }
 
   // --- List View Sorting and Navigation Actions ---
@@ -3637,27 +3791,30 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       sessionStorage.setItem('mel-sort-state', JSON.stringify({ col: currentSortCol, dir: currentSortDir }));
     } catch (e) {}
 
-    // Update Header Icons UI
-    const headers = document.querySelectorAll('.sort-header');
-    headers.forEach(h => {
-      const hCol = h.dataset.col;
+    updateSortHeaderIcons();
+
+    // Re-render starting at page 1
+    currentPage = 1;
+    filterArchives();
+  }
+
+  // Pinta la flecha de la columna activa. Extraído de handleSortClick() porque
+  // al volver de una ficha de evento el orden se restaura sin pasar por un
+  // click: sin esto, la tabla salía ordenada pero ninguna cabecera lo indicaba.
+  function updateSortHeaderIcons() {
+    document.querySelectorAll('.sort-header').forEach(h => {
       const iconSpan = h.querySelector('.sort-icon');
-      if (hCol === currentSortCol) {
+      if (!iconSpan) return;
+      if (h.dataset.col === currentSortCol) {
         iconSpan.className = 'sort-icon text-mel-action-primary shrink-0';
-        if (currentSortDir === 'asc') {
-          iconSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
-        } else {
-          iconSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>`;
-        }
+        iconSpan.innerHTML = currentSortDir === 'asc'
+          ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`
+          : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>`;
       } else {
         iconSpan.className = 'sort-icon text-mel-action-secondary shrink-0';
         iconSpan.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 20 17 15"></polyline><polyline points="7 9 12 4 17 9"></polyline></svg>`;
       }
     });
-
-    // Re-render starting at page 1
-    currentPage = 1;
-    filterArchives();
   }
 
   // Initialize sort click listeners

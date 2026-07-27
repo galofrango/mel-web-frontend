@@ -13,7 +13,7 @@
 La documentación es un **componente vivo de primer nivel** en este proyecto. Todo modelo de IA que trabaje en el repositorio debe aplicar proactivamente los siguientes principios:
 
 ### Tres Niveles de Actualización
-1. **NIVEL 1 — Actualización Automática**: Cambios pequeños y objetivos que no alteran decisiones estratégicas (añadir entradas a `decisions.md`, mover tareas en `roadmap.md`, actualizar `journal.md`, corregir textos obsoletos). Actualiza directamente e informa del resultado.
+1. **NIVEL 1 — Actualización Automática**: Cambios pequeños y objetivos que no alteran decisiones estratégicas (añadir entradas a `decisions.md`, mover tareas en `roadmap.md`, corregir textos obsoletos). Actualiza directamente e informa del resultado.
 2. **NIVEL 2 — Solicitar Confirmación**: Cambios que implican modificar decisiones estratégicas o reorganizar flujos de trabajo. Pregunta antes de aplicar: *"Hemos tomado decisiones que probablemente deberían quedar reflejadas en la documentación del proyecto. ¿Quieres que la actualice ahora?"*
 3. **NIVEL 3 — Gestión de Conflictos**: Ante discrepancias entre código, documentación o conversaciones, **no modifiques nada automáticamente**. Explica el conflicto, propón la mejor solución y espera confirmación.
 
@@ -62,6 +62,6 @@ Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir códig
    - [ ] Código funcionando sin regresiones.
    - [ ] Verificación manual completada.
    - [ ] Documentación actualizada (`decisions.md`, `architecture.md`, `roadmap.md`).
-   - [ ] Entrada de sesión registrada en `docs/journal.md`.
+   - [ ] Si el cambio toca la navegación, el **Contrato de Navegación** (`architecture.md`) sigue siendo cierto.
 7. **Comprobación cross-browser antes de publicar** (D-067 — no basta con verificar en uno solo): al menos un navegador basado en Chromium y uno distinto (Safari/WebKit, Firefox), y en modo táctil/dispositivo real siempre que el cambio toque interacción por gesto (sliders, drag, scroll). Presta atención especial a dos puntos ya detectados como inconsistentes entre navegadores: la paginación de la vista Lista (D-067) y la cabecera sticky de su tabla (D-066, aparcada — ver "Problemas Conocidos" en `roadmap.md`).
 8. **Commit descriptivo**.

@@ -84,9 +84,19 @@ import SliderHandler from './SliderHandler.astro';
       return { MIN_YEAR, MAX_YEAR, RANGE: MAX_YEAR - MIN_YEAR || 1 };
     };
 
-    // Continuous percentage states (0 to 100)
+    // Continuous percentage states (0 to 100). Seeded from the inputs' own
+    // values rather than hardcoded to the full range: when index.astro restores
+    // a year filter on the way back from an event's detail page, the handles
+    // have to land where that range actually is, not at both extremes.
     let minPct = 0;
     let maxPct = 100;
+    {
+      const { MIN_YEAR, RANGE } = getBounds();
+      const v1 = parseInt(sliderMin.value, 10);
+      const v2 = parseInt(sliderMax.value, 10);
+      if (Number.isFinite(v1)) minPct = ((v1 - MIN_YEAR) / RANGE) * 100;
+      if (Number.isFinite(v2)) maxPct = ((v2 - MIN_YEAR) / RANGE) * 100;
+    }
 
     let isDraggingMin = false;
     let isDraggingMax = false;
@@ -124,6 +134,19 @@ import SliderHandler from './SliderHandler.astro';
 
     // Initialize layout
     render();
+
+    // index.astro restaura el rango de años escribiendo directamente en los
+    // <input> al volver de una ficha de evento, y el orden de arranque entre
+    // los dos scripts de astro:page-load no está garantizado: se expone el
+    // repintado para que pueda pedirlo explícitamente después de escribirlos.
+    (window as any)._melRenderSlider = () => {
+      const { MIN_YEAR, RANGE } = getBounds();
+      const v1 = parseInt(sliderMin.value, 10);
+      const v2 = parseInt(sliderMax.value, 10);
+      if (Number.isFinite(v1)) minPct = ((v1 - MIN_YEAR) / RANGE) * 100;
+      if (Number.isFinite(v2)) maxPct = ((v2 - MIN_YEAR) / RANGE) * 100;
+      render();
+    };
 
     // D-086 ronda 2: capture the pointer on the handle itself as soon as the
     // drag starts. Without this, a fast touch drag can move far enough per

@@ -77,4 +77,4 @@ La documentación es la única fuente de verdad sobre el proyecto:
 | [docs/development.md](docs/development.md) | Convenciones de código, patrones obligatorios, política de actualización y flujo de desarrollo |
 | [docs/decisions.md](docs/decisions.md) | Registro histórico de decisiones técnicas e ingeniería (formato contexto → decisión → motivo) |
 | [docs/roadmap.md](docs/roadmap.md) | Estado actual del desarrollo, funcionalidades completadas, deuda técnica y backlog |
-| [docs/journal.md](docs/journal.md) | Diario del proyecto con la cronología de las sesiones de trabajo importantes |
+| [docs/journal.md](docs/journal.md) | Diario histórico **congelado** (la cronología vigente es `git log`) |

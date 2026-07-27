@@ -2,6 +2,22 @@
 
 Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entradas al final. Este documento crece con el tiempo; no borres entradas aunque se reviertan (marca la reversión como una entrada nueva).
 
+## Cómo usar este registro
+
+1. **Este archivo guarda el *porqué*, no el *qué*.** El comportamiento vigente del
+   sitio se describe en `architecture.md` (ver "Contrato de Navegación"). Una
+   entrada nueva explica el contexto, la alternativa descartada y el motivo, y
+   **enlaza** al contrato en lugar de reescribirlo. Cuando las reglas se
+   duplican en dos sitios, acaban divergiendo — ya pasó.
+2. **Una entrada superada no se borra**: se marca con una nota `> **Superada por…**`
+   al principio, para que siga contando su historia sin desinformar a quien la lea.
+3. **Numeración**: varios identificadores anteriores a `D-097` están duplicados
+   (D-015, D-022, D-032, D-033, D-038, D-041, D-044, D-048, D-060, D-064, D-080,
+   D-085 a D-090 comparten número entre decisiones distintas). Se conservan tal
+   cual porque hay referencias cruzadas por todo el repositorio; **desambigua por
+   el título**, no solo por el número. Las entradas nuevas siguen desde el número
+   más alto usado, sin reciclar.
+
 ---
 
 ## D-001 · Google Sheets como CMS, sin backend propio
@@ -720,6 +736,8 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 
 ## D-072 · Eliminación del overlay SPA del detalle de evento — navegación real a `/event/[id]` ("Opción B")
 
+> **Superada (parcialmente) por el Contrato de Navegación** en `architecture.md`. Sigue vigente lo esencial (una sola implementación del detalle, en `/event/[id]`), pero **ya no se navega con recarga dura**: home ⇄ evento usa el enrutado nativo de Astro con precarga. El mecanismo de `mel-return-state` que describe el punto 3 llegó a quedarse vacío en el código y se ha reimplementado; su alcance actual (rango de años, orden, página, lotes, scroll y cámara) está en el contrato.
+
 - **Contexto**: al revisar la incoherencia de padding/breakpoints entre la Home y el Detalle de Evento, salió a la luz que la causa raíz era la propia arquitectura: el "overlay" de detalle (`#event-details-overlay` en `index.astro`) era en realidad una segunda implementación completa del detalle de evento, duplicada a mano junto a la página estática `/event/[id].astro` (regla 7 de AGENTS.md exigía mantenerlas en espejo). El propietario, en vez de seguir arreglando duplicados, pidió ir a la raíz: "La opción B con todo lo que sea necesario para que no perdamos capacidades como mostrar una navegación de eventos que tengan que ver con los filtros, recordar de dónde veníamos antes de entrar en el evento, etc." Se creó primero un punto de restauración (tag git `pre-overlay-removal`) antes de tocar nada.
 - **Por qué esta migración, en concreto**:
   1. **Duplicidad**: dos implementaciones completas del detalle de evento (marcado + JS) que había que mantener sincronizadas a mano en cada cambio de diseño (regla 7 de AGENTS.md) — cualquier ajuste visual se aplicaba dos veces o se olvidaba en una de las dos, fuente directa de varios de los bugs de esta sesión y de sesiones anteriores.
@@ -737,6 +755,8 @@ Formato: contexto → decisión → motivo → consecuencias. Añade nuevas entr
 - **Bug introducido y corregido en la misma sesión**: al borrar por número de línea (`sed`) el CSS muerto de `#overlay-btn-me-presta`, se eliminó también la etiqueta `</style>` que cerraba el primer bloque `<style>` de `index.astro`, dejando el segundo `<style is:global>` abierto justo detrás sin que el primero se cerrara nunca — el navegador interpretaba el CSS resultante de forma impredecible, y la regla `#view-galería:not(.hidden) { display: block; }` (que fuerza la galería a fluir como bloque en vez de flex) dejaba de aplicarse. Síntoma reportado por el propietario: columnas de Galería a mitad de ancho (612px de 1224px, exactamente la mitad — dos hijos flex sin `flex-basis` explícito repartiéndose el espacio), Mapa y Lista con el mismo tipo de desajuste. Diagnosticado comparando `git diff` línea a línea (una `-</style>` sin su `+</style>` correspondiente) y confirmado midiendo `getComputedStyle` antes/después del fix. Corregido reintroduciendo la etiqueta de cierre; verificado en navegador que las tres vistas vuelven a su ancho/layout correcto. Lección para el propio proceso: al borrar bloques de CSS por rango de línea (`sed`/`Edit` con contexto amplio) hay que releer explícitamente las líneas justo antes y después del rango borrado para confirmar que no se ha partido una etiqueta o bloque que las envuelve, no solo el contenido que se pretendía borrar.
 
 ## D-073 · Orden de la Galería estable por sesión y sincronizado con el orden elegido en Lista
+
+> **Superada (parcialmente) por el Contrato de Navegación** en `architecture.md`. La intención se mantiene y hoy es una regla del contrato, pero el mecanismo cambió: el orden estable ya no se guarda como claves aleatorias por tarjeta (`mel-gallery-random-keys`, que desapareció del código) sino como la secuencia de ids de la sesión en `mel-session-order`.
 
 - **Contexto**: consecuencia directa de D-072 — el orden aleatorio de la Galería (`galleryRandomKeys`, comentado como "orden aleatorio ESTABLE por sesión") solo vivía en memoria (`window._melState`), así que era estable mientras el overlay nunca desmontaba la página, pero desde que abrir un evento es una recarga dura real, cada visita a un evento generaba una semilla aleatoria nueva al volver — la Galería se reordenaba visiblemente en cada ida y vuelta. El propietario pidió, además, que si cambia el orden en Lista (columnas ordenables), la Galería adopte ese mismo orden (y los filtros ya compartidos) en vez de mantener su propio aleatorio.
 - **Decisión**:
@@ -1051,6 +1071,8 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 ## D-094 · Estandarización de clases utilitarias `typo-body-sans` y `typo-body-roman` a nivel de componente
 
 ## D-096 · Descorrelación inicial Galería/Lista y re-sincronización cronológica ante interacción
+
+> **Superada (parcialmente) por el Contrato de Navegación** en `architecture.md`. Ya no hay descorrelación: Galería y Lista comparten **siempre** la misma secuencia, y filtrar o buscar solo oculta elementos, nunca reordena. La regla de "resincronizar ante cualquier interacción" que describe esta entrada provocaba que la Lista saltase a orden aleatorio en cuanto había una búsqueda activa y volviese a cronológico al borrarla.
 
 - **Contexto**: Para mejorar la experiencia de descubrimiento y lectura histórica, la vista de Lista debe mostrarse inicialmente ordenada de forma cronológica (2004 ➔ 2019), mientras la Galería conserva su mosaico aleatorio inicial. Al realizar cualquier interacción (filtro, búsqueda, slider de años o reordenación), ambas vistas se re-sincronizan cronológicamente (o según el orden de columna seleccionado).
 - **Decisión**:

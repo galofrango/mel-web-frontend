@@ -1,6 +1,23 @@
 # Diario del Proyecto (Project Journal)
 
-Este archivo registra la cronología de las sesiones de desarrollo importantes. Su objetivo me mantener un histórico claro de la evolución del proyecto, las decisiones tomadas, los problemas resueltos y los próximos pasos.
+> ## ⚠️ Archivo congelado (2026-07-27) — no añadir entradas nuevas
+>
+> Este diario y `decisions.md` acabaron narrando lo mismo dos veces (~2.600
+> líneas entre ambos), y esa duplicación es exactamente lo que permitió que las
+> dos versiones quedaran obsoletas sin que se notara: la navegación del sitio
+> llegó a estar descrita de tres formas distintas y ninguna coincidía con el
+> código.
+>
+> **A partir de ahora:**
+> - El **comportamiento vigente** → `architecture.md` (fuente única de verdad).
+> - El **porqué** de cada decisión → `decisions.md`.
+> - La **cronología** → `git log`, que ya la lleva sin esfuerzo y no se
+>   desincroniza.
+>
+> Lo de abajo se conserva como histórico. Puede contener afirmaciones ya
+> superadas: **no lo uses como referencia de cómo funciona el sitio hoy.**
+
+Este archivo registró la cronología de las sesiones de desarrollo hasta el 2026-07-24.
 
 ## [2026-07-24] — Sesión: Ajuste fino de etiquetas, encuadre de foto y lightbox en tablet en el detalle de evento (D-093)
 

@@ -12,7 +12,11 @@ Lee este documento primero; después, consulta según la tarea:
 - Convenciones y flujo de trabajo → [docs/development.md](docs/development.md)
 - Decisiones de diseño e ingeniería → [docs/decisions.md](docs/decisions.md)
 - Estado del proyecto y roadmap → [docs/roadmap.md](docs/roadmap.md)
-- Diario de sesiones del proyecto → [docs/journal.md](docs/journal.md)
+- Diario de sesiones (**congelado**, solo histórico) → [docs/journal.md](docs/journal.md)
+
+> **Cómo funciona la navegación del sitio** (orden de las tarjetas, navegación
+> entre eventos, filtros, volver al sitio de origen) → **[Contrato de Navegación](docs/architecture.md#contrato-de-navegación-fuente-única-de-verdad)**.
+> Es normativo: si el código lo contradice, es un bug del código.
 
 ---
 
@@ -147,7 +151,7 @@ Debes aplicar los siguientes tres niveles de actualización:
 
 ### NIVEL 1 — Actualización Automática
 Si los cambios son pequeños, objetivos y no modifican decisiones estratégicas, actualiza directamente la documentación sin preguntar.
-- *Ejemplos:* Registrar una decisión en `decisions.md`, mover tareas en `roadmap.md`, actualizar el `journal.md`, documentar una API/componente ya creado, o corregir textos desactualizados.
+- *Ejemplos:* Registrar una decisión en `decisions.md`, mover tareas en `roadmap.md`, documentar una API/componente ya creado, o corregir textos desactualizados. (`journal.md` está congelado: la cronología la lleva `git log`.)
 - Al finalizar, indica qué archivos has actualizado.
 
 ### NIVEL 2 — Solicitar Confirmación
@@ -200,7 +204,7 @@ Antes de dar cualquier tarea importante por finalizada, debes verificar internam
 - [ ] **La documentación refleja los cambios** y sigue siendo la principal fuente de verdad.
 - [ ] **Las decisiones importantes han quedado registradas** en `docs/decisions.md`.
 - [ ] **El roadmap está actualizado** en `docs/roadmap.md` si procede.
-- [ ] **El diario del proyecto (`docs/journal.md`) se ha actualizado** si la sesión ha sido relevante.
+- [ ] **Si el cambio afecta al comportamiento de navegación, el Contrato de Navegación de `docs/architecture.md` lo refleja.**
 
 ---
 
@@ -228,7 +232,8 @@ Cualquier cambio de arquitectura, nuevo componente, regla o decisión de UX debe
 - Módulo / flujo de datos → [docs/architecture.md](docs/architecture.md)
 - Token / componente UI → [docs/design-system.md](docs/design-system.md)
 - Tareas completadas / pendientes → [docs/roadmap.md](docs/roadmap.md)
-- Registro cronológico de la sesión → [docs/journal.md](docs/journal.md)
+- Comportamiento de navegación → [Contrato de Navegación](docs/architecture.md#contrato-de-navegación-fuente-única-de-verdad)
+- Registro cronológico → `git log` (`journal.md` está congelado)
 
 ---
 
