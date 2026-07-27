@@ -1,0 +1,43 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MenuItem from '../components/MenuItem.astro';
+import SideMenu from '../components/SideMenu.astro';
+import EmptyState from '../components/EmptyState.astro';
+
+// Página de error 404 (Figma 1073:114391). Deliberadamente mínima: solo la
+// cabecera y el menú, sin toolbar, sin slider ni vistas — quien llega aquí no ha
+// pedido explorar el archivo, se ha topado con una dirección que no existe, así
+// que lo único útil es reconocerlo y ofrecer la vuelta al inicio.
+---
+
+<Layout title="404">
+  <div class="w-full max-w-[1440px] min-h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-16 flex flex-col items-center">
+
+    <!-- Cabecera idéntica a la del resto de páginas (mismo pt, misma fila, mismo
+         colapso a "M.E.L." + icono en móvil): al aterrizar aquí desde cualquier
+         sitio, el título y el menú no se mueven de su posición. -->
+    <div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border/30 pb-4 pt-[calc(10vh-40px)] lg:pt-[var(--mel-header-pt-desktop)]">
+      <div class="flex items-center gap-4 lg:gap-6 w-full">
+        <div class="flex-1 min-w-0 w-full">
+          <a href="/" class="flex items-center h-[48px] no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
+            <span class="font-sans font-bold text-[22px] leading-[28px] tracking-[-0.44px] whitespace-nowrap select-none">
+              <span class="lg:hidden">M.E.L.</span><span class="hidden lg:inline">Memoria Electrónica Leonesa</span>
+            </span>
+          </a>
+        </div>
+        <div class="shrink-0 flex justify-end">
+          <MenuItem id="menu-btn" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Estado vacío 404: mismo componente que el resto del sitio, solo cambia
+         la variante (foto, textos y destino del botón viven en EmptyState). -->
+    <div class="flex-1 flex flex-col items-center justify-center pt-[80px] pb-[100px] w-full">
+      <EmptyState variant="404" />
+    </div>
+
+  </div>
+
+  <SideMenu />
+</Layout>

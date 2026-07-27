@@ -3,7 +3,7 @@
 // Reusable Empty State component matching Figma 825:72958 specifications exactly.
 
 interface Props {
-  variant?: "construction" | "no-results";
+  variant?: "construction" | "no-results" | "404";
   title?: string;
   description?: string;
   showImage?: boolean;
@@ -18,24 +18,44 @@ const {
   description,
   showImage = true,
   showButton = true,
-  buttonText = variant === "no-results" ? "Quitar filtros" : "De acuerdo",
+  buttonText,
   buttonLink = "/"
 } = Astro.props;
 
-// Determine default texts and images based on the variant
-const defaultTitle = variant === "construction" ? "En construcción" : "Sin resultados";
-const defaultDesc = variant === "construction" 
-  ? "Estamos trabajando para poder ofrecerte más cosas interesantes." 
-  : "Elimina los filtros o prueba a buscar otra cosa.";
+// Textos, foto y encuadre por variante (Figma: 825:72958 para construcción y
+// sin-resultados, 1073:114391 para el 404). Todo en una tabla en vez de
+// encadenar ternarios: añadir una variante nueva es una fila más.
+const VARIANTES = {
+  construction: {
+    title: "En construcción",
+    description: "Estamos trabajando para poder ofrecerte más cosas interesantes.",
+    button: "De acuerdo",
+    image: "/empty-state-construction.png",
+    fit: "object-cover",
+  },
+  "no-results": {
+    title: "Sin resultados",
+    description: "Elimina los filtros o prueba a buscar otra cosa.",
+    button: "Quitar filtros",
+    image: "/empty-state-no-results.png",
+    fit: "object-bottom",
+  },
+  "404": {
+    title: "404",
+    description: "El ritmo que buscas no existe aún.",
+    button: "Ir al inicio",
+    image: "/empty-state-404.png",
+    fit: "object-cover",
+  },
+};
 
-const displayTitle = title ?? defaultTitle;
-const displayDescription = description ?? defaultDesc;
+const cfg = VARIANTES[variant] ?? VARIANTES.construction;
 
-const imageSrc = variant === "construction" 
-  ? "/empty-state-construction.png" 
-  : "/empty-state-no-results.png";
-
-const imgFitClass = variant === "construction" ? "object-cover" : "object-bottom";
+const displayTitle = title ?? cfg.title;
+const displayDescription = description ?? cfg.description;
+const displayButtonText = buttonText ?? cfg.button;
+const imageSrc = cfg.image;
+const imgFitClass = cfg.fit;
 ---
 
 <div 
@@ -90,12 +110,12 @@ const imgFitClass = variant === "construction" ? "object-cover" : "object-bottom
     <a
       href={buttonLink}
       id={variant === "construction" ? "empty-state-back-btn" : undefined}
-      class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]"
+      class={`${variant === "no-results" ? "empty-state-clear-btn " : ""}inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]`}
       data-node-id="821:72737"
       data-name="Button"
     >
       <span data-node-id="821:72738">
-        {buttonText}
+        {displayButtonText}
       </span>
     </a>
   )}

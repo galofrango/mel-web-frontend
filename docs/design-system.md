@@ -16,6 +16,7 @@ Nodos de Figma de referencia usados durante el desarrollo:
 | `841-40903` | Modal del lightbox (caja fija, foto `object-contain`) |
 | `810-71904` | Layout base de EmptyState |
 | `825-72958` | Componente e instancias de EmptyState (*Construction* y *No results*) |
+| `1073-114391` | EmptyState variante *404* (foto de la caja de ritmos) |
 | `562-70116` | SideMenu con badge "Nuevo" |
 
 ---
@@ -135,7 +136,7 @@ Tres variantes probadas y descartadas, por si alguien vuelve sobre ello:
 
 | Componente | Variantes / Estados | Descripción y Especificación |
 | --- | --- | --- |
-| `<EmptyState />` | `construction` / `no-results` | Componente de estado vacío con imagen en B/N y capa `bg-[var(--mel-primitive-le-900)]` en modo `mix-blend-screen` para lograr el tinte fotográfico duotono de la marca. |
+| `<EmptyState />` | `construction` / `no-results` / `404` | Componente de estado vacío con imagen en B/N y capa `bg-[var(--mel-primitive-le-900)]` en modo `mix-blend-screen` para lograr el tinte fotográfico duotono de la marca. |
 | `<IntroAnimation />` | — | Pantalla de inicio con 3 capas CMYK (`mix-blend-multiply`) aisladas con `isolation: isolate`. Parallax interactivo del ratón (Amarilla 16px/1px blur, Magenta 8px/0.5px blur, Cian 0px estática) y despegue ease-in de 2.1s. |
 | `<HeaderTitle />` | default / placeholder / filling / filled | Buscador de 4 estados con expansión animada de ancho en píxeles medidos y línea inferior de acento. |
 | `<TimeSlider />` | — | Selector de rango de años (2004–2019) con dos handles arrastrables y clamping estricto. |

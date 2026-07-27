@@ -94,6 +94,12 @@ Página estática SSR para enlaces directos por ID de evento (`/event/MEL-XXXX`)
 ### `src/pages/info.astro`
 Página informativa (*Proyecto / Equipo / Contacto*) poblada desde la hoja. Acordeones desplegables con tinte fotográfico duotono en imágenes.
 
+### `src/pages/404.astro`
+
+Página de error, deliberadamente mínima: cabecera y menú, sin toolbar, slider ni
+vistas. Reutiliza `EmptyState` con la variante `404` (Figma 1073:114391); todo lo
+que cambia —foto, textos y destino del botón— vive dentro del componente.
+
 ### `src/pages/exposiciones.astro`
 Página de la Sala de Exposiciones. Implementa el componente `<EmptyState variant="construction" />` avisando de que la sección está en desarrollo.
 
