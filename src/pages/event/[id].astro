@@ -251,17 +251,21 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       data-image-urls={JSON.stringify(imageUrls)}
     >
 
-      <!-- Pinned Header (X + Mobile Title) -->
+      <!-- Fila de la X. En flujo NORMAL a propósito: es lo único de la
+           cabecera que se va hacia arriba al desplazar, hasta esconderse bajo
+           la barra del navegador. Mismo alto que la cabecera de la home (fila
+           de 48px con 44px de aire encima, `10vh - 40px`), para que al ir de
+           una página a otra el icono no dé un salto. -->
       <div
         id="detail-sticky-header"
-        class="w-full bg-mel-bg-primary pt-[calc(10vh-40px)] pb-8 lg:bg-transparent lg:pt-0 lg:pb-0 shrink-0"
+        class="w-full bg-mel-bg-primary pt-[calc(10vh-40px)] lg:bg-transparent lg:pt-0 shrink-0"
       >
-        <!-- Close Button (X) at Top Left. Va dentro de una fila de 48px con el
-             icono centrado, que es exactamente lo que pasa en las demás
-             páginas: allí el botón de menú (40px) se centra en la fila del
-             título, que mide 48. Sin esta fila la X quedaba 4px más alta que
-             el icono de menú al ir de una página a otra. -->
-        <div class="flex items-center h-[48px] mb-4 lg:mb-12">
+        <!-- La X va dentro de una fila de 48px con el icono centrado, que es
+             exactamente lo que pasa en las demás páginas: allí el botón de
+             menú (40px) se centra en la fila del título, que mide 48. Sin esta
+             fila la X quedaba 4px más alta que el icono de menú al cambiar de
+             página. -->
+        <div class="flex items-center h-[48px] lg:mb-12">
           <IconButton
             id="detail-close-btn"
             href="/"
@@ -272,25 +276,24 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
             aria-label="Cerrar detalles de evento"
           />
         </div>
-
-        <!-- Mobile-only Event Title: sits below close button X -->
-        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary">
-          {eventData.title}
-        </h2>
       </div>
 
+      <!-- Título + tags: `sticky top-0`. Suben con el contenido hasta tocar el
+           borde superior y ahí se quedan — el propietario fue explícito en que
+           el nombre del evento no debe irse nunca. Es CSS puro: `sticky` lo
+           gestiona el compositor y, a diferencia de `fixed`, no se re-ancla
+           cuando la barra del navegador redimensiona el viewport a mitad de un
+           gesto (que era D-103). Fondo opaco porque la foto le pasa por debajo.
+           A partir de `lg` se desmonta: el título vive en la columna de info y
+           los tags en su propia columna. -->
+      <div class="sticky top-0 z-30 w-full bg-mel-bg-primary pb-8 shrink-0 lg:static lg:bg-transparent lg:pb-0 lg:contents">
+        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-4">
+          {eventData.title}
+        </h2>
 
-      <!-- V2 layout (below `lg` only, made definitive after the overlay trial —
-           see D-042/D-043): tags row pinned directly under the fixed header,
-           replacing the old "beside the image" mobile position. Mirrors the
-           overlay's #overlay-tags-fixed exactly (same ids minus the `overlay-`
-           prefix) — a sibling of the header, not nested inside the grid, so it
-           can use plain viewport-relative top math via updateTagsFixed(). No
-           border/divider on purpose: reads as part of the fixed header. pb-8
-           (32px) is the resting gap to the image below, exactly per spec
-           regardless of pagination. -->
-      <div id="detail-tags-fixed" class="lg:hidden w-full bg-mel-bg-primary pb-8 shrink-0">
-        <AdaptiveTagsRow id="detail-tags-fixed-row" tags={TAGS_EVENTO} />
+        <div id="detail-tags-fixed" class="lg:hidden w-full">
+          <AdaptiveTagsRow id="detail-tags-fixed-row" tags={TAGS_EVENTO} />
+        </div>
       </div>
 
       <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). On
