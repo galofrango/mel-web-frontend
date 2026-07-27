@@ -171,8 +171,22 @@ const designerDisplay = getTagDisplay(eventData.designer);
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
   <div class="w-full max-w-[1440px] mx-auto min-h-screen bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[10vh] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
-    <!-- Main Box Container (Figma 1224px wide) -->
-    <div id="detail-page-container" class="w-full max-w-[1224px] flex flex-col select-none">
+    <!-- Main Box Container (Figma 1224px wide).
+         data-event-id / data-image-urls: la identidad del evento viaja en el
+         DOM, no solo en las variables de `define:vars`. Esas quedan congeladas
+         en la closure del script que las sirvió, y con el botón atrás/adelante
+         del navegador Astro restaura la página desde su caché SIN reejecutar el
+         script: solo corren las closures ya registradas, la última de ellas con
+         el id del evento ANTERIOR. Resultado: la ficha mostraba un evento y su
+         navegación pertenecía a otro (con "Siguiente" apuntándose a sí misma,
+         de ahí que se quedara pillada). Leyéndolo del DOM en cada
+         `astro:page-load`, la identidad siempre es la de la página visible. -->
+    <div
+      id="detail-page-container"
+      class="w-full max-w-[1224px] flex flex-col select-none"
+      data-event-id={eventData.idMel}
+      data-image-urls={JSON.stringify(imageUrls)}
+    >
 
       <!-- Pinned Header (X + Mobile Title) -->
       <div
@@ -562,8 +576,27 @@ const designerDisplay = getTagDisplay(eventData.designer);
   }
 </style>
 
-<script define:vars={{ imageUrls, eventId: eventData.idMel, allEvents }}>
+<script define:vars={{ ssrImageUrls: imageUrls, ssrEventId: eventData.idMel, allEvents }}>
   function initPage() {
+    // astro:page-load dispara en TODAS las páginas tras una navegación suave
+    // (los listeners viven en `document` y sobreviven al salto). Sin este
+    // guard, al volver a la home esta función seguía ejecutándose allí y —lo
+    // grave— abortaba el AbortController compartido, matando los listeners que
+    // la home acababa de registrar.
+    const dataNode = document.getElementById('detail-page-container');
+    if (!dataNode) return;
+
+    // Identidad REAL de la página visible, leída del DOM y no de `define:vars`
+    // (ver el comentario de data-event-id en el marcado): con atrás/adelante
+    // del navegador el script no se reejecuta y las variables de la closure
+    // pertenecen al evento anterior. Sombrean a las del SSR para todo initPage.
+    const eventId = dataNode.dataset.eventId || ssrEventId;
+    let imageUrls = ssrImageUrls;
+    try {
+      const parsed = JSON.parse(dataNode.dataset.imageUrls || 'null');
+      if (Array.isArray(parsed)) imageUrls = parsed;
+    } catch (e) {}
+
     // Parse search/location/view queries from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const activeView = urlParams.get('view') || 'galería';
@@ -580,10 +613,13 @@ const designerDisplay = getTagDisplay(eventData.designer);
       closeBtn.href = `/?${returnParams.toString()}`;
     }
 
-    // Abort any previous window listeners to prevent duplicates across page transitions
-    if (window._melAbortCtrl) window._melAbortCtrl.abort();
-    window._melAbortCtrl = new AbortController();
-    const wSig = window._melAbortCtrl.signal;
+    // Abort any previous window listeners to prevent duplicates across page transitions.
+    // Clave propia (_melDetailAbortCtrl), NO la de index.astro: ambas páginas
+    // compartían `_melAbortCtrl` y se abortaban los listeners la una a la otra
+    // según el orden en que corrieran sus respectivos astro:page-load.
+    if (window._melDetailAbortCtrl) window._melDetailAbortCtrl.abort();
+    window._melDetailAbortCtrl = new AbortController();
+    const wSig = window._melDetailAbortCtrl.signal;
 
     // Pinned, shrinking image (below `lg`). Figma "Screen / Event Details"
     // (369:32751): the image sticks right below the sticky X+title header and
