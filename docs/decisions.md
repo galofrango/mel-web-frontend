@@ -1178,3 +1178,16 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Por qué `sticky` y no `fixed`**: lo gestiona el compositor y reserva su propio hueco, así que no hay espaciadores que mantener; y a diferencia de `fixed` no se re-ancla cuando la barra del navegador redimensiona el viewport a mitad de un gesto, que era exactamente D-103.
 - **Se pierde el encogido de la foto**, y no por descuido: dependía de que algo se desplazara por dentro y obligaba a que la foto tapase contenido para no realimentarse (encoge la foto → crece el contenedor → queda menos recorrido → el scroll se recorta → la foto vuelve a crecer). Sin él, la página no tiene una sola línea de JS ligada al scroll.
 - **Dato medido que corrige una creencia previa**: la cabecera de `info.astro` **no se sale por arriba**. Es `sticky top-0` y su borde superior se queda clavado en 0 a cualquier altura (medido a 0, 150, 400 y 786px). Lo que se percibe como "sube" es la barra del navegador replegándose y devolviendo pantalla — que solo ocurre si el documento se desplaza.
+
+## D-106 · Cabecera de dos alturas, foto pegajosa que encoge, y contenido a ras
+
+Estado final de la ficha de evento en móvil, tras cuatro correcciones del propietario sobre el diseño anterior.
+
+- **Cabecera en un solo bloque `sticky` anclado en `top: -alturaX`.** La fila de la X queda por encima del borde: al desplazar, lo que se ve pegado arriba es solo título y tags. Al arrastrar hacia abajo, la clase `.revelada` la baja con un `translateY` y la X vuelve a asomar — es lo primero que aparece. Se usa `transform` y no `top` porque el navegador lo compone aparte. Umbral de 4px para que el temblor de un dedo quieto no la haga parpadear.
+- **El bloque sangra a los bordes** (`-mx-6 px-6 w-[calc(100%+48px)]`). Sin eso su caja se quedaba en el ancho de contenido y por los 24px de cada lado se veían pasar las rayas del fondo de la foto, que sí llega a sangre. Ojo: `w-full` y `w-[calc(...)]` en la misma clase se pelean y ganaba el primero.
+- **La foto es `sticky` bajo la parte siempre visible** y encoge de 360 a 200. Dos invariantes la sostienen:
+  1. **El alto de su columna se congela** al iniciar, medido con el recorte al máximo. Si la columna encogiera con el recorte, el documento se acortaría a mitad de scroll y el navegador recolocaría la posición: la foto volvería a crecer sola.
+  2. **El encogido se ata a lo que la columna lleva *pasado* el punto donde se pega**, no al scroll bruto. Con eso el borde inferior de la foto y el comienzo del contenido bajan al mismo ritmo y el hueco entre ambos es exactamente 0 en todo el recorrido (medido). Atado al scroll bruto, la foto empezaba a encoger antes de pegarse y abría un hueco creciente.
+- **El contenido no lleva margen superior**: arranca a ras del borde inferior del bloque de la foto y pasa por debajo. Cuando el evento no tiene paginación, la caja de la foto lleva un faldón macizo propio de 32px; cuando la tiene, los 24px de abajo del `py-6` de los puntos ya hacen ese papel.
+
+Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12 columnas, la foto estática y el título en su columna, sin cambios.

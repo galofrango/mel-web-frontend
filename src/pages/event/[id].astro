@@ -251,6 +251,16 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       data-image-urls={JSON.stringify(imageUrls)}
     >
 
+      <!-- Cabecera completa en UN bloque pegajoso (X + título + tags).
+           Se ancla en `top: -alturaX`, o sea con la fila de la X por encima
+           del borde de la pantalla: al desplazar, lo que queda pegado arriba
+           es solo el título y los tags. Al arrastrar hacia abajo, la clase
+           `revelada` la baja con un `translateY` y la X vuelve a asomar — es
+           lo primero que aparece. Se usa `transform` y no `top` porque el
+           navegador lo compone aparte, sin pasar por la maquetación.
+           A partir de `lg` el bloque se disuelve (`contents`) y cada pieza
+           vuelve a su sitio en la rejilla. -->
+      <div id="detail-cabecera" class="sticky z-40 -mx-6 px-6 w-[calc(100%+48px)] sm:-mx-12 sm:px-12 sm:w-[calc(100%+96px)] bg-mel-bg-primary lg:static lg:mx-0 lg:px-0 lg:w-full lg:bg-transparent lg:contents">
       <!-- Fila de la X. En flujo NORMAL a propósito: es lo único de la
            cabecera que se va hacia arriba al desplazar, hasta esconderse bajo
            la barra del navegador. Mismo alto que la cabecera de la home (fila
@@ -258,7 +268,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            una página a otra el icono no dé un salto. -->
       <div
         id="detail-sticky-header"
-        class="w-full bg-mel-bg-primary pt-[calc(10vh-40px)] lg:bg-transparent lg:pt-0 shrink-0"
+        class="w-full bg-mel-bg-primary pt-[calc(10vh-40px)] lg:bg-transparent lg:pt-0 shrink-0 lg:contents"
       >
         <!-- La X va dentro de una fila de 48px con el icono centrado, que es
              exactamente lo que pasa en las demás páginas: allí el botón de
@@ -286,7 +296,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            gesto (que era D-103). Fondo opaco porque la foto le pasa por debajo.
            A partir de `lg` se desmonta: el título vive en la columna de info y
            los tags en su propia columna. -->
-      <div class="sticky top-0 z-30 w-full bg-mel-bg-primary pb-8 shrink-0 lg:static lg:bg-transparent lg:pb-0 lg:contents">
+      <div id="detail-titulo-tags" class="w-full pb-8 lg:pb-0 lg:contents">
         <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-4">
           {eventData.title}
         </h2>
@@ -294,6 +304,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         <div id="detail-tags-fixed" class="lg:hidden w-full">
           <AdaptiveTagsRow id="detail-tags-fixed-row" tags={TAGS_EVENTO} />
         </div>
+      </div>
       </div>
 
       <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). On
@@ -322,7 +333,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                unwanted extra space below the photo). -->
           <div
             id="detail-image-sticky"
-            class="flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent"
+            class:list={[
+              "sticky z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent",
+              /* Sin paginación no hay nada que separe la foto del contenido, así
+                 que la propia caja lleva un faldón macizo de 32px por el que el
+                 contenido pasa por debajo. Con paginación sobra: los 24px de
+                 abajo del `py-6` de los puntos ya hacen ese papel. */
+              imageUrls.length > 1 ? "" : "pb-8 lg:pb-0",
+            ]}
           >
             <!-- Crop window: THIS is what shrinks (400px→200px), via
                  overflow-hidden — not the photo itself. The photo (button
@@ -411,7 +429,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div id="detail-scroll" class="lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pt-8 lg:pt-0 pl-0 lg:pl-6" data-name="Info">
+        <div id="detail-scroll" class="lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -625,6 +643,74 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // dejaba la foto fuera del área desplazable — no se podía arrastrar sobre
     // ella, que es media pantalla.
 
+    // Geometría de la cabecera. Se mide UNA vez al iniciar y al redimensionar,
+    // nunca durante el scroll: son los dos altos que el CSS necesita y que no
+    // puede calcular solo (el título puede ocupar una o dos líneas).
+    //   --mel-cab-x     alto de la fila de la X, lo que se esconde arriba
+    //   --mel-cab-fija  alto de título + tags, lo que queda pegado
+    const cabecera = document.getElementById('detail-cabecera');
+    const filaX = document.getElementById('detail-sticky-header');
+    const tituloTags = document.getElementById('detail-titulo-tags');
+    const columnaFoto = document.getElementById('detail-image-column');
+    const imageCrop = document.getElementById('detail-image-crop');
+    const IMAGE_MAX_H = 360;
+    const IMAGE_MIN_H = 200;
+
+    // Distancia, en el documento, desde el origen hasta el punto en que la
+    // columna de la foto llega a su posición pegada. Se mide una vez.
+    let inicioEncogido = 0;
+
+    function medirCabecera() {
+      if (!cabecera || !filaX || !tituloTags) return;
+      const raiz = document.documentElement;
+      if (window.innerWidth >= 1024) {
+        raiz.style.removeProperty('--mel-cab-x');
+        raiz.style.removeProperty('--mel-cab-fija');
+        if (columnaFoto) columnaFoto.style.height = '';
+        if (imageCrop) imageCrop.style.height = '';
+        return;
+      }
+      raiz.style.setProperty('--mel-cab-x', `${filaX.getBoundingClientRect().height}px`);
+      raiz.style.setProperty('--mel-cab-fija', `${tituloTags.getBoundingClientRect().height}px`);
+      // Alto CONGELADO de la columna de la foto. Es la invariante que impide
+      // que el encogido se realimente: si la columna encogiera con el recorte,
+      // el documento se acortaría a mitad de scroll, el navegador recolocaría
+      // la posición y la foto volvería a crecer. Se mide con el recorte a su
+      // tamaño máximo para que el valor no dependa de dónde esté el scroll.
+      if (columnaFoto && imageCrop) {
+        const alto = imageCrop.getBoundingClientRect().height;
+        imageCrop.style.height = `${IMAGE_MAX_H}px`;
+        columnaFoto.style.height = '';
+        columnaFoto.style.height = `${columnaFoto.getBoundingClientRect().height}px`;
+        inicioEncogido = Math.max(0,
+          columnaFoto.getBoundingClientRect().top + window.scrollY - tituloTags.getBoundingClientRect().height);
+        imageCrop.style.height = `${alto}px`;
+      }
+    }
+
+    // Lo único ligado al scroll. Dos escrituras: una altura y una clase.
+    let ultimoY = window.scrollY;
+    function alDesplazar() {
+      const y = window.scrollY;
+      if (window.innerWidth >= 1024) { ultimoY = y; return; }
+
+      // La foto empieza a encoger justo cuando llega a su posición pegada, no
+      // antes: si no, se despega del contenido y abre un hueco creciente.
+      if (imageCrop) {
+        const pasado = Math.max(0, y - inicioEncogido);
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado)}px`;
+      }
+
+      // La X reaparece en cuanto se arrastra hacia abajo. El umbral de 4px
+      // evita que el temblor de un dedo quieto la haga parpadear.
+      if (cabecera) {
+        const dy = y - ultimoY;
+        if (dy < -4 || y <= 0) cabecera.classList.add('revelada');
+        else if (dy > 4) cabecera.classList.remove('revelada');
+      }
+      ultimoY = y;
+    }
+
     // Reparto del ancho de la fila de tags (D-059/D-060), gemelo reducido de
     // updateAdaptiveTagsRow() en index.astro: aquí la fila nunca comparte
     // renglón con nada, así que sobra todo el tramo de "espacio reservado"
@@ -681,17 +767,18 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }
     }
 
+    medirCabecera();
     ajustarFilaTags();
+    alDesplazar();
+    window.addEventListener('scroll', alDesplazar, { passive: true, signal: wSig });
     let resizeRaf = null;
     window.addEventListener('resize', () => {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      resizeRaf = requestAnimationFrame(ajustarFilaTags);
+      resizeRaf = requestAnimationFrame(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); });
     }, { signal: wSig });
 
-    // Las fuentes web todavía están cargando en `astro:page-load`, así que el
-    // primer reparto de ancho mide con la tipografía de respaldo.
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(ajustarFilaTags);
+      document.fonts.ready.then(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); });
     }
 
     // Read active navigation vector from sessionStorage.
@@ -1094,6 +1181,23 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </script>
 
 <style>
+  @media (max-width: 1023px) {
+    /* La cabecera se ancla con la fila de la X por encima del borde: lo que
+       queda pegado arriba es solo el título y los tags. */
+    #detail-cabecera {
+      top: calc(-1 * var(--mel-cab-x, 92px));
+      transition: transform 0.25s ease;
+    }
+    /* Al arrastrar hacia abajo baja de golpe y la X vuelve a asomar. */
+    #detail-cabecera.revelada {
+      transform: translateY(var(--mel-cab-x, 92px));
+    }
+    /* La foto se queda justo debajo de la parte siempre visible. */
+    #detail-image-sticky {
+      top: var(--mel-cab-fija, 144px);
+    }
+  }
+
 
   /* Custom Typography style sheets mapping Figma tokens */
   .typo-tag-label {
