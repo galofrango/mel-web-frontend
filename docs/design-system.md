@@ -139,7 +139,15 @@ el valor aparece un enlace **"¿Nos ayudas?"** a `/info#contacto` (la sección
 "Si tienes material que nos falta", que llega con sus acordeones desplegados).
 
 La hoja marca la ausencia con varios centinelas, no solo uno: `desconocido`,
-`sin fecha`, `no detallados` y `varios`. Los cuatro reciben el mismo trato.
+`sin fecha`, `no detallados` y `varios`. Los cuatro reciben el mismo trato —y el
+campo **vacío** también: es el mismo hueco, solo que sin etiquetar. Por eso el
+bloque de artistas ya no se oculta cuando el campo viene vacío; en un archivo la
+laguna es información («de este evento no sabemos quién pinchó») y ocultarla
+borra además la ocasión de pedirla.
+
+Corolario: **nada se rellena con un valor inventado en el parseo**. `lugar` traía
+`'León'` por defecto, que fabricaba un local inexistente y encima impedía para
+siempre que ese campo mostrase la invitación.
 
 El término detectado se **sustituye**, no se acompaña: la invitación ocupa el
 sitio del valor en vez de añadirse debajo, así que sirve para todas las tags sin

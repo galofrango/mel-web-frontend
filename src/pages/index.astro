@@ -81,7 +81,7 @@ try {
         evento: c[0] ? c[0].v : 'Evento sin título',
         urlDrive: c[2] ? c[2].v : '',
         fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
-        lugar: c[4] ? c[4].v : 'León',
+        lugar: c[4] ? c[4].v : '',   // sin dato es sin dato: rellenarlo con 'León' inventaba un local
         localidad: c[5] ? c[5].v : '',
         coordenadas: c[6] ? c[6].v : '',
         artistas: c[7] ? c[7].v : '',
@@ -2908,7 +2908,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // Column G holds either a plain address/DMS string (shown as-is) or a
       // Google Maps share link, in which case we show its readable address
       // instead of the raw URL.
-      document.getElementById('side-panel-address').textContent = extractAddressLabel(sampleEvt?.coordenadas) || 'León';
+      document.getElementById('side-panel-address').textContent = extractAddressLabel(sampleEvt?.coordenadas) || '';
 
       // Calculate unique artists, designers and promoters (organiza) — same
       // 'desconocido'/'varios' exclusions as the home toolbar's own stats
@@ -3152,7 +3152,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (!locationGroups[locKey]) {
         locationGroups[locKey] = {
           coords: { lat: coords[0], lng: coords[1] },
-          locationName: item.lugar || item.localidad || 'León',
+          locationName: item.lugar || item.localidad || 'Lugar desconocido',
           events: []
         };
       }

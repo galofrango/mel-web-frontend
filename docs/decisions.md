@@ -1125,4 +1125,14 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Una sola definición de las cinco tags** (`TAGS_EVENTO`): la fila de móvil/tablet y la columna de escritorio eran dos listas paralelas escritas a mano, justo donde se cuelan las divergencias. Ahora se pintan de la misma.
 - **Nombre accesible por tag**: convertir cinco huecos en cinco enlaces con el mismo texto dejaba cinco entradas idénticas en el listado de enlaces de un lector de pantalla. Cada invitación lleva `aria-label` con el campo que falta; `Link` y `TagWithLink` aceptan `ariaLabel`.
 
-**Pendientes que la revisión dejó anotados y NO se tocan aquí** (ver roadmap): el bloque de artistas se oculta si el campo viene vacío pero muestra la invitación si trae centinela; `lugar` nunca puede mostrarla porque el parseo lo rellena con `'León'` por defecto; y `pr-[32px]` de la fila de la home no entra en la cuenta del reparto (8px de holgura).
+**Pendiente que la revisión dejó anotado y NO se toca aquí**: `pr-[32px]` de la fila de la home no entra en la cuenta del reparto (8px de holgura). Los otros dos —artistas vacío y el `'León'` por defecto— se resuelven en D-101.
+
+
+## D-101 · El campo vacío es el mismo hueco que el centinela, y el parseo deja de inventar
+
+- **Contexto**: quedaban dos incoherencias con D-097. El bloque de artistas **se ocultaba** si el campo venía vacío pero mostraba la invitación si traía "Desconocido", cuando vacío es justo el caso donde más sentido tiene pedirlo. Y `lugar` no podía mostrarla nunca: el parseo rellenaba la celda vacía con `'León'`, así que el hueco jamás llegaba a detectarse.
+- **Decisión**:
+  1. Vacío y centinela reciben el mismo trato en artistas. El bloque no se oculta nunca: se normaliza la lista una sola vez (`ARTISTAS`) y un campo vacío sale de ahí como una única entrada, exactamente igual que un "Desconocido". De paso desaparece la coma sobrante que dejaba un separador final ("DJ A, "), porque `isLast` ya se calcula sobre la lista filtrada.
+  2. `lugar` deja de rellenarse con `'León'` en los dos parseos. Sin dato es sin dato: inventaba un local que no existe y bloqueaba la invitación. `localidad` ya salía vacía y se queda así.
+  3. Los dos usos derivados de ese valor inventado: el título del grupo del mapa cae a `'Lugar desconocido'` en vez de a `'León'`, y la línea de dirección del panel se queda vacía en lugar de fabricar una.
+- **Verificación**: ninguna fila de la hoja tiene hoy `lugar`, `localidad` ni `artistas` vacíos, así que el cambio no altera nada de lo que se ve ahora mismo — quita la trampa, no un síntoma. El camino nuevo se cubre con aserciones sobre la normalización (vacío / nulo / solo separadores / centinela suelto / mezcla con separador final).

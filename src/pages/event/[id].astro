@@ -31,7 +31,7 @@ try {
         evento: c[0] ? c[0].v : 'Evento sin título',
         urlDrive: c[2] ? c[2].v : '',
         fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
-        lugar: c[4] ? c[4].v : 'León',
+        lugar: c[4] ? c[4].v : '',   // sin dato es sin dato: rellenarlo con 'León' inventaba un local
         localidad: c[5] ? c[5].v : '',
         coordenadas: c[6] ? c[6].v : '',
         artistas: c[7] ? c[7].v : '',
@@ -186,6 +186,25 @@ const TAGS_EVENTO = [
   // nombre accesible, no solo en la etiqueta visual de al lado.
   ariaLabel: t.display.href ? `${AYUDA_TEXTO} Falta el dato de ${t.label.toLowerCase()}` : undefined,
 }));
+
+// Los artistas se pintan como lista de enlaces. Campo vacío y campo con
+// centinela son el mismo hueco, así que reciben el mismo trato: el bloque NO se
+// oculta —en un archivo la laguna es información, «de este evento no sabemos
+// quién pinchó»— y en lugar del nombre aparece la invitación. Un vacío se
+// representa como una única entrada, que sale de aquí igual que un
+// "Desconocido".
+const nombresArtistas = (eventData.artists || '')
+  .split(/[,;\/]+/)
+  .map(a => a.trim())
+  .filter(Boolean);
+const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre => {
+  const sinDato = !nombre || CENTINELAS_SIN_DATO.includes(nombre.toLowerCase());
+  return {
+    texto: sinDato ? AYUDA_TEXTO : nombre,
+    href: sinDato ? AYUDA_HREF : `/?search=${encodeURIComponent(nombre)}`,
+    ariaLabel: sinDato ? `${AYUDA_TEXTO} Faltan los artistas` : undefined,
+  };
+});
 
 ---
 <Layout title={eventData.title}>
@@ -422,30 +441,17 @@ const TAGS_EVENTO = [
               </div>
             )}
 
-            {(eventData.artists || '').trim() && (
-              <div class="flex flex-col gap-2">
-                <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
-                <div class="flex flex-wrap gap-y-1">
-                  {eventData.artists.split(/[,;\/]+/).map((artist, idx, arr) => {
-                    const cleanArtist = artist.trim();
-                    if (!cleanArtist) return null;
-                    const isLast = idx === arr.length - 1;
-                    // Misma regla que en los tags: el nombre que en realidad
-                    // es un centinela de "sin dato" se sustituye por la
-                    // invitación a colaborar. Buscar el archivo por
-                    // "Desconocido" no lleva a ninguna parte útil; pedir el
-                    // dato que falta, sí.
-                    const sinDato = CENTINELAS_SIN_DATO.includes(cleanArtist.toLowerCase());
-                    return (
-                      <span class="inline-flex items-center whitespace-nowrap">
-                        <Link href={sinDato ? AYUDA_HREF : `/?search=${encodeURIComponent(cleanArtist)}`} ariaLabel={sinDato ? `${AYUDA_TEXTO} Faltan los artistas` : undefined} hideChevron={true}>{sinDato ? AYUDA_TEXTO : cleanArtist}</Link>
-                        {!isLast && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
-                      </span>
-                    );
-                  })}
-                </div>
+            <div class="flex flex-col gap-2">
+              <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
+              <div class="flex flex-wrap gap-y-1">
+                {ARTISTAS.map((a, idx) => (
+                  <span class="inline-flex items-center whitespace-nowrap">
+                    <Link href={a.href} ariaLabel={a.ariaLabel} hideChevron={true}>{a.texto}</Link>
+                    {idx < ARTISTAS.length - 1 && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           <!-- Actions: Componetized "Me presta" button -->
