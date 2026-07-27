@@ -1096,3 +1096,23 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 
 
 
+
+## D-097 · La ausencia de dato se sustituye por la invitación a colaborar
+
+- **Contexto**: Un campo sin dato se pintaba inerte en `text-tertiary` ("Desconocido", "Varios"…). Enseñaba el hueco sin ofrecer nada. Un primer intento añadió un enlace "¿Nos ayudas?" **debajo** del valor, pero solo en artistas: en las tags no cabía, porque cada tag habría crecido un renglón.
+- **Decisión**: el término centinela detectado se **sustituye** por el enlace "¿Nos ayudas?" a `/info#contacto`, ocupando el sitio del valor. Al no añadir nada, vale para todas las tags sin tocar su geometría. Queda derogado el par "valor inerte + enlace suelto" de artistas.
+- **Alternativa descartada**: renombrar la sección de destino a "Colabora". El propietario prefirió mantener "contacto"; el ancla ya existe y funciona.
+- **Excepción**: la vista Lista mantiene el valor inerte (`celdaSinDato`). Repetir la invitación en decenas de filas la convierte en ruido.
+
+## D-098 · La fila de tags de la ficha nunca repartía el ancho (faltaba la medición)
+
+- **Contexto**: La regla compartida (D-059/D-060) dice que una fila de tags ocupa todo el ancho a partes iguales **siempre que ninguna tag tenga que truncarse**, y si no, cada una conserva su ancho natural y la fila sangra y hace scroll. El reparto lo decide una medición en cliente, `updateAdaptiveTagsRow()`. En la ficha de evento esa medición **no existía**: la fila se quedaba para siempre en el modo de ancho de contenido que pinta el SSR. En tablet ancho (~934–1023px) cabían las cinco a partes iguales y aun así se apelotonaban a la izquierda con hueco muerto a la derecha.
+- **Decisión**: gemelo reducido de la función en `event/[id].astro` (`ajustarFilaTags()`), sin el tramo de "espacio reservado por un hermano" — aquí la fila nunca comparte renglón. Se llama al inicializar, al redimensionar y tras `document.fonts.ready`; **no** en cada tick de scroll, que es donde ya vivía `updateTagsFixed()`.
+- **Detalle que costó**: hay que medir el ancho de **contenido** del contenedor, no su caja. `#detail-tags-fixed` lleva `px-6 sm:px-12` propio; con `getBoundingClientRect()` se regalaban 96px que la fila no tiene.
+
+## D-099 · Una tag ya topada no pone el listón del reparto de ancho
+
+- **Contexto**: El criterio de `updateAdaptiveTagsRow()` exigía que el reparto a partes iguales fuese ≥ la tag natural más ancha, acotada al tope de 176px (D-061/D-091). Pero una tag que llega a ese tope **ya se está truncando en los dos modos**: en `MEL-00001`, "S. Andrés del Rabanedo" mide 167px de texto en 151px de caja tanto si la fila reparte como si no. Tomarla como listón bloqueaba el reparto de la fila entera y dejaba 134px de hueco muerto a la derecha a cambio de nada — el texto se cortaba igual.
+- **Decisión**: el listón es la tag natural más ancha **por debajo** del tope; las que ya están topadas quedan fuera de la referencia. Si todas lo están, se cae al valor anterior (176) y no cambia nada. La garantía se mantiene donde importa: ninguna tag que hoy se ve entera empieza a cortarse por repartir.
+- **Efecto colateral bueno**: refuerza D-091. Una sobremedición con la fuente de respaldo (~179px) ahora sale de la referencia en vez de elevarla, así que tiene aún menos margen para tirar el Toggle a la segunda línea.
+- **Alcance**: corregido en las dos copias de la función (`index.astro` y `event/[id].astro`). En la barra de la home y en el panel del mapa el cambio es aritméticamente idéntico al anterior —sus tags son recuentos cortos que nunca llegan al tope— y así se verificó.

@@ -3416,10 +3416,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const units = [...row.querySelectorAll('.highlight-unit')];
     if (!units.length) return;
     const naturalWidths = units.map(u => u.getBoundingClientRect().width);
-    const maxNatural = Math.max(...naturalWidths);
-    // Hard cap per highlight-unit is 176px (D-061 / global.css): a unit never grows past 176px,
-    // so cap measurement for fallback-font checks to avoid temporary layout wrap on load.
-    const effectiveMaxNatural = Math.min(maxNatural, 176);
+    // Hard cap per highlight-unit is 176px (D-061 / global.css). The reference
+    // width for the share test is the widest unit BELOW that cap, not the
+    // widest overall: a unit already sitting at the cap renders ellipsised in
+    // BOTH modes, so letting it set the bar only blocked the equal layout for
+    // the whole row and left dead space at the right in exchange for nothing
+    // (D-099). Also keeps D-091's effect — a fallback-font over-measure
+    // (~179px) drops out of the reference instead of raising it.
+    const uncapped = naturalWidths.filter(w => w < 176 - 0.5);
+    const effectiveMaxNatural = uncapped.length ? Math.max(...uncapped) : 176;
     const containerWidth = container.getBoundingClientRect().width;
 
     // 2. Would an equal share still fit each unit's own content if the
