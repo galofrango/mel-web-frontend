@@ -19,6 +19,7 @@ interface Tag {
   count: number | string;
   href?: string;
   state?: 'Default' | 'Disabled';
+  ariaLabel?: string;
 }
 
 interface Props {
@@ -50,6 +51,7 @@ const { id, tags, class: className = '' } = Astro.props;
         count={tag.count}
         href={tag.href}
         state={tag.state}
+        ariaLabel={tag.ariaLabel}
         class="min-w-0 w-auto"
         hideBorder={true}
       />
