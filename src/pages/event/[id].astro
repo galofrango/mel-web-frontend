@@ -591,7 +591,18 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 <style>
   @media (max-width: 1023px) {
     #detail-tags-fixed {
-      top: 136px;
+      /* Posición de la PRIMERA pintada, antes de que updateTagsFixed() llegue a
+         medir la cabecera de verdad. El alto de la cabecera NO es constante: su
+         padding superior es calc(10vh - 40px), así que un número fijo solo
+         acierta en una altura de ventana concreta. Los 136px que había aquí se
+         calibraron en una, y en un teléfono de 896px de alto dejaban la fila
+         10px por encima del final del título — es decir, TAPÁNDOLO— hasta que
+         el JS la recolocaba: cuanto más alto el teléfono, peor.
+         Misma cuenta que hace la cabecera, para que las dos se muevan juntas:
+         su padding superior + 96px de contenido (fila de la X 48 + mb-4 16 +
+         título 32) + sus 32px de padding inferior. Comprobado a 600, 812 y
+         896px de alto: coincide con la medición del JS al 0,01px. */
+      top: calc(10vh - 40px + 128px);
     }
   }
 </style>
