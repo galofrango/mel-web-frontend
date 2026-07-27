@@ -285,7 +285,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
     <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px]">
       <!-- Single Sitewide Empty State Overlay anchored to content-views for Galería, Mapa, and Lista -->
-      <div id="views-empty-state" class="hidden absolute top-[24px] right-0 bottom-0 left-0 bg-mel-bg-primary z-[30] items-center justify-center py-12"></div>
+      <!-- Cubre desde top-0, no desde top-[24px]: la vista Mapa arranca en 0 bajo
+           lg, así que esos 24px dejaban asomar una banda de calles por encima
+           del estado vacío. El contenido va algo más arriba de lo centrado
+           (pb mayor que pt) ahora que el toggle desaparece en este estado y
+           queda hueco de sobra por debajo. -->
+      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-center justify-center pt-0 pb-24"></div>
 
       <!-- 1. GALLERY VIEW (masonry 2.1: CSS Grid + row-span medido por imagen,
            cada flyer entero a ancho de columna y ratio original, sin recortes;
@@ -1172,11 +1177,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   /* Bajo lg: bottom sheet. Su borde superior llega justo por debajo del slider
      de tiempo (--mel-sheet-top, medido en JS), dejando el slider a la vista
-     bajo el DIM. Nada redondeado: el único recurso del borde superior es el
-     PLIEGUE de la esquina derecha, y es un recorte real (clip-path), como en
-     Figma — allí el fondo del sheet ya llega con esa esquina cortada. Por el
-     hueco asoma el mapa; la sombra que lo hace legible como doblez la pinta
-     BottomSheetHeader. Animación 0.5s suave de entrada y salida. */
+     bajo el DIM. Nada redondeado ni recortado: el único recurso del borde
+     superior es el PLIEGUE de la esquina derecha, que pinta BottomSheetHeader
+     como triángulo OPACO del color del papel con su sombra debajo. Se probó
+     recortar la esquina de verdad (clip-path, que es literalmente lo que hace
+     el diseño en Figma) y se retiró: allí el hueco cae sobre un lienzo del
+     mismo color y no se nota, pero aquí deja ver el mapa atenuado y el pliegue
+     se lee como una ventana, no como papel. Animación 0.5s de entrada/salida. */
   @media (max-width: 1023px) {
     #map-side-panel {
       position: fixed;
@@ -1187,7 +1194,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       border-top: 0 !important;
       border-radius: 0 !important;
       box-shadow: none !important;
-      clip-path: polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 0 100%);
       transform: translate3d(0, 100%, 0);
       transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
     }

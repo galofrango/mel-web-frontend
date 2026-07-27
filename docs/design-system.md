@@ -110,19 +110,23 @@ Tokens de espaciado: `--mel-spacing-xs/s/sm/m/l/xl` = 4 / 8 / 12 / 16 / 24 / 32p
 ## Pliegue del bottom sheet (Figma 656:70560)
 
 El borde superior del bottom sheet lleva una **esquina doblada** de 40×40 arriba
-a la derecha. En Figma el fondo del sheet ya llega con esa esquina **cortada**
-(`M0 0 H353 L393 40 V64 H0 Z`) y la cara del pliegue es del **mismo color** que
-el papel: lo único que hace legible el doblez es una sombra suave por dentro de
-la diagonal.
+a la derecha. En Figma el fondo del sheet llega ya con esa esquina **cortada**
+(`M0 0 H353 L393 40 V64 H0 Z`), y como el lienzo de detrás es del mismo tono, el
+hueco se lee como la cara clara del papel doblado con su sombra.
 
-Implementación: el corte es real (`clip-path` sobre `#map-side-panel`, solo bajo
-`lg`) y la sombra la pinta `BottomSheetHeader` con un degradado plano sobre el
-primitivo `--mel-shadow-rgb` — no el SVG borroso del diseño, para no repintar un
-filtro en cada frame de la animación de entrada del sheet.
+Aquí **no se corta**: detrás hay mapa atenuado, y el hueco se leía como una
+ventana. Se emula con un triángulo opaco un punto **más claro** que el papel
+(`color-mix` sobre `--mel-bg-primary`, así vale igual en claro y en oscuro) y un
+`drop-shadow` que, al seguir el contorno real del triángulo, nace justo en la
+diagonal del doblez. Lo pinta `BottomSheetHeader`.
 
-> Intento anterior descartado: pintar un triángulo **opaco** y más oscuro
-> ocupando justo el hueco que el diseño deja vacío. Era el diseño invertido, y
-> se leía como un parche de color, no como papel doblado.
+Tres variantes probadas y descartadas, por si alguien vuelve sobre ello:
+
+| Intento | Por qué no |
+| --- | --- |
+| Triángulo más **oscuro** (`bg-secondary`) | Se leía como un parche de color pegado en la esquina, no como papel |
+| **Recorte real** (`clip-path` sobre el sheet) | Literalmente lo que hace Figma, pero aquí deja ver el mapa y parece una ventana |
+| Triángulo del **mismo color** exacto | Solo queda la sombra, tan sutil que el pliegue desaparece |
 
 ---
 
