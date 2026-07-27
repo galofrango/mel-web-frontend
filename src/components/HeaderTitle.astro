@@ -28,23 +28,18 @@ import IconButton from './IconButton.astro';
     class="hidden h-full flex items-center justify-between relative w-full transition-all duration-200"
   >
     <div class="flex flex-1 items-center relative h-full">
-      <!-- Shadow Span for calculating exact cursor offset -->
-      <span
-        id="search-input-shadow"
-        class="absolute left-0 top-1/2 -translate-y-1/2 opacity-0 pointer-events-none whitespace-pre font-sans font-bold text-[22px] tracking-[-0.44px]"
-      ></span>
-
-      <!-- Custom absolute Pica cursor aligning with the font baseline -->
-      <div 
-        id="search-custom-cursor" 
-        class="absolute left-0 top-[12px] w-[3px] h-[24px] bg-mel-action-primary animate-mel-cursor z-10 pointer-events-none transition-transform duration-75"
-      ></div>
-      
-      <input 
-        type="text" 
-        id="search-active-input" 
-        placeholder="Busca un evento, artista, diseñador discoteca..." 
-        class="bg-transparent border-none font-sans font-bold text-[22px] leading-[28px] text-mel-action-secondary placeholder:text-[#ad858d] placeholder:font-normal placeholder:truncate tracking-[-0.44px] focus:outline-none w-full py-1 caret-transparent pl-[6px] transition-all duration-200"
+      <!-- Caret NATIVO del navegador (caret-mel-action-primary), no uno pintado
+           a mano. El anterior era un <div> absoluto colocado midiendo el ancho
+           del texto con un span espejo: se veía bien escribiendo al final, pero
+           era mentira — no se podía poner entre dos letras para corregir, ni
+           seguía a las flechas, ni a la selección. El precio de que sea real es
+           que su grosor y su parpadeo los decide el navegador; el color sí se
+           puede fijar. -->
+      <input
+        type="text"
+        id="search-active-input"
+        placeholder="Busca un evento, artista, diseñador discoteca..."
+        class="bg-transparent border-none font-sans font-bold text-[22px] leading-[28px] text-mel-action-secondary caret-mel-action-primary placeholder:text-[#ad858d] placeholder:font-normal placeholder:truncate tracking-[-0.44px] focus:outline-none w-full py-1 pl-[6px] transition-all duration-200"
         autocomplete="off"
       />
     </div>
@@ -105,9 +100,7 @@ import IconButton from './IconButton.astro';
     const stateFilled = document.getElementById('search-state-filled');
     
     const activeInput = document.getElementById('search-active-input') as HTMLInputElement;
-    const shadowSpan = document.getElementById('search-input-shadow');
     const placeholderShadow = document.getElementById('search-placeholder-shadow');
-    const customCursor = document.getElementById('search-custom-cursor');
 
     const filledText = document.getElementById('search-filled-text');
 
@@ -157,21 +150,12 @@ import IconButton from './IconButton.astro';
 
     window.addEventListener('resize', remeasure);
 
-    function updateCustomCursorPosition() {
-      if (!activeInput || !shadowSpan || !customCursor) return;
-      
-      const val = activeInput.value;
-      if (val.length === 0) {
-        // Placeholder state: Cursor is at left (0 offset) and padding is added
-        activeInput.classList.add('pl-[6px]');
-        customCursor.style.transform = 'translate3d(0, 0, 0)';
-      } else {
-        // Filling state: Cursor moves right with text width, padding is removed
-        activeInput.classList.remove('pl-[6px]');
-        shadowSpan.textContent = val;
-        const textWidth = shadowSpan.getBoundingClientRect().width;
-        customCursor.style.transform = `translate3d(${textWidth}px, 0, 0)`;
-      }
+    // El caret ya es el nativo del navegador y se coloca solo. Lo único que
+    // queda por ajustar es el hueco de 6px a la izquierda: da aire al caret
+    // cuando el campo está vacío, pero sobra en cuanto hay texto.
+    function ajustarHuecoIzquierdo() {
+      if (!activeInput) return;
+      activeInput.classList.toggle('pl-[6px]', activeInput.value.length === 0);
     }
 
     function setState(state: 'default' | 'placeholder' | 'filling' | 'filled', val = "") {
@@ -212,11 +196,11 @@ import IconButton from './IconButton.astro';
       else if (state === 'placeholder') {
         stateActive?.classList.remove('hidden');
         activeInput?.focus();
-        updateCustomCursorPosition();
+        ajustarHuecoIzquierdo();
       } 
       else if (state === 'filling') {
         stateActive?.classList.remove('hidden');
-        updateCustomCursorPosition();
+        ajustarHuecoIzquierdo();
       } 
       else if (state === 'filled') {
         stateFilled?.classList.remove('hidden');
@@ -242,7 +226,7 @@ import IconButton from './IconButton.astro';
       } else {
         setState('placeholder');
       }
-      updateCustomCursorPosition();
+      ajustarHuecoIzquierdo();
       dispatchSearch(val.trim());
     });
 
@@ -271,7 +255,7 @@ import IconButton from './IconButton.astro';
         activeInput.focus();
         const len = val.length;
         activeInput.setSelectionRange(len, len);
-        updateCustomCursorPosition();
+        ajustarHuecoIzquierdo();
       }
     });
 
@@ -305,23 +289,37 @@ import IconButton from './IconButton.astro';
       }
     });
 
-    clearBtn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      setState('default');
+    function limpiarSearchDeLaUrl() {
       const url = new URL(window.location.href);
       url.searchParams.delete('search');
       url.searchParams.delete('view');
       window.history.replaceState({}, '', url.toString());
-    });
+    }
 
-    resetBtn?.addEventListener('click', (e) => {
+    // La X del buscador borra en DOS tiempos, no de golpe. Con algo escrito (o
+    // con una búsqueda ya fijada) vacía el campo pero deja el buscador abierto
+    // y con el foco puesto: en móvil el teclado no se cierra, que es justo lo
+    // que quieres para escribir otra cosa. Solo cuando ya no hay nada que
+    // borrar la segunda pulsación cierra del todo, devuelve el título y quita
+    // el foco para que baje el teclado.
+    function pulsarCerrarBuscador(e) {
       e.stopPropagation();
-      setState('default');
-      const url = new URL(window.location.href);
-      url.searchParams.delete('search');
-      url.searchParams.delete('view');
-      window.history.replaceState({}, '', url.toString());
-    });
+      const estado = container?.getAttribute('data-state');
+      const hayTexto = !!(activeInput && activeInput.value.trim() !== '');
+      limpiarSearchDeLaUrl();
+
+      if (estado === 'filled' || hayTexto) {
+        if (activeInput) activeInput.value = '';
+        setState('placeholder');   // setState hace focus(): el teclado sigue abierto
+        dispatchSearch('');
+      } else {
+        activeInput?.blur();       // baja el teclado antes de replegar
+        setState('default');
+      }
+    }
+
+    clearBtn?.addEventListener('click', pulsarCerrarBuscador);
+    resetBtn?.addEventListener('click', pulsarCerrarBuscador);
   }
 
   // Bind to astro:page-load for View Transitions compatibility
@@ -329,14 +327,6 @@ import IconButton from './IconButton.astro';
 </script>
 
 <style is:global>
-  @keyframes mel-cursor-blink {
-    0%, 49% { opacity: 1; }
-    50%, 100% { opacity: 0; }
-  }
-  .animate-mel-cursor {
-    animation: mel-cursor-blink 1s infinite;
-  }
-
   #search-box-container {
     position: relative;
     /* Fallback for the instant before JS measures and takes over; JS then

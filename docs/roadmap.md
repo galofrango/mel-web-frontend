@@ -50,12 +50,19 @@
 
 ## Ideas Pendientes (sin compromiso)
 
-- **Cierre del panel lateral del mapa más explícito**: hoy se cierra pulsando o
-  arrastrando hacia la derecha desde el nombre/dirección o desde la franja de
-  16px del borde izquierdo (mano de agarrar como único aviso). El propietario
-  reconoce que es poco intuitivo sin más señal; si alguien se pierde, la
-  alternativa sería un botón propio en otro punto del panel. No abordar salvo
+- **Cierre del panel lateral del mapa más explícito**: hoy se cierra pulsando el
+  nombre/dirección o volviendo a pulsar el marcador, sin más aviso que el
+  cursor. El propietario reconoce que es poco intuitivo; si alguien se pierde,
+  la alternativa sería un botón propio en otro punto del panel. (El arrastre
+  hacia la derecha se probó y se retiró por dar problemas.) No abordar salvo
   que se pida.
+- **Galería: animación de las tarjetas al arrastrar el slider**: la lista ya va
+  fluida desde que se evita la view transition durante el arrastre, pero la
+  galería sigue reconstruyendo todas sus tarjetas en cada paso del filtro
+  (`innerHTML = ''`), y cada una renace sin altura hasta que su imagen carga.
+  La vía es diferenciar en vez de reconstruir, reutilizando los nodos por
+  `idMel` como ya se hace con los marcadores del mapa. Aplazado por el
+  propietario: *nice to have*.
 
 ## Problemas Conocidos (Aparcados Explícitamente)
 

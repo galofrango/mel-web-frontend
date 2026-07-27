@@ -203,7 +203,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
        112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
        smaller screens don't waste fixed pixel gaps. -->
-  <div class="w-full max-w-[1440px] h-screen mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pt-[calc(10vh-40px)] lg:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <!-- h-dvh y NO h-screen (100vh): en Chrome/Safari móvil `vh` mide la pantalla
+       ENTERA, incluida la franja que ocupan las barras del navegador, así que la
+       página quedaba más alta que lo realmente visible y siempre sobraba un
+       scroll vertical con el final tapado. `dvh` mide solo el área visible. -->
+  <div class="w-full max-w-[1440px] h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pt-[calc(10vh-40px)] lg:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
@@ -354,17 +358,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                abajo, ver setupSidePanelDrag(). -->
           <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" />
 
-          <!-- Franja de agarre del borde izquierdo (solo panel lateral): 16px a
-               todo lo alto que muestran la mano de agarrar y permiten arrastrar
-               el panel hacia la derecha para cerrarlo. Es el aviso visual de que
-               el panel se puede plegar, que pulsando el título a secas no se
-               adivina. z-30 para quedar por encima del contenido, y solo captura
-               el puntero en su propia franja. -->
-          <div
-            id="side-panel-grab-edge"
-            class="hidden lg:block absolute left-0 top-0 bottom-0 w-4 z-30 cursor-grab touch-none"
-            aria-hidden="true"
-          ></div>
 
           <!-- Header / Close button. Pegada a la caja contenedora (pt-0, a la
                misma altura donde arranca #map-container) en todas las anchuras
@@ -387,14 +380,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
           <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] px-6 sm:px-12 lg:px-6 shrink-0 w-full relative">
             <!-- Como panel lateral (lg+) este bloque ES el cierre: sin X, se
-                 pulsa (o se arrastra hacia la derecha) sobre el nombre/dirección
-                 para plegarlo. Sin cambio de color al pasar por encima: el aviso
-                 es la mano de agarrar, no un resalte de texto que se leería como
-                 "esto es un enlace a otra cosa". Como bottom sheet sigue siendo
-                 texto inerte, porque ahí hay X, dim y tirador propios. -->
+                 pulsa sobre el nombre/dirección para plegarlo. Sin cambio de
+                 color al pasar por encima: se leía como "esto es un enlace a
+                 otra cosa". Como bottom sheet sigue siendo texto inerte, porque
+                 ahí hay X, dim y tirador propios. -->
             <div
               id="side-panel-header-toggle"
-              class="flex flex-col gap-[8px] items-start justify-center w-full lg:cursor-grab lg:select-none lg:touch-none"
+              class="flex flex-col gap-[8px] items-start justify-center w-full lg:cursor-pointer lg:select-none"
             >
               <h2 id="side-panel-title" class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] lg:text-[25px] lg:leading-[32px] lg:tracking-[-0.5px] text-mel-text-primary truncate w-full"></h2>
               <p id="side-panel-address" class="typo-body-roman text-mel-text-secondary truncate w-full"></p>
@@ -3735,82 +3727,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       closePanelBtn.addEventListener('click', window._melClosePanelHandler);
     }
 
-    // Como panel lateral (lg+) no hay X: se cierra pulsando el nombre/dirección
-    // o arrastrando hacia la derecha, desde la cabecera o desde la franja de
-    // 16px del borde izquierdo. Las dos zonas comparten el mismo gesto y acaban
-    // llamando a _melClosePanelHandler (limpia ?location=, devuelve el marcador
-    // a reposo…). Por debajo de lg no hacen nada: ahí manda la X y el dim.
+    // Como panel lateral (lg+) no hay X: se cierra pulsando el nombre/dirección,
+    // reutilizando el mismo manejador que la X (limpia ?location=, devuelve el
+    // marcador a reposo…). Por debajo de lg no hace nada: ahí manda la X y el
+    // dim. Se probó además arrastrar el panel hacia la derecha para cerrarlo,
+    // desde la cabecera y desde una franja en el borde izquierdo: daba
+    // problemas y se retiró — el cierre es solo el toque en la cabecera.
     //
-    // Misma gestión manual de listeners que closePanelBtn: deben sobrevivir al
+    // Misma gestión manual de listeners que closePanelBtn: debe sobrevivir al
     // reemplazo del AbortController en cada re-init.
-    const zonasArrastre = [
-      document.getElementById('side-panel-header-toggle'),
-      document.getElementById('side-panel-grab-edge'),
-    ].filter(Boolean);
-
-    if (zonasArrastre.length) {
-      const panel = document.getElementById('map-side-panel');
-      const UMBRAL_CIERRE = 56; // px arrastrados a la derecha para dar por hecho el cierre
-
-      if (window._melPanelDragHandlers) {
-        window._melPanelDragHandlers.forEach(({ el, tipo, fn }) => el.removeEventListener(tipo, fn));
+    const panelHeaderToggle = document.getElementById('side-panel-header-toggle');
+    if (panelHeaderToggle) {
+      if (window._melPanelHeaderHandler) {
+        panelHeaderToggle.removeEventListener('click', window._melPanelHeaderHandler);
       }
-      window._melPanelDragHandlers = [];
-
-      let xInicial = null;
-      let arrastrando = false;
-
-      const soltar = (e, cerrar) => {
-        if (xInicial === null) return;
-        const zona = e.currentTarget;
-        try { zona.releasePointerCapture(e.pointerId); } catch (err) {}
-        xInicial = null;
-        arrastrando = false;
-        if (panel) {
-          panel.style.transform = '';
-          panel.style.transition = '';
-        }
-        zonasArrastre.forEach(z => z.classList.remove('cursor-grabbing'));
-        if (cerrar && window._melClosePanelHandler) window._melClosePanelHandler();
+      window._melPanelHeaderHandler = () => {
+        if (window.innerWidth < 1024) return;
+        if (window._melClosePanelHandler) window._melClosePanelHandler();
       };
-
-      zonasArrastre.forEach(zona => {
-        const onDown = (e) => {
-          if (window.innerWidth < 1024) return;
-          xInicial = e.clientX;
-          arrastrando = false;
-          try { zona.setPointerCapture(e.pointerId); } catch (err) {}
-          zona.classList.add('cursor-grabbing');
-          // Sin transición mientras el dedo manda: el panel debe seguirlo al
-          // instante, no perseguirlo con 300ms de retraso.
-          if (panel) panel.style.transition = 'none';
-        };
-        const onMove = (e) => {
-          if (xInicial === null) return;
-          const dx = e.clientX - xInicial;
-          if (dx > 4) arrastrando = true;
-          // Solo hacia la derecha (cerrar); hacia la izquierda no hay a dónde ir.
-          if (panel) panel.style.transform = `translateX(${Math.max(0, dx)}px)`;
-        };
-        const onUp = (e) => {
-          const dx = xInicial === null ? 0 : e.clientX - xInicial;
-          // Un click limpio (sin arrastre) también cierra: es el gesto que ya
-          // existía antes de añadir el arrastre.
-          soltar(e, !arrastrando || dx > UMBRAL_CIERRE);
-        };
-        const onCancel = (e) => soltar(e, false);
-
-        zona.addEventListener('pointerdown', onDown);
-        zona.addEventListener('pointermove', onMove);
-        zona.addEventListener('pointerup', onUp);
-        zona.addEventListener('pointercancel', onCancel);
-        window._melPanelDragHandlers.push(
-          { el: zona, tipo: 'pointerdown', fn: onDown },
-          { el: zona, tipo: 'pointermove', fn: onMove },
-          { el: zona, tipo: 'pointerup', fn: onUp },
-          { el: zona, tipo: 'pointercancel', fn: onCancel },
-        );
-      });
+      panelHeaderToggle.addEventListener('click', window._melPanelHeaderHandler);
     }
 
     // Tocar el dim (solo existe/es interactivo en móvil, ver su propia

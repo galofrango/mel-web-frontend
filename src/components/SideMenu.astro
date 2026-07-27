@@ -18,7 +18,7 @@ import IconButton from './IconButton.astro';
      Figma-original value — the propietario found it too wide). -->
 <div
   id="side-menu-container"
-  class="fixed inset-y-0 right-0 w-[calc(100%-40px)] min-w-[320px] max-w-[400px] h-screen bg-mel-bg-primary border-l border-mel-border shadow-[var(--mel-shadow-menu)] z-[200] flex flex-col justify-between transition-all duration-300 transform translate-x-full hidden"
+  class="fixed inset-y-0 right-0 w-[calc(100%-40px)] min-w-[320px] max-w-[400px] h-dvh bg-mel-bg-primary border-l border-mel-border shadow-[var(--mel-shadow-menu)] z-[200] flex flex-col justify-between transition-all duration-300 transform translate-x-full hidden"
   data-node-id="562:70168"
   data-name="Side Menu"
 >
@@ -234,6 +234,42 @@ import IconButton from './IconButton.astro';
           window.dispatchEvent(new CustomEvent('mel-trigger-intro'));
           closeMenu();
         }
+      });
+    }
+
+    // Anclas de la MISMA página (p. ej. pulsar "Equipo" estando ya en /info).
+    // El navegador no hace nada visible al navegar a un hash de la página en la
+    // que ya estás, así que el menú se quedaba abierto y sin moverse. Aquí se
+    // cierra el menú y se baja hasta la sección a mano. A otras páginas no se
+    // toca: sigue siendo una navegación normal.
+    if (sideMenu) {
+      sideMenu.querySelectorAll('a[href*="#"]').forEach(enlace => {
+        enlace.addEventListener('click', (e) => {
+          let destino;
+          try { destino = new URL(enlace.href, window.location.href); } catch (err) { return; }
+          if (destino.pathname !== window.location.pathname || !destino.hash) return;
+
+          const seccion = document.getElementById(destino.hash.slice(1));
+          if (!seccion) return;
+
+          e.preventDefault();
+          closeMenu();
+          // El hash entra en el historial para que "atrás" deshaga el salto y
+          // el enlace siga siendo compartible.
+          try { window.history.pushState({}, '', destino.hash); } catch (err) {}
+          // Se espera a que el menú termine de replegarse (300ms de su propia
+          // transición): abrirlo bloquea el scroll del <body> y el desplazamiento
+          // lanzado antes de que se restituya acababa en lo alto de la página en
+          // vez de en la sección. Se calcula la posición a mano en lugar de usar
+          // scrollIntoView porque este último se veía interrumpido por el propio
+          // cierre; el `scroll-mt` de la sección se resta a mano para que no
+          // quede tapada por la cabecera fija.
+          setTimeout(() => {
+            const margen = parseFloat(getComputedStyle(seccion).scrollMarginTop) || 0;
+            const destinoY = seccion.getBoundingClientRect().top + window.scrollY - margen;
+            window.scrollTo({ top: Math.max(0, destinoY), behavior: 'smooth' });
+          }, 320);
+        });
       });
     }
 
