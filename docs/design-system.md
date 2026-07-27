@@ -107,6 +107,25 @@ Tokens de espaciado: `--mel-spacing-xs/s/sm/m/l/xl` = 4 / 8 / 12 / 16 / 24 / 32p
 
 ---
 
+## Pliegue del bottom sheet (Figma 656:70560)
+
+El borde superior del bottom sheet lleva una **esquina doblada** de 40×40 arriba
+a la derecha. En Figma el fondo del sheet ya llega con esa esquina **cortada**
+(`M0 0 H353 L393 40 V64 H0 Z`) y la cara del pliegue es del **mismo color** que
+el papel: lo único que hace legible el doblez es una sombra suave por dentro de
+la diagonal.
+
+Implementación: el corte es real (`clip-path` sobre `#map-side-panel`, solo bajo
+`lg`) y la sombra la pinta `BottomSheetHeader` con un degradado plano sobre el
+primitivo `--mel-shadow-rgb` — no el SVG borroso del diseño, para no repintar un
+filtro en cada frame de la animación de entrada del sheet.
+
+> Intento anterior descartado: pintar un triángulo **opaco** y más oscuro
+> ocupando justo el hueco que el diseño deja vacío. Era el diseño invertido, y
+> se leía como un parche de color, no como papel doblado.
+
+---
+
 ## Inventario de Componentes UI
 
 | Componente | Variantes / Estados | Descripción y Especificación |

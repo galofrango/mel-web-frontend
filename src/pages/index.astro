@@ -1172,9 +1172,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   /* Bajo lg: bottom sheet. Su borde superior llega justo por debajo del slider
      de tiempo (--mel-sheet-top, medido en JS), dejando el slider a la vista
-     bajo el DIM. Nada redondeado ni recortado: el pliegue de papel lo pinta
-     BottomSheetHeader como dog-ear claro (funciona sobre el dim oscuro sin
-     dejar ver un agujero). Animación 0.5s suave de entrada y salida. */
+     bajo el DIM. Nada redondeado: el único recurso del borde superior es el
+     PLIEGUE de la esquina derecha, y es un recorte real (clip-path), como en
+     Figma — allí el fondo del sheet ya llega con esa esquina cortada. Por el
+     hueco asoma el mapa; la sombra que lo hace legible como doblez la pinta
+     BottomSheetHeader. Animación 0.5s suave de entrada y salida. */
   @media (max-width: 1023px) {
     #map-side-panel {
       position: fixed;
@@ -1185,6 +1187,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       border-top: 0 !important;
       border-radius: 0 !important;
       box-shadow: none !important;
+      clip-path: polygon(0 0, calc(100% - 40px) 0, 100% 40px, 100% 100%, 0 100%);
       transform: translate3d(0, 100%, 0);
       transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
     }
@@ -2157,10 +2160,23 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listTableWrapper) listTableWrapper.style.display = 'none';
         if (listMobileCards) listMobileCards.style.display = 'none';
         setSidePanelOpenState(false);
+        // Sin resultados no hay nada que ver en NINGUNA vista, así que el
+        // selector Galería/Mapa/Lista solo invita a dar tumbos entre tres
+        // pantallas vacías. Se oculta para que el estado vacío quede solo y se
+        // lea como lo que es: algo inesperado. `invisible` y no `hidden` para
+        // no descolocar la toolbar mientras tanto.
+        const toggleWrapper = document.getElementById('home-toggle-wrapper');
+        if (toggleWrapper) {
+          toggleWrapper.classList.add('invisible', 'pointer-events-none');
+        }
       } else {
         if (viewsEmptyState) {
           viewsEmptyState.classList.add('hidden');
           viewsEmptyState.classList.remove('flex');
+        }
+        const toggleWrapper = document.getElementById('home-toggle-wrapper');
+        if (toggleWrapper) {
+          toggleWrapper.classList.remove('invisible', 'pointer-events-none');
         }
         gridContainer.classList.remove('hidden');
         if (listTableWrapper) listTableWrapper.style.display = '';

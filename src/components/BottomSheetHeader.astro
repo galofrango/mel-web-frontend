@@ -32,15 +32,22 @@ const { notch = 40, height = 56, handleId, class: className = '' } = Astro.props
   data-node-id="269:11222"
   data-name="Bottom Sheet Header"
 >
-  <!-- Pliegue (dog-ear): triángulo superior derecho, un punto más oscuro que
-       el panel (la cara doblada del papel) + sombra suave del doblez hacia
-       abajo-izquierda (el pliegue cae sobre el panel). `bg-secondary` funciona
-       en claro y oscuro por ser semántico. -->
+  <!-- Sombra del pliegue. El pliegue en sí NO se pinta aquí: la esquina está
+       recortada de verdad en el propio sheet (clip-path, ver la media query de
+       #map-side-panel), igual que en Figma, donde el fondo del sheet ya llega
+       con la esquina cortada (`M0 0 H353 L393 40 V64 H0 Z`) y la cara doblada
+       es del MISMO color que el papel. Lo único que hace legible el doblez es
+       esta sombra por dentro de la diagonal.
+       Es un degradado plano en vez del SVG borroso del diseño: mismo primitivo
+       de sombra y mismo efecto, sin filtros que repintar en cada frame de la
+       animación de entrada del sheet. -->
   <div
-    class="absolute top-0 right-0 bg-mel-bg-secondary"
-    style={`width:${notch}px; height:${notch}px; clip-path: polygon(0 0, 100% 0, 100% 100%); filter: drop-shadow(-2px 2px 3px rgb(var(--mel-shadow-rgb) / 0.22));`}
+    class="absolute top-0 right-0"
+    style={`width:${notch}px; height:${notch}px;
+            clip-path: polygon(0 0, 0 100%, 100% 100%);
+            background: linear-gradient(225deg, rgb(var(--mel-shadow-rgb) / 0.18) ${Math.round(notch * 0.7)}px, transparent ${Math.round(notch * 0.7) + 18}px);`}
     aria-hidden="true"
-    data-name="Pliegue"
+    data-name="Sombra Pliegue"
   ></div>
 
   <!-- Tirador: rectángulo recto (SIN redondear), color borde. -->
