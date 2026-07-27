@@ -180,6 +180,23 @@ eventos, por ejemplo, mostraban dos eventos cualesquiera del archivo.
 Al ocultar un extremo (primero o último de la secuencia) se neutraliza también
 su `href`, para no dejar enlaces obsoletos vivos debajo.
 
+### El panel del mapa va aparte: siempre cronológico
+
+Dos excepciones deliberadas a "una sola secuencia", ambas acotadas al panel:
+
+1. **Sus eventos se listan siempre en orden cronológico**, al margen de la
+   secuencia activa (aleatoria de sesión, o la columna elegida en Lista): leer
+   la historia de un local tiene sentido de más antiguo a más reciente. Como la
+   navegación acotada toma su vector de ese mismo array, *Anterior/Siguiente*
+   dentro de un local también avanza cronológicamente — coincide con lo que se
+   ve en el panel, que es la regla que importa.
+2. **El enlace de un lugar nunca busca texto**: ni el tag "Lugar" de la ficha de
+   evento ni la celda *Lugar* de la Lista. Ambos llevan a
+   `/?view=mapa&location=<nombre>`, que encuadra el local y despliega su panel.
+   El parámetro dedicado existe justo para esto (D-075); usar `?search=` además
+   dejaba un filtro activo sobre todo el archivo como efecto colateral. Las
+   demás celdas de la Lista (Localidad, Organiza, Diseño) sí fijan búsqueda.
+
 ### El panel del mapa se restaura por URL
 
 `?location=` transporta el **nombre** del local; `activeSidePanelKey` se indexa

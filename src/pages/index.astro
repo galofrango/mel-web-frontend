@@ -1292,6 +1292,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   let isFirstDOMUpdate = true;
 
   // Calculate year of event
+  // Fecha "d/m/aaaa" (o "aaaa-m-d") a milisegundos, para ordenar. Los eventos
+  // sin fecha van a 0, así que quedan al principio de una orden ascendente.
+  function fechaAMs(dateStr) {
+    if (!dateStr || dateStr === 'SIN FECHA') return 0;
+    const barras = String(dateStr).split('/');
+    if (barras.length === 3) return new Date(+barras[2], +barras[1] - 1, +barras[0]).getTime() || 0;
+    const guiones = String(dateStr).split('-');
+    if (guiones.length === 3) return new Date(+guiones[0], +guiones[1] - 1, +guiones[2]).getTime() || 0;
+    return 0;
+  }
+
   function getYear(dateStr) {
     if (dateStr === null || dateStr === undefined) return null;
     const str = String(dateStr).trim();
@@ -2211,8 +2222,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                 <span class="marquee-inner">${escHtml(formattedDate)}</span>
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                ${item.lugar && item.lugar.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`
+                ${item.lugar && item.lugar.toLowerCase() !== 'desconocido'
+                  ? `<span class="marquee-inner search-cell-link location-cell-link" data-location="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`
                   : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
                 }
               </td>
@@ -3067,6 +3078,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       locationGroups[locKey].events.push(item);
     });
 
+    // El panel del mapa SIEMPRE lista sus eventos en orden cronológico, al
+    // margen de la secuencia activa de la sesión (aleatoria, o la columna
+    // elegida en Lista): leer la historia de un local tiene sentido de más
+    // antiguo a más reciente, no barajada. Como la navegación acotada al panel
+    // toma su vector de este mismo array, Anterior/Siguiente dentro de un local
+    // también avanza cronológicamente — que es justo lo que se ve en la lista.
+    Object.values(locationGroups).forEach(g => {
+      g.events.sort((a, b) => fechaAMs(a.fecha) - fechaAMs(b.fecha));
+    });
+
     // Auto-open side panel if loading with a ?location= parameter matching a
     // specific place name (e.g. the "Lugar" tag on event/[id].astro). Only
     // ?location= is used for this match — NOT ?search=, which is a plain
@@ -3749,6 +3770,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           const id = link.getAttribute('data-id');
           const item = archives.find(x => x.idMel === id);
           if (item) openLightbox(item);
+          return;
+        }
+
+        // La celda de Lugar NO busca texto: lleva al mapa, encuadra ese local y
+        // despliega su panel de eventos — mismo gesto que el tag "Lugar" de la
+        // ficha de evento (D-075), que para eso existe el parámetro dedicado
+        // `?location=`. Se comprueba antes que .search-cell-link porque la
+        // celda lleva las dos clases (comparte el estilo de enlace de tabla).
+        if (target.classList.contains('location-cell-link') || target.closest('.location-cell-link')) {
+          e.stopPropagation();
+          const link = target.classList.contains('location-cell-link') ? target : target.closest('.location-cell-link');
+          const lugar = link.getAttribute('data-location');
+          if (lugar) {
+            window.location.href = `/?view=mapa&location=${encodeURIComponent(lugar)}`;
+          }
           return;
         }
 
