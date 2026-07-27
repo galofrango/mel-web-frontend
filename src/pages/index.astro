@@ -45,7 +45,17 @@ function formatFechaDMY(fecha) {
 }
 
 // Direct hotlink builder to bypass drive authentication/cors
-function extractDriveImage(url) {
+// `ancho` = el ancho que Drive debe servir, en píxeles. Pedir siempre w1000
+// costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
+// en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
+// llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
+// valor por defecto porque es el que necesitan la ficha y el lightbox.
+// Anchos por contexto, medidos en navegador: la tarjeta de galería se pinta a
+// 342px (684 con densidad 2) y la miniatura de la lista en una caja de 40px.
+const ANCHO_TARJETA = 700;
+const ANCHO_MINIATURA = 200;
+
+function extractDriveImage(url, ancho = 1000) {
   if (!url) return '';
   let fileId = '';
   if (url.includes('id=')) {
@@ -53,7 +63,7 @@ function extractDriveImage(url) {
   } else if (url.includes('/d/')) {
     fileId = url.split('/d/')[1].split('/')[0];
   }
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
 }
 
 // Fetch and Group Sheets Google Viz JSON Database
@@ -315,7 +325,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
         <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
-            const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+            const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
             return (
               <FlyerCard
@@ -1365,7 +1375,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   // Hotlink extractor using the new thumbnail endpoint
-  function extractDriveImage(url) {
+  // `ancho` = el ancho que Drive debe servir, en píxeles. Pedir siempre w1000
+  // costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
+  // en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
+  // llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
+  // valor por defecto porque es el que necesitan la ficha y el lightbox.
+  const ANCHO_TARJETA = 700;
+  const ANCHO_MINIATURA = 200;
+
+  function extractDriveImage(url, ancho = 1000) {
     if (!url) return '';
     let fileId = '';
     if (url.includes('id=')) {
@@ -1373,7 +1391,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     } else if (url.includes('/d/')) {
       fileId = url.split('/d/')[1].split('/')[0];
     }
-    return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+    return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
   }
 
   // Escapa HTML para insertarlo de forma segura en innerHTML — usado por
@@ -1414,10 +1432,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // secundario, título, fecha y chevron. Compartida por el panel lateral
   // del mapa y la lista en móvil — ver AGENTS.md regla 7 si cambia el diseño.
   function buildEventCardListHtml(evt, { showDivider = true } = {}) {
-    const imgSrc = extractDriveImage(evt.carruselItems?.[0]?.urlDrive) || `/flyers/flyer-1.png`;
+    const imgSrc = extractDriveImage(evt.carruselItems?.[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-1.png`;
     return `
       <div class="bg-mel-bg-secondary overflow-clip relative shrink-0 size-[56px]">
-        <img src="${imgSrc}" alt="" referrerpolicy="no-referrer" class="absolute inset-0 max-w-none object-contain pointer-events-none size-full" />
+        <img src="${imgSrc}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="absolute inset-0 max-w-none object-contain pointer-events-none size-full" />
       </div>
       <div class="flex flex-col flex-1 min-w-0 gap-[4px] items-start">
         <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary truncate w-full">${escHtml(evt.evento)}</p>
@@ -1467,12 +1485,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // infinito) — réplica JS de FlyerCard.astro, ver regla 7 de CLAUDE.md.
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
-    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+    const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
     card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] group bg-white transition-all duration-300 cursor-pointer';
     card.dataset.id = item.idMel;
     card.innerHTML = `
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-      <img src="${imgSrc}" alt="${escHtml(item.evento)}" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" />
+      <img src="${imgSrc}" alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" style="view-transition-name: flyer-img-${item.idMel};" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" />
 
       <!-- Blending grid overlay (striped Figma style) -->
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
@@ -2267,14 +2285,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             // Get first image for preview thumbnail via extractDriveImage
             let firstImg = '';
             if (item.carruselItems && item.carruselItems.length > 0) {
-              firstImg = extractDriveImage(item.carruselItems[0].urlDrive);
+              firstImg = extractDriveImage(item.carruselItems[0].urlDrive, ANCHO_MINIATURA);
             }
 
             tr.innerHTML = `
               <td class="border-l border-r border-mel-border bg-mel-bg-primary p-2 min-w-[136px]">
                 <div class="flex gap-[12px] h-[48px] items-center min-w-0">
                   <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0">
-                    ${firstImg ? `<img alt="" class="list-img-link object-contain w-full h-full cursor-pointer hover:brightness-110 transition-all duration-200" data-id="${item.idMel}" src="${firstImg}" referrerpolicy="no-referrer" />` : ''}
+                    ${firstImg ? `<img alt="" class="list-img-link object-contain w-full h-full cursor-pointer hover:brightness-110 transition-all duration-200" data-id="${item.idMel}" src="${firstImg}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />` : ''}
                   </div>
                   <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
                     <span class="marquee-inner">${escHtml(item.evento)}<span class="table-link-underline"></span></span>

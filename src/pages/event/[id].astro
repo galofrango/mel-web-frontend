@@ -125,7 +125,12 @@ const allEvents = eventsList.map((e: any) => ({
   designer: e.designer || ''
 }));
 
-function extractDriveImage(url) {
+// `ancho` = el ancho que Drive debe servir, en píxeles. Pedir siempre w1000
+// costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
+// en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
+// llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
+// valor por defecto porque es el que necesitan la ficha y el lightbox.
+function extractDriveImage(url, ancho = 1000) {
   if (!url) return '';
   let fileId = '';
   if (url.includes('id=')) {
@@ -133,7 +138,7 @@ function extractDriveImage(url) {
   } else if (url.includes('/d/')) {
     fileId = url.split('/d/')[1].split('/')[0];
   }
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
 }
 
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);

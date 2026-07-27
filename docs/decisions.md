@@ -1154,3 +1154,14 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Arreglo**: sacar `updateTagsFixed()` del camino del scroll. Su `top` **no depende de la posición de scroll**, solo del alto de la cabecera, así que se calcula al iniciar, al redimensionar y tras `document.fonts.ready` (todo vía `ensureScrollRunway`). Escribirlo 60 veces por segundo era coste puro; en iOS, además, activamente dañino.
 - **Regla general**: dentro de un manejador de scroll, no leas `getBoundingClientRect()` de un elemento `fixed` ni encadenes la posición de uno a otro. Lo que no dependa del scroll se calcula fuera del scroll.
 - **Verificación**: con el `top` ensuciado a mano (`999px`) y recorriendo todo el rango de scroll, el valor sucio sobrevive — ya nadie lo reescribe. Al redimensionar a 844px de alto vuelve a cuadrar con la cabecera (172,4 = 172,4) y no toca el título.
+
+## D-104 · Las imágenes se piden al tamaño que se van a pintar, y no antes de hacer falta
+
+- **Síntoma**: en Safari las fotos directamente no cargaban; en Chrome cargaban pero el sitio iba lentísimo.
+- **Medición**: en la galería a 390px había **96 imágenes de Drive en el DOM, 2 visibles y 0 con carga diferida**, todas pedidas a `sz=w1000`. Muestra de cinco flyers reales: media de **679 KB** por imagen a w1000 (el peor del archivo, 2 MB). Son unos **64 MB** descargados y descodificados para enseñar dos. Safari de iOS aplica un presupuesto de memoria de imagen descodificada por pestaña mucho más estricto que Chrome: al superarlo deja de pintarlas.
+- **Causa**: `extractDriveImage()` incrustaba `w1000` y está copiada a mano en cuatro sitios, así que no había forma de pedir otro tamaño. Y la fábrica de tarjetas en JS (`buildGalleryCard`) había perdido el `loading="lazy"` que su original `FlyerCard.astro` sí tiene — otra divergencia de las que avisa la regla 7, y la que de verdad dolía, porque la galería la construye el JS.
+- **Arreglo**:
+  1. `extractDriveImage(url, ancho = 1000)`: cada llamada pide lo que va a usar. Tarjeta de galería `w700` (se pinta a 342px, 684 con densidad 2), miniatura de la lista `w200` (caja de 40px), retrato de info `w500`, ficha y lightbox `w1000` (a pantalla completa con densidad 3 son ~1170px reales).
+  2. `loading="lazy"` y `decoding="async"` en las réplicas JS y en info, recuperando la paridad con los componentes Astro.
+- **Por qué la carga diferida es segura aquí**: `.gallery-item.unsized` ya reserva `min-height: 280px`, así que las tarjetas de abajo ocupan sitio real y el navegador no las da por visibles. Sin ese hueco reservado, la carga diferida no habría servido de nada.
+- **Resultado medido**: de **96 descargas al entrar a 9**. Recorriendo la galería entera se descargan las 50 tarjetas y quedan **0 sin dimensionar** — el masonry cuadra igual.
