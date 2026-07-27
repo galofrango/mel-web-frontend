@@ -1632,7 +1632,8 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         sortDir: currentSortDir,
         minYear,
         maxYear,
-        panelKey: activeSidePanelKey,
+        // El local del panel no se guarda aquí: viaja en la propia URL de
+        // vuelta (?location=), que es donde updateMapMarkers() lo busca.
         scroll: {
           galeria: document.getElementById('view-galería')?.scrollTop || 0,
           listaTable: document.getElementById('list-table-wrapper')?.scrollTop || 0,
@@ -1701,28 +1702,43 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (!target) return;
     const el = document.getElementById(containerId);
     if (!el) return;
+    // El recorrido hasta la posición guardada es inevitable: las imágenes son
+    // lazy y el masonry no conoce el alto de una tarjeta hasta que la suya
+    // carga, así que el contenedor va creciendo y solo se puede bajar a medida
+    // que da de sí. Lo que sí se puede es que no se VEA: se oculta el
+    // contenedor mientras dura y se revela con un fundido corto al llegar.
+    el.style.transition = 'none';
+    el.style.opacity = '0';
+
     // Con setInterval y no requestAnimationFrame a propósito: rAF se congela en
     // pestañas en segundo plano, y esta restauración tiene que completarse
     // aunque el visitante cambie de pestaña mientras vuelve.
     const deadline = Date.now() + timeoutMs;
-    const cancel = () => { stop(); };
+    let ultimo = -1;
+    let estables = 0;
     const stop = () => {
       clearInterval(timer);
-      el.removeEventListener('wheel', cancel);
-      el.removeEventListener('touchstart', cancel);
-      el.removeEventListener('pointerdown', cancel);
+      el.removeEventListener('wheel', stop);
+      el.removeEventListener('touchstart', stop);
+      el.removeEventListener('pointerdown', stop);
+      el.style.transition = 'opacity 0.25s ease';
+      el.style.opacity = '1';
+      setTimeout(() => { el.style.transition = ''; el.style.opacity = ''; }, 300);
     };
-    // Se reafirma hasta agotar el plazo, no solo hasta acertar una vez: la
-    // segunda pasada de initHomePage() manda el scroll a 0 después de que la
-    // primera ya lo hubiera colocado, así que "acertar" no es sinónimo de
-    // "haber terminado".
+    // Se reafirma hasta que la posición se asienta, no solo hasta acertar una
+    // vez: la segunda pasada de initHomePage() manda el scroll a 0 después de
+    // que la primera ya lo hubiera colocado. Se da por asentada cuando deja de
+    // moverse — sirve tanto si llega al objetivo como si el contenido se ha
+    // encogido y el objetivo ya no existe (si no, esperaría oculta el plazo
+    // entero para nada).
     const timer = setInterval(() => {
       if (Math.abs(el.scrollTop - target) > 2) el.scrollTop = target;
-      if (Date.now() >= deadline) stop();
+      if (el.scrollTop === ultimo) estables++; else { estables = 0; ultimo = el.scrollTop; }
+      if (estables >= 3 || Date.now() >= deadline) stop();
     }, 50);
-    el.addEventListener('wheel', cancel, { once: true, passive: true });
-    el.addEventListener('touchstart', cancel, { once: true, passive: true });
-    el.addEventListener('pointerdown', cancel, { once: true, passive: true });
+    el.addEventListener('wheel', stop, { once: true, passive: true });
+    el.addEventListener('touchstart', stop, { once: true, passive: true });
+    el.addEventListener('pointerdown', stop, { once: true, passive: true });
   }
 
   function applyReturnState() {
@@ -3756,10 +3772,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (searchInput) searchInput.value = searchParam;
     }
 
-    if (locationParam !== null && locationParam !== activeSidePanelKey) {
-      activeSidePanelKey = locationParam;
-      _s.activeSidePanelKey = locationParam;
-    }
+    // OJO: aquí NO se asigna activeSidePanelKey a partir de ?location=.
+    // Esa clave se indexa por coordenadas ("42.6000,-5.5675"), mientras que el
+    // parámetro de la URL es el NOMBRE del local ("Dickens Tavern"). Al
+    // sembrarla con el nombre, la resolución nombre→coordenadas de
+    // updateMapMarkers() se saltaba (su guard es `!activeSidePanelKey`) y
+    // después `locationGroups[nombre]` no existía: el panel no llegaba a
+    // abrirse nunca por URL, ni al entrar por un enlace "Lugar" ni al volver
+    // de un evento abierto desde el propio panel. updateMapMarkers() ya lee
+    // ?location= por su cuenta y hace la traducción correcta.
 
     if (viewParam === 'mapa') {
       switchView('mapa');

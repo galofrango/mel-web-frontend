@@ -448,25 +448,36 @@ const designerDisplay = getTagDisplay(eventData.designer);
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
         
-        <!-- Anterior (Right-aligned under middle column) -->
-        <div class={`lg:col-span-5 flex justify-end text-right items-center ${!prevEvent ? "invisible" : ""}`} id="nav-prev-container">
+        <!-- Anterior / Siguiente.
+             Nacen SIEMPRE `invisible`, con `href="#"`, y solo los revela el
+             cliente cuando ha resuelto los vecinos de la secuencia activa
+             (`mel-active-nav-sequence`). El servidor no puede conocer esa
+             secuencia — solo sabe el orden cronológico del archivo entero —,
+             así que si pintaba aquí sus propios vecinos quedaba una ventana,
+             entre el primer pintado y el arranque del script, en la que estos
+             enlaces apuntaban FUERA del contexto del visitante: entrando desde
+             el panel de un local con dos eventos, por ejemplo, mostraban dos
+             eventos cualesquiera del archivo, y pulsarlos ahí sacaba de la
+             navegación acotada. Los títulos SSR se conservan solo como
+             contenido de reemplazo; el cliente los sobrescribe. -->
+        <div class="lg:col-span-5 flex justify-end text-right items-center invisible" id="nav-prev-container">
           <TagWithLink
             label="Anterior"
             count={prevEvent ? prevEvent.title : "Anterior"}
             alignment="Right"
-            href={prevEvent ? `/event/${prevEvent.idMel}` : "#"}
+            href="#"
             class="w-full max-w-[496px]"
             hideBorder={true}
           />
         </div>
 
         <!-- Siguiente (Left-aligned under right column with 24px left padding on desktop) -->
-        <div class={`lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center ${!nextEvent ? "invisible" : ""}`} id="nav-next-container">
+        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center invisible" id="nav-next-container">
           <TagWithLink
             label="Siguiente"
             count={nextEvent ? nextEvent.title : "Siguiente"}
             alignment="Left"
-            href={nextEvent ? `/event/${nextEvent.idMel}` : "#"}
+            href="#"
             class="w-full max-w-[496px]"
             hideBorder={true}
           />
@@ -836,12 +847,25 @@ const designerDisplay = getTagDisplay(eventData.designer);
     if (activeView) returnNavParams.set('view', activeView);
     if (activeSearch) returnNavParams.set('search', activeSearch);
     if (activeLocation) returnNavParams.set('location', activeLocation);
+    // `sort`/`dir` se arrastran de salto en salto: los pone index.astro al
+    // entrar y sin esto se perdían en el primer Anterior/Siguiente, dejando al
+    // SSR del siguiente evento ordenando por fecha mientras el cliente usaba
+    // la secuencia real. Solo afecta al reparto en servidor, pero es la misma
+    // clase de desajuste que provocaba el parpadeo de vecinos equivocados.
+    const activeSort = urlParams.get('sort');
+    const activeDir = urlParams.get('dir');
+    if (activeSort) returnNavParams.set('sort', activeSort);
+    if (activeDir) returnNavParams.set('dir', activeDir);
     const navParam = returnNavParams.toString();
 
     // Helper for smooth View Transitions navigation on click
     const handleNavClick = (e) => {
       const a = e.currentTarget;
       const url = a ? a.getAttribute('href') : null;
+      // El marcador SSR nace con href="#" (ver el bloque de navegación): si por
+      // lo que sea llega un click antes de que el cliente lo rellene, no se
+      // navega a ninguna parte en vez de saltar al principio de la página.
+      if (!url || url === '#') { e.preventDefault(); return; }
       if (url && typeof window.__melNavigate === 'function') {
         e.preventDefault();
         window.__melNavigate(url);
@@ -862,6 +886,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
         if (text) text.textContent = prevEventItem.title;
       } else {
         prevContainer.classList.add('invisible');
+        // Se neutraliza también el href: si no, queda un enlace obsoleto (del
+        // SSR o del evento anterior) escondido pero vivo bajo el contenedor.
+        const deadLink = prevContainer.querySelector('a');
+        if (deadLink) deadLink.href = '#';
       }
     }
 
@@ -878,6 +906,10 @@ const designerDisplay = getTagDisplay(eventData.designer);
         if (text) text.textContent = nextEventItem.title;
       } else {
         nextContainer.classList.add('invisible');
+        // Se neutraliza también el href: si no, queda un enlace obsoleto (del
+        // SSR o del evento anterior) escondido pero vivo bajo el contenedor.
+        const deadLink = nextContainer.querySelector('a');
+        if (deadLink) deadLink.href = '#';
       }
     }
 

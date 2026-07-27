@@ -166,6 +166,29 @@ Tres detalles del entorno que condicionan la implementación y no son opcionales
    y no `requestAnimationFrame` porque este se congela en pestañas en segundo
    plano. Cualquier gesto de scroll del visitante cancela los reintentos.
 
+### Anterior/Siguiente: los pinta el cliente, nunca el SSR
+
+El servidor **no puede** conocer la secuencia activa (vive en `sessionStorage`),
+solo el orden cronológico del archivo entero. Por eso los contenedores
+`#nav-prev-container` / `#nav-next-container` se sirven siempre `invisible` y con
+`href="#"`, y es el cliente quien los rellena y los revela al resolver los
+vecinos reales. Si el SSR pintara ahí sus propios vecinos quedaría una ventana,
+entre el primer pintado y el arranque del script, en la que esos enlaces apuntan
+fuera del contexto del visitante — entrando desde el panel de un local con dos
+eventos, por ejemplo, mostraban dos eventos cualesquiera del archivo.
+
+Al ocultar un extremo (primero o último de la secuencia) se neutraliza también
+su `href`, para no dejar enlaces obsoletos vivos debajo.
+
+### El panel del mapa se restaura por URL
+
+`?location=` transporta el **nombre** del local; `activeSidePanelKey` se indexa
+por **coordenadas**. La traducción entre ambos la hace `updateMapMarkers()`, y su
+guard es `!activeSidePanelKey`: por eso `initHomePage()` **no debe** sembrar esa
+clave desde la URL. Cuando lo hacía, la traducción se saltaba, el grupo no se
+encontraba por nombre y el panel no llegaba a abrirse nunca por URL — ni al
+llegar por un enlace "Lugar" ni al volver de un evento abierto desde el panel.
+
 ### Fluidez
 
 Las navegaciones home ⇄ evento y evento ⇄ evento usan el enrutado nativo de
