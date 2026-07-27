@@ -164,6 +164,19 @@ const locationDisplay = getTagDisplay(eventData.location);
 const localityDisplay = getTagDisplay(eventData.locality);
 const organizerDisplay = getTagDisplay(eventData.organizer);
 const designerDisplay = getTagDisplay(eventData.designer);
+
+// ¿Todo el campo de artistas es en realidad un "no lo sabemos"? En ese caso el
+// bloque NO se oculta: en un archivo la laguna es información («de este evento
+// no sabemos quién pinchó»), y además es la ocasión natural de pedir ayuda. El
+// valor sigue inerte y en terciario; lo que enlaza es la invitación, que sí
+// lleva a un sitio útil — a diferencia de buscar el archivo por "Desconocido".
+// Única excepción a la regla de "campo sin dato nunca enlaza"; ver
+// design-system.md.
+const artistasSinDatos = (eventData.artists || '')
+  .split(/[,;\/]+/)
+  .map(a => a.trim())
+  .filter(Boolean)
+  .every(a => CENTINELAS_SIN_DATO.includes(a.toLowerCase()));
 ---
 <Layout title={eventData.title}>
   <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
@@ -437,7 +450,7 @@ const designerDisplay = getTagDisplay(eventData.designer);
               </div>
             )}
 
-            {eventData.artists && eventData.artists.toLowerCase() !== 'no detallados' && (
+            {(eventData.artists || '').trim() && (
               <div class="flex flex-col gap-2">
                 <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
                 <div class="flex flex-wrap gap-y-1">
@@ -460,6 +473,9 @@ const designerDisplay = getTagDisplay(eventData.designer);
                     );
                   })}
                 </div>
+                {artistasSinDatos && (
+                  <Link href="/info#contacto">¿Nos ayudas?</Link>
+                )}
               </div>
             )}
           </div>
