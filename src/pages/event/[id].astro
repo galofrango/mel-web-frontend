@@ -776,7 +776,17 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     function updateStickyImage() {
       if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop) return;
       updateHeaderSpacer();
-      updateTagsFixed();
+      // updateTagsFixed() NO se llama aquí a propósito: esto corre en cada tick
+      // de scroll, y la fila de tags se colocaba leyendo en vivo el rect de OTRO
+      // elemento fijo (la cabecera). En Safari de iOS los elementos `fixed`
+      // acompañan a la página mientras dura el desplazamiento y solo se
+      // reconcilian al pararse, así que durante el scroll esa lectura devuelve
+      // una posición que no es la real: la fila se subía sola por encima del
+      // título y lo tapaba —con la X todavía en su sitio— hasta que el scroll
+      // se detenía y un último tick escribía un valor bueno («al final vuelve a
+      // su lugar»). Su `top` no depende del scroll, solo del alto de la
+      // cabecera, así que se calcula al iniciar, al redimensionar y al cargar
+      // las fuentes (ensureScrollRunway), y ni una vez más.
       if (window.innerWidth >= 1024) {
         imageSticky.style.position = '';
         imageSticky.style.top = '';
