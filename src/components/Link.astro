@@ -7,9 +7,10 @@ interface Props {
   id?: string;
   hideChevron?: boolean;
   reload?: boolean;
+  ariaLabel?: string;
 }
 
-const { href = "#", class: className = "", alignment = "Left", state = "Default", id, hideChevron = false, reload = false } = Astro.props;
+const { href = "#", class: className = "", alignment = "Left", state = "Default", id, hideChevron = false, reload = false, ariaLabel } = Astro.props;
 
 const isRight = alignment === "Right";
 const isCenter = alignment === "Center";
@@ -25,6 +26,7 @@ const isDisabled = state === "Disabled";
 ) : (
   <a
     href={href}
+    aria-label={ariaLabel}
     class={`group relative inline-flex items-center gap-1 no-underline mel-link-active typo-body-roman ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
     id={id}
     data-astro-reload={reload}

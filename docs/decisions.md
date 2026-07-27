@@ -1096,3 +1096,43 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 
 
 
+
+## D-097 · La ausencia de dato se sustituye por la invitación a colaborar
+
+- **Contexto**: Un campo sin dato se pintaba inerte en `text-tertiary` ("Desconocido", "Varios"…). Enseñaba el hueco sin ofrecer nada. Un primer intento añadió un enlace "¿Nos ayudas?" **debajo** del valor, pero solo en artistas: en las tags no cabía, porque cada tag habría crecido un renglón.
+- **Decisión**: el término centinela detectado se **sustituye** por el enlace "¿Nos ayudas?" a `/info#contacto`, ocupando el sitio del valor. Al no añadir nada, vale para todas las tags sin tocar su geometría. Queda derogado el par "valor inerte + enlace suelto" de artistas.
+- **Alternativa descartada**: renombrar la sección de destino a "Colabora". El propietario prefirió mantener "contacto"; el ancla ya existe y funciona.
+- **Excepción**: la vista Lista mantiene el valor inerte (`celdaSinDato`). Repetir la invitación en decenas de filas la convierte en ruido.
+
+## D-098 · La fila de tags de la ficha nunca repartía el ancho (faltaba la medición)
+
+- **Contexto**: La regla compartida (D-059/D-060) dice que una fila de tags ocupa todo el ancho a partes iguales **siempre que ninguna tag tenga que truncarse**, y si no, cada una conserva su ancho natural y la fila sangra y hace scroll. El reparto lo decide una medición en cliente, `updateAdaptiveTagsRow()`. En la ficha de evento esa medición **no existía**: la fila se quedaba para siempre en el modo de ancho de contenido que pinta el SSR. En tablet ancho (~934–1023px) cabían las cinco a partes iguales y aun así se apelotonaban a la izquierda con hueco muerto a la derecha.
+- **Decisión**: gemelo reducido de la función en `event/[id].astro` (`ajustarFilaTags()`), sin el tramo de "espacio reservado por un hermano" — aquí la fila nunca comparte renglón. Se llama al inicializar, al redimensionar y tras `document.fonts.ready`; **no** en cada tick de scroll, que es donde ya vivía `updateTagsFixed()`.
+- **Detalle que costó**: hay que medir el ancho de **contenido** del contenedor, no su caja. `#detail-tags-fixed` lleva `px-6 sm:px-12` propio; con `getBoundingClientRect()` se regalaban 96px que la fila no tiene.
+
+## D-099 · Una tag ya topada no pone el listón del reparto de ancho
+
+- **Contexto**: El criterio de `updateAdaptiveTagsRow()` exigía que el reparto a partes iguales fuese ≥ la tag natural más ancha, acotada al tope de 176px (D-061/D-091). Pero una tag que llega a ese tope **ya se está truncando en los dos modos**: en `MEL-00001`, "S. Andrés del Rabanedo" mide 167px de texto en 151px de caja tanto si la fila reparte como si no. Tomarla como listón bloqueaba el reparto de la fila entera y dejaba 134px de hueco muerto a la derecha a cambio de nada — el texto se cortaba igual.
+- **Decisión**: el listón es la tag natural más ancha **por debajo** del tope; las que ya están topadas quedan fuera de la referencia. Si todas lo están, se cae al valor anterior (176) y no cambia nada. La garantía se mantiene donde importa: ninguna tag que hoy se ve entera empieza a cortarse por repartir.
+- **Efecto colateral bueno**: refuerza D-091. Una sobremedición con la fuente de respaldo (~179px) ahora sale de la referencia en vez de elevarla, así que tiene aún menos margen para tirar el Toggle a la segunda línea.
+- **Alcance**: corregido en las dos copias de la función (`index.astro` y `event/[id].astro`). En la barra de la home y en el panel del mapa el cambio es aritméticamente idéntico al anterior —sus tags son recuentos cortos que nunca llegan al tope— y así se verificó.
+
+## D-100 · Correcciones de la revisión de D-097/D-098/D-099
+
+- **Listón por desbordamiento real, no por ancho**: excluir del listón las tags "de 176px" fallaba en la banda [175,5, 176): una tag que cabe entera quedaba fuera y podía empezar a cortarse justo por repartir, que es lo contrario de lo que promete D-099. Ahora se pregunta si el valor **desborda de verdad** (`scrollWidth > clientWidth` sobre `.tag-count-val`), que es exacto y no depende de tolerancias.
+- **La rama que comparte renglón conserva el listón conservador**: equivocarse compartiendo cuesta un salto del Toggle a la segunda línea (D-091, bug real); equivocarse en solitario solo cuesta una columna algo más estrecha. Además cierra la ventana en la que las fuentes de respaldo hacen desbordar unas tags y otras no, bajando el listón a media carga para volver a subirlo en `fonts.ready`.
+- **Ancho de contenido también en `updateAdaptiveTagsRow()`**: el contenedor del panel del mapa lleva `px-6 / sm:px-12 / lg:px-6` propio. El arreglo de D-098 se había quedado solo en el gemelo de la ficha; medir la caja regalaba hasta 96px y podía repartir sobre un ancho inexistente.
+- **Una sola definición de las cinco tags** (`TAGS_EVENTO`): la fila de móvil/tablet y la columna de escritorio eran dos listas paralelas escritas a mano, justo donde se cuelan las divergencias. Ahora se pintan de la misma.
+- **Nombre accesible por tag**: convertir cinco huecos en cinco enlaces con el mismo texto dejaba cinco entradas idénticas en el listado de enlaces de un lector de pantalla. Cada invitación lleva `aria-label` con el campo que falta; `Link` y `TagWithLink` aceptan `ariaLabel`.
+
+**Pendiente que la revisión dejó anotado y NO se toca aquí**: `pr-[32px]` de la fila de la home no entra en la cuenta del reparto (8px de holgura). Los otros dos —artistas vacío y el `'León'` por defecto— se resuelven en D-101.
+
+
+## D-101 · El campo vacío es el mismo hueco que el centinela, y el parseo deja de inventar
+
+- **Contexto**: quedaban dos incoherencias con D-097. El bloque de artistas **se ocultaba** si el campo venía vacío pero mostraba la invitación si traía "Desconocido", cuando vacío es justo el caso donde más sentido tiene pedirlo. Y `lugar` no podía mostrarla nunca: el parseo rellenaba la celda vacía con `'León'`, así que el hueco jamás llegaba a detectarse.
+- **Decisión**:
+  1. Vacío y centinela reciben el mismo trato en artistas. El bloque no se oculta nunca: se normaliza la lista una sola vez (`ARTISTAS`) y un campo vacío sale de ahí como una única entrada, exactamente igual que un "Desconocido". De paso desaparece la coma sobrante que dejaba un separador final ("DJ A, "), porque `isLast` ya se calcula sobre la lista filtrada.
+  2. `lugar` deja de rellenarse con `'León'` en los dos parseos. Sin dato es sin dato: inventaba un local que no existe y bloqueaba la invitación. `localidad` ya salía vacía y se queda así.
+  3. Los dos usos derivados de ese valor inventado: el título del grupo del mapa cae a `'Lugar desconocido'` en vez de a `'León'`, y la línea de dirección del panel se queda vacía en lugar de fabricar una.
+- **Verificación**: ninguna fila de la hoja tiene hoy `lugar`, `localidad` ni `artistas` vacíos, así que el cambio no altera nada de lo que se ve ahora mismo — quita la trampa, no un síntoma. El camino nuevo se cubre con aserciones sobre la normalización (vacío / nulo / solo separadores / centinela suelto / mezcla con separador final).

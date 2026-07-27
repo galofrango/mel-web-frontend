@@ -134,35 +134,36 @@ Tres variantes probadas y descartadas, por si alguien vuelve sobre ello:
 
 ## Campos sin dato
 
-Regla del sitio: **un campo sin dato se pinta SIEMPRE en `text-tertiary` y nunca
-es enlace.** Ofrecer "ver más eventos de Desconocido" no lleva a ninguna parte.
+Regla del sitio: **un campo sin dato no enseña el hueco, lo ofrece.** Donde iría
+el valor aparece un enlace **"¿Nos ayudas?"** a `/info#contacto` (la sección
+"Si tienes material que nos falta", que llega con sus acordeones desplegados).
 
-La hoja marca la ausencia con varios centinelas, no solo uno:
-`desconocido`, `sin fecha`, `no detallados` y `varios`. Los dos primeros se
-unifican bajo "Desconocido"; `varios` y `no detallados` se muestran tal cual
-porque sí dicen algo (hubo varios promotores, hubo artistas sin detallar), pero
-tampoco enlazan.
+La hoja marca la ausencia con varios centinelas, no solo uno: `desconocido`,
+`sin fecha`, `no detallados` y `varios`. Los cuatro reciben el mismo trato —y el
+campo **vacío** también: es el mismo hueco, solo que sin etiquetar. Por eso el
+bloque de artistas ya no se oculta cuando el campo viene vacío; en un archivo la
+laguna es información («de este evento no sabemos quién pinchó») y ocultarla
+borra además la ocasión de pedirla.
 
-**Única excepción — la invitación a colaborar.** Cuando TODO el campo de
-artistas de un evento es un centinela, el bloque no se oculta: en un archivo la
-laguna es información («de este evento no sabemos quién pinchó»), y ocultarla
-borraría además la ocasión de pedir ayuda. El valor sigue inerte y en terciario;
-debajo aparece un enlace **"¿Nos ayudas?"** a `/info#contacto`, donde vive
-"Si tienes material que nos falta" (y que llega con sus acordeones desplegados).
+Corolario: **nada se rellena con un valor inventado en el parseo**. `lugar` traía
+`'León'` por defecto, que fabricaba un local inexistente y encima impedía para
+siempre que ese campo mostrase la invitación.
 
-Lo que enlaza es la invitación, no el dato — el motivo de la regla era que
-buscar el archivo por "Desconocido" no lleva a ninguna parte útil, y esto sí.
-Un enlace cuya etiqueta fuese "Desconocido" seguiría estando mal: nadie adivina
-a dónde va.
+El término detectado se **sustituye**, no se acompaña: la invitación ocupa el
+sitio del valor en vez de añadirse debajo, así que sirve para todas las tags sin
+que ninguna crezca de alto ni de ancho. La versión anterior —valor inerte en
+terciario más un enlace suelto debajo, y solo en artistas— queda derogada.
 
-De momento solo en artistas. Lugar, Localidad, Organiza y Diseño podrían llevar
-la misma invitación, pero cuatro llamadas en una misma ficha cansan y artistas
-es el hueco más frecuente y el que más gente puede rellenar de memoria.
+Lo que enlaza es la invitación, no el dato: buscar el archivo por "Desconocido"
+no lleva a ninguna parte útil, y por eso un enlace cuya etiqueta fuese
+"Desconocido" seguiría estando mal — nadie adivina a dónde va.
 
-Se aplica en los tags de la ficha (`getTagDisplay` → estado `Disabled`), en la
-lista de artistas, y en las celdas de la vista Lista (`celdaSinDato` en
-`index.astro`). Al añadir un campo nuevo que enlace, comprobarlo contra esa
-lista: es lo que faltaba y dejaba pasar "Varios" como enlace de búsqueda.
+Se aplica en los tags de la ficha y en la lista de artistas
+(`getTagDisplay` / `AYUDA_TEXTO` en `event/[id].astro`). **Excepción: la vista
+Lista.** Ahí el valor sigue inerte en `text-tertiary` (`celdaSinDato` en
+`index.astro`): son hasta 50 filas por página y repetir la misma llamada decenas
+de veces la convierte en ruido de fondo. La invitación se gana su sitio en la
+ficha, donde hay una sola.
 
 ---
 

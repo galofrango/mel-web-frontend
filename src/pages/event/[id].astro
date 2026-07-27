@@ -31,7 +31,7 @@ try {
         evento: c[0] ? c[0].v : 'Evento sin título',
         urlDrive: c[2] ? c[2].v : '',
         fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
-        lugar: c[4] ? c[4].v : 'León',
+        lugar: c[4] ? c[4].v : '',   // sin dato es sin dato: rellenarlo con 'León' inventaba un local
         localidad: c[5] ? c[5].v : '',
         coordenadas: c[6] ? c[6].v : '',
         artistas: c[7] ? c[7].v : '',
@@ -138,25 +138,28 @@ function extractDriveImage(url) {
 
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
 
-// Helper function to format unknown tag values
-// Centinelas con los que la hoja marca "aquí no hay dato". Regla del sitio: un
-// campo desconocido SIEMPRE se pinta en text-tertiary y NUNCA es enlace — no
-// tiene sentido ofrecer "buscar más eventos de Desconocido".
-// `varios` y `no detallados` se conservan tal cual porque dicen algo (hubo
-// varios promotores, hubo artistas sin detallar); los demás se unifican bajo
-// "Desconocido".
+// Centinelas con los que la hoja marca "aquí no hay dato". Los cuatro reciben
+// el mismo trato (D-097): el término NO se pinta, se sustituye por la
+// invitación a colaborar de abajo. Ojo, la vista Lista de index.astro sí los
+// sigue pintando inertes (`celdaSinDato`) — ahí son decenas de filas y repetir
+// la llamada la convertiría en ruido de fondo.
 const CENTINELAS_SIN_DATO = ['desconocido', 'sin fecha', 'no detallados', 'varios'];
+
+// Enlace de colaboración con el que se SUSTITUYE el valor cuando no hay dato.
+// Antes se pintaba "Desconocido" inerte, que ocupa un renglón para no decir
+// nada; ahora ese mismo renglón invita a rellenarlo. Al ocupar el sitio del
+// valor en lugar de añadirse debajo, sirve para todas las tags sin que ninguna
+// crezca de alto.
+const AYUDA_TEXTO = '¿Nos ayudas?';
+const AYUDA_HREF = '/info#contacto';
 
 function getTagDisplay(val) {
   const clean = val ? String(val).trim() : '';
   const bajo = clean.toLowerCase();
-  if (!clean || bajo === 'desconocido' || bajo === 'sin fecha') {
-    return { text: 'Desconocido', isUnknown: true };
+  if (!clean || CENTINELAS_SIN_DATO.includes(bajo)) {
+    return { text: AYUDA_TEXTO, href: AYUDA_HREF };
   }
-  if (CENTINELAS_SIN_DATO.includes(bajo)) {
-    return { text: clean.charAt(0).toUpperCase() + clean.slice(1), isUnknown: true };
-  }
-  return { text: clean, isUnknown: false };
+  return { text: clean, href: undefined };
 }
 
 const dateDisplay = getTagDisplay(eventData.date);
@@ -165,18 +168,44 @@ const localityDisplay = getTagDisplay(eventData.locality);
 const organizerDisplay = getTagDisplay(eventData.organizer);
 const designerDisplay = getTagDisplay(eventData.designer);
 
-// ¿Todo el campo de artistas es en realidad un "no lo sabemos"? En ese caso el
-// bloque NO se oculta: en un archivo la laguna es información («de este evento
-// no sabemos quién pinchó»), y además es la ocasión natural de pedir ayuda. El
-// valor sigue inerte y en terciario; lo que enlaza es la invitación, que sí
-// lleva a un sitio útil — a diferencia de buscar el archivo por "Desconocido".
-// Única excepción a la regla de "campo sin dato nunca enlaza"; ver
-// design-system.md.
-const artistasSinDatos = (eventData.artists || '')
+// Las cinco tags se definen UNA vez y se pintan dos veces: la fila horizontal
+// de móvil/tablet y la columna de escritorio. Antes eran dos listas paralelas
+// escritas a mano, que es justo donde se cuelan las divergencias.
+const TAGS_EVENTO = [
+  { label: 'Fecha',     display: dateDisplay,      buscar: null },
+  { label: 'Lugar',     display: locationDisplay,  buscar: `/?view=mapa&location=${encodeURIComponent(eventData.location)}` },
+  { label: 'Localidad', display: localityDisplay,  buscar: `/?search=${encodeURIComponent(eventData.locality)}` },
+  { label: 'Organiza',  display: organizerDisplay, buscar: `/?search=${encodeURIComponent(eventData.organizer)}` },
+  { label: 'Diseño',    display: designerDisplay,  buscar: `/?search=${encodeURIComponent(eventData.designer)}` },
+].map(t => ({
+  label: t.label,
+  count: t.display.text,
+  href: t.display.href ?? t.buscar,
+  // Cinco invitaciones con el mismo texto son cinco entradas idénticas en el
+  // listado de enlaces de un lector de pantalla. El campo que falta va en el
+  // nombre accesible, no solo en la etiqueta visual de al lado.
+  ariaLabel: t.display.href ? `${AYUDA_TEXTO} Falta el dato de ${t.label.toLowerCase()}` : undefined,
+}));
+
+// Los artistas se pintan como lista de enlaces. Campo vacío y campo con
+// centinela son el mismo hueco, así que reciben el mismo trato: el bloque NO se
+// oculta —en un archivo la laguna es información, «de este evento no sabemos
+// quién pinchó»— y en lugar del nombre aparece la invitación. Un vacío se
+// representa como una única entrada, que sale de aquí igual que un
+// "Desconocido".
+const nombresArtistas = (eventData.artists || '')
   .split(/[,;\/]+/)
   .map(a => a.trim())
-  .filter(Boolean)
-  .every(a => CENTINELAS_SIN_DATO.includes(a.toLowerCase()));
+  .filter(Boolean);
+const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre => {
+  const sinDato = !nombre || CENTINELAS_SIN_DATO.includes(nombre.toLowerCase());
+  return {
+    texto: sinDato ? AYUDA_TEXTO : nombre,
+    href: sinDato ? AYUDA_HREF : `/?search=${encodeURIComponent(nombre)}`,
+    ariaLabel: sinDato ? `${AYUDA_TEXTO} Faltan los artistas` : undefined,
+  };
+});
+
 ---
 <Layout title={eventData.title}>
   <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
@@ -261,16 +290,7 @@ const artistasSinDatos = (eventData.artists || '')
            (32px) is the resting gap to the image below, exactly per spec
            regardless of pagination. -->
       <div id="detail-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <AdaptiveTagsRow
-          id="detail-tags-fixed-row"
-          tags={[
-            { label: 'Fecha', count: dateDisplay.text, state: dateDisplay.isUnknown ? 'Disabled' : 'Default' },
-            { label: 'Lugar', count: locationDisplay.text, state: locationDisplay.isUnknown ? 'Disabled' : 'Default', href: locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}` },
-            { label: 'Localidad', count: localityDisplay.text, state: localityDisplay.isUnknown ? 'Disabled' : 'Default', href: localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}` },
-            { label: 'Organiza', count: organizerDisplay.text, state: organizerDisplay.isUnknown ? 'Disabled' : 'Default', href: organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}` },
-            { label: 'Diseño', count: designerDisplay.text, state: designerDisplay.isUnknown ? 'Disabled' : 'Default', href: designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}` },
-          ]}
-        />
+        <AdaptiveTagsRow id="detail-tags-fixed-row" tags={TAGS_EVENTO} />
       </div>
       <!-- Reserves flow space for the fixed tags row below `lg`, right after
            the header's own spacer — so the image column (first in the grid
@@ -384,45 +404,16 @@ const artistasSinDatos = (eventData.artists || '')
              the image next to it. -->
         <div class="hidden lg:block lg:order-1 lg:col-span-2 lg:h-[400px] w-full min-w-0" data-name="Tags Section">
           <div class="event-tags-row hidden lg:flex lg:flex-col lg:justify-between lg:gap-2 h-full min-w-0 lg:overflow-visible no-scrollbar lg:mx-0 lg:w-full lg:px-0">
-            <TagWithLink
-              label="Fecha"
-              count={dateDisplay.text}
-              state={dateDisplay.isUnknown ? "Disabled" : "Default"}
-              hideBorder={true}
-              class="w-full"
-            />
-            <TagWithLink
-              label="Lugar"
-              count={locationDisplay.text}
-              state={locationDisplay.isUnknown ? "Disabled" : "Default"}
-              href={locationDisplay.isUnknown ? undefined : `/?view=mapa&location=${encodeURIComponent(eventData.location)}`}
-              hideBorder={true}
-              class="w-full"
-            />
-            <TagWithLink
-              label="Localidad"
-              count={localityDisplay.text}
-              state={localityDisplay.isUnknown ? "Disabled" : "Default"}
-              href={localityDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.locality)}`}
-              hideBorder={true}
-              class="w-full"
-            />
-            <TagWithLink
-              label="Organiza"
-              count={organizerDisplay.text}
-              state={organizerDisplay.isUnknown ? "Disabled" : "Default"}
-              href={organizerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.organizer)}`}
-              hideBorder={true}
-              class="w-full"
-            />
-            <TagWithLink
-              label="Diseño"
-              count={designerDisplay.text}
-              state={designerDisplay.isUnknown ? "Disabled" : "Default"}
-              href={designerDisplay.isUnknown ? undefined : `/?search=${encodeURIComponent(eventData.designer)}`}
-              hideBorder={true}
-              class="w-full"
-            />
+            {TAGS_EVENTO.map((tag) => (
+              <TagWithLink
+                label={tag.label}
+                count={tag.count}
+                href={tag.href}
+                ariaLabel={tag.ariaLabel}
+                hideBorder={true}
+                class="w-full"
+              />
+            ))}
           </div>
         </div>
 
@@ -450,34 +441,17 @@ const artistasSinDatos = (eventData.artists || '')
               </div>
             )}
 
-            {(eventData.artists || '').trim() && (
-              <div class="flex flex-col gap-2">
-                <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
-                <div class="flex flex-wrap gap-y-1">
-                  {eventData.artists.split(/[,;\/]+/).map((artist, idx, arr) => {
-                    const cleanArtist = artist.trim();
-                    if (!cleanArtist) return null;
-                    const isLast = idx === arr.length - 1;
-                    // Misma regla que en los tags: un nombre que en realidad es
-                    // un centinela de "sin dato" se pinta en text-tertiary y no
-                    // enlaza — buscar el archivo por "Desconocido" no lleva a
-                    // ninguna parte útil.
-                    const sinDato = CENTINELAS_SIN_DATO.includes(cleanArtist.toLowerCase());
-                    return (
-                      <span class="inline-flex items-center whitespace-nowrap">
-                        {sinDato
-                          ? <span class="typo-body-roman text-mel-text-tertiary">{cleanArtist}</span>
-                          : <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>
-                        }{!isLast && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
-                      </span>
-                    );
-                  })}
-                </div>
-                {artistasSinDatos && (
-                  <Link href="/info#contacto">¿Nos ayudas?</Link>
-                )}
+            <div class="flex flex-col gap-2">
+              <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
+              <div class="flex flex-wrap gap-y-1">
+                {ARTISTAS.map((a, idx) => (
+                  <span class="inline-flex items-center whitespace-nowrap">
+                    <Link href={a.href} ariaLabel={a.ariaLabel} hideChevron={true}>{a.texto}</Link>
+                    {idx < ARTISTAS.length - 1 && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
           </div>
 
           <!-- Actions: Componetized "Me presta" button -->
@@ -711,6 +685,62 @@ const artistasSinDatos = (eventData.artists || '')
       headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
     }
 
+    // Reparto del ancho de la fila de tags (D-059/D-060), gemelo reducido de
+    // updateAdaptiveTagsRow() en index.astro: aquí la fila nunca comparte
+    // renglón con nada, así que sobra todo el tramo de "espacio reservado"
+    // por un hermano. Faltaba por completo en esta página — de ahí que en
+    // tablet la fila se quedase para siempre en el modo de ancho de contenido
+    // que pinta el SSR, sin repartirse el ancho disponible aunque cupiera.
+    const ANCHO_MAXIMO_TAG = 176;   // tope por unidad (D-061 / global.css)
+    const HUECO_ENTRE_TAGS = 32;
+    function ajustarFilaTags() {
+      const fila = document.getElementById('detail-tags-fixed-row');
+      const contenedor = fila && fila.parentElement;
+      if (!contenedor) return;
+
+      // Modo contenido primero: es el único estado en el que cada unidad mide
+      // su ancho natural sin arrastrar el reparto que dejó una pasada previa.
+      fila.classList.remove('highlights-grid-equal');
+      fila.classList.add('highlights-flex-content');
+      fila.style.width = '';
+
+      const unidades = [...fila.querySelectorAll('.highlight-unit')];
+      // Ancho de CONTENIDO, no el de caja: este contenedor sí lleva padding
+      // lateral propio (px-6 / sm:px-12), a diferencia del de la home. Medirlo
+      // con getBoundingClientRect() regalaba 96px que la fila no tiene.
+      const relleno = getComputedStyle(contenedor);
+      const anchoContenedor = contenedor.clientWidth
+        - parseFloat(relleno.paddingLeft) - parseFloat(relleno.paddingRight);
+      // Por encima de `lg` la fila está oculta (mide 0): sin esto el reparto
+      // saldría negativo y quedaría fijado un modo que allí no se ve.
+      if (!unidades.length || anchoContenedor <= 0) return;
+
+      // Listón del reparto: la tag natural más ancha de las que TODAVÍA se ven
+      // enteras. Una que ya está cortada en el tope (p. ej. "S. Andrés del
+      // Rabanedo") aparece truncada exactamente igual en los dos modos, así
+      // que tomarla como referencia bloqueaba el reparto de toda la fila a
+      // cambio de nada: se cortaba igual y encima sobraba hueco muerto a la
+      // derecha. Se pregunta por el desbordamiento real del valor, no por el
+      // ancho: una tag que mide 175,9 y cabe perfectamente tiene que contar, y
+      // comparar anchos con tolerancia falla justo en esa banda.
+      const enteras = unidades.filter(u => {
+        const val = u.querySelector('.tag-count-val');
+        return !val || val.scrollWidth <= val.clientWidth + 1;
+      }).map(u => u.getBoundingClientRect().width);
+      const naturalMaximo = enteras.length
+        ? Math.max(...enteras)
+        : Math.min(Math.max(...unidades.map(u => u.getBoundingClientRect().width)), ANCHO_MAXIMO_TAG);
+      const reparto = (anchoContenedor - HUECO_ENTRE_TAGS * (unidades.length - 1)) / unidades.length;
+      // Solo se reparte a partes iguales si ninguna tag tendría que truncarse;
+      // si no, cada una conserva su ancho natural y la fila sangra y hace
+      // scroll en vez de comprimir nada por debajo de lo legible.
+      if (reparto >= naturalMaximo) {
+        fila.classList.remove('highlights-flex-content');
+        fila.classList.add('highlights-grid-equal');
+        fila.style.width = '100%';
+      }
+    }
+
     // Pins the tags row directly below the fixed header (V2 layout, made
     // definitive — mirrors the overlay's updateOverlayFixedTags() exactly).
     // No self-correcting probe needed: unlike the overlay, this page has no
@@ -870,6 +900,7 @@ const artistasSinDatos = (eventData.artists || '')
     // work here is a handful of getBoundingClientRect() reads plus a few
     // style writes, cheap enough that the browser's own passive-listener
     // scheduling throttles it adequately on its own.
+    ajustarFilaTags();
     ensureScrollRunway();
     updateStickyImage();
     window.addEventListener('scroll', updateStickyImage, { passive: true, signal: wSig });
@@ -877,6 +908,7 @@ const artistasSinDatos = (eventData.artists || '')
     window.addEventListener('resize', () => {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
       resizeRaf = requestAnimationFrame(() => {
+        ajustarFilaTags();
         ensureScrollRunway();
         updateStickyImage();
       });
@@ -888,6 +920,7 @@ const artistasSinDatos = (eventData.artists || '')
     // runway it adds. Re-measure once fonts have actually settled.
     if (document.fonts && document.fonts.ready) {
       document.fonts.ready.then(() => {
+        ajustarFilaTags();
         ensureScrollRunway();
         updateStickyImage();
       });

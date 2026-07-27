@@ -81,7 +81,7 @@ try {
         evento: c[0] ? c[0].v : 'Evento sin título',
         urlDrive: c[2] ? c[2].v : '',
         fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
-        lugar: c[4] ? c[4].v : 'León',
+        lugar: c[4] ? c[4].v : '',   // sin dato es sin dato: rellenarlo con 'León' inventaba un local
         localidad: c[5] ? c[5].v : '',
         coordenadas: c[6] ? c[6].v : '',
         artistas: c[7] ? c[7].v : '',
@@ -2908,7 +2908,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // Column G holds either a plain address/DMS string (shown as-is) or a
       // Google Maps share link, in which case we show its readable address
       // instead of the raw URL.
-      document.getElementById('side-panel-address').textContent = extractAddressLabel(sampleEvt?.coordenadas) || 'León';
+      document.getElementById('side-panel-address').textContent = extractAddressLabel(sampleEvt?.coordenadas) || '';
 
       // Calculate unique artists, designers and promoters (organiza) — same
       // 'desconocido'/'varios' exclusions as the home toolbar's own stats
@@ -3152,7 +3152,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (!locationGroups[locKey]) {
         locationGroups[locKey] = {
           coords: { lat: coords[0], lng: coords[1] },
-          locationName: item.lugar || item.localidad || 'León',
+          locationName: item.lugar || item.localidad || 'Lugar desconocido',
           events: []
         };
       }
@@ -3417,10 +3417,33 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (!units.length) return;
     const naturalWidths = units.map(u => u.getBoundingClientRect().width);
     const maxNatural = Math.max(...naturalWidths);
-    // Hard cap per highlight-unit is 176px (D-061 / global.css): a unit never grows past 176px,
-    // so cap measurement for fallback-font checks to avoid temporary layout wrap on load.
+    // Hard cap per highlight-unit is 176px (D-061 / global.css). The bar for
+    // the share test skips any unit whose value is ALREADY ellipsised at that
+    // cap: such a unit renders cut in BOTH modes, so letting it set the bar
+    // only blocked the equal layout for the whole row and left dead space at
+    // the right in exchange for nothing (D-099). The test is the value's own
+    // overflow, not "is it 176px wide" — a unit that happens to measure 175.9
+    // and fits perfectly must still count, and a width comparison with a
+    // tolerance gets that wrong in one direction or the other.
+    const stillFits = units.filter(u => {
+      const val = u.querySelector('.tag-count-val');
+      return !val || val.scrollWidth <= val.clientWidth + 1;
+    }).map(u => u.getBoundingClientRect().width);
+    const barAlone = stillFits.length ? Math.max(...stillFits) : Math.min(maxNatural, 176);
+    // Sharing a line is the asymmetric case: guessing "yes" wrongly bumps the
+    // Toggle onto a second line (D-091, a real bug), while guessing wrongly
+    // when alone costs nothing but a slightly narrower column. So the sharing
+    // branch keeps the conservative bar — which also closes the window where
+    // fallback fonts make SOME units overflow and not others, dropping the
+    // bar mid-load only to raise it again on fonts.ready.
     const effectiveMaxNatural = Math.min(maxNatural, 176);
-    const containerWidth = container.getBoundingClientRect().width;
+    // Content width, not border box: some of these containers carry their own
+    // side padding (the map side panel's is px-6/sm:px-12/lg:px-6), and the
+    // border box hands the row up to 96px it does not have — it would go
+    // equal-width on a share that does not exist and overflow the columns.
+    const cs = getComputedStyle(container);
+    const containerWidth = container.clientWidth
+      - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
 
     // 2. Would an equal share still fit each unit's own content if the
     // row shares its line with whatever opts.getReservedWidth() reserves
@@ -3445,7 +3468,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // has wrapped away (native flex-wrap resolves that on its own, purely
     // from the row's rendered width no longer leaving it room)?
     const equalShareAlone = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
-    if (equalShareAlone >= effectiveMaxNatural) {
+    if (equalShareAlone >= barAlone) {
       row.classList.remove('highlights-flex-content');
       row.classList.add('highlights-grid-equal');
       row.style.width = '100%';
