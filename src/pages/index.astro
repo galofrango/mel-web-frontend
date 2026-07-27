@@ -1378,6 +1378,22 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   // Escapa HTML para insertarlo de forma segura en innerHTML — usado por
   // todas las réplicas JS de componentes (filas de tabla, Event Card List...).
+  // Regla del sitio: un campo sin dato SIEMPRE se pinta en text-tertiary y NUNCA
+  // es enlace. La hoja marca la ausencia con varios centinelas distintos, no
+  // solo "desconocido" — sin contemplarlos todos, un "Varios" o un "No
+  // detallados" acababa siendo un enlace que buscaba esa palabra literal.
+  // `varios` y `no detallados` se muestran tal cual porque dicen algo; el resto
+  // se unifica bajo "desconocido".
+  const CENTINELAS_SIN_DATO = ['desconocido', 'sin fecha', 'no detallados', 'varios'];
+
+  function celdaSinDato(valor) {
+    const limpio = valor ? String(valor).trim() : '';
+    const bajo = limpio.toLowerCase();
+    if (!limpio || bajo === 'desconocido' || bajo === 'sin fecha') return 'desconocido';
+    if (CENTINELAS_SIN_DATO.includes(bajo)) return limpio;
+    return null;   // hay dato de verdad
+  }
+
   function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
@@ -2273,28 +2289,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                 ${escHtml(formattedDate)}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                ${item.lugar && item.lugar.toLowerCase() !== 'desconocido'
-                  ? `<span class="marquee-inner search-cell-link location-cell-link" data-location="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`
-                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
-                }
+                ${(() => { const sd = celdaSinDato(item.lugar); return sd
+                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  : `<span class="marquee-inner search-cell-link location-cell-link" data-location="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                ${item.localidad && item.localidad.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}<span class="table-link-underline"></span></span>`
-                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
-                }
+                ${(() => { const sd = celdaSinDato(item.localidad); return sd
+                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                ${item.organiza && item.organiza.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}<span class="table-link-underline"></span></span>`
-                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
-                }
+                ${(() => { const sd = celdaSinDato(item.organiza); return sd
+                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                ${item.disenador && item.disenador.toLowerCase() !== 'desconocido' 
-                  ? `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}<span class="table-link-underline"></span></span>` 
-                  : '<span class="marquee-inner text-mel-text-tertiary opacity-60">desconocido</span>'
-                }
+                ${(() => { const sd = celdaSinDato(item.disenador); return sd
+                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}<span class="table-link-underline"></span></span>`; })()}
               </td>
             `;
             listBody.appendChild(tr);

@@ -139,10 +139,22 @@ function extractDriveImage(url) {
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
 
 // Helper function to format unknown tag values
+// Centinelas con los que la hoja marca "aquí no hay dato". Regla del sitio: un
+// campo desconocido SIEMPRE se pinta en text-tertiary y NUNCA es enlace — no
+// tiene sentido ofrecer "buscar más eventos de Desconocido".
+// `varios` y `no detallados` se conservan tal cual porque dicen algo (hubo
+// varios promotores, hubo artistas sin detallar); los demás se unifican bajo
+// "Desconocido".
+const CENTINELAS_SIN_DATO = ['desconocido', 'sin fecha', 'no detallados', 'varios'];
+
 function getTagDisplay(val) {
   const clean = val ? String(val).trim() : '';
-  if (!clean || clean.toLowerCase() === 'desconocido' || clean.toLowerCase() === 'sin fecha') {
+  const bajo = clean.toLowerCase();
+  if (!clean || bajo === 'desconocido' || bajo === 'sin fecha') {
     return { text: 'Desconocido', isUnknown: true };
+  }
+  if (CENTINELAS_SIN_DATO.includes(bajo)) {
+    return { text: clean.charAt(0).toUpperCase() + clean.slice(1), isUnknown: true };
   }
   return { text: clean, isUnknown: false };
 }
@@ -433,9 +445,17 @@ const designerDisplay = getTagDisplay(eventData.designer);
                     const cleanArtist = artist.trim();
                     if (!cleanArtist) return null;
                     const isLast = idx === arr.length - 1;
+                    // Misma regla que en los tags: un nombre que en realidad es
+                    // un centinela de "sin dato" se pinta en text-tertiary y no
+                    // enlaza — buscar el archivo por "Desconocido" no lleva a
+                    // ninguna parte útil.
+                    const sinDato = CENTINELAS_SIN_DATO.includes(cleanArtist.toLowerCase());
                     return (
                       <span class="inline-flex items-center whitespace-nowrap">
-                        <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>{!isLast && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
+                        {sinDato
+                          ? <span class="typo-body-roman text-mel-text-tertiary">{cleanArtist}</span>
+                          : <Link href={`/?search=${encodeURIComponent(cleanArtist)}`} hideChevron={true}>{cleanArtist}</Link>
+                        }{!isLast && <span class="typo-body-roman text-mel-text-secondary mr-2">,</span>}
                       </span>
                     );
                   })}
@@ -1182,24 +1202,44 @@ const designerDisplay = getTagDisplay(eventData.designer);
       if (!zona || !imageUrls || imageUrls.length <= 1) return;
 
       const MINIMO = 45;
-      let x0 = null, y0 = null, huboDeslizamiento = false;
+      let x0 = null, y0 = null, dxUltimo = 0, dyUltimo = 0, huboDeslizamiento = false;
+
+      // `pan-y` es imprescindible, no un adorno: sin él el navegador se queda
+      // TODO el gesto: en cuanto el dedo se mueve en horizontal decide que es un
+      // desplazamiento suyo, dispara `pointercancel` y deja de mandar eventos —
+      // por eso el deslizamiento no llegaba a ocurrir nunca en un dispositivo
+      // real ni en la emulación del inspector. Con `pan-y` le cedemos el eje
+      // vertical (el scroll de la página sigue funcionando sobre la foto) y nos
+      // quedamos el horizontal.
+      zona.style.touchAction = 'pan-y';
+
+      const resolver = () => {
+        if (x0 === null) return;
+        x0 = null; y0 = null;
+        if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
+        huboDeslizamiento = true;
+        irA(indiceActual() + (dxUltimo < 0 ? 1 : -1));   // arrastrar a la izquierda = siguiente
+      };
 
       zona.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
-        x0 = e.clientX; y0 = e.clientY; huboDeslizamiento = false;
+        x0 = e.clientX; y0 = e.clientY;
+        dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false;
       }, { signal: wSig });
 
-      zona.addEventListener('pointerup', (e) => {
+      // El recorrido se acumula aquí y no se lee del evento final: si el
+      // navegador acaba cancelando el gesto, `pointercancel` no trae posición.
+      zona.addEventListener('pointermove', (e) => {
         if (x0 === null) return;
-        const dx = e.clientX - x0;
-        const dy = e.clientY - y0;
-        x0 = null; y0 = null;
-        if (Math.abs(dx) < MINIMO || Math.abs(dx) <= Math.abs(dy)) return;
-        huboDeslizamiento = true;
-        irA(indiceActual() + (dx < 0 ? 1 : -1));   // arrastrar a la izquierda = siguiente
+        dxUltimo = e.clientX - x0;
+        dyUltimo = e.clientY - y0;
       }, { signal: wSig });
 
-      zona.addEventListener('pointercancel', () => { x0 = null; y0 = null; }, { signal: wSig });
+      zona.addEventListener('pointerup', resolver, { signal: wSig });
+      // Un gesto cancelado que ya había recorrido lo suficiente cuenta igual:
+      // de lo contrario el deslizamiento se perdería justo en los navegadores
+      // que cancelan antes.
+      zona.addEventListener('pointercancel', resolver, { signal: wSig });
 
       // Va en captura para llegar antes que el listener de expandir.
       zona.addEventListener('click', (e) => {

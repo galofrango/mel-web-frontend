@@ -132,6 +132,24 @@ Tres variantes probadas y descartadas, por si alguien vuelve sobre ello:
 
 ---
 
+## Campos sin dato
+
+Regla del sitio: **un campo sin dato se pinta SIEMPRE en `text-tertiary` y nunca
+es enlace.** Ofrecer "ver más eventos de Desconocido" no lleva a ninguna parte.
+
+La hoja marca la ausencia con varios centinelas, no solo uno:
+`desconocido`, `sin fecha`, `no detallados` y `varios`. Los dos primeros se
+unifican bajo "Desconocido"; `varios` y `no detallados` se muestran tal cual
+porque sí dicen algo (hubo varios promotores, hubo artistas sin detallar), pero
+tampoco enlazan.
+
+Se aplica en los tags de la ficha (`getTagDisplay` → estado `Disabled`), en la
+lista de artistas, y en las celdas de la vista Lista (`celdaSinDato` en
+`index.astro`). Al añadir un campo nuevo que enlace, comprobarlo contra esa
+lista: es lo que faltaba y dejaba pasar "Varios" como enlace de búsqueda.
+
+---
+
 ## Inventario de Componentes UI
 
 | Componente | Variantes / Estados | Descripción y Especificación |
