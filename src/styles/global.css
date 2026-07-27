@@ -189,6 +189,20 @@
   --font-serif: "Lora", Georgia, Cambria, "Times New Roman", Times, serif;
 }
 
+/* El documento no rebota ni tira de "recargar". En Chrome de Android el
+   sobrescroll pinta un estirón elástico arriba y abajo y, al principio de la
+   página, activa el pull-to-refresh: los dos hacen que se muevan cosas que en
+   este sitio están pensadas para no moverse (cabecera, fila de tags, caja de
+   la foto), y una recarga accidental además tira el orden de sesión y la
+   posición guardada. `none` —no `contain`— porque `contain` solo corta el
+   encadenamiento y deja el estirón visible.
+   Va en `html`: si se pone en `body`, solo se propaga al viewport cuando `html`
+   no lo declara, y ese "solo cuando" es justo el tipo de regla que se rompe
+   sola más adelante. */
+html {
+  overscroll-behavior: none;
+}
+
 body {
   background-color: var(--mel-bg-primary);
   color: var(--mel-text-primary);
