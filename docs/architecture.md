@@ -180,6 +180,15 @@ eventos, por ejemplo, mostraban dos eventos cualesquiera del archivo.
 Al ocultar un extremo (primero o último de la secuencia) se neutraliza también
 su `href`, para no dejar enlaces obsoletos vivos debajo.
 
+### El panel del mapa se cierra distinto según su forma
+
+- **Como panel lateral (`lg+`) no hay X**: su fila se oculta entera para ganar
+  altura, y el cierre es pulsar de nuevo sobre el **nombre/dirección** del local
+  (`#side-panel-header-toggle`, mismo manejador que la X: limpia `?location=` y
+  devuelve el marcador a reposo).
+- **Como bottom sheet (`<lg`) se mantiene la X**, más el dim y el tirador de
+  arrastre. Ahí la cabecera es texto inerte.
+
 ### El panel del mapa va aparte: siempre cronológico
 
 Dos excepciones deliberadas a "una sola secuencia", ambas acotadas al panel:

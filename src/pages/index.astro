@@ -358,7 +358,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                misma altura donde arranca #map-container) en todas las anchuras
                — antes solo en el bottom sheet móvil, el propietario pidió lo
                mismo en desktop viendo que sobraba hueco arriba del todo. -->
-          <div class="flex items-center pb-[8px] px-4 sm:px-10 lg:px-4 pt-0 shrink-0 w-full">
+          <!-- La X solo existe como bottom sheet (móvil/tablet). Cuando el panel
+               es lateral se oculta ENTERA la fila (lg:hidden) para recuperar su
+               altura: ahí se cierra pulsando de nuevo en el nombre/dirección
+               del local (ver #side-panel-header-toggle). -->
+          <div class="flex items-center pb-[8px] px-4 sm:px-10 lg:px-4 pt-0 shrink-0 w-full lg:hidden">
             <IconButton
               id="close-map-side-panel"
               icon="x"
@@ -370,9 +374,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           <!-- Title & Address. pt-16 (no el pt-24 original de Figma) en todas
                las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
           <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[16px] px-6 sm:px-12 lg:px-6 shrink-0 w-full relative">
-            <div class="flex flex-col gap-[8px] items-start justify-center w-full">
-              <h2 id="side-panel-title" class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] lg:text-[25px] lg:leading-[32px] lg:tracking-[-0.5px] text-mel-text-primary truncate w-full"></h2>
-              <p id="side-panel-address" class="typo-body-roman text-mel-text-secondary truncate w-full"></p>
+            <!-- Como panel lateral (lg+) este bloque ES el cierre: sin X, se
+                 pulsa de nuevo sobre el nombre/dirección para plegarlo. Como
+                 bottom sheet sigue siendo texto inerte, porque ahí sí hay X y
+                 un tirador de arrastre. -->
+            <div
+              id="side-panel-header-toggle"
+              class="flex flex-col gap-[8px] items-start justify-center w-full lg:cursor-pointer lg:select-none group/panelhdr"
+            >
+              <h2 id="side-panel-title" class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] lg:text-[25px] lg:leading-[32px] lg:tracking-[-0.5px] text-mel-text-primary truncate w-full lg:group-hover/panelhdr:text-mel-action-primary lg:transition-colors lg:duration-200"></h2>
+              <p id="side-panel-address" class="typo-body-roman text-mel-text-secondary truncate w-full lg:group-hover/panelhdr:text-mel-action-primary lg:transition-colors lg:duration-200"></p>
             </div>
           </div>
           
@@ -450,13 +461,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                  width doesn't reliably resolve per-column here (tested: every calc() column came
                  out identical, ignoring the multiplier) — plain percentages, worked out by hand
                  against a ~120px Fecha column, are what actually render correctly. -->
+            <!-- Fecha en PÍXELES fijos, no en porcentaje: con
+                 `table-layout:fixed` manda el <colgroup> y el `min-w-[136px]`
+                 de las celdas se ignora, así que al estrecharse la tabla su 12%
+                 caía por debajo de lo que mide "24/12/2005" y la fecha se
+                 truncaba. 152px = 10 caracteres de la fecha más larga + los
+                 32px de padding horizontal, con holgura. El resto reparte el
+                 espacio restante manteniendo la proporción de antes
+                 (evento : resto = 29 : 14.75 ⇒ 33 : 16.75). -->
             <colgroup>
-              <col style="width:29%; min-width:136px;" />
-              <col style="width:12%; min-width:136px;" />
-              <col style="width:14.75%; min-width:136px;" />
-              <col style="width:14.75%; min-width:136px;" />
-              <col style="width:14.75%; min-width:136px;" />
-              <col style="width:14.75%; min-width:136px;" />
+              <col style="width:33%;" />
+              <col style="width:152px;" />
+              <col style="width:16.75%;" />
+              <col style="width:16.75%;" />
+              <col style="width:16.75%;" />
+              <col style="width:16.75%;" />
             </colgroup>
             <thead class="sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate">
               <tr class="h-[40px]">
@@ -2218,8 +2237,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
                   </span>
                 </div>
               </td>
-              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                <span class="marquee-inner">${escHtml(formattedDate)}</span>
+              <!-- Sin marquee ni elipsis: la fecha es el dato de referencia de
+                   la fila y tiene que leerse SIEMPRE entera. Su columna está
+                   dimensionada para que quepa (ver el colgroup). -->
+              <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary whitespace-nowrap">
+                ${escHtml(formattedDate)}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${item.lugar && item.lugar.toLowerCase() !== 'desconocido'
@@ -2340,16 +2362,34 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // galería pagina por scroll infinito: el módulo es solo de la lista.
       const listViewCheck = document.getElementById('view-lista');
       const isListActive = listViewCheck && !listViewCheck.classList.contains('hidden');
-      const shouldShowPagination = isListActive && totalPages > 1 && filtered.length > 0;
+      // Tres estados, no dos: fuera de Lista desaparece del todo (display:none,
+      // si no ocuparía sitio en Galería/Mapa); dentro de Lista pero con una sola
+      // página se vuelve INVISIBLE en vez de desaparecer, conservando su altura
+      // — así el final de la tabla siempre cae a la misma distancia del borde y
+      // se lee como "aquí se acaba", en vez de terminar a ras y parecer cortada.
+      const hayUnaSolaPagina = isListActive && !(totalPages > 1 && filtered.length > 0);
       document.querySelectorAll('.pagination-controls-container').forEach(pagControls => {
-        pagControls.classList.toggle('hidden', !shouldShowPagination);
-        pagControls.classList.toggle('flex', shouldShowPagination);
+        pagControls.classList.toggle('hidden', !isListActive);
+        pagControls.classList.toggle('flex', isListActive);
+        pagControls.classList.toggle('invisible', hayUnaSolaPagina);
+        pagControls.classList.toggle('pointer-events-none', hayUnaSolaPagina);
       });
 
       updateMapMarkers(shouldFitBounds);
     };
 
-    if (document.startViewTransition) {
+    // Durante el arrastre del slider NO se envuelve en una view transition: el
+    // arrastre dispara un re-render cada pocos milisegundos y cada transición
+    // anima el reordenado de filas/tarjetas, así que se encadenan varias por
+    // segundo y los elementos se ven "rebotando buscando sitio" — se percibe
+    // como que algo está roto, sobre todo en móvil. La transición aporta
+    // cuando el cambio es discreto (un click, un filtro, ordenar una columna),
+    // no mientras el dedo sigue moviendo el tirador. Al soltar, el evento
+    // `change` fuerza un render final que sí la lleva.
+    const trackWrapper = document.getElementById('slider-track-wrapper');
+    const arrastrandoSlider = trackWrapper && trackWrapper.classList.contains('dragging');
+
+    if (document.startViewTransition && !arrastrandoSlider) {
       try {
         const transition = document.startViewTransition(performDOMUpdates);
         transition.finished.catch(() => {});
@@ -3669,6 +3709,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         updateMapMarkers(false);
       };
       closePanelBtn.addEventListener('click', window._melClosePanelHandler);
+    }
+
+    // Como panel lateral (lg+) no hay X: el propio nombre/dirección lo cierra,
+    // reutilizando exactamente el mismo manejador (limpia ?location=, devuelve
+    // el marcador a su estado de reposo, etc.). Por debajo de lg no hace nada:
+    // ahí el bloque es solo texto y el cierre son la X y el dim.
+    const panelHeaderToggle = document.getElementById('side-panel-header-toggle');
+    if (panelHeaderToggle) {
+      // Misma gestión manual de listeners que closePanelBtn: debe sobrevivir al
+      // reemplazo del AbortController en cada re-init.
+      if (window._melPanelHeaderHandler) {
+        panelHeaderToggle.removeEventListener('click', window._melPanelHeaderHandler);
+      }
+      window._melPanelHeaderHandler = () => {
+        if (window.innerWidth < 1024) return;
+        if (window._melClosePanelHandler) window._melClosePanelHandler();
+      };
+      panelHeaderToggle.addEventListener('click', window._melPanelHeaderHandler);
     }
 
     // Tocar el dim (solo existe/es interactivo en móvil, ver su propia
