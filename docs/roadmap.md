@@ -50,6 +50,10 @@
 
 ## Ideas Pendientes (sin compromiso)
 
+- **El panel de eventos como punto de retorno propio** (idea del propietario, 2026-07-28). Al desplegarse, el panel debería generar un punto de retorno al que volver cuando se cierran los eventos que se están navegando desde él — en vez de restaurar la home entera y que se vea el viaje, aunque sea rápido. Hoy la vuelta ya no duplica nada ni se rompe (D-117), pero sigue recorriendo galería → mapa → panel, y entrando y saliendo a menudo eso cansa.
+  - **Lo delicado está en escritorio**: ahí los filtros siguen aplicando a los resultados del panel, así que "el estado del panel" no es independiente del estado de la home y no se puede restaurar por separado sin decidir qué manda.
+  - Aparcado a propósito hasta poder pensarlo con esa pregunta resuelta.
+
 - **Diseñar el estado pulsado por componente.** Ahora hay una respuesta uniforme y neutral en táctil (`opacity: .55` bajo `@media (hover: none)`, ver design-system.md). Falta que cada componente tenga el suyo, como tiene su `hover`.
 - **Pasar la tipografía a `rem`.** Hoy todo va en `px` (viene de Figma), y eso significa que **si alguien sube el tamaño de letra en los ajustes de su navegador, el texto del sitio no se mueve**: lo ignora. En `rem` escalaría. Matiz que conviene tener claro: el zoom de página (pellizco, Ctrl+) sí amplía los `px`; lo que los ignora es la *preferencia de tamaño de fuente*. `em` no es la opción — es relativo al padre y se acumula en anidamientos; `rem` es relativo a la raíz y predecible.
   - **¿Se puede acotar la ampliación máxima?** Sí: `font-size: min(1.375rem, 30px)` escala hasta ese techo y ahí se para, y `clamp()` permite suelo y techo. Sirve para que un slider o un toggle no se descuadren. Pero conviene decirlo claro: **poner techo es renunciar a parte del beneficio** — quien necesita el 200% se queda sin él. Mejor techo alto y componentes que aguanten, que techo bajo.
