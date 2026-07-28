@@ -16,14 +16,19 @@ verdad, y qué técnicas de diagnóstico funcionan aquí y cuáles engañan.
 | Producción | `https://melweb.vercel.app` — despliega de `main` |
 | Rama estable | `main` |
 | Etiquetas de recuperación | `detalles-v2.2`, `estados-pressed-v2.3` |
-| Rama a medias | `feat/volver-al-flyer` |
+| ~~Rama a medias~~ | `feat/volver-al-flyer` — **terminada y mezclada en `main`**; su contenido ya está en producción |
 | Rama aparcada de antes | `experiment/gallery-3d-tilt` (efecto 3D, ver problemas conocidos) |
 
 Volver a un punto estable: `git checkout estados-pressed-v2.3`.
 
 ---
 
-## 2. Lo que queda a medias: `feat/volver-al-flyer`
+## 2. `feat/volver-al-flyer` — terminada y en producción
+
+> Esta sección ya **no** es trabajo pendiente: quedó cerrada y mezclada en
+> `main`. Se conserva porque el recorrido —qué se creía, qué resultó ser y qué
+> se descartó— explica por qué el código de la vuelta es como es. Lo único vivo
+> es la nota final sobre el morphing: **está descartado, no pendiente.**
 
 **Objetivo**: que al cerrar un evento se vuelva **al flyer del que se salió**, y
 más adelante con una animación de vuelta que cierre el círculo de la de ida.
@@ -46,13 +51,42 @@ queda de red de seguridad.
    `volverAlFlyer()` no lo hace. **Ojo**: el propietario dice que en producción
    ese fundido tampoco se aprecia, así que antes de reutilizarlo hay que
    **comprobar que de verdad funciona**, no darlo por bueno.
-2. **Aparecen tarjetas duplicadas en la galería.** Es una corrupción, no un
-   defecto visual. Sospecha sin confirmar: los saltos de scroll disparan el
-   cargador de lotes del scroll infinito varias veces seguidas.
-   **No está diagnosticado.** Reprodúcelo con una traza antes de tocar nada.
+2. **Aparecen tarjetas duplicadas en la galería.** ~~No está diagnosticado.~~
+   **Diagnosticado y arreglado** (D-119), pendiente de que lo valide el
+   propietario en un móvil real. La sospecha anterior —que los saltos de scroll
+   disparaban el cargador de lotes varias veces— era falsa: llamarlo varias
+   veces no duplica nada. Lo que duplicaba era que `appendGalleryBatch()` se
+   fiaba del contador `galleryVisibleCount` en lugar del DOM, y al volver de una
+   ficha los dos discrepan. Medido: 68 tarjetas con 18 duplicadas; tras el
+   arreglo, 50 y ninguna.
 
-**Orden recomendado**: (1) entender la duplicación, (2) el anclaje reutilizando
-el ocultado que ya existe, (3) la animación de vuelta. Tres pasos, no uno.
+3. **Se volvía al primer flyer abierto, no a aquel desde el que se cierra.**
+   Detectado por el propietario al probar lo anterior, y era el motivo de la
+   rama entera. **Arreglado** (D-120): el estado de vuelta lo reescribe ahora la
+   propia ficha en cada carga.
+
+**Orden recomendado**: (1) ~~entender la duplicación~~ hecho, (2) ~~el anclaje~~
+hecho salvo el ocultado, (3) la animación de vuelta.
+
+**Lo que queda:**
+
+- ~~Se ve el viaje por la galería~~ **Arreglado** (D-122). Y el aviso de este
+  documento se quedaba corto: aquel fundido **no es que no se apreciara, es que
+  no existía** — faltaba un reflow forzado entre ocultar y revelar, sin el cual
+  el navegador no crea ninguna transición. Comprobado con `getAnimations()`.
+- **El morphing de vuelta: descartado por el propietario**, con la vuelta ya
+  funcionando. "No vamos a hacer más sobre esto, dejémoslo como está." La vuelta
+  aterriza con el flyer colocado y eso es el comportamiento definitivo, no un
+  paso intermedio. **No lo reabras por iniciativa propia.**
+  Si algún día se retoma, el dato que ahorra el primer día de trabajo: el
+  morphing nativo **no puede funcionar aquí**. Cuando el navegador captura el
+  estado final, la galería todavía es la del SSR —otro orden, sin colocar y con
+  las alturas sin medir—, así que volaría el cartel a un sitio que no es el suyo.
+  Habría que hacerlo a mano con transformaciones (regla 2), aprovechando que
+  `volverAlFlyer()` sí sabe el momento exacto en que la tarjeta queda colocada.
+- ~~La galería se repinta cuatro veces al volver~~ **Arreglado** (D-121): los
+  reseteos de arranque se callan mientras se restaura una vuelta. Todos los
+  repintados pintan ya 50.
 
 ---
 
@@ -101,6 +135,15 @@ Cuatro cosas, y las cuatro han costado horas por darlas por buenas:
    prueba aquí y fallar en el dispositivo. Pasó exactamente eso.
 4. **El scroll nativo por rueda o toque.** Un `WheelEvent` sintético **no
    desplaza nada** — esa prueba siempre da falso negativo.
+5. **La pestaña del panel de previsualización está en segundo plano**
+   (`document.hidden === true`), así que el navegador **congela
+   `requestAnimationFrame` y no entrega callbacks de `IntersectionObserver`**.
+   Consecuencia práctica: el scroll infinito **no carga ningún lote** por sí
+   solo y todo lo que dependa de un fotograma se queda parado. Se ve enseguida:
+   `raf` cuenta 0 en medio segundo. **Cómo desatascarlo**: cada captura de
+   pantalla fuerza un fotograma y desbloquea lo pendiente, así que una prueba de
+   este tipo se conduce alternando `screenshot` y comprobación. `setInterval` sí
+   corre — por eso `restoreScroll()` lo usa a propósito (ver su comentario).
 
 **Corolario**: si una prueba sintética dice que algo funciona y el propietario
 dice que no, **tiene razón él**. Y al revés: que aquí no se reproduzca un fallo

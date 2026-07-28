@@ -1278,3 +1278,97 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
   - **Comprobar que un cambio de la hoja ha subido**: añadir cualquier parámetro nuevo a la URL (`?v=2`) fuerza una construcción desde cero, porque es otra clave de caché.
   - **No cuesta dinero y de hecho abarata**: la copia es del HTML, no de las fotos —que siguen viniendo de Drive—, y cada visita servida desde el borde es una que no hace trabajar al servidor.
 - **La precarga solo llegaba a escritorio**: se disparaba con `pointerenter`, que en un móvil no existe — no hay puntero que entre en nada. De ahí que en escritorio la ficha apareciera al instante y en el teléfono se notara la espera. Ahora se registra también en `touchstart`, que ocurre al posar el dedo, unos cientos de milisegundos antes de soltarlo: justo el margen para adelantar la página. Cuatro puntos de precarga migrados.
+
+## D-119 · Cuántas tarjetas hay pintadas lo dice el DOM, no un contador
+
+- **Síntoma**: al volver de una ficha a la galería aparecían tarjetas repetidas. Medido en el flujo real (entrar en un flyer del fondo de la galería y cerrar): **68 tarjetas, 18 de ellas duplicadas**.
+- **La sospecha apuntada en el traspaso era falsa**: no era que los saltos de scroll dispararan el cargador de lotes varias veces seguidas. Llamar varias veces a `appendGalleryBatch()` **no duplica nada**, porque cada llamada avanza el contador y pide el tramo siguiente.
+- **Causa real**: cuántas tarjetas hay pintadas está anotado **en dos sitios que se escriben en horarios distintos**.
+  - El contador `galleryVisibleCount`, de forma **síncrona**, desde cuatro sitios: `initHomePage()`, `updateSlider()`, el manejador del buscador y `applyReturnState()`.
+  - El DOM, de forma **asíncrona**, dentro de `performDOMUpdates()` — que `filterArchives()` no ejecuta, sino que **le entrega a `document.startViewTransition()`**, que lo llama más tarde.
+  - Al volver, las dos agendas se cruzan. Traza del flujo real: `applyReturnState` deja el contador en 50, el buscador lo devuelve a 32 justo después, y el repintado que llega el último ya llevaba 50 dentro. Resultado: **contador 32, DOM 50**.
+- **Y entonces basta con que el centinela entre en pantalla** —lo que la vuelta al flyer garantiza, porque salta al fondo de la galería— para que el lote pida el tramo 32–50, que está en pantalla, y lo añada otra vez.
+- **Arreglo**: `appendGalleryBatch()` calcula desde dónde sigue **contando los hijos de la rejilla**, no leyendo el contador; el contador pasa a seguir al DOM. Es lo único que no puede mentir sobre lo que hay pintado. Tres líneas, y vale para los cuatro sitios que resetean, presentes y futuros, sin tocar ninguno.
+- **Verificado**: mismo flujo, misma condición mala en la traza (`count=32` con `dom=50`), y ahora el tramo sale vacío y no se añade nada. **50 tarjetas, 0 duplicadas.** `npm run build` pasa.
+- **No es un fallo introducido por `feat/volver-al-flyer`**: la máquina que lo produce (`appendGalleryBatch` + los cuatro reseteadores + el repintado asíncrono) es común y está también en `main`. La rama lo hace salir siempre porque su vuelta salta al fondo de la galería y planta el centinela justo dentro de la ventana mala. **No comprobado en `main`.**
+- **Lección**, que ya estaba escrita en el traspaso y volvió a morder: *dos números que deben coincidir, calculados por separado*. Que salgan de una sola fuente.
+- **Lo que este arreglo NO toca**: el desajuste de contador sigue existiendo, y se ve — al volver, la rejilla se repinta cuatro veces (32 → 32 → 50, y otra ronda 32 → 50 un segundo y medio después). Ya no corrompe nada, pero encoge y se reestira a la vista. Le toca al paso del anclaje.
+
+## D-120 · Se vuelve al flyer que se cierra, y la tarjeta se persigue hasta que para
+
+Dos arreglos sobre la vuelta al flyer, después de que el propietario probara D-119 en un móvil real.
+
+### El estado de vuelta sigue a la ficha que se está viendo
+
+- **Síntoma, y era el motivo de toda la rama**: recorriendo la sesión con Anterior/Siguiente y cerrando desde otro evento, la galería devolvía al **primero** que se abrió.
+- **Causa**: `mel-return-state` lo escribía **solo** `saveReturnState()` en la home, al pulsar una tarjeta. La ficha de evento no lo tocaba nunca, así que `flyer` se quedaba congelado en el primero.
+- **Arreglo**: la ficha reescribe ese campo en cada carga con el evento que muestra. Enganchado a **qué ficha se ve**, no a los enlaces: hay cuatro maneras de llegar a una (Anterior, Siguiente, las flechas del teclado y una URL directa) y así quedan cubiertas las cuatro sin acordarse de ninguna. Solo toca `flyer`; filtros, lotes y píxel de reserva siguen siendo los de la galería que se dejó, y solo actúa si ya hay estado (por URL directa no hay vuelta que ajustar).
+- **Verificado**: abrir el evento 38 de 50, avanzar a 39 y cerrar → la galería deja el 39. Antes dejaba el 38.
+
+### La tarjeta se persigue hasta que la rejilla para, no hasta que el scroll parece quieto
+
+- **Síntoma**: en móvil "a veces queda cerca, otras no", y el cartel salía cortado por arriba.
+- **Dos causas distintas**:
+  1. `scrollIntoView({block:'center'})` a una columna centra una tarjeta más alta que la ventana, y centrar algo que no cabe lo recorta por arriba y por abajo a la vez.
+  2. Se colocaba **una sola vez**, en cuanto la tarjeta existía. El masonry sigue midiendo las imágenes de arriba durante el segundo siguiente y empujando a las de abajo: la tarjeta se movía **después** de haberla colocado.
+- **Arreglo**: bucle que reafirma la posición recalculando en cada vuelta **dónde está la tarjeta ahora**. La tarjeta es la referencia estable; su píxel no. A una columna va pegada al borde superior de la galería (donde acaba la toolbar); a dos o más, centrada, con vuelta a "arriba" si no cabe entera.
+- **Sin salida anticipada por estabilidad, y esto es lo importante**: el primer intento sí la tenía —tres lecturas de scroll iguales, como `restoreScroll()`— y **fallaba**, porque el scroll se queda quieto también cuando NO ha llegado: mientras la rejilla no ha crecido, el destino cae por debajo del tope y el navegador lo recorta ahí. Medido: destino 3908, tope 3838, tres lecturas idénticas, bucle retirado — y al crecer la rejilla la tarjeta acabó a 522px de su sitio. Se reafirma hasta el final del plazo; cuando ya está colocada no se escribe nada.
+- **Plazo de 4s y no 2,5s**: al volver, la galería se repinta entera cuatro veces a lo largo de 1,7s (los reseteos del contador contra la restauración del estado, ver D-119) y solo después empiezan a medirse las imágenes. Con 2,5s el bucle se retiraba en mitad de la tormenta.
+- **Se fija `scrollTop` en vez de usar `scrollIntoView()`**: este desplaza también todos los contenedores antepasados, incluida la ventana, y en un móvil eso mueve la página entera.
+- **Verificado** (medido, no a ojo): a 375px la tarjeta queda a 0px del borde superior de la galería; a 1280px con la tarjeta cabiendo entera, desviación del centro 0px; con la tarjeta más alta que la ventana, arriba. En los tres casos, 50 tarjetas y ninguna duplicada. `npm run build` pasa.
+- **Pendiente y NO tocado a petición del propietario**: sigue viéndose el viaje por la galería durante la vuelta. `restoreScroll()` ya tiene el ocultado con fundido que haría falta, pero el traspaso avisa de que ese fundido no se aprecia en producción, así que reutilizarlo exige comprobarlo antes. Va con la pasada de la animación de vuelta.
+
+## D-121 · La restauración habla la última, y la tarjeta se suelta cuando ya no puede moverse
+
+### Los reseteos de arranque se callan mientras se restaura una vuelta
+
+- **Síntoma**: al volver de una ficha, la rejilla encogía y se reestiraba a la vista. Medido: se repintaba **cuatro veces en 1,7s** — 32 → 32 → 50, y otra ronda 32 → 50.
+- **Causa**: tres sitios mandan la galería «al primer lote y arriba del todo» cuando cambia un filtro (`initHomePage()`, `updateSlider()` y el manejador de `mel-search`). Existen para un gesto del visitante. Al volver de una ficha no hay ningún gesto detrás: son los tres arrancando, y pisaban la restauración *después* de que hubiera puesto sus 50 tarjetas.
+- **El más sorprendente es el buscador**: al iniciarse anuncia que no hay búsqueda —`setState('default')` dispara `dispatchSearch("")`— y eso llega al manejador indistinguible de haber borrado el campo a mano.
+- **Arreglo**: un guard, `restaurandoVuelta()`. Mientras haya una vuelta viva, la restauración manda y los reseteos se callan. **No se reordenan llamadas** a propósito: el arranque del buscador vive en otro componente y el orden entre `astro:page-load` de dos scripts no está garantizado (ya avisaba `readReturnState`). Por eso hace falta un guard y no mover el orden.
+- **Verificado**: todos los repintados de la vuelta pintan ya 50 (antes 32 → 32 → 50 → 32 → 50). Y una búsqueda de verdad, fuera de una vuelta, sigue mandando el scroll a 0.
+- **Contrapartida aceptada**: durante los ~4s de vida del estado de vuelta (`RETURN_STATE_TTL_MS`), una búsqueda o un movimiento del slider hechos a mano no resetean el scroll. Es una ventana corta y el daño es menor que el que arregla; si algún día molesta, la salida es invalidar el estado de vuelta al primer gesto real del visitante.
+
+### El anclaje se suelta por geometría, no por reloj
+
+- **Síntoma**: con las imágenes cargando tarde, la tarjeta acabó a **550px** de su sitio y el scroll topado, con **27 imágenes aún sin medir**. El plazo de 4s de D-120 se agotaba antes que la rejilla.
+- **Por qué ningún plazo vale**: cuánto tardan las imágenes no lo decide este código. Vienen de Drive por la red y en Safari ni siquiera cargan hasta que el visitante ha pasado por `drive.google.com`. **Cualquier número aquí es una apuesta sobre la conexión de otro.**
+- **Arreglo**: el bucle se suelta cuando la tarjeta **ya no puede moverse**, que es una condición geométrica y no temporal: cuando no queda ninguna tarjeta `unsized` de ella hacia arriba. El masonry marca `unsized` a cada tarjeta hasta que su imagen carga y se le calcula el alto; mientras alguna de las de arriba siga sin medir, lo que hay por encima puede crecer y llevársela. Las de abajo dan igual: crecer por debajo no la mueve.
+- **El plazo queda solo de red de seguridad** (10s) para la imagen que no cargue nunca y dejaría su tarjeta `unsized` para siempre.
+- **Verificado**: mismo caso que fallaba —imágenes cargando tarde, 27 sin medir por encima— y la tarjeta se queda clavada a 0px mientras el bucle la sostiene. Antes se soltaba a los 4s y quedaba a 550px. `npm run build` pasa.
+- **Lección, la tercera vez que muerde lo mismo en esta rama**: los tres criterios de parada que fallaron —"el scroll está quieto", "han pasado 2,5s", "han pasado 4s"— eran *proxies* de la pregunta real, que es si la rejilla ha terminado de crecer por encima. Cuando existe la condición de verdad, medirla sale más barato que afinar el proxy.
+
+## D-122 · El fundido de la vuelta no existía, y ahora tapa el viaje
+
+Fase 1 de la animación de vuelta: primero que la galería llegue ya colocada, y el morphing después (decisión del propietario).
+
+- **Hallazgo de partida**: el fundido que `restoreScroll()` lleva desde que se escribió **nunca ha funcionado**. No era que se apreciara poco —lo que sospechaba el propietario y recogía el traspaso—: es que no se creaba ninguna transición.
+- **La causa, de una línea**: se ocultaba (`transition:none; opacity:0`) y se revelaba (`transition:opacity .25s; opacity:1`) sin nada en medio, así que el navegador funde ambos cambios en **un solo recálculo de estilo**. No queda ningún estado "desde" el que transicionar y la opacidad salta de 0 a 1 de golpe. **Medido con `getAnimations()`**: con el patrón anterior, 0 transiciones creadas; añadiendo un `void el.offsetWidth` entre medias, 1.
+- **Alcance**: afectaba también a la vuelta a Lista, que sí usaba esa función.
+- **Arreglo**: `ocultarParaColocar()` y `revelarColocado()`, un solo par usado por los dos sitios que recolocan. No una copia en cada uno: dos cosas que deben coincidir escritas por separado es la trampa que este código ya tiene documentada por haberla pisado dos veces.
+- **La vuelta al flyer ahora también oculta**, que es lo que tapa el viaje por la galería. Antes no lo hacía: `volverAlFlyer()` sustituía a `restoreScroll()` y se dejó fuera su ocultado.
+- **El revelado lleva su propio plazo, corto y aparte del bucle de anclaje**: aquel puede llegar a 10s esperando una imagen que quizá no cargue nunca, y la galería en blanco diez segundos es peor que cualquier salto. Se revela en cuanto la tarjeta queda colocada, o a los 700ms como tope, lo que pase antes; el bucle sigue corrigiendo por debajo, ya a la vista.
+- **La comprobación de "colocada" se relee DESPUÉS de asignar el scroll**, no antes: si el destino cae más allá del tope el navegador lo recorta y la diferencia sigue siendo grande, así que no se revela — justo lo que hay que hacer mientras la rejilla no haya crecido lo suficiente.
+- **Todas las salidas revelan**, sin excepción: llegada, plazo agotado y el visitante tocando el scroll. Que la galería se quedara invisible sería mucho peor que cualquier fallo de anclaje. **Verificado explícitamente**: con la galería a `opacity 0`, un gesto de scroll la deja en `opacity 1` y con el estilo en línea limpio.
+- **Contrapartida aceptada**: revelando pronto, si después siguen cargando imágenes de más arriba la tarjeta puede desplazarse un poco y eso sí se ve. La alternativa era más rato en blanco. Un ajuste pequeño molesta menos que un vacío largo.
+- **Verificado**: traza de la vuelta → `opacity 0 / transition none` al empezar, `opacity 1 / transition opacity 0.25s` al colocar, limpieza 300ms después; tarjeta a 0px de su sitio. `npm run build` pasa.
+
+### El morphing de vuelta: descartado
+
+**Decisión del propietario**, tomada con la vuelta ya funcionando en escritorio y móvil: *"No vamos a hacer más sobre esto. Dejémoslo como está."* La vuelta aterriza con el flyer colocado y ese es el comportamiento definitivo, no un paso intermedio hacia otra cosa.
+
+Queda escrito el porqué técnico, que es lo que ahorra el primer día a quien lo retome: **el morphing nativo no puede funcionar aquí**. Los ingredientes están puestos —la imagen lleva `view-transition-name: flyer-img-{id}` en la tarjeta y en la ficha, y la vuelta es navegación suave— pero **no tiene destino al que agarrarse**: cuando el navegador captura el estado final, la galería sigue siendo la del SSR, con su propio orden barajado, sin colocar y con las alturas sin medir. La tarjeta de destino o no está entre las 32 servidas, o no está en la posición en la que acabará, así que el cartel volaría a un sitio que no es el suyo. Y desde D-122 la galería se oculta a propósito durante la vuelta: no se puede morphear hacia algo invisible.
+
+La vía que quedaba era hacerlo a mano con transformaciones (regla 2 de AGENTS.md), aprovechando que `volverAlFlyer()` sí conoce el instante exacto en que la tarjeta queda colocada: capturar la posición del cartel al pulsar la X, inyectar una copia flotante en el intercambio de páginas y volarla hasta el hueco al revelar. No se ha implementado.
+
+### D-122 (ronda 2) · El parpadeo: la galería tiene que nacer oculta, y no apilar transiciones
+
+El propietario probó lo anterior y no vio ningún fundido: vio **un parpadeo y algo en blanco**. Dos causas, las dos medidas.
+
+- **El ocultado llegaba tarde.** Colgado del final de la inicialización, ocurría **19ms después de `astro:after-swap`** — o sea, con la galería nueva ya pintada y sin colocar. Ese fotograma es el parpadeo.
+  - **Arreglo**: se oculta en `astro:before-swap`, sobre `event.newDocument`, cuando hay un estado de vuelta con `flyer`. El documento entrante todavía no está en pantalla, así que **nace invisible**. Verificado: en `astro:after-swap`, el primer instante en que la página nueva existe, la opacidad ya es 0.
+  - Va en el ámbito del módulo de `index.astro` y no dentro de `initHomePage`: el script se evalúa una vez y sigue vivo durante toda la sesión de navegación, incluso estando en una ficha — que es justo cuando hace falta, porque el que se va prepara al que llega.
+  - Solo se oculta si la vuelta lleva `flyer`, porque es `volverAlFlyer()` quien revela. Más una red de seguridad a 3s: una galería invisible para siempre sería mucho peor que cualquier parpadeo.
+- **Y la vuelta apilaba transiciones, incumpliendo la regla 3 de AGENTS.md.** `filterArchives()` arranca `document.startViewTransition()`, y al volver la del `ClientRouter` sigue viva: una encima de otra la supersede. Además aplaza el repintado a otro fotograma y con él la colocación de la tarjeta y el revelado — parte del hueco en blanco.
+  - **Arreglo**: volviendo se pinta en el acto (`restaurandoVuelta()` desactiva la transición anidada). La única viva sigue siendo la de la página.
+- **Lo que NO se puede medir en este entorno**: cuánto dura el hueco en blanco de verdad. Aquí los temporizadores van estrangulados y los fotogramas solo ocurren al forzar una captura, así que los números de duración no son representativos. El tope del revelado (700ms) es la perilla que hay que tocar si al propietario le sigue pareciendo largo.
