@@ -39,9 +39,8 @@ import IconButton from './IconButton.astro';
     </div>
     
     <!-- Sin título: la palabra "Menú" no añadía nada que el icono no dijera ya.
-         Los items arrancan a 32px del botón de cerrar; como su fila ya aporta
-         16px de `pb`, aquí solo van los 16 que faltan. -->
-    <div class="h-[16px] shrink-0 w-full" aria-hidden="true"></div>
+         Los items arrancan a 16px del botón de cerrar, que es exactamente lo
+         que ya aporta el `pb` de su fila: aquí no hace falta nada más. -->
     
     <!-- Menu List (Without divide-y, using absolute offset dividers inside anchors) -->
     <div class="flex flex-col items-start w-full relative" data-node-id="562:70115" data-name="Menu List">

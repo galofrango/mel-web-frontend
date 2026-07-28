@@ -429,7 +429,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           </div>
           
           <!-- Event List (Scrollable) -->
-          <div id="side-panel-event-list" class="flex-1 overflow-y-auto bg-mel-bg-primary relative">
+          <div id="side-panel-event-list" class="flex-1 overflow-y-auto bg-mel-bg-primary relative pb-8">
             <!-- Dynamically populated -->
           </div>
         </div>
@@ -1197,7 +1197,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   @media (max-width: 1023px) {
     #map-side-panel {
       position: fixed;
-      inset: var(--mel-sheet-top, 180px) 0 0 0;
+      inset: var(--mel-sheet-top, 40px) 0 0 0;
       width: 100% !important;
       height: auto !important;
       border-left-width: 0 !important;
@@ -2892,11 +2892,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // hasta cubrirlo entero). Su alto (top) no es fijo: se mide el borde
   // SUPERIOR del slider y se publica en --mel-sheet-top (lo consume la media
   // query del sheet). Se recalcula al abrir y en cada resize.
+  const SHEET_MARGEN_SUPERIOR = 40;
   function syncSheetTop() {
-    const slider = document.getElementById('slider-track-wrapper');
-    if (!slider) return;
-    const top = Math.round(slider.getBoundingClientRect().top);
-    document.documentElement.style.setProperty('--mel-sheet-top', top + 'px');
+    document.documentElement.style.setProperty('--mel-sheet-top', SHEET_MARGEN_SUPERIOR + 'px');
   }
 
   // Populate side panel details dynamically.
