@@ -86,6 +86,46 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       import { navigate } from 'astro:transitions/client';
       (window as any).__melNavigate = navigate;
     </script>
+
+    <script is:inline>
+      // Nada se ve pulsado mientras el dedo está desplazando. El navegador
+      // enciende `:active` en cuanto tocas y lo mantiene durante todo el gesto,
+      // así que arrastrar para hacer scroll sobre una lista dejaba sus filas
+      // iluminadas como si estuvieran a punto de abrirse. En cuanto el dedo se
+      // mueve más que un temblor, se marca la raíz y el CSS anula el pulsado
+      // (ver `html.mel-desplazando` en global.css).
+      //
+      // Va en el layout y no en cada página: es comportamiento de todo el sitio.
+      // Se registra una sola vez — este script no se reevalúa en las
+      // navegaciones suaves, pero la bandera evita duplicados si alguna vez lo
+      // hiciera.
+      (function () {
+        if (window.__melPulsadoListo) return;
+        window.__melPulsadoListo = true;
+        var y0 = null, x0 = null;
+        var UMBRAL = 8;   // por debajo de esto es un dedo quieto, no un arrastre
+        addEventListener('touchstart', function (e) {
+          var t = e.touches[0];
+          y0 = t.clientY; x0 = t.clientX;
+          document.documentElement.classList.remove('mel-desplazando');
+        }, { passive: true });
+        addEventListener('touchmove', function (e) {
+          if (y0 === null) return;
+          var t = e.touches[0];
+          if (Math.abs(t.clientY - y0) > UMBRAL || Math.abs(t.clientX - x0) > UMBRAL) {
+            document.documentElement.classList.add('mel-desplazando');
+          }
+        }, { passive: true });
+        addEventListener('touchend', function () {
+          y0 = null; x0 = null;
+          // Se retira en el fotograma siguiente: quitarla en el acto deja que el
+          // `:active` residual del navegador pinte un parpadeo al levantar.
+          requestAnimationFrame(function () {
+            document.documentElement.classList.remove('mel-desplazando');
+          });
+        }, { passive: true });
+      })();
+    </script>
   </head>
   <body class="bg-mel-bg-primary text-mel-text-primary font-sans min-h-full flex flex-col selection:bg-mel-action-secondary selection:text-white transition-colors duration-300">
     <slot />

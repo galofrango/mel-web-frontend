@@ -224,11 +224,14 @@ html {
    `transition-duration: 0s` a propósito: la realimentación al pulsar tiene que
    ser inmediata, no una transición de 200ms que llega cuando ya has soltado. */
 @media (hover: none) {
+  /* Solo lo que de verdad hace algo. `.filter-tag` estaba en esta lista y los
+     recuentos de la home (Eventos, Artistas, Diseñadores…) se atenuaban al
+     tocarlos sin ser pulsables: prometían una acción que no existe. Una tag que
+     sí enlaza ya entra por `a:active`, porque su valor es un enlace. */
   a:active,
   button:active,
   summary:active,
-  [role="button"]:active,
-  .filter-tag:active {
+  [role="button"]:active {
     opacity: 0.55;
     transition-duration: 0s;
   }
@@ -241,6 +244,17 @@ html {
   [class*="active:text-"]:active {
     opacity: 1;
   }
+}
+
+/* Nada se ve pulsado mientras el dedo está desplazando. El navegador enciende
+   `:active` en cuanto tocas y lo mantiene durante todo el gesto, así que
+   arrastrar para hacer scroll sobre una lista dejaba sus filas iluminadas como
+   si fueran a abrirse. La clase la pone y la quita un oyente de `touchmove`
+   (ver Layout.astro); mientras está, se anula el pulsado de todo.
+   `!important` porque compite con utilidades `active:*` de Tailwind. */
+html.mel-desplazando *:active {
+  opacity: 1 !important;
+  background-color: revert-layer !important;
 }
 
 body {
