@@ -204,12 +204,20 @@ Tres detalles del entorno que condicionan la implementación y no son opcionales
    durante el primer segundo y fijarlo antes lo clampa a 0. Se usa `setInterval`
    y no `requestAnimationFrame` porque este se congela en pestañas en segundo
    plano. Cualquier gesto de scroll del visitante cancela los reintentos.
-4. **El anclaje a la tarjeta se reafirma durante todo el plazo, sin salida
-   anticipada por "ya está quieto".** El scroll se queda quieto también cuando
-   **no** ha llegado: mientras la rejilla no ha crecido del todo, el destino cae
-   más abajo del tope y el navegador lo recorta ahí. Medido: destino 3908, tope
-   3838, tres lecturas idénticas y el bucle dándose por bueno — y al crecer luego
-   la rejilla, la tarjeta acababa a 522px de su sitio (D-120).
+4. **El anclaje a la tarjeta se suelta por geometría, no por reloj**: cuando no
+   queda ninguna tarjeta sin medir (`.unsized`) de ella hacia arriba, que es la
+   condición exacta de "ya no puede moverse". Los dos criterios intuitivos
+   fallan y están medidos: "el scroll está quieto" da falso positivo porque el
+   scroll también se para cuando el destino cae más allá del tope y el navegador
+   lo recorta (destino 3908, tope 3838); y un plazo fijo es una apuesta sobre la
+   conexión del visitante — las imágenes vienen de Drive, y con 4s la tarjeta
+   acabó a 550px con 27 imágenes aún sin medir (D-120, D-121).
+5. **Mientras se restaura una vuelta, los reseteos de arranque se callan.** Tres
+   sitios mandan la galería «al primer lote y arriba» al cambiar un filtro, y al
+   volver los tres se disparan solos —el buscador anuncia "no hay búsqueda" nada
+   más iniciarse— pisando la restauración. Se resuelve con un guard y **no**
+   reordenando llamadas: el buscador vive en otro componente y el orden entre
+   `astro:page-load` de dos scripts no está garantizado (D-121).
 
 ### Anterior/Siguiente: los pinta el cliente, nunca el SSR
 

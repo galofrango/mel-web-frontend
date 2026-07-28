@@ -65,17 +65,18 @@ hecho salvo el ocultado, (3) la animación de vuelta.
 
 **Lo que queda:**
 
-- **Se ve el viaje por la galería** durante la vuelta. Es el fallo 1 original,
-  intacto y a propósito: el propietario pidió dejarlo para la pasada de la
-  animación. `restoreScroll()` ya tiene el ocultado con fundido que haría falta,
-  pero **compruébalo antes de reutilizarlo**: en producción no se aprecia.
-- **La galería se repinta cuatro veces al volver** (32 → 32 → 50, y otra ronda
-  32 → 50 un segundo y medio después), porque el buscador y `updateSlider()`
-  resetean el contador *después* de que `applyReturnState()` lo haya restaurado.
-  Se ve como un encogimiento y un reestirado de la rejilla. Ya no corrompe nada
-  (D-119) pero sigue siendo feo, y es lo que obliga a que el anclaje persiga la
-  tarjeta durante 4s. Atacarlo de raíz = que el estado de vuelta se aplique
-  **después** de todos los que resetean, no antes.
+- ~~Se ve el viaje por la galería~~ **Arreglado** (D-122). Y el aviso de este
+  documento se quedaba corto: aquel fundido **no es que no se apreciara, es que
+  no existía** — faltaba un reflow forzado entre ocultar y revelar, sin el cual
+  el navegador no crea ninguna transición. Comprobado con `getAnimations()`.
+- **El morphing de vuelta** (que el cartel se encoja hasta su hueco) sigue
+  pendiente, y es la fase 2 acordada con el propietario. Los ingredientes están
+  puestos, pero **no tiene destino**: cuando el navegador captura el estado
+  final, la galería todavía es la del SSR, con otro orden y sin colocar. Por eso
+  el paso de llegar ya colocado tenía que ir antes.
+- ~~La galería se repinta cuatro veces al volver~~ **Arreglado** (D-121): los
+  reseteos de arranque se callan mientras se restaura una vuelta. Todos los
+  repintados pintan ya 50.
 
 ---
 

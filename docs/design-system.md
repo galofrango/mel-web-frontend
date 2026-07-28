@@ -218,9 +218,11 @@ Toda navegación entre la Home y los eventos o entre eventos colindantes utiliza
 2. **Navegación Fluida con View Transitions**:
    - `Layout.astro` expone la función de enrutado nativo `window.__melNavigate` (`astro:transitions/client`).
    - Las navegaciones entre eventos (`/event/A` → `/event/B`) y la apertura desde la Home invocan `window.__melNavigate(url)`, activando `View Transitions` nativas del W3C con morphing orgánico de imágenes (`view-transition-name: flyer-img-[id]`) y fundido cruzado sin pantallas en blanco.
-3. **Persistencia y Recarga Limpia al Cerrar (`X` → `/`)**:
-   - Para proteger el canvas de Google Maps y el masonry de la Home contra desincronizaciones de memoria (regla `D-072`), el botón de cierre ejecuta recarga limpia (`window.location.href = '/'`).
-   - El estado del usuario (filtros, año, vista activa y scroll) se recupera automáticamente mediante `sessionStorage` (`saveReturnState` / `restoreReturnState`).
+3. **Cierre (`X` → `/`)**:
+   - El botón de cierre es un enlace normal, así que la vuelta a Galería y a Lista es **navegación suave** con su transición. La recarga limpia (`data-astro-reload`) se reserva para la vuelta a un panel de mapa abierto, donde la transición llegaba a destiempo (D-117).
+   - El estado del usuario (filtros, año, vista activa, lotes cargados, scroll y **qué flyer se estaba mirando**) se recupera mediante `sessionStorage` (`saveReturnState` / `applyReturnState`).
+   - Volviendo a Galería, el contenedor se **oculta mientras se coloca** y se revela con un fundido de 0,25s, para que no se vea el recorrido hasta el flyer (D-122). Ese fundido exige un reflow forzado entre ocultar y revelar; sin él no se crea ninguna transición.
+   - **El morphing de vuelta todavía no existe**: la imagen lleva el `view-transition-name` en los dos lados, pero al capturar el estado final la galería aún es la del SSR y la tarjeta de destino no está en su sitio (D-122).
 
 ```js
 // Enrutado nativo Morphing v1
