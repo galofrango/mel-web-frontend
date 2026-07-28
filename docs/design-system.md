@@ -222,7 +222,7 @@ Toda navegación entre la Home y los eventos o entre eventos colindantes utiliza
    - El botón de cierre es un enlace normal, así que la vuelta a Galería y a Lista es **navegación suave** con su transición. La recarga limpia (`data-astro-reload`) se reserva para la vuelta a un panel de mapa abierto, donde la transición llegaba a destiempo (D-117).
    - El estado del usuario (filtros, año, vista activa, lotes cargados, scroll y **qué flyer se estaba mirando**) se recupera mediante `sessionStorage` (`saveReturnState` / `applyReturnState`).
    - Volviendo a Galería, el contenedor se **oculta mientras se coloca** y se revela con un fundido de 0,25s, para que no se vea el recorrido hasta el flyer (D-122). Ese fundido exige un reflow forzado entre ocultar y revelar; sin él no se crea ninguna transición.
-   - **El morphing de vuelta todavía no existe**: la imagen lleva el `view-transition-name` en los dos lados, pero al capturar el estado final la galería aún es la del SSR y la tarjeta de destino no está en su sitio (D-122).
+   - **El morphing es solo de ida.** A la vuelta no lo hay y **está descartado**, no pendiente: al capturar el estado final la galería aún es la del SSR y la tarjeta de destino no está en su sitio, así que el cartel volaría a donde no es (D-122).
 
 ```js
 // Enrutado nativo Morphing v1

@@ -69,11 +69,16 @@ hecho salvo el ocultado, (3) la animación de vuelta.
   documento se quedaba corto: aquel fundido **no es que no se apreciara, es que
   no existía** — faltaba un reflow forzado entre ocultar y revelar, sin el cual
   el navegador no crea ninguna transición. Comprobado con `getAnimations()`.
-- **El morphing de vuelta** (que el cartel se encoja hasta su hueco) sigue
-  pendiente, y es la fase 2 acordada con el propietario. Los ingredientes están
-  puestos, pero **no tiene destino**: cuando el navegador captura el estado
-  final, la galería todavía es la del SSR, con otro orden y sin colocar. Por eso
-  el paso de llegar ya colocado tenía que ir antes.
+- **El morphing de vuelta: descartado por el propietario**, con la vuelta ya
+  funcionando. "No vamos a hacer más sobre esto, dejémoslo como está." La vuelta
+  aterriza con el flyer colocado y eso es el comportamiento definitivo, no un
+  paso intermedio. **No lo reabras por iniciativa propia.**
+  Si algún día se retoma, el dato que ahorra el primer día de trabajo: el
+  morphing nativo **no puede funcionar aquí**. Cuando el navegador captura el
+  estado final, la galería todavía es la del SSR —otro orden, sin colocar y con
+  las alturas sin medir—, así que volaría el cartel a un sitio que no es el suyo.
+  Habría que hacerlo a mano con transformaciones (regla 2), aprovechando que
+  `volverAlFlyer()` sí sabe el momento exacto en que la tarjeta queda colocada.
 - ~~La galería se repinta cuatro veces al volver~~ **Arreglado** (D-121): los
   reseteos de arranque se callan mientras se restaura una vuelta. Todos los
   repintados pintan ya 50.

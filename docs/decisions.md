@@ -1353,9 +1353,13 @@ Fase 1 de la animación de vuelta: primero que la galería llegue ya colocada, y
 - **Contrapartida aceptada**: revelando pronto, si después siguen cargando imágenes de más arriba la tarjeta puede desplazarse un poco y eso sí se ve. La alternativa era más rato en blanco. Un ajuste pequeño molesta menos que un vacío largo.
 - **Verificado**: traza de la vuelta → `opacity 0 / transition none` al empezar, `opacity 1 / transition opacity 0.25s` al colocar, limpieza 300ms después; tarjeta a 0px de su sitio. `npm run build` pasa.
 
-### Pendiente: el morphing de vuelta (fase 2)
+### El morphing de vuelta: descartado
 
-Los ingredientes ya están —la imagen lleva `view-transition-name: flyer-img-{id}` en la tarjeta y en la ficha, y la vuelta es navegación suave— pero **no tiene destino al que agarrarse**: cuando el navegador captura el estado final, la galería sigue siendo la del SSR, con su propio orden barajado y sin colocar. La tarjeta de destino o no está entre las 32 servidas, o está en una posición que no es la definitiva. Por eso la fase 1 (llegar ya colocado) es requisito previo y no un adorno.
+**Decisión del propietario**, tomada con la vuelta ya funcionando en escritorio y móvil: *"No vamos a hacer más sobre esto. Dejémoslo como está."* La vuelta aterriza con el flyer colocado y ese es el comportamiento definitivo, no un paso intermedio hacia otra cosa.
+
+Queda escrito el porqué técnico, que es lo que ahorra el primer día a quien lo retome: **el morphing nativo no puede funcionar aquí**. Los ingredientes están puestos —la imagen lleva `view-transition-name: flyer-img-{id}` en la tarjeta y en la ficha, y la vuelta es navegación suave— pero **no tiene destino al que agarrarse**: cuando el navegador captura el estado final, la galería sigue siendo la del SSR, con su propio orden barajado, sin colocar y con las alturas sin medir. La tarjeta de destino o no está entre las 32 servidas, o no está en la posición en la que acabará, así que el cartel volaría a un sitio que no es el suyo. Y desde D-122 la galería se oculta a propósito durante la vuelta: no se puede morphear hacia algo invisible.
+
+La vía que quedaba era hacerlo a mano con transformaciones (regla 2 de AGENTS.md), aprovechando que `volverAlFlyer()` sí conoce el instante exacto en que la tarjeta queda colocada: capturar la posición del cartel al pulsar la X, inyectar una copia flotante en el intercambio de páginas y volarla hasta el hueco al revelar. No se ha implementado.
 
 ### D-122 (ronda 2) · El parpadeo: la galería tiene que nacer oculta, y no apilar transiciones
 
