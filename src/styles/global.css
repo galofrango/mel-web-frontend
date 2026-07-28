@@ -232,6 +232,15 @@ html {
     opacity: 0.55;
     transition-duration: 0s;
   }
+  /* Los que YA tienen su pulsado diseñado (Figma 345:22436, 502:245297,
+     111:3929) no llevan además el atenuado genérico: se sumarían y el color
+     saldría lavado. Se identifican por llevar su propio `active:bg-*`. */
+  .group:active,
+  .group:active *,
+  [class*="active:bg-"]:active,
+  [class*="active:text-"]:active {
+    opacity: 1;
+  }
 }
 
 body {

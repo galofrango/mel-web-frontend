@@ -1449,7 +1449,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary truncate w-full">${escHtml(evt.evento)}</p>
         <p class="typo-body-roman text-mel-text-secondary">${escHtml(formatFechaDMY(evt.fecha))}</p>
       </div>
-      <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200">
+      <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 border-b border-mel-border/60"></div>' : ''}
@@ -2400,7 +2400,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           mobileListItems.innerHTML = '';
           paginated.forEach((item, idx) => {
             const row = document.createElement('div');
-            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
             row.dataset.id = item.idMel;
             row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
             row.addEventListener('pointerenter', () => {
@@ -2972,13 +2972,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // width — re-decide equal-vs-content mode (D-059/D-060).
       updateAdaptiveTagsRow('side-panel-tags-container');
 
-      // Populate event cards list inside side panel
+      // Reconstruir la lista con EXACTAMENTE los mismos eventos que ya están
+      // pintados hace que sus fotos se descarguen otra vez: desaparecen un
+      // instante y vuelven. Se ve al volver de un evento, justo cuando el panel
+      // termina de subir, porque al restaurar la página la lista ya venía bien
+      // y aun así se rehacía entera. La firma va en un data-* del propio
+      // contenedor para que sobreviva a la restauración del DOM.
       const listContainer = document.getElementById('side-panel-event-list');
+      const firmaLista = group.events.map(e => e.idMel).join(',');
+      if (listContainer.dataset.firmaLista === firmaLista && listContainer.children.length) return;
+      listContainer.dataset.firmaLista = firmaLista;
       listContainer.innerHTML = '';
 
       group.events.forEach((evt, idx) => {
         const card = document.createElement('div');
-        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
         card.addEventListener('pointerenter', () => {
