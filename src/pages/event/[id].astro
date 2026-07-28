@@ -686,7 +686,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       alturaX = filaX.getBoundingClientRect().height;
       puntoAnclaje = alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
       raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
-      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
+      // Borde inferior de la cabecera cuando está anclada: se ancla en
+      // `-alturaX`, así que su borde inferior cae en `alto - alturaX`. Llevaba
+      // sumado además el padding superior del contenedor (resto de cuando ese
+      // aire vivía DENTRO de la cabecera), y esos 16px de más abrían un hueco
+      // entre los tags y la foto por el que se veía pasar el contenido.
+      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX;
       raiz.style.setProperty('--mel-cab-fija', `${anclajeFoto}px`);
       // Alto CONGELADO de la columna de la foto. Es la invariante que impide
       // que el encogido se realimente: si la columna encogiera con el recorte,

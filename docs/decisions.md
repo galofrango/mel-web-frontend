@@ -1239,3 +1239,11 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Causa**: la caja iba `position: fixed`, y un elemento fijo sale de la cadena de scroll — el navegador busca el ancestro desplazable por la cadena de bloques contenedores, que para un fijo es el viewport, y el viewport aquí no se desplaza. Era el riesgo que quedó anotado sin verificar en D-108.
 - **Arreglo**: la que se ancla es la **columna**, con `position: sticky`. Al seguir en el flujo, el dedo la arrastra como cualquier otra parte de la página. Y a diferencia del intento de D-105, aquí no se suelta antes de tiempo: su contenedor es el propio contenedor con scroll, o sea todo el contenido. El alto congelado se mantiene —es lo que impide que encoger el recorte cambie la maquetación— y el espacio sobrante dentro de la columna queda transparente, así que el contenido se ve pasar por él justo bajo la foto.
 - **8px de aire sobre el contenido**, restados al faldón y a la paginación para que el conjunto no cambie de tamaño. Sin ellos el contenido arrancaba justo en el borde de la caja y se veía recortado al subir. Verificado en todo el recorrido: el aire va de 0 a 16px y **nunca es negativo**.
+
+
+## D-113 · El anclaje de la foto llevaba sumado un padding que ya no existía
+
+- **Síntoma**: al encoger la foto aparecía un hueco entre la fila de tags y la caja, por el que se veía pasar el contenido; y algo parecido por encima de la X.
+- **Causa**: el borde inferior de la cabecera anclada es `alto - alturaX`. El cálculo del anclaje de la foto le sumaba además el padding superior del contenedor — resto de D-110, cuando ese aire vivía DENTRO de la cabecera y no en el contenedor. Al mover el padding (D-107) el término sobró, pero se quedó. Esos 16px de más eran exactamente el hueco.
+- **Verificado con pasos de 5px en todo el recorrido, ida y vuelta**: hueco entre cabecera y columna 0 en todas las posiciones.
+- **Lección repetida**: es la segunda vez que dos números que deben coincidir se desincronizan al mover una pieza (la primera, D-111). El anclaje se calcula ahora de una sola fuente y a partir de la geometría real de la cabecera, no de una suma de partes.
