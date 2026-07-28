@@ -1382,3 +1382,28 @@ El propietario probó lo anterior y no vio ningún fundido: vio **un parpadeo y 
 - **Por qué sobre `archives` y no sobre una copia**: esa secuencia es la que ven las tres vistas y el Anterior/Siguiente (contrato de navegación). Se persiste en `mel-session-order`, el mismo mecanismo que el barajado inicial, así que sobrevive a la vuelta de un evento y a un F5.
 - **Arreglado de paso, porque el orden depende de ello**: el comparador de texto devolvía `1` mirando solo un lado (`if (!valA...) return 1`) sin comprobar el otro. Eso no es un orden total, y con un comparador incoherente el navegador puede devolver cualquier cosa — incluida la estabilidad de la que depende todo esto. Ahora los huecos y los "desconocido" caen al final se ordene como se ordene.
 - **Verificado**: sesión limpia (orden aleatorio) → ordenar por fecha → ordenar por organiza. Dentro de cada promotor, fechas estrictamente cronológicas: FIV 2010→2019 (22 eventos), Quixotes y Ravers 7.5 igual. Aguanta un F5, y la Galería muestra la misma secuencia que la Lista (comprobado id a id). `npm run build` pasa.
+
+## D-124 · Nunca menos de dos columnas, y una cuarta cuando el selector cabe con las tags
+
+- **Planteamiento del propietario**, y es el correcto: el problema no es el tamaño de los carteles, es que **casi nunca se ve uno entero**. Los controles ocupan tanto alto que en móvil la galería enseña las piezas de una en una y cortadas. *"Tratándose de una galería, verlos de 1 en 1 e incompletos me pone nervioso."*
+- **Medido a 375px**, con la galería a 484px de alto y 21 flyers con ratio ya medido:
+
+  | | ancho | alto mediano | caben enteros | se ven a la vez |
+  |---|---|---|---|---|
+  | 1 columna | 327px | 462px | 15 de 21 | ~1 |
+  | 2 columnas | 152px | 215px | **21 de 21** | ~4 |
+
+  A una columna el flyer mediano ocupa 462 de 484: llena la pantalla y no deja ver nada más. **Se descarta `grid-cols-1`: el mínimo es dos.**
+- **Objeción que planteé y retiro**: 152px parecía demasiado pequeño para una pieza con lineup y letra menuda. Viéndolo, la pieza se reconoce perfectamente como objeto gráfico, y para el detalle ya está la ficha (D-115). Ver cuatro enteras vale más que ver una cortada.
+- **La cuarta columna cuelga de `.toggle-shares-line`**, el estado que ya decide si el selector de vista cabe en el renglón de las tags — la referencia que dio el propietario: *"como cuando el toggle se pone a la misma altura que las tags"*. **No es un breakpoint**: se mide en tiempo real contra lo que ocupan los textos de las tags (`updateHomeToolbarLayout`), así que colgarlo de un ancho fijo se desincronizaría en cuanto cambiaran los datos de la hoja. Medido: se enciende entre 1100 y 1180px de ventana; a 1440 (el `max-w` del sitio) el cartel mide 288px.
+- **El cambio de columnas remide los row-span** en el mismo sitio donde se enciende la clase (regla 11): al cambiar el ancho de columna todos quedan viejos. Va enganchado al cambio y no a que alguien se acuerde.
+- **Réplica en JS eliminada** (regla 7): `performDOMUpdates()` reasignaba el `className` entero de la rejilla repitiendo a mano las clases del marcado. Se había desincronizado —dejaba el móvil en una sola columna por mucho que dijera el marcado— y además borraba `galeria-cuatro` en cada render. Era redundante: lo único que se le añade a esa rejilla es `hidden`, y se quita justo encima. **Verificado**: tras filtrar por búsqueda, la rejilla conserva sus cuatro columnas.
+- **Consecuencia en el anclaje de la vuelta**: usaba "una sola columna" (`max-width: 639px`) como señal para dejar el flyer pegado arriba en móvil. Ya no existe ningún caso de una columna, así que el corte pasa a `md` (767px), donde la rejilla va de dos a tres. El comportamiento pedido —arriba en móvil— no cambia.
+
+## D-125 · La pastilla de la tarjeta solo por encima de 240px, medido sobre la tarjeta
+
+- **Petición del propietario**: en un móvil, dejar el dedo sobre una tarjeta hace que el navegador le aplique `hover` y salta la pastilla con título y fecha, que ahí ni pinta nada ni cabe. Quitarla salvo que la tarjeta mida al menos 240px.
+- **Se mide la TARJETA, no la ventana**, con una consulta de contenedor (`container-type: inline-size` en `.gallery-item` + `@container (max-width: 239px)`). Una media query no serviría: el ancho de la tarjeta depende del número de columnas, y ese número **no sale de un breakpoint** — la cuarta se decide midiendo (D-124). Caso real que lo demuestra: a 1180px de ventana hay cuatro columnas de 223px, o sea una ventana ancha con tarjetas estrechas.
+- **Solo en el eje en línea**: el alto lo sigue poniendo la imagen, que es de lo que vive el masonry. Verificado que los `row-span` se siguen calculando (`span 60` con la contención puesta).
+- **Verificado en los tres anchos reales**: 152px (móvil, dos columnas) → oculta; 223px (cuatro columnas a 1180) → oculta; 288px (cuatro columnas a 1440) → presente.
+- **No hace falta tocar el marcado**, así que la réplica en JS de `FlyerCard` (regla 7) no se desincroniza por esto: la regla vive en el CSS global y alcanza por igual a las tarjetas del SSR y a las que construye el scroll infinito.

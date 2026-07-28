@@ -284,6 +284,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         #home-toggle-wrapper.toggle-shares-line {
           max-width: calc((100% - 264px) / 3 + 72px);
         }
+        /* La cuarta columna de la galería se cuelga del MISMO estado que decide
+           que el selector de vista quepa en el renglón de las tags — que es la
+           referencia que dio el propietario: "cuando el toggle se pone a la
+           misma altura que las tags". No es un breakpoint: se mide en tiempo
+           real contra el ancho que ocupan los textos de las tags
+           (updateHomeToolbarLayout), así que colgarlo de un ancho fijo se
+           desincronizaría en cuanto cambiaran los datos de la hoja. */
+        #gallery-grid.galeria-cuatro {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
         @media (min-width: 1024px) {
           #home-highlights-toolbar .adaptive-tags-row.highlights-flex-content {
             width: auto;
@@ -332,7 +342,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            container's own box reaches the literal bottom of the screen
            instead of stopping 3vh short of it. -->
       <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
-        <div id="gallery-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
+        <!-- Nunca menos de DOS columnas, ni en el móvil más estrecho. A una sola,
+             el flyer mediano mide 462px en una ventana de galería de 484: ocupa
+             la pantalla entera, no cabe entero casi nunca y no se ve nada más.
+             En una galería, ver las piezas de una en una y cortadas es peor que
+             verlas pequeñas. Medido a 375px: a una columna caben enteros 15 de
+             21; a dos, los 21, y se ven cuatro a la vez (D-124).
+             La cuarta columna la enciende `.galeria-cuatro`, ver
+             updateHomeToolbarLayout(). -->
+        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
@@ -742,6 +760,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   .gallery-item {
     align-self: start;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    /* Cada tarjeta es su propio contenedor de consulta, para que la pastilla de
+       abajo pueda preguntar por el ancho de SU tarjeta. Solo en el eje en línea:
+       el alto lo sigue poniendo la imagen, que es de lo que vive el masonry. */
+    container-type: inline-size;
+  }
+
+  /* La pastilla con el título y la fecha solo aparece si la tarjeta da de sí.
+     Por debajo de 240px el texto sale apelmazado, y en un móvil encima aparece
+     sin querer: al dejar el dedo sobre una tarjeta el navegador le aplica el
+     estado `hover`, y salta una pastilla que allí no pinta nada.
+     Se mide la TARJETA y no la ventana a propósito: su ancho depende del número
+     de columnas, y ese número no sale de un breakpoint — la cuarta columna se
+     decide midiendo (ver `.galeria-cuatro`). A 1180px, por ejemplo, hay cuatro
+     columnas de 223px: una ventana ancha con tarjetas estrechas. */
+  @container (max-width: 239px) {
+    .flyer-label {
+      display: none;
+    }
   }
   /* Placeholder mientras la imagen aún no ha declarado su ratio: bloque
      blanco de ~300px para que la rejilla no arranque colapsada. */
@@ -1884,12 +1920,16 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const cont = document.getElementById('view-galería');
     if (!cont || !idMel) return false;
 
-    // A una columna la tarjeta suele ser más alta que la ventana, y centrar algo
-    // que no cabe no centra nada: recorta por arriba y por abajo a la vez. Ahí
-    // va pegada al borde superior de la galería, que es exactamente donde acaba
-    // la toolbar (el contenedor no lleva relleno superior en móvil). El corte es
-    // el mismo `sm:grid-cols-2` con el que la rejilla pasa a dos columnas.
-    const unaColumna = window.matchMedia('(max-width: 639px)').matches;
+    // En móvil la tarjeta va pegada al borde superior de la galería, que es
+    // exactamente donde acaba la toolbar (el contenedor no lleva relleno
+    // superior ahí). Es lo que pidió el propietario y se mantiene.
+    //
+    // El corte es `md`, donde la rejilla pasa de dos a tres columnas. Antes era
+    // 639px porque marcaba el paso de UNA columna a dos, y a una columna la
+    // tarjeta era más alta que la ventana: centrar algo que no cabe no centra
+    // nada, recorta por arriba y por abajo a la vez. Desde D-124 no hay ningún
+    // caso de una sola columna, así que ese corte ya no significaba lo que decía.
+    const enMovil = window.matchMedia('(max-width: 767px)').matches;
 
     // Se tapa el viaje. El revelado lleva su PROPIO plazo, corto y aparte del
     // del bucle: aquel puede llegar a 10s esperando una imagen que quizá no
@@ -1935,7 +1975,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       if (tarjeta) {
         const arriba = tarjeta.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop;
         const hueco = cont.clientHeight - tarjeta.offsetHeight;
-        const objetivo = unaColumna ? arriba : arriba - Math.max(0, hueco / 2);
+        const objetivo = enMovil ? arriba : arriba - Math.max(0, hueco / 2);
         if (Math.abs(cont.scrollTop - objetivo) > 2) cont.scrollTop = objetivo;
         // Se relee DESPUÉS de asignar, no antes: si el destino cae más allá del
         // tope el navegador lo recorta, la diferencia sigue siendo grande y no
@@ -2407,7 +2447,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
 
-        gridContainer.className = `grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh] relative`;
+        // Aquí NO se reescriben las clases de la rejilla. Había una asignación
+        // completa de `className` repitiendo a mano las del marcado (regla 7 de
+        // AGENTS.md, réplica en JS de un componente Astro), y hacía dos daños:
+        // se desincronizó al cambiar las columnas —dejaba la galería en una sola
+        // en móvil por mucho que dijera el marcado— y borraba en cada render la
+        // clase `galeria-cuatro`, que se enciende desde otro sitio. Era además
+        // redundante: lo único que se le añade a esta rejilla es `hidden`, y esa
+        // se quita en la línea de arriba.
         // En el primer render se conservan las tarjetas que ya vinieron del SSR
         // (solo se miden) para no destruir el marcado servido... pero SOLO si
         // coinciden con lo que toca pintar. No coinciden en dos casos reales:
@@ -3895,6 +3942,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         },
       });
       toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
+
+      // La galería pasa a cuatro columnas en el mismo momento. Se hace aquí y
+      // no con un `:has()` en CSS porque al cambiar el ancho de columna TODOS
+      // los row-span quedan viejos (regla 11): hay que volver a medirlos, y así
+      // el remedido va enganchado al cambio y no a que alguien se acuerde.
+      const rejilla = document.getElementById('gallery-grid');
+      if (rejilla && rejilla.classList.contains('galeria-cuatro') !== isSharing) {
+        rejilla.classList.toggle('galeria-cuatro', isSharing);
+        const primera = rejilla.querySelector('.gallery-item');
+        const ancho = primera ? primera.clientWidth : 0;
+        if (ancho) rejilla.querySelectorAll('.gallery-item').forEach(c => sizeGalleryCard(c, ancho));
+      }
     }
     // filterArchives() es hermana de initHomePage, no hija: sin esta referencia
     // no puede pedir el recálculo del reparto al entrar o salir de "sin resultados".
