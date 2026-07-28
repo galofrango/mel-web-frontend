@@ -321,7 +321,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div id="detail-image-column" class="w-full shrink-0 z-20 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
+        <div id="detail-image-column" class="w-full shrink-0 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
 
           <!-- Pinned image box (Figma 369:32751: min-h-[200px] on scroll).
                Below `lg`, updateStickyImage() drives `position: fixed` plus
@@ -341,7 +341,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                  que la propia caja lleva un faldón macizo de 32px por el que el
                  contenido pasa por debajo. Con paginación sobra: los 24px de
                  abajo del `py-6` de los puntos ya hacen ese papel. */
-              imageUrls.length > 1 ? "" : "pb-6 lg:pb-0",
+              imageUrls.length > 1 ? "" : "pb-8 lg:pb-0",
             ]}
           >
             <!-- Crop window: THIS is what shrinks (400px→200px), via
@@ -389,7 +389,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                  on desktop (top-[400px]) so they don't shift the navigation
                  block there, unchanged from before. -->
             {imageUrls.length > 1 && (
-              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center pt-6 pb-4 lg:py-6 w-full" id="carousel-dots-container">
+              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
 
                 {imageUrls.map((_, idx) => (
                   <PaginationDot
@@ -431,7 +431,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div id="detail-scroll" class="shrink-0 pt-4 lg:pt-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full lg:pl-6" data-name="Info">
+        <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -680,18 +680,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         raiz.style.removeProperty('--mel-cab-fija');
         if (columnaFoto) columnaFoto.style.height = '';
         if (imageCrop) imageCrop.style.height = '';
+        raizPagina.classList.remove('fijada');
         raizPagina.style.removeProperty('--mel-revelado');
         return;
       }
       alturaX = filaX.getBoundingClientRect().height;
       puntoAnclaje = alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
       raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
-      // Borde inferior de la cabecera cuando está anclada: se ancla en
-      // `-alturaX`, así que su borde inferior cae en `alto - alturaX`. Llevaba
-      // sumado además el padding superior del contenedor (resto de cuando ese
-      // aire vivía DENTRO de la cabecera), y esos 16px de más abrían un hueco
-      // entre los tags y la foto por el que se veía pasar el contenido.
-      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX;
+      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
       raiz.style.setProperty('--mel-cab-fija', `${anclajeFoto}px`);
       // Alto CONGELADO de la columna de la foto. Es la invariante que impide
       // que el encogido se realimente: si la columna encogiera con el recorte,
@@ -703,12 +699,15 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // fija la columna mediría cero y el documento se quedaría sin recorrido.
       if (columnaFoto && imageCrop && cajaFoto) {
         const altoPrevio = imageCrop.style.height;
+        const fijadaAntes = raizPagina.classList.contains('fijada');
+        raizPagina.classList.remove('fijada');
         imageCrop.style.height = `${IMAGE_MAX_H}px`;
         columnaFoto.style.height = '';
         columnaFoto.style.height = `${cajaFoto.getBoundingClientRect().height}px`;
         inicioEncogido = Math.max(0,
           cajaFoto.getBoundingClientRect().top + raizPagina.scrollTop - anclajeFoto);
         imageCrop.style.height = altoPrevio;
+        if (fijadaAntes) raizPagina.classList.add('fijada');
       }
     }
 
@@ -738,6 +737,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // Antes de ese punto va en flujo normal: fijarla desde el principio la
       // colocaría sobre el título, porque `fixed` no sabe de reposo.
       const pasado = Math.max(0, y - inicioEncogido);
+      raizPagina.classList.toggle('fijada', pasado > 0);
       if (imageCrop) {
         imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado - revelado)}px`;
       }
@@ -1228,9 +1228,13 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        variable medida una vez al iniciar — no de leer en vivo el rectángulo de
        otro elemento fijo, que es lo que se descolocaba en el móvil (D-103).
        El hueco lo reserva #detail-image-column, con alto congelado. */
-    #detail-image-column {
-      position: sticky;
+    .fijada #detail-image-sticky {
+      position: fixed;
       top: calc(var(--mel-cab-fija, 176px) + var(--mel-revelado, 0px));
+      left: 0;
+      right: 0;
+      margin: 0;
+      width: 100%;
     }
   }
 
