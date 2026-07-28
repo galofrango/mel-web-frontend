@@ -50,6 +50,12 @@
 
 ## Ideas Pendientes (sin compromiso)
 
+- **Botón flotante para cambiar el orden** (apunte del propietario, 2026-07-28, *a la espera de feedback de la gente*). Textualmente:
+  > Tiene su gracia que, de entrada, la galería muestre los flyers en orden aleatorio, creando ese juego y mostrando siempre un inicio diferente. Sin embargo, el modo lista en móvil no permite ahora mismo un cambio de orden, ni siquiera por cronología. Por lo que valoramos la inclusión de un botón flotante que permita cambiar de un orden aleatorio (o barajar) a un orden cronológico (incluso cambio de ascendente a descendente).
+  - El problema de fondo, medido: **en móvil el archivo solo se puede ver barajado**. La ordenación vive en las cabeceras de columna de la tabla, que ahí no existen.
+  - **Matiz del propietario, importante**: no se trata de elegir entre mosaico y cronología, sino de que **convivan los dos también en móvil**. El barajado de entrada le gusta y quiere conservarlo; lo que falta es la puerta al orden cronológico. Invertir el valor por defecto fue una propuesta del agente que el propietario **no** pidió.
+  - Decisión aplazada hasta tener reacciones de visitantes reales.
+
 - **El panel de eventos como punto de retorno propio** (idea del propietario, 2026-07-28). Al desplegarse, el panel debería generar un punto de retorno al que volver cuando se cierran los eventos que se están navegando desde él — en vez de restaurar la home entera y que se vea el viaje, aunque sea rápido. Hoy la vuelta ya no duplica nada ni se rompe (D-117), pero sigue recorriendo galería → mapa → panel, y entrando y saliendo a menudo eso cansa.
   - **Lo delicado está en escritorio**: ahí los filtros siguen aplicando a los resultados del panel, así que "el estado del panel" no es independiente del estado de la home y no se puede restaurar por separado sin decidir qué manda.
   - Aparcado a propósito hasta poder pensarlo con esa pregunta resuelta.
