@@ -610,6 +610,26 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       if (Array.isArray(parsed)) imageUrls = parsed;
     } catch (e) {}
 
+    // La vuelta apunta al flyer que se está mirando AHORA, no al que se abrió
+    // desde la galería. El estado de vuelta lo escribe la home al pulsar una
+    // tarjeta y no lo tocaba nadie más, así que recorriendo la sesión con
+    // Anterior/Siguiente seguía señalando al primero: cerrar desde el tercer
+    // evento devolvía al primero, que era justo lo que la vuelta al flyer venía
+    // a resolver. Se engancha a QUÉ FICHA SE ESTÁ MOSTRANDO y no a los enlaces
+    // porque hay cuatro maneras de llegar a una (los dos enlaces, las flechas
+    // del teclado y una URL directa) y así quedan cubiertas las cuatro.
+    // Se reescribe solo ese campo: los filtros, los lotes cargados y el píxel
+    // de reserva siguen siendo los de la galería que se dejó. Y solo si ya hay
+    // estado — llegando por una URL directa no hay ninguna vuelta que ajustar.
+    try {
+      const crudo = sessionStorage.getItem('mel-return-state');
+      if (crudo) {
+        const estado = JSON.parse(crudo);
+        estado.flyer = eventId;
+        sessionStorage.setItem('mel-return-state', JSON.stringify(estado));
+      }
+    } catch (e) {}
+
     // Parse search/location/view queries from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const activeView = urlParams.get('view') || 'galería';

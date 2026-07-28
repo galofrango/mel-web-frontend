@@ -1543,10 +1543,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const gridContainer = document.getElementById('gallery-grid');
     const galleryViewEl = document.getElementById('view-galería');
     if (!gridContainer || !galleryViewEl || galleryViewEl.classList.contains('hidden')) return;
-    const next = galleryOrderedCache.slice(galleryVisibleCount, galleryVisibleCount + PAGE_SIZE);
+    // De dónde sigue el lote lo dice el DOM, no el contador. Son dos formas de
+    // anotar el mismo hecho —cuántas tarjetas hay pintadas— y se escriben en
+    // horarios distintos: el contador, de forma síncrona y desde cuatro sitios
+    // (initHomePage, updateSlider, el buscador y applyReturnState); el DOM, de
+    // forma asíncrona, dentro de performDOMUpdates, que filterArchives() le
+    // entrega a document.startViewTransition(). Al volver de una ficha esas dos
+    // agendas se cruzan y el contador se queda en 32 con 50 tarjetas ya
+    // pintadas: el lote pedía el tramo 32–50, que estaba en pantalla, y lo
+    // añadía otra vez (18 tarjetas duplicadas). El DOM es lo único que no puede
+    // mentir sobre lo que hay pintado, así que manda él y el contador se limita
+    // a seguirlo.
+    const startIdx = gridContainer.children.length;
+    const next = galleryOrderedCache.slice(startIdx, startIdx + PAGE_SIZE);
     if (next.length === 0) return;
-    const startIdx = galleryVisibleCount;
-    galleryVisibleCount += next.length;
+    galleryVisibleCount = startIdx + next.length;
     next.forEach((item, i) => {
       const card = buildGalleryCard(item, startIdx + i);
       gridContainer.appendChild(card);
@@ -1815,26 +1826,72 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   // Insiste en devolver un contenedor a `target` mientras su contenido siga
   // creciendo (imágenes cargando ⇒ alto final desconocido al principio).
-  // Lleva la galería hasta una tarjeta concreta. Reintenta igual que
-  // restoreScroll() porque la tarjeta puede no existir todavía: el scroll
-  // infinito carga por lotes y el masonry la coloca cuando su imagen mide.
-  // Devuelve false si al cabo del plazo no aparece, para que quien llama pueda
-  // recaer en el píxel guardado.
-  function volverAlFlyer(idMel, timeoutMs = 2500) {
+  // Lleva la galería hasta una tarjeta concreta y la deja QUIETA ahí.
+  //
+  // Colocarla una vez no basta, y por eso a veces quedaba cerca y otras no: el
+  // masonry mide cada tarjeta cuando su imagen carga, así que durante el primer
+  // segundo largo las de arriba van creciendo y empujando a las de abajo. La
+  // tarjeta se mueve DESPUÉS de haberla colocado. Se reafirma durante todo el
+  // plazo, recalculando en cada vuelta dónde está la tarjeta AHORA: la tarjeta
+  // es la referencia estable, su píxel no. También puede no existir todavía,
+  // porque el scroll infinito carga por lotes; por eso se busca en cada vuelta.
+  //
+  // Se fija el scrollTop del contenedor en lugar de usar scrollIntoView() a
+  // propósito: scrollIntoView desplaza también todos los contenedores
+  // antepasados, incluida la ventana, y en un móvil eso mueve la página entera.
+  //
+  // Devuelve false si no hay a dónde ir, para que quien llama recaiga en el
+  // píxel guardado.
+  // El plazo es más largo que el de restoreScroll() a propósito: aquel persigue
+  // un píxel, que existe desde el primer fotograma, y este persigue una tarjeta
+  // que puede tardar en llegar. Al volver, la galería se repinta entera cuatro
+  // veces a lo largo de 1,7s (los reseteos del contador contra la restauración
+  // del estado), y solo DESPUÉS empiezan a medirse las imágenes. Con 2,5s el
+  // bucle se retiraba en mitad de esa tormenta y la tarjeta acababa a 522px de
+  // su sitio. Seguir reafirmando no cuesta nada: cuando ya está colocada no se
+  // escribe, y al primer gesto del visitante se abandona.
+  function volverAlFlyer(idMel, timeoutMs = 4000) {
     const cont = document.getElementById('view-galería');
     if (!cont || !idMel) return false;
-    const t0 = Date.now();
-    const intento = setInterval(() => {
+
+    // A una columna la tarjeta suele ser más alta que la ventana, y centrar algo
+    // que no cabe no centra nada: recorta por arriba y por abajo a la vez. Ahí
+    // va pegada al borde superior de la galería, que es exactamente donde acaba
+    // la toolbar (el contenedor no lleva relleno superior en móvil). El corte es
+    // el mismo `sm:grid-cols-2` con el que la rejilla pasa a dos columnas.
+    const unaColumna = window.matchMedia('(max-width: 639px)').matches;
+
+    const deadline = Date.now() + timeoutMs;
+    const stop = () => {
+      clearInterval(timer);
+      cont.removeEventListener('wheel', stop);
+      cont.removeEventListener('touchstart', stop);
+      cont.removeEventListener('pointerdown', stop);
+    };
+    // setInterval y no requestAnimationFrame, igual que restoreScroll(): rAF se
+    // congela en pestañas en segundo plano y esto tiene que llegar a su sitio
+    // aunque el visitante se vaya a otra pestaña mientras vuelve.
+    const timer = setInterval(() => {
       const tarjeta = cont.querySelector(`.gallery-item[data-id="${idMel}"]`);
       if (tarjeta) {
-        // `block: 'center'` y no 'start': el flyer queda donde el ojo lo
-        // buscaría, no pegado al borde superior bajo la toolbar.
-        tarjeta.scrollIntoView({ block: 'center', behavior: 'instant' });
-        clearInterval(intento);
-        return;
+        const arriba = tarjeta.getBoundingClientRect().top - cont.getBoundingClientRect().top + cont.scrollTop;
+        const hueco = cont.clientHeight - tarjeta.offsetHeight;
+        const objetivo = unaColumna ? arriba : arriba - Math.max(0, hueco / 2);
+        if (Math.abs(cont.scrollTop - objetivo) > 2) cont.scrollTop = objetivo;
       }
-      if (Date.now() - t0 > timeoutMs) clearInterval(intento);
-    }, 60);
+      // No hay salida anticipada por "ya está quieto", y es a propósito: el
+      // scroll se queda quieto también cuando NO ha llegado, porque mientras la
+      // rejilla no ha crecido del todo el destino cae más abajo del tope y el
+      // navegador lo recorta ahí. Medido: destino 3908, tope 3838, tres lecturas
+      // idénticas y el bucle dándose por bueno — y al crecer luego la rejilla,
+      // la tarjeta acababa a 522px de donde tenía que estar. Se reafirma hasta
+      // el final del plazo; cuando ya está en su sitio no se escribe nada.
+      if (Date.now() >= deadline) stop();
+    }, 50);
+    // Se abandona en cuanto el visitante toca el scroll: no pelearse con él.
+    cont.addEventListener('wheel', stop, { once: true, passive: true });
+    cont.addEventListener('touchstart', stop, { once: true, passive: true });
+    cont.addEventListener('pointerdown', stop, { once: true, passive: true });
     return true;
   }
 
@@ -1901,8 +1958,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // Si sabemos por qué flyer se entró, se vuelve a ÉL. El píxel queda de red
     // de seguridad para cuando no hay flyer (se entró desde lista o mapa) o
     // cuando ese flyer ya no está en pantalla porque cambió el filtro.
-    if (st.flyer && !volverAlFlyer(st.flyer)) restoreScroll('view-galería', s.galeria);
-    else if (!st.flyer) restoreScroll('view-galería', s.galeria);
+    if (!st.flyer || !volverAlFlyer(st.flyer)) restoreScroll('view-galería', s.galeria);
     restoreScroll('list-table-wrapper', s.listaTable);
     restoreScroll('list-mobile-cards', s.listaCards);
 

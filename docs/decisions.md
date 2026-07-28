@@ -1278,3 +1278,42 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
   - **Comprobar que un cambio de la hoja ha subido**: añadir cualquier parámetro nuevo a la URL (`?v=2`) fuerza una construcción desde cero, porque es otra clave de caché.
   - **No cuesta dinero y de hecho abarata**: la copia es del HTML, no de las fotos —que siguen viniendo de Drive—, y cada visita servida desde el borde es una que no hace trabajar al servidor.
 - **La precarga solo llegaba a escritorio**: se disparaba con `pointerenter`, que en un móvil no existe — no hay puntero que entre en nada. De ahí que en escritorio la ficha apareciera al instante y en el teléfono se notara la espera. Ahora se registra también en `touchstart`, que ocurre al posar el dedo, unos cientos de milisegundos antes de soltarlo: justo el margen para adelantar la página. Cuatro puntos de precarga migrados.
+
+## D-119 · Cuántas tarjetas hay pintadas lo dice el DOM, no un contador
+
+- **Síntoma**: al volver de una ficha a la galería aparecían tarjetas repetidas. Medido en el flujo real (entrar en un flyer del fondo de la galería y cerrar): **68 tarjetas, 18 de ellas duplicadas**.
+- **La sospecha apuntada en el traspaso era falsa**: no era que los saltos de scroll dispararan el cargador de lotes varias veces seguidas. Llamar varias veces a `appendGalleryBatch()` **no duplica nada**, porque cada llamada avanza el contador y pide el tramo siguiente.
+- **Causa real**: cuántas tarjetas hay pintadas está anotado **en dos sitios que se escriben en horarios distintos**.
+  - El contador `galleryVisibleCount`, de forma **síncrona**, desde cuatro sitios: `initHomePage()`, `updateSlider()`, el manejador del buscador y `applyReturnState()`.
+  - El DOM, de forma **asíncrona**, dentro de `performDOMUpdates()` — que `filterArchives()` no ejecuta, sino que **le entrega a `document.startViewTransition()`**, que lo llama más tarde.
+  - Al volver, las dos agendas se cruzan. Traza del flujo real: `applyReturnState` deja el contador en 50, el buscador lo devuelve a 32 justo después, y el repintado que llega el último ya llevaba 50 dentro. Resultado: **contador 32, DOM 50**.
+- **Y entonces basta con que el centinela entre en pantalla** —lo que la vuelta al flyer garantiza, porque salta al fondo de la galería— para que el lote pida el tramo 32–50, que está en pantalla, y lo añada otra vez.
+- **Arreglo**: `appendGalleryBatch()` calcula desde dónde sigue **contando los hijos de la rejilla**, no leyendo el contador; el contador pasa a seguir al DOM. Es lo único que no puede mentir sobre lo que hay pintado. Tres líneas, y vale para los cuatro sitios que resetean, presentes y futuros, sin tocar ninguno.
+- **Verificado**: mismo flujo, misma condición mala en la traza (`count=32` con `dom=50`), y ahora el tramo sale vacío y no se añade nada. **50 tarjetas, 0 duplicadas.** `npm run build` pasa.
+- **No es un fallo introducido por `feat/volver-al-flyer`**: la máquina que lo produce (`appendGalleryBatch` + los cuatro reseteadores + el repintado asíncrono) es común y está también en `main`. La rama lo hace salir siempre porque su vuelta salta al fondo de la galería y planta el centinela justo dentro de la ventana mala. **No comprobado en `main`.**
+- **Lección**, que ya estaba escrita en el traspaso y volvió a morder: *dos números que deben coincidir, calculados por separado*. Que salgan de una sola fuente.
+- **Lo que este arreglo NO toca**: el desajuste de contador sigue existiendo, y se ve — al volver, la rejilla se repinta cuatro veces (32 → 32 → 50, y otra ronda 32 → 50 un segundo y medio después). Ya no corrompe nada, pero encoge y se reestira a la vista. Le toca al paso del anclaje.
+
+## D-120 · Se vuelve al flyer que se cierra, y la tarjeta se persigue hasta que para
+
+Dos arreglos sobre la vuelta al flyer, después de que el propietario probara D-119 en un móvil real.
+
+### El estado de vuelta sigue a la ficha que se está viendo
+
+- **Síntoma, y era el motivo de toda la rama**: recorriendo la sesión con Anterior/Siguiente y cerrando desde otro evento, la galería devolvía al **primero** que se abrió.
+- **Causa**: `mel-return-state` lo escribía **solo** `saveReturnState()` en la home, al pulsar una tarjeta. La ficha de evento no lo tocaba nunca, así que `flyer` se quedaba congelado en el primero.
+- **Arreglo**: la ficha reescribe ese campo en cada carga con el evento que muestra. Enganchado a **qué ficha se ve**, no a los enlaces: hay cuatro maneras de llegar a una (Anterior, Siguiente, las flechas del teclado y una URL directa) y así quedan cubiertas las cuatro sin acordarse de ninguna. Solo toca `flyer`; filtros, lotes y píxel de reserva siguen siendo los de la galería que se dejó, y solo actúa si ya hay estado (por URL directa no hay vuelta que ajustar).
+- **Verificado**: abrir el evento 38 de 50, avanzar a 39 y cerrar → la galería deja el 39. Antes dejaba el 38.
+
+### La tarjeta se persigue hasta que la rejilla para, no hasta que el scroll parece quieto
+
+- **Síntoma**: en móvil "a veces queda cerca, otras no", y el cartel salía cortado por arriba.
+- **Dos causas distintas**:
+  1. `scrollIntoView({block:'center'})` a una columna centra una tarjeta más alta que la ventana, y centrar algo que no cabe lo recorta por arriba y por abajo a la vez.
+  2. Se colocaba **una sola vez**, en cuanto la tarjeta existía. El masonry sigue midiendo las imágenes de arriba durante el segundo siguiente y empujando a las de abajo: la tarjeta se movía **después** de haberla colocado.
+- **Arreglo**: bucle que reafirma la posición recalculando en cada vuelta **dónde está la tarjeta ahora**. La tarjeta es la referencia estable; su píxel no. A una columna va pegada al borde superior de la galería (donde acaba la toolbar); a dos o más, centrada, con vuelta a "arriba" si no cabe entera.
+- **Sin salida anticipada por estabilidad, y esto es lo importante**: el primer intento sí la tenía —tres lecturas de scroll iguales, como `restoreScroll()`— y **fallaba**, porque el scroll se queda quieto también cuando NO ha llegado: mientras la rejilla no ha crecido, el destino cae por debajo del tope y el navegador lo recorta ahí. Medido: destino 3908, tope 3838, tres lecturas idénticas, bucle retirado — y al crecer la rejilla la tarjeta acabó a 522px de su sitio. Se reafirma hasta el final del plazo; cuando ya está colocada no se escribe nada.
+- **Plazo de 4s y no 2,5s**: al volver, la galería se repinta entera cuatro veces a lo largo de 1,7s (los reseteos del contador contra la restauración del estado, ver D-119) y solo después empiezan a medirse las imágenes. Con 2,5s el bucle se retiraba en mitad de la tormenta.
+- **Se fija `scrollTop` en vez de usar `scrollIntoView()`**: este desplaza también todos los contenedores antepasados, incluida la ventana, y en un móvil eso mueve la página entera.
+- **Verificado** (medido, no a ojo): a 375px la tarjeta queda a 0px del borde superior de la galería; a 1280px con la tarjeta cabiendo entera, desviación del centro 0px; con la tarjeta más alta que la ventana, arriba. En los tres casos, 50 tarjetas y ninguna duplicada. `npm run build` pasa.
+- **Pendiente y NO tocado a petición del propietario**: sigue viéndose el viaje por la galería durante la vuelta. `restoreScroll()` ya tiene el ocultado con fundido que haría falta, pero el traspaso avisa de que ese fundido no se aprecia en producción, así que reutilizarlo exige comprobarlo antes. Va con la pasada de la animación de vuelta.

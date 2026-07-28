@@ -167,8 +167,28 @@ Al abrir un evento se guarda el contexto completo en
 `sessionStorage['mel-return-state']`; al volver se restaura y se consume. La URL
 de vuelta transporta lo compartible (`view`, `search`, `location`); lo que no
 cabe en una URL viaja en ese blob: **rango de años, orden de columna, página de
-Lista, lotes cargados del scroll infinito, posición de scroll de cada vista y
-cámara del mapa**.
+Lista, lotes cargados del scroll infinito, posición de scroll de cada vista,
+cámara del mapa y qué flyer se estaba mirando**.
+
+**Se vuelve al flyer que se cierra, no al que se abrió.** Desde la Galería, el
+punto de retorno es la tarjeta, no un píxel: el píxel es frágil por construcción
+aquí, porque el masonry mide cada tarjeta cuando su imagen carga y el alto sigue
+creciendo después de restaurarlo. El identificador sigue siendo verdad aunque el
+alto cambie, y el píxel queda solo de reserva (para cuando se entró desde Lista o
+Mapa, o el flyer ya no pasa el filtro).
+
+Ese campo lo **reescribe la propia ficha de evento** en cada carga, con el evento
+que está mostrando. Va enganchado a *qué ficha se ve* y no a los enlaces porque
+hay cuatro maneras de llegar a una —Anterior, Siguiente, las flechas del teclado
+y una URL directa— y así quedan cubiertas las cuatro. Consecuencia normativa: si
+el visitante recorre la sesión con Anterior/Siguiente y cierra desde el tercer
+evento, la galería lo deja en **ese** tercero. Es el comportamiento correcto; si
+el código devuelve al primero, es un bug del código.
+
+**Dónde queda la tarjeta**: a una columna (móvil), pegada al borde superior de la
+galería, que es donde acaba la toolbar. A dos o más, centrada en la ventana — y
+si no cabe entera, arriba, porque centrar algo más alto que la ventana lo recorta
+por los dos lados a la vez.
 
 Tres detalles del entorno que condicionan la implementación y no son opcionales:
 
@@ -184,6 +204,12 @@ Tres detalles del entorno que condicionan la implementación y no son opcionales
    durante el primer segundo y fijarlo antes lo clampa a 0. Se usa `setInterval`
    y no `requestAnimationFrame` porque este se congela en pestañas en segundo
    plano. Cualquier gesto de scroll del visitante cancela los reintentos.
+4. **El anclaje a la tarjeta se reafirma durante todo el plazo, sin salida
+   anticipada por "ya está quieto".** El scroll se queda quieto también cuando
+   **no** ha llegado: mientras la rejilla no ha crecido del todo, el destino cae
+   más abajo del tope y el navegador lo recorta ahí. Medido: destino 3908, tope
+   3838, tres lecturas idénticas y el bucle dándose por bueno — y al crecer luego
+   la rejilla, la tarjeta acababa a 522px de su sitio (D-120).
 
 ### Anterior/Siguiente: los pinta el cliente, nunca el SSR
 

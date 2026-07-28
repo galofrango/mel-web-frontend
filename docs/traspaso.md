@@ -46,13 +46,36 @@ queda de red de seguridad.
    `volverAlFlyer()` no lo hace. **Ojo**: el propietario dice que en producción
    ese fundido tampoco se aprecia, así que antes de reutilizarlo hay que
    **comprobar que de verdad funciona**, no darlo por bueno.
-2. **Aparecen tarjetas duplicadas en la galería.** Es una corrupción, no un
-   defecto visual. Sospecha sin confirmar: los saltos de scroll disparan el
-   cargador de lotes del scroll infinito varias veces seguidas.
-   **No está diagnosticado.** Reprodúcelo con una traza antes de tocar nada.
+2. **Aparecen tarjetas duplicadas en la galería.** ~~No está diagnosticado.~~
+   **Diagnosticado y arreglado** (D-119), pendiente de que lo valide el
+   propietario en un móvil real. La sospecha anterior —que los saltos de scroll
+   disparaban el cargador de lotes varias veces— era falsa: llamarlo varias
+   veces no duplica nada. Lo que duplicaba era que `appendGalleryBatch()` se
+   fiaba del contador `galleryVisibleCount` en lugar del DOM, y al volver de una
+   ficha los dos discrepan. Medido: 68 tarjetas con 18 duplicadas; tras el
+   arreglo, 50 y ninguna.
 
-**Orden recomendado**: (1) entender la duplicación, (2) el anclaje reutilizando
-el ocultado que ya existe, (3) la animación de vuelta. Tres pasos, no uno.
+3. **Se volvía al primer flyer abierto, no a aquel desde el que se cierra.**
+   Detectado por el propietario al probar lo anterior, y era el motivo de la
+   rama entera. **Arreglado** (D-120): el estado de vuelta lo reescribe ahora la
+   propia ficha en cada carga.
+
+**Orden recomendado**: (1) ~~entender la duplicación~~ hecho, (2) ~~el anclaje~~
+hecho salvo el ocultado, (3) la animación de vuelta.
+
+**Lo que queda:**
+
+- **Se ve el viaje por la galería** durante la vuelta. Es el fallo 1 original,
+  intacto y a propósito: el propietario pidió dejarlo para la pasada de la
+  animación. `restoreScroll()` ya tiene el ocultado con fundido que haría falta,
+  pero **compruébalo antes de reutilizarlo**: en producción no se aprecia.
+- **La galería se repinta cuatro veces al volver** (32 → 32 → 50, y otra ronda
+  32 → 50 un segundo y medio después), porque el buscador y `updateSlider()`
+  resetean el contador *después* de que `applyReturnState()` lo haya restaurado.
+  Se ve como un encogimiento y un reestirado de la rejilla. Ya no corrompe nada
+  (D-119) pero sigue siendo feo, y es lo que obliga a que el anclaje persiga la
+  tarjeta durante 4s. Atacarlo de raíz = que el estado de vuelta se aplique
+  **después** de todos los que resetean, no antes.
 
 ---
 
@@ -101,6 +124,15 @@ Cuatro cosas, y las cuatro han costado horas por darlas por buenas:
    prueba aquí y fallar en el dispositivo. Pasó exactamente eso.
 4. **El scroll nativo por rueda o toque.** Un `WheelEvent` sintético **no
    desplaza nada** — esa prueba siempre da falso negativo.
+5. **La pestaña del panel de previsualización está en segundo plano**
+   (`document.hidden === true`), así que el navegador **congela
+   `requestAnimationFrame` y no entrega callbacks de `IntersectionObserver`**.
+   Consecuencia práctica: el scroll infinito **no carga ningún lote** por sí
+   solo y todo lo que dependa de un fotograma se queda parado. Se ve enseguida:
+   `raf` cuenta 0 en medio segundo. **Cómo desatascarlo**: cada captura de
+   pantalla fuerza un fotograma y desbloquea lo pendiente, así que una prueba de
+   este tipo se conduce alternando `screenshot` y comprobación. `setInterval` sí
+   corre — por eso `restoreScroll()` lo usa a propósito (ver su comentario).
 
 **Corolario**: si una prueba sintética dice que algo funciona y el propietario
 dice que no, **tiene razón él**. Y al revés: que aquí no se reproduzca un fallo
