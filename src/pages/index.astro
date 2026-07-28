@@ -2199,13 +2199,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // no descolocar la toolbar mientras tanto.
         const toggleWrapper = document.getElementById('home-toggle-wrapper');
         if (toggleWrapper) {
-          toggleWrapper.classList.add('invisible', 'pointer-events-none', 'max-lg:hidden');
+          toggleWrapper.classList.add('hidden');
         }
         // El selector de vista se retira, pero los recuentos NO: al arrastrar
         // el slider de años se entra y se sale de "sin resultados" continuamente,
         // y unas tags que parpadean son peor que unas tags con ceros.
         // Al no estar el selector, ocupan el ancho que este deja libre.
-        updateHomeToolbarLayout();
+        //
+        // En el fotograma siguiente y no aquí mismo: llamándolo en el acto, el
+        // reparto se calculaba antes de que el resto del pintado terminara y
+        // quedaba con el ancho de cuando el selector todavía estaba (medido:
+        // 808px en vez de 1224).
+        requestAnimationFrame(() => window._melActualizarToolbar && window._melActualizarToolbar());
       } else {
         if (viewsEmptyState) {
           viewsEmptyState.classList.add('hidden');
@@ -2213,9 +2218,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         }
         const toggleWrapper = document.getElementById('home-toggle-wrapper');
         if (toggleWrapper) {
-          toggleWrapper.classList.remove('invisible', 'pointer-events-none', 'max-lg:hidden');
+          toggleWrapper.classList.remove('hidden');
         }
-        updateHomeToolbarLayout();
+        requestAnimationFrame(() => window._melActualizarToolbar && window._melActualizarToolbar());
         gridContainer.classList.remove('hidden');
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
@@ -3639,7 +3644,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const toolbar = document.getElementById('home-highlights-toolbar');
       const toggleWrapper = document.getElementById('home-toggle-wrapper');
       if (!toolbar || !toggleWrapper) return;
-      const toggleOculto = toggleWrapper.classList.contains('invisible');
+      const toggleOculto = toggleWrapper.classList.contains('hidden');
       const isSharing = updateAdaptiveTagsRow('home-highlights-tags', {
         containerId: 'home-highlights-toolbar',
         getReservedWidth: (toolbarWidth) => {
@@ -3651,6 +3656,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       });
       toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
     }
+    // filterArchives() es hermana de initHomePage, no hija: sin esta referencia
+    // no puede pedir el recálculo del reparto al entrar o salir de "sin resultados".
+    window._melActualizarToolbar = updateHomeToolbarLayout;
 
     updateHomeToolbarLayout();
     let highlightsResizePending = false;
@@ -3816,6 +3824,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       }
       window._melCloseZoneHandler = () => {
         if (window.innerWidth >= 1024) return;   // como lateral manda el nombre/dirección
+        if (window._melArrastroSheet) { window._melArrastroSheet = false; return; }
         if (window._melClosePanelHandler) window._melClosePanelHandler();
       };
       zonaCierrePanel.addEventListener('click', window._melCloseZoneHandler);
@@ -3847,11 +3856,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // Same manual listener management as closePanelBtn — must survive
     // AbortController replacement.
     const sidePanelBackdrop = document.getElementById('map-side-panel-backdrop');
-    if (sidePanelBackdrop && closePanelBtn) {
+    if (sidePanelBackdrop) {
       if (window._melBackdropHandler) {
         sidePanelBackdrop.removeEventListener('click', window._melBackdropHandler);
       }
-      window._melBackdropHandler = () => closePanelBtn.click();
+      window._melBackdropHandler = () => {
+        if (window._melClosePanelHandler) window._melClosePanelHandler();
+      };
       sidePanelBackdrop.addEventListener('click', window._melBackdropHandler);
     }
 
@@ -3859,7 +3870,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // (por encima de un umbral) o lo suelta de vuelta a su sitio. Solo
     // actúa bajo el breakpoint md (ver media query de #map-side-panel);
     // en escritorio el tirador ni siquiera es visible.
-    const sidePanelHandle = document.getElementById('map-side-panel-handle');
+    // La zona de agarre es la cabecera ENTERA (misma franja que cierra al
+    // tocarla), no el tirador de 80x5: con el pulgar nadie acierta ahí.
+    const sidePanelHandle = document.getElementById('map-side-panel-close-zone')
+      || document.getElementById('map-side-panel-handle');
     if (sidePanelHandle && sidePanel) {
       let dragStartY = 0;
       let dragCurrentY = 0;
@@ -3874,11 +3888,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const dragEnd = () => {
         if (!isDragging) return;
         isDragging = false;
+        // Un arrastre que no llega al umbral devuelve el panel a su sitio, pero
+        // NO debe contar además como toque de cierre.
+        if (Math.abs(dragCurrentY - dragStartY) > 6) window._melArrastroSheet = true;
         sidePanel.classList.remove('side-panel-dragging');
         sidePanel.style.transform = '';
         const delta = Math.max(0, dragCurrentY - dragStartY);
         // Umbral de cierre: una cuarta parte del tirón habitual de un sheet.
-        if (delta > 120 && closePanelBtn) closePanelBtn.click();
+        if (delta > 120 && window._melClosePanelHandler) window._melClosePanelHandler();
         dragStartY = 0;
         dragCurrentY = 0;
       };
