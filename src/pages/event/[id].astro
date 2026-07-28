@@ -1078,6 +1078,18 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
         if (window.innerWidth < 480) {
+          // Con la ficha arriba del todo, el toque abre el cartel como imagen
+          // suelta: a partir de ahí manda el visor del propio navegador, con su
+          // pellizco, su doble toque, guardar y compartir. Es la única forma de
+          // ampliar el cartel sin ampliar la página entera, porque los
+          // navegadores solo aplican el pellizco al viewport y no a un
+          // elemento. Se pide a Drive un tamaño mayor que el de la ficha: es
+          // una vista para mirar de cerca, y a w1000 no habría nada que ampliar.
+          if (raizPagina.scrollTop <= 0) {
+            const url = (imageUrls[currentIndex] || '').replace(/sz=w\d+/, 'sz=w2000');
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+          }
           if (raizPagina.scrollTop > 0) {
             const startY = raizPagina.scrollTop;
             const t0 = performance.now();
@@ -1158,13 +1170,22 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       const ROCE = 0.95;           // frenado de la inercia por fotograma
       const VELOCIDAD_MINIMA = 0.05;
       let y0 = null, x0 = null, scroll0 = 0, arrastrando = false;
-      let ultimaY = 0, ultimoT = 0, velocidad = 0, inercia = null;
+      let ultimaY = 0, ultimoT = 0, velocidad = 0, inercia = null, huboArrastre = false;
+
+      // En captura, para llegar antes que el listener que abre la imagen.
+      zona.addEventListener('click', (e) => {
+        if (!huboArrastre) return;
+        huboArrastre = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }, { capture: true, signal: wSig });
 
       zona.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;
         if (inercia) { cancelAnimationFrame(inercia); inercia = null; }
         y0 = e.clientY; x0 = e.clientX; scroll0 = raizPagina.scrollTop;
         ultimaY = e.clientY; ultimoT = e.timeStamp; velocidad = 0; arrastrando = false;
+        huboArrastre = false;
       }, { signal: wSig });
 
       zona.addEventListener('pointermove', (e) => {
@@ -1174,7 +1195,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         // pasar para que el deslizamiento entre fotos siga funcionando.
         if (!arrastrando) {
           if (Math.abs(dy) < MINIMO || Math.abs(dy) <= Math.abs(e.clientX - x0)) return;
-          arrastrando = true;
+          arrastrando = true; huboArrastre = true;
         }
         const dt = e.timeStamp - ultimoT;
         if (dt > 0) velocidad = (e.clientY - ultimaY) / dt;

@@ -1241,3 +1241,12 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Ventaja de método**: al ser código propio respondiendo a eventos y no scroll nativo, **sí se puede verificar en este entorno** con eventos de puntero sintéticos, que es justo lo que no se podía hacer con la cadena de scroll del navegador.
 - **Verificado**: arrastre vertical de 72px sobre la foto → el contenedor se desplaza 72 (1:1). Arrastre horizontal de 72px → el desplazamiento se queda en 0. Geometría idéntica a `detalles-v2.2` a 390×844: recorrido 115, contenido tapado 0, cabecera sobre la foto 0, salto máximo de recorte 10px.
 - **Limitación conocida**: la inercia es propia, no la del navegador, así que la deceleración no será idéntica a la del resto de la página. No se pudo comprobar aquí porque `requestAnimationFrame` no corre de forma fiable en este entorno.
+
+## D-115 · Ampliar el cartel: se delega en el visor del navegador
+
+- **Necesidad**: poder ampliar el cartel en móvil sin ampliar la página entera.
+- **Por qué no un pellizco propio**: los navegadores aplican el pellizco **al viewport, no a un elemento**. Hacerlo dentro de una caja obliga a implementarlo a mano con transformaciones, que es justo el tipo de complejidad que esta pantalla ya ha demostrado que sale cara.
+- **Decisión**: con la ficha arriba del todo, el toque sobre el cartel lo abre como **imagen suelta en otra pestaña**. A partir de ahí manda el visor nativo: pellizco, doble toque, guardar y compartir, sin una línea de código nuestro.
+- **Se pide un tamaño mayor que el de la ficha** (`sz=w2000` en vez de w1000): es una vista para mirar de cerca. **Ojo**: Drive no amplía por encima del original, así que el techo de detalle es la resolución del escaneo. En un cartel de 992px de ancho, w2000 devuelve el mismo archivo — sin coste extra, pero sin ganancia. Si se quiere más detalle en piezas concretas, hay que subir mejores escaneos.
+- **El pellizco de la página sigue habilitado** a propósito (`<meta viewport>` sin `user-scalable=no`). Desactivarlo impediría ampliar a quien lo necesita por accesibilidad, y ahora además hay una alternativa mejor para el caso concreto del cartel.
+- **Un arrastre no cuenta como toque**: al desplazar a mano (D-114) el navegador no siempre suprime el `click`, así que se suprime en captura. Verificado: toque limpio arriba abre la imagen; toque tras arrastrar no abre nada.
