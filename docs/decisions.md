@@ -1154,3 +1154,81 @@ Esta decisión pasó por tres rondas dentro de la misma sesión — se documenta
 - **Arreglo**: sacar `updateTagsFixed()` del camino del scroll. Su `top` **no depende de la posición de scroll**, solo del alto de la cabecera, así que se calcula al iniciar, al redimensionar y tras `document.fonts.ready` (todo vía `ensureScrollRunway`). Escribirlo 60 veces por segundo era coste puro; en iOS, además, activamente dañino.
 - **Regla general**: dentro de un manejador de scroll, no leas `getBoundingClientRect()` de un elemento `fixed` ni encadenes la posición de uno a otro. Lo que no dependa del scroll se calcula fuera del scroll.
 - **Verificación**: con el `top` ensuciado a mano (`999px`) y recorriendo todo el rango de scroll, el valor sucio sobrevive — ya nadie lo reescribe. Al redimensionar a 844px de alto vuelve a cuadrar con la cabecera (172,4 = 172,4) y no toca el título.
+
+## D-104 · Las imágenes se piden al tamaño que se van a pintar, y no antes de hacer falta
+
+- **Síntoma**: en Safari las fotos directamente no cargaban; en Chrome cargaban pero el sitio iba lentísimo.
+- **Medición**: en la galería a 390px había **96 imágenes de Drive en el DOM, 2 visibles y 0 con carga diferida**, todas pedidas a `sz=w1000`. Muestra de cinco flyers reales: media de **679 KB** por imagen a w1000 (el peor del archivo, 2 MB). Son unos **64 MB** descargados y descodificados para enseñar dos. Safari de iOS aplica un presupuesto de memoria de imagen descodificada por pestaña mucho más estricto que Chrome: al superarlo deja de pintarlas.
+- **Causa**: `extractDriveImage()` incrustaba `w1000` y está copiada a mano en cuatro sitios, así que no había forma de pedir otro tamaño. Y la fábrica de tarjetas en JS (`buildGalleryCard`) había perdido el `loading="lazy"` que su original `FlyerCard.astro` sí tiene — otra divergencia de las que avisa la regla 7, y la que de verdad dolía, porque la galería la construye el JS.
+- **Arreglo**:
+  1. `extractDriveImage(url, ancho = 1000)`: cada llamada pide lo que va a usar. Tarjeta de galería `w700` (se pinta a 342px, 684 con densidad 2), miniatura de la lista `w200` (caja de 40px), retrato de info `w500`, ficha y lightbox `w1000` (a pantalla completa con densidad 3 son ~1170px reales).
+  2. `loading="lazy"` y `decoding="async"` en las réplicas JS y en info, recuperando la paridad con los componentes Astro.
+- **Por qué la carga diferida es segura aquí**: `.gallery-item.unsized` ya reserva `min-height: 280px`, así que las tarjetas de abajo ocupan sitio real y el navegador no las da por visibles. Sin ese hueco reservado, la carga diferida no habría servido de nada.
+- **Resultado medido**: de **96 descargas al entrar a 9**. Recorriendo la galería entera se descargan las 50 tarjetas y quedan **0 sin dimensionar** — el masonry cuadra igual.
+
+## D-105 · La ficha de evento vuelve a ser una página normal
+
+- **Recorrido**: la ficha era la única pantalla del sitio que desplazaba el documento con elementos `position: fixed` — tres, cada uno con un espaciador reservándole el hueco a mano y una pista de scroll compensando el descuadre. De ahí salieron D-102 y D-103. El primer intento de arreglo de raíz fue copiar el andamiaje de la home (`h-dvh` + contenedor interno con scroll). **Falló por dos motivos, los dos detectados por el propietario en el teléfono**:
+  1. Con un contenedor interno, el documento no se desplaza, así que **la barra del navegador no se repliega nunca** y no devuelve pantalla. Es justo lo que el propietario valora de la página de información.
+  2. La caja de la foto quedaba fuera del área desplazable, así que **no se podía arrastrar sobre ella** — media pantalla muerta al tacto.
+- **Decisión final**: documento desplazable, cero `fixed` y cero contenedores con scroll propio. La cabecera se parte en dos:
+  - **La fila de la X va en flujo normal** y se marcha hacia arriba hasta esconderse bajo la barra del navegador. Ocupa exactamente los mismos píxeles que la fila del buscador de la home (44–92 en un teléfono de 844px de alto), para que el icono no salte al cambiar de página.
+  - **Título y fila de tags van en un bloque `sticky top-0`**: suben con el contenido hasta tocar el borde y ahí se quedan. El propietario fue explícito: el nombre del evento no debe irse nunca. A partir de `lg` el bloque se disuelve con `display: contents` y el título vuelve a la columna de info.
+  - La foto y el resto del contenido pasan por debajo del bloque pegajoso.
+- **Por qué `sticky` y no `fixed`**: lo gestiona el compositor y reserva su propio hueco, así que no hay espaciadores que mantener; y a diferencia de `fixed` no se re-ancla cuando la barra del navegador redimensiona el viewport a mitad de un gesto, que era exactamente D-103.
+- **Se pierde el encogido de la foto**, y no por descuido: dependía de que algo se desplazara por dentro y obligaba a que la foto tapase contenido para no realimentarse (encoge la foto → crece el contenedor → queda menos recorrido → el scroll se recorta → la foto vuelve a crecer). Sin él, la página no tiene una sola línea de JS ligada al scroll.
+- **Dato medido que corrige una creencia previa**: la cabecera de `info.astro` **no se sale por arriba**. Es `sticky top-0` y su borde superior se queda clavado en 0 a cualquier altura (medido a 0, 150, 400 y 786px). Lo que se percibe como "sube" es la barra del navegador replegándose y devolviendo pantalla — que solo ocurre si el documento se desplaza.
+
+## D-106 · Cabecera de dos alturas, foto pegajosa que encoge, y contenido a ras
+
+Estado final de la ficha de evento en móvil, tras cuatro correcciones del propietario sobre el diseño anterior.
+
+- **Cabecera en un solo bloque `sticky` anclado en `top: -alturaX`.** La fila de la X queda por encima del borde: al desplazar, lo que se ve pegado arriba es solo título y tags. Al arrastrar hacia abajo, la clase `.revelada` la baja con un `translateY` y la X vuelve a asomar — es lo primero que aparece. Se usa `transform` y no `top` porque el navegador lo compone aparte. Umbral de 4px para que el temblor de un dedo quieto no la haga parpadear.
+- **El bloque sangra a los bordes** (`-mx-6 px-6 w-[calc(100%+48px)]`). Sin eso su caja se quedaba en el ancho de contenido y por los 24px de cada lado se veían pasar las rayas del fondo de la foto, que sí llega a sangre. Ojo: `w-full` y `w-[calc(...)]` en la misma clase se pelean y ganaba el primero.
+- **La foto es `sticky` bajo la parte siempre visible** y encoge de 360 a 200. Dos invariantes la sostienen:
+  1. **El alto de su columna se congela** al iniciar, medido con el recorte al máximo. Si la columna encogiera con el recorte, el documento se acortaría a mitad de scroll y el navegador recolocaría la posición: la foto volvería a crecer sola.
+  2. **El encogido se ata a lo que la columna lleva *pasado* el punto donde se pega**, no al scroll bruto. Con eso el borde inferior de la foto y el comienzo del contenido bajan al mismo ritmo y el hueco entre ambos es exactamente 0 en todo el recorrido (medido). Atado al scroll bruto, la foto empezaba a encoger antes de pegarse y abría un hueco creciente.
+- **El contenido no lleva margen superior**: arranca a ras del borde inferior del bloque de la foto y pasa por debajo. Cuando el evento no tiene paginación, la caja de la foto lleva un faldón macizo propio de 32px; cuando la tiene, los 24px de abajo del `py-6` de los puntos ya hacen ese papel.
+
+Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12 columnas, la foto estática y el título en su columna, sin cambios.
+
+## D-107 · Aire superior de móvil en un token, y la foto compensa el revelado de la X
+
+- **Aire superior**: las seis pantallas repetían a mano `pt-[calc(10vh-40px)]`, que en un teléfono de 844px daban 44px muertos arriba del todo. Pasa a `--mel-header-pt-mobile: 16px` en `global.css` (9 usos migrados). Se cambia en un sitio y las seis siguen coherentes. Verificado: el icono de menú o la X quedan a 20px del borde en home, información y ficha de evento — las tres iguales, 28px más arriba que antes. En escritorio no cambia nada (`--mel-header-pt-desktop` sigue igual).
+- **El bug del "tirón" de la foto**: al revelarse la X, la cabecera y la foto bajan `alturaX` (48px) pero el contenido no. Resultado medido en todo el camino de vuelta: **solape constante de 48px** entre el borde inferior de la foto y el comienzo del contenido, que la caja se comía y no devolvía nunca. El propietario lo describió como que las letras "tiran" de la caja.
+  - **Arreglo**: al estar revelada, el recorte descuenta esos mismos 48px de su alto. El borde inferior de la foto se queda donde estaba y el contenido no se entera del revelado.
+  - **Efecto buscado**: con eso la reampliación de la foto es de verdad **lo último** que ocurre al volver arriba. Medido: el recorte se mantiene en su mínimo de 200 hasta que el solape llega a 0, y solo entonces empieza a crecer.
+  - **Orden de operaciones**: la clase `revelada` se decide ANTES de calcular el alto del recorte, o la compensación llegaría un fotograma tarde.
+
+## D-108 · La ficha renuncia a la barra replegable de Chrome, como la home
+
+- **Pregunta del propietario, respondida**: la barra superior y la inferior de Chrome en Android **no se pueden manejar por separado**. Se repliegan y vuelven juntas, como una sola respuesta al scroll del documento; no hay API ni CSS que las separe. Los píxeles que regala el replegado vienen en el mismo paquete que el vaivén de los elementos anclados. O las dos, o ninguna.
+- **Decisión**: la ficha renuncia a ellos, igual que la home. El documento no se desplaza (`h-dvh` + `overflow: hidden` en el envoltorio) y el que scrollea es `#detail-page-container`. Así la barra no se repliega nunca y nada se mueve de sitio. Queda pendiente, si algún día se quiere recuperar ese espacio, hacerlo **para todas las pantallas a la vez**.
+- **Trampa que costó encontrar**: al convertir el contenedor en columna flex de alto acotado, sus hijos pasan a encogerse por defecto. El alto congelado de la columna de la foto (392px) lo pisaba el reparto flex y quedaba en 156, con lo que el hueco reservado desaparecía, `scrollHeight` se igualaba a `clientHeight` y **el contenedor se quedaba sin nada que desplazar**: cualquier `scrollTop` volvía a 0 en el fotograma siguiente. Se arregla con `shrink-0` en los hijos que tienen alto propio.
+- **Sin verificar aquí**: que arrastrar sobre la foto desplace. La foto es `position: fixed`, y para un elemento fijo el encadenamiento de scroll sigue la cadena de bloques contenedores, no la del DOM. Los eventos de rueda sintéticos no provocan scroll real, así que este entorno no puede resolverlo. **Si falla en el teléfono**, la salida conocida es renunciar al encogido y dejar la foto `sticky` en flujo, que sí arrastra con seguridad.
+
+## D-109 · Fuera el sangrado con márgenes negativos en móvil
+
+- **Síntoma**: aparecía scroll horizontal en toda la ficha; se podía arrastrar la página en círculos.
+- **Causa**: `overflow-y: auto` en el contenedor **convierte el eje X en `auto` automáticamente** (regla del CSS: un eje distinto de `visible` arrastra al otro). Y los elementos que van a sangre lo conseguían con márgenes negativos (`-mx-6 w-[calc(100%+48px)]`), sobresaliendo 24px por cada lado. Con el documento desplazándose eso quedaba recortado por la ventana; con un contenedor desplazable, se volvió recorrido horizontal.
+- **Descartado**: `overflow-x: clip` con `overflow-clip-margin`. Cuando el otro eje es `auto`, `clip` **computa a `hidden`** y el margen de recorte deja de aplicar, así que el sangrado se cercenaba.
+- **Decisión**: quitar la causa. El padding lateral baja del envoltorio a los hijos que lo necesitan (cabecera, contenido y navegación), y cabecera y foto pasan a `w-full` sin márgenes negativos. Nada sobresale, así que no hay nada que recortar.
+- **Trampa al hacerlo**: la columna de info conservaba un `pl-0` de cuando el padding venía de fuera, y le ganaba a `px-6`. El contenido quedó pegado al borde izquierdo hasta quitarlo.
+- Verificado a 390px: sin scroll horizontal (`scrollWidth` = `clientWidth`), X, título, descripción y ARTISTAS todos a 24px, y la foto de 0 a 390. A 1440 no cambia nada.
+
+## D-110 · La cabecera anclada tapaba 16px de la foto
+
+- **Síntoma**: "la foto se empieza a cortar ligeramente por arriba cuando la caja se hace más pequeña".
+- **No era el recorte de la imagen**: el `<img>` usa `object-contain`, así que al encoger la caja la foto **escala**, no se corta (verificado con un cartel vertical de 992×1403: pasa de 255×360 a 218×309 con el borde superior siempre a ras).
+- **Causa real**: el punto donde se fija la foto se calculaba como el alto de título+tags, pero el borde inferior REAL de la cabecera anclada incluye además el aire superior del contenedor. Eran 160 frente a 176: **la cabecera se comía 16px de la parte de arriba del cartel**, que en un archivo de diseño gráfico es justo lo que no se puede tocar. Ahora `--mel-cab-fija` se mide como `alto de cabecera - lo que se esconde + padding superior`. Verificado: solape 0 en todo el recorrido.
+- **El escalón que quedaba se resolvió en D-111.**
+
+
+## D-111 · El revelado de la X deja de ser un interruptor
+
+- **Síntomas, los dos del mismo origen** (identificados con una captura de vídeo del propietario en Chrome): al volver arriba, el contenido quedaba parcialmente tapado por la caja de la foto, "como si el contenido tirase de la foto para hacerla grande antes de tiempo"; y al final del recorrido había un tirón con salto.
+- **Causa**: revelar la X hacía crecer el bloque visible 48px **de golpe**, y algo tenía que ceder. Con la foto bajando esos 48px, tapaba 48px de contenido (medido). Compensándolo con la altura del recorte, el escalón se trasladaba a la caja. Las dos salidas eran malas porque el revelado era binario.
+- **Decisión**: el revelado pasa a ser una **cantidad continua** de 0 a la altura de la X (`--mel-revelado`), que sigue al dedo píxel a píxel. Se mueve el `top` del anclaje en vez de aplicar un `transform`, para que el recorrido enlace sin costura con la posición natural de la cabecera cuando aún no está anclada. El recorte descuenta esa misma cantidad, así que el borde inferior de la foto no se mueve nunca.
+- **Segundo tope, menos evidente**: el revelado se acota además por lo desplazado por encima del punto de anclaje. Al soltarse la cabecera, lo que se ve de la X pasa a depender de la posición y no del gesto; sin ese tope quedaba un escalón de 58px justo ahí.
+- **Verificado con pasos de 5px sobre todo el recorrido, ida y vuelta**: contenido tapado 0, cabecera sobre la foto 0, salto máximo del recorte 10px, salto máximo de la cabecera 5px — o sea, 1:1 con el dedo.
+- **Un descuido previo que este trabajo destapó**: al corregir el anclaje de 160 a 176 (D-110), el cálculo de cuándo empieza a encoger la foto se quedó con el 160 viejo. Ahora los dos leen la misma variable, `anclajeFoto`. Dos números que tienen que ser idénticos no se calculan por separado.

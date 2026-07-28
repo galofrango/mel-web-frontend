@@ -125,7 +125,12 @@ const allEvents = eventsList.map((e: any) => ({
   designer: e.designer || ''
 }));
 
-function extractDriveImage(url) {
+// `ancho` = el ancho que Drive debe servir, en píxeles. Pedir siempre w1000
+// costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
+// en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
+// llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
+// valor por defecto porque es el que necesitan la ficha y el lightbox.
+function extractDriveImage(url, ancho = 1000) {
   if (!url) return '';
   let fileId = '';
   if (url.includes('id=')) {
@@ -133,7 +138,7 @@ function extractDriveImage(url) {
   } else if (url.includes('/d/')) {
     fileId = url.split('/d/')[1].split('/')[0];
   }
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : '';
+  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
 }
 
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
@@ -228,7 +233,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
-  <div class="w-full max-w-[1440px] mx-auto min-h-dvh bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
+  <div class="w-full max-w-[1440px] mx-auto h-dvh overflow-hidden lg:h-auto lg:min-h-dvh lg:overflow-visible bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] lg:px-[108px]">
     <!-- Main Box Container (Figma 1224px wide).
          data-event-id / data-image-urls: la identidad del evento viaja en el
          DOM, no solo en las variables de `define:vars`. Esas quedan congeladas
@@ -241,22 +246,38 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          `astro:page-load`, la identidad siempre es la de la página visible. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 flex-1 min-h-0 overflow-y-auto lg:flex-none lg:overflow-visible"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
 
-      <!-- Pinned Header (X + Mobile Title) -->
+      <!-- Cabecera completa en UN bloque pegajoso (X + título + tags).
+           Se ancla en `top: -alturaX`, o sea con la fila de la X por encima
+           del borde de la pantalla: al desplazar, lo que queda pegado arriba
+           es solo el título y los tags. Al arrastrar hacia abajo, la clase
+           su anclaje baja píxel a píxel siguiendo al dedo (`--mel-revelado`) y
+           la X vuelve a asomar — es lo primero que aparece. Es una cantidad
+           continua, no un interruptor: con un interruptor el bloque visible
+           crecía de golpe y algo tenía que ceder, o la foto tapaba contenido o
+           encogía de un salto.
+           A partir de `lg` el bloque se disuelve (`contents`) y cada pieza
+           vuelve a su sitio en la rejilla. -->
+      <div id="detail-cabecera" class="sticky z-40 w-full px-6 sm:px-12 bg-mel-bg-primary lg:static lg:px-0 lg:bg-transparent lg:contents">
+      <!-- Fila de la X. En flujo NORMAL a propósito: es lo único de la
+           cabecera que se va hacia arriba al desplazar, hasta esconderse bajo
+           la barra del navegador. Mismo alto que la cabecera de la home (fila
+           de 48px con 44px de aire encima, `10vh - 40px`), para que al ir de
+           una página a otra el icono no dé un salto. -->
       <div
         id="detail-sticky-header"
-        class="fixed top-0 left-0 right-0 z-30 bg-mel-bg-primary px-6 pt-[calc(10vh-40px)] pb-8 sm:px-12 lg:static lg:bg-transparent lg:px-0 lg:pt-0 lg:pb-0 shrink-0"
+        class="w-full bg-mel-bg-primary lg:bg-transparent shrink-0 lg:contents"
       >
-        <!-- Close Button (X) at Top Left. Va dentro de una fila de 48px con el
-             icono centrado, que es exactamente lo que pasa en las demás
-             páginas: allí el botón de menú (40px) se centra en la fila del
-             título, que mide 48. Sin esta fila la X quedaba 4px más alta que
-             el icono de menú al ir de una página a otra. -->
-        <div class="flex items-center h-[48px] mb-4 lg:mb-12">
+        <!-- La X va dentro de una fila de 48px con el icono centrado, que es
+             exactamente lo que pasa en las demás páginas: allí el botón de
+             menú (40px) se centra en la fila del título, que mide 48. Sin esta
+             fila la X quedaba 4px más alta que el icono de menú al cambiar de
+             página. -->
+        <div class="flex items-center h-[48px] lg:mb-12">
           <IconButton
             id="detail-close-btn"
             href="/"
@@ -267,35 +288,26 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
             aria-label="Cerrar detalles de evento"
           />
         </div>
+      </div>
 
-        <!-- Mobile-only Event Title: sits below close button X -->
-        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary">
+      <!-- Título + tags: `sticky top-0`. Suben con el contenido hasta tocar el
+           borde superior y ahí se quedan — el propietario fue explícito en que
+           el nombre del evento no debe irse nunca. Es CSS puro: `sticky` lo
+           gestiona el compositor y, a diferencia de `fixed`, no se re-ancla
+           cuando la barra del navegador redimensiona el viewport a mitad de un
+           gesto (que era D-103). Fondo opaco porque la foto le pasa por debajo.
+           A partir de `lg` se desmonta: el título vive en la columna de info y
+           los tags en su propia columna. -->
+      <div id="detail-titulo-tags" class="w-full shrink-0 pb-8 lg:pb-0 lg:contents">
+        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-8">
           {eventData.title}
         </h2>
-      </div>
 
-      <!-- Reserves flow space for the now-fixed header below `lg` (fixed
-           elements are removed from normal flow) — height synced to the
-           header's own current height every tick, so content never starts
-           underneath it nor leaves an extra gap below it. -->
-      <div id="detail-header-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
-
-      <!-- V2 layout (below `lg` only, made definitive after the overlay trial —
-           see D-042/D-043): tags row pinned directly under the fixed header,
-           replacing the old "beside the image" mobile position. Mirrors the
-           overlay's #overlay-tags-fixed exactly (same ids minus the `overlay-`
-           prefix) — a sibling of the header, not nested inside the grid, so it
-           can use plain viewport-relative top math via updateTagsFixed(). No
-           border/divider on purpose: reads as part of the fixed header. pb-8
-           (32px) is the resting gap to the image below, exactly per spec
-           regardless of pagination. -->
-      <div id="detail-tags-fixed" class="lg:hidden fixed left-0 right-0 z-30 bg-mel-bg-primary px-6 pb-8 sm:px-12">
-        <AdaptiveTagsRow id="detail-tags-fixed-row" tags={TAGS_EVENTO} />
+        <div id="detail-tags-fixed" class="lg:hidden w-full">
+          <AdaptiveTagsRow id="detail-tags-fixed-row" tags={TAGS_EVENTO} />
+        </div>
       </div>
-      <!-- Reserves flow space for the fixed tags row below `lg`, right after
-           the header's own spacer — so the image column (first in the grid
-           below `lg`) naturally starts right after both. -->
-      <div id="detail-tags-fixed-spacer" class="w-full lg:hidden" aria-hidden="true"></div>
+      </div>
 
       <!-- Three-column content grid (Figma widths: 184px, 496px, 496px). On
            mobile the same three blocks reflow per Figma 369:32751: image first
@@ -303,23 +315,13 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            scrollable row, then the info column — a real grid at every
            breakpoint, with `order` doing the mobile reflow (see each column's
            own comment). -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 items-start">
+      <div class="contents lg:grid lg:grid-cols-12 lg:gap-6 lg:items-start">
 
         <!-- Column 2: Image Box (Figma 496px wide, height exactly 400px on
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div id="detail-image-column" class="order-1 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
-          <!-- Reserves flow space for the pinned image below `lg` (that image
-               is `position: fixed` there, removed from normal flow — see
-               updateStickyImage()). Held at a CONSTANT height: the box's
-               full-size footprint (crop 400px + dots if any) — deliberately
-               NOT synced to the box's current shrunk size. That way the
-               page's height never changes with scroll, tags emerge at the
-               grid's own 32px gap under the shrinking box, and once the crop
-               bottoms out at 200px the content simply passes underneath the
-               pinned box. -->
-          <div id="detail-image-sentinel" class="w-full lg:hidden" aria-hidden="true"></div>
+        <div id="detail-image-column" class="w-full shrink-0 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
 
           <!-- Pinned image box (Figma 369:32751: min-h-[200px] on scroll).
                Below `lg`, updateStickyImage() drives `position: fixed` plus
@@ -333,7 +335,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                unwanted extra space below the photo). -->
           <div
             id="detail-image-sticky"
-            class="z-20 flex flex-col items-center bg-mel-bg-primary -mx-6 w-[calc(100%+48px)] sm:-mx-12 sm:w-[calc(100%+96px)] lg:static lg:mx-0 lg:w-full lg:bg-transparent"
+            class:list={[
+              "z-20 flex flex-col items-center bg-mel-bg-primary w-full lg:bg-transparent",
+              /* Sin paginación no hay nada que separe la foto del contenido, así
+                 que la propia caja lleva un faldón macizo de 32px por el que el
+                 contenido pasa por debajo. Con paginación sobra: los 24px de
+                 abajo del `py-6` de los puntos ya hacen ese papel. */
+              imageUrls.length > 1 ? "" : "pb-8 lg:pb-0",
+            ]}
           >
             <!-- Crop window: THIS is what shrinks (400px→200px), via
                  overflow-hidden — not the photo itself. The photo (button
@@ -343,7 +352,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                  to fit), so shrinking the wrapper crops it evenly from the
                  top and bottom at its real size/ratio, keeping the image
                  centered instead of pinned to the top edge. -->
-            <div id="detail-image-crop" class="relative w-full overflow-hidden flex flex-col justify-center lg:h-[400px]">
+            <div id="detail-image-crop" class="relative w-full overflow-hidden flex flex-col justify-center h-[360px] lg:h-[400px]">
               <button
                 id="carousel-main-container"
                 class="relative w-full h-full lg:h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
@@ -422,7 +431,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div class="order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info">
+        <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -466,18 +475,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
       </div>
 
-      <!-- Scroll runway spacer (below `lg` only), deliberately placed BEFORE
-           the nav block: growing it pushes the nav DOWN toward the screen's
-           bottom edge, and scrolling can never continue past the nav (it's
-           the last thing before the page's own 40px bottom padding). Sized
-           by ensureScrollRunway() so that, on content-short events, the nav
-           block's bottom lands exactly 40px above the bottom of the screen
-           (the page container's pb-[40px], the guard against phone nav UI);
-           content-rich events get no extra padding at all — their natural
-           scroll end already leaves the nav pinned at that same spot. -->
-      <div id="detail-scroll-runway" class="w-full lg:hidden" aria-hidden="true"></div>
 
-      <div id="detail-nav-block" class="grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div id="detail-nav-block" class="px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
@@ -588,24 +587,6 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
   </div>
 </Layout>
 
-<style>
-  @media (max-width: 1023px) {
-    #detail-tags-fixed {
-      /* Posición de la PRIMERA pintada, antes de que updateTagsFixed() llegue a
-         medir la cabecera de verdad. El alto de la cabecera NO es constante: su
-         padding superior es calc(10vh - 40px), así que un número fijo solo
-         acierta en una altura de ventana concreta. Los 136px que había aquí se
-         calibraron en una, y en un teléfono de 896px de alto dejaban la fila
-         10px por encima del final del título — es decir, TAPÁNDOLO— hasta que
-         el JS la recolocaba: cuanto más alto el teléfono, peor.
-         Misma cuenta que hace la cabecera, para que las dos se muevan juntas:
-         su padding superior + 96px de contenido (fila de la X 48 + mb-4 16 +
-         título 32) + sus 32px de padding inferior. Comprobado a 600, 812 y
-         896px de alto: coincide con la medición del JS al 0,01px. */
-      top: calc(10vh - 40px + 128px);
-    }
-  }
-</style>
 
 <script define:vars={{ ssrImageUrls: imageUrls, ssrEventId: eventData.idMel, allEvents }}>
   function initPage() {
@@ -652,48 +633,116 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     window._melDetailAbortCtrl = new AbortController();
     const wSig = window._melDetailAbortCtrl.signal;
 
-    // Pinned, shrinking image (below `lg`). Figma "Screen / Event Details"
-    // (369:32751): the image sticks right below the sticky X+title header and
-    // shrinks from 400px down to a documented min of 200px as the page
-    // scrolls, so the rest of the content (tags, info, nav) passes underneath
-    // it (it paints on top, z-20) — matching "el resto de la página pasará
-    // por debajo de la foto". The box NEVER moves once pinned: its top stays
-    // glued to the header's bottom edge for the whole scroll range (it never
-    // slides up behind the header), only the crop window's height changes.
-    // During the shrink phase the sentinel (held at a constant full-size
-    // height) makes content below emerge at a steady 32px under the box's
-    // receding bottom edge; once the crop bottoms out at 200px, further
-    // scrolling simply sends that content underneath the (opaque, z-20) box.
-    // Driven by JS rather than CSS `position: sticky` because sticky can't
-    // express "pinned forever but with a scroll-driven inner height" — and
-    // its own engage timing depends on natural resting position, which the
-    // propietario explicitly rejected for the header (D-034).
-    const stickyHeader = document.getElementById('detail-sticky-header');
-    const headerSpacer = document.getElementById('detail-header-spacer');
-    const imageSticky = document.getElementById('detail-image-sticky');
-    const imageSentinel = document.getElementById('detail-image-sentinel');
+    // La ficha de evento es una PÁGINA NORMAL: el documento se desplaza y no
+    // hay ni un solo elemento fijo o pegajoso. Es lo más robusto que puede
+    // haber en un móvil — la barra del navegador se repliega y devuelve
+    // pantalla, y no hay nada anclado que el navegador pueda re-anclar a
+    // mitad de un gesto (que era D-103).
+    //
+    // Fueron cayendo, por este orden: los tres `position: fixed` con sus
+    // espaciadores y la pista de scroll (D-105), y después el contenedor con
+    // scroll propio, porque impedía que la barra del navegador se replegara y
+    // dejaba la foto fuera del área desplazable — no se podía arrastrar sobre
+    // ella, que es media pantalla.
+
+    // Geometría de la cabecera. Se mide UNA vez al iniciar y al redimensionar,
+    // nunca durante el scroll: son los dos altos que el CSS necesita y que no
+    // puede calcular solo (el título puede ocupar una o dos líneas).
+    //   --mel-cab-x     alto de la fila de la X, lo que se esconde arriba
+    //   --mel-cab-fija  alto de título + tags, lo que queda pegado
+    const cabecera = document.getElementById('detail-cabecera');
+    const filaX = document.getElementById('detail-sticky-header');
+    const tituloTags = document.getElementById('detail-titulo-tags');
+    const columnaFoto = document.getElementById('detail-image-column');
+    const cajaFoto = document.getElementById('detail-image-sticky');
+    const raizPagina = document.getElementById('detail-page-container');
     const imageCrop = document.getElementById('detail-image-crop');
-    // Crop-window height range below `lg`. Max is 40px SHORTER than the
-    // photo's fixed 400px (the photo stays 400px and centered — see the
-    // crop's markup comment — so at rest 20px are already cropped off each
-    // end); desktop keeps the full 400px via the crop's lg:h-[400px] class.
     const IMAGE_MAX_H = 360;
     const IMAGE_MIN_H = 200;
 
-    // The header is `position: fixed` from the very first frame (not
-    // `sticky` — see the header's own comment in the markup for why), so
-    // it's out of normal flow immediately and needs its height reserved by
-    // hand. Height is effectively constant (no scroll-driven resizing, only
-    // varies if a title wraps to a different number of lines), but it's
-    // still measured every tick rather than cached — cheap, and avoids ever
-    // needing a separate invalidation path.
-    function updateHeaderSpacer() {
-      if (!stickyHeader || !headerSpacer) return;
+    // Distancia, en el documento, desde el origen hasta el punto en que la
+    // columna de la foto llega a su posición pegada. Se mide una vez.
+    let inicioEncogido = 0;
+    let alturaX = 0;
+    // Desplazamiento a partir del cual la cabecera queda anclada arriba.
+    let puntoAnclaje = 0;
+    // Distancia desde el borde superior a la que se clava la foto. La usan la
+    // variable CSS que la posiciona y el cálculo de cuándo empieza a encoger:
+    // tienen que ser EXACTAMENTE el mismo número o dejan de ir sincronizadas.
+    let anclajeFoto = 0;
+    let revelado = 0;
+
+    function medirCabecera() {
+      if (!cabecera || !filaX || !tituloTags) return;
+      const raiz = document.documentElement;
       if (window.innerWidth >= 1024) {
-        headerSpacer.style.height = '';
+        raiz.style.removeProperty('--mel-cab-x');
+        raiz.style.removeProperty('--mel-cab-fija');
+        if (columnaFoto) columnaFoto.style.height = '';
+        if (imageCrop) imageCrop.style.height = '';
+        raizPagina.classList.remove('fijada');
+        raizPagina.style.removeProperty('--mel-revelado');
         return;
       }
-      headerSpacer.style.height = `${stickyHeader.getBoundingClientRect().height}px`;
+      alturaX = filaX.getBoundingClientRect().height;
+      puntoAnclaje = alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
+      raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
+      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
+      raiz.style.setProperty('--mel-cab-fija', `${anclajeFoto}px`);
+      // Alto CONGELADO de la columna de la foto. Es la invariante que impide
+      // que el encogido se realimente: si la columna encogiera con el recorte,
+      // el documento se acortaría a mitad de scroll, el navegador recolocaría
+      // la posición y la foto volvería a crecer. Se mide con el recorte a su
+      // tamaño máximo para que el valor no dependa de dónde esté el scroll.
+      // Hueco reservado para la foto, de alto CONSTANTE. Se mide con el
+      // recorte a su máximo y con la caja todavía en flujo, porque una vez
+      // fija la columna mediría cero y el documento se quedaría sin recorrido.
+      if (columnaFoto && imageCrop && cajaFoto) {
+        const altoPrevio = imageCrop.style.height;
+        const fijadaAntes = raizPagina.classList.contains('fijada');
+        raizPagina.classList.remove('fijada');
+        imageCrop.style.height = `${IMAGE_MAX_H}px`;
+        columnaFoto.style.height = '';
+        columnaFoto.style.height = `${cajaFoto.getBoundingClientRect().height}px`;
+        inicioEncogido = Math.max(0,
+          cajaFoto.getBoundingClientRect().top + raizPagina.scrollTop - anclajeFoto);
+        imageCrop.style.height = altoPrevio;
+        if (fijadaAntes) raizPagina.classList.add('fijada');
+      }
+    }
+
+    // Lo único ligado al scroll. Dos escrituras: una altura y una clase.
+    let ultimoY = 0;
+    function alDesplazar() {
+      const y = raizPagina.scrollTop;
+      if (window.innerWidth >= 1024) { ultimoY = y; return; }
+
+      // La X reaparece en cuanto se arrastra hacia abajo. El umbral de 4px
+      // evita que el temblor de un dedo quieto la haga parpadear.
+      if (cabecera) {
+        const dy = y - ultimoY;
+        // Cuánto asoma la X, de 0 a su alto. Sigue al dedo: bajando se
+        // esconde, subiendo reaparece, píxel a píxel. Por debajo del punto de
+        // anclaje se fuerza a 0 porque ahí la cabecera ya está en su sitio
+        // natural y cualquier desplazamiento la empujaría fuera de él.
+        // Acotado además por lo que se lleva desplazado por encima del punto de
+        // anclaje: al soltarse la cabecera, lo que se ve de la X pasa a depender
+        // de la posición y no del gesto, así que el revelado tiene que llegar a
+        // cero justo ahí. Sin este tope había un escalón de 58px en ese punto.
+        const tope = Math.max(0, Math.min(alturaX, y - puntoAnclaje));
+        revelado = y <= puntoAnclaje ? 0 : Math.max(0, Math.min(tope, revelado - dy));
+        raizPagina.style.setProperty('--mel-revelado', `${revelado}px`);
+      }
+      // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
+      // Antes de ese punto va en flujo normal: fijarla desde el principio la
+      // colocaría sobre el título, porque `fixed` no sabe de reposo.
+      const pasado = Math.max(0, y - inicioEncogido);
+      raizPagina.classList.toggle('fijada', pasado > 0);
+      if (imageCrop) {
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado - revelado)}px`;
+      }
+
+      ultimoY = y;
     }
 
     // Reparto del ancho de la fila de tags (D-059/D-060), gemelo reducido de
@@ -752,199 +801,18 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }
     }
 
-    // Pins the tags row directly below the fixed header (V2 layout, made
-    // definitive — mirrors the overlay's updateOverlayFixedTags() exactly).
-    // No self-correcting probe needed: unlike the overlay, this page has no
-    // accidental-containing-block quirk to work around (no animated wrapper
-    // with `transition:transform`), so plain viewport-relative top math is
-    // always correct here too. Height is effectively constant (tags never
-    // wrap — every TagWithLink instance is exactly 48px tall, see D-041),
-    // but still measured live each tick, matching the header's own pattern.
-    function updateTagsFixed() {
-      const tagsFixed = document.getElementById('detail-tags-fixed');
-      const tagsFixedSpacer = document.getElementById('detail-tags-fixed-spacer');
-      if (!tagsFixed || !tagsFixedSpacer || !stickyHeader) return;
-      if (window.innerWidth >= 1024) {
-        tagsFixed.style.top = '';
-        tagsFixedSpacer.style.height = '';
-        return;
-      }
-      tagsFixed.style.top = `${stickyHeader.getBoundingClientRect().bottom}px`;
-      tagsFixedSpacer.style.height = `${tagsFixed.getBoundingClientRect().height}px`;
-    }
-
-    function updateStickyImage() {
-      if (!stickyHeader || !imageSticky || !imageSentinel || !imageCrop) return;
-      updateHeaderSpacer();
-      // updateTagsFixed() NO se llama aquí a propósito: esto corre en cada tick
-      // de scroll, y la fila de tags se colocaba leyendo en vivo el rect de OTRO
-      // elemento fijo (la cabecera). En Safari de iOS los elementos `fixed`
-      // acompañan a la página mientras dura el desplazamiento y solo se
-      // reconcilian al pararse, así que durante el scroll esa lectura devuelve
-      // una posición que no es la real: la fila se subía sola por encima del
-      // título y lo tapaba —con la X todavía en su sitio— hasta que el scroll
-      // se detenía y un último tick escribía un valor bueno («al final vuelve a
-      // su lugar»). Su `top` no depende del scroll, solo del alto de la
-      // cabecera, así que se calcula al iniciar, al redimensionar y al cargar
-      // las fuentes (ensureScrollRunway), y ni una vez más.
-      if (window.innerWidth >= 1024) {
-        imageSticky.style.position = '';
-        imageSticky.style.top = '';
-        imageSticky.style.left = '';
-        imageSticky.style.width = '';
-        imageSticky.style.margin = '';
-        imageCrop.style.height = '';
-        imageSentinel.style.height = '';
-        return;
-      }
-
-      // "headerBottom" now means the bottom of the whole fixed block (header +
-      // pinned tags row, V2) — the image starts right below BOTH, not just
-      // the header.
-      const tagsFixedEl = document.getElementById('detail-tags-fixed');
-      const headerBottom = tagsFixedEl ? tagsFixedEl.getBoundingClientRect().bottom : stickyHeader.getBoundingClientRect().bottom;
-
-      // The sentinel sits at the image's natural (unpinned) flow position
-      // and, being a plain block with no positioning of its own, keeps moving
-      // 1:1 with scroll regardless of what the pinned image above it is
-      // doing — that's what lets it measure how far past the engage point
-      // we've scrolled, which drives the shrink.
-      const sentinelTop = imageSentinel.getBoundingClientRect().top;
-      const scrolledPast = Math.max(0, headerBottom - sentinelTop);
-
-      // Below the engage point, stay in plain static flow instead of forcing
-      // `position: fixed` — this is what it looks like anyway (right below
-      // the header) at rest, and it sidesteps measuring this page's own
-      // opening entrance transition mid-flight (getBoundingClientRect() on
-      // anything mid-transition gives a moving-target answer, not the
-      // settled one, which previously showed the photo torn/misplaced for an
-      // instant right after opening).
-      if (scrolledPast <= 0) {
-        imageSticky.style.position = '';
-        imageSticky.style.top = '';
-        imageSticky.style.left = '';
-        imageSticky.style.width = '';
-        imageSticky.style.margin = '';
-        imageCrop.style.height = `${IMAGE_MAX_H}px`;
-        imageSentinel.style.height = '0px';
-        return;
-      }
-
-      // The sentinel reserves the box's FULL-SIZE footprint (crop at 400px +
-      // dots if present), as a constant — NOT the box's current shrunk
-      // height. Measured BEFORE any mutation below (current height plus
-      // however much the crop is currently shrunk — exact whether or not
-      // this event has dots, without hardcoding their height), and set
-      // BEFORE the box switches to `fixed`: setting it after would leave a
-      // forced-layout window where the box has already left normal flow but
-      // the sentinel hasn't grown yet — the page momentarily shorter than
-      // the viewport, which makes the browser clamp the scroll position
-      // back to 0 mid-tick (observed as "can't scroll at all"). A constant
-      // sentinel also means the page's height no longer depends on scroll
-      // position: during the shrink phase, content below rises 1:1 with
-      // scroll while the box's bottom edge also recedes 1:1, so tags stay
-      // exactly 32px (the grid's own gap-8) under it; after the crop
-      // bottoms out at 200px, content simply continues up and passes
-      // underneath the (opaque, z-20) box.
-      const currentBlockHeight = imageSticky.getBoundingClientRect().height;
-      const currentCropHeight = imageCrop.getBoundingClientRect().height;
-      const fullBlockHeight = currentBlockHeight + (IMAGE_MAX_H - currentCropHeight);
-      imageSentinel.style.height = `${fullBlockHeight}px`;
-
-      const newCropHeight = Math.max(IMAGE_MIN_H, Math.min(IMAGE_MAX_H, IMAGE_MAX_H - scrolledPast));
-      imageCrop.style.height = `${newCropHeight}px`;
-
-      imageSticky.style.position = 'fixed';
-      imageSticky.style.left = '0';
-      // Explicit width, not `right: 0` — the static-mode w-[calc(100%+48px)]
-      // class is still in the cascade, and `left`+`right`+`width` all
-      // present at once is over-constrained; per spec `right` is the one
-      // that gets silently ignored (in ltr), so the calc() width would win
-      // and the box would render 48px past the true right edge.
-      imageSticky.style.width = `${window.innerWidth}px`;
-      // The negative-margin full-bleed trick (-mx-6 etc.) that positions this
-      // box edge-to-edge while it's in normal static flow still applies its
-      // margin to a `fixed` box too — left uncleared, it'd double up with the
-      // left:0 above and render 24-48px past the left edge too.
-      imageSticky.style.margin = '0';
-
-      // Pinned at the header's bottom edge, unconditionally — the box never
-      // slides up behind the header, no matter how far the page scrolls.
-      imageSticky.style.top = `${headerBottom}px`;
-    }
-
-    const scrollRunway = document.getElementById('detail-scroll-runway');
-    const navBlock = document.getElementById('detail-nav-block');
-    // Gap the nav block must always keep to the bottom of the screen, so it
-    // never sits under a phone's own navigation UI. Matches the page
-    // container's pb-[40px] below `lg` — that padding is what actually
-    // stops the scroll 40px short at the natural end; this constant only
-    // matters for the content-short case where the runway has to push the
-    // nav down to that same resting spot.
-    const NAV_BOTTOM_GUARD = 40;
-
-    // Sizes the runway (which sits BEFORE the nav block) so the nav's
-    // bottom edge always ends up pinned exactly NAV_BOTTOM_GUARD px above
-    // the bottom of the screen, and the scroll is limited to exactly that
-    // point: content-rich events need nothing (their natural scroll end —
-    // nav + the page's own bottom padding — already lands there), while
-    // content-short events get the deficit added so the nav rests at the
-    // bottom with no scrolling at all. Since the runway is before the nav
-    // and nothing follows the nav but the 40px padding, scrolling past the
-    // nav is impossible by construction. (The page's flow height is
-    // scroll-independent — the sentinel reserves a constant full-size
-    // footprint, see updateStickyImage() — so this is a plain one-shot
-    // measurement.)
-    function ensureScrollRunway() {
-      if (!scrollRunway || !navBlock) return;
-      updateHeaderSpacer();
-      // Must run BEFORE the nav measurement below: the tags-fixed spacer sits
-      // in-flow ahead of the nav, so its height directly shifts where the
-      // nav ends up — measuring against a stale (zero) spacer would under-count.
-      updateTagsFixed();
-      if (window.innerWidth >= 1024) {
-        scrollRunway.style.height = '';
-        return;
-      }
-      scrollRunway.style.height = '0px';
-      // Flow position (scroll-independent) of the nav's bottom edge.
-      const navBottomFlow = navBlock.getBoundingClientRect().bottom + window.scrollY;
-      const deficit = (window.innerHeight - NAV_BOTTOM_GUARD) - navBottomFlow;
-      if (deficit > 0) {
-        scrollRunway.style.height = `${deficit}px`;
-      }
-
-      updateStickyImage();
-    }
-
-    // Called directly on every scroll tick rather than rAF-throttled: the
-    // work here is a handful of getBoundingClientRect() reads plus a few
-    // style writes, cheap enough that the browser's own passive-listener
-    // scheduling throttles it adequately on its own.
+    medirCabecera();
     ajustarFilaTags();
-    ensureScrollRunway();
-    updateStickyImage();
-    window.addEventListener('scroll', updateStickyImage, { passive: true, signal: wSig });
+    alDesplazar();
+    raizPagina.addEventListener('scroll', alDesplazar, { passive: true, signal: wSig });
     let resizeRaf = null;
     window.addEventListener('resize', () => {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      resizeRaf = requestAnimationFrame(() => {
-        ajustarFilaTags();
-        ensureScrollRunway();
-        updateStickyImage();
-      });
+      resizeRaf = requestAnimationFrame(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); });
     }, { signal: wSig });
 
-    // Web fonts (Space Grotesk / Lora) are still loading at astro:page-load
-    // time, so the very first ensureScrollRunway() measurement can catch the
-    // page at a taller fallback-font layout and under- or over-shoot the
-    // runway it adds. Re-measure once fonts have actually settled.
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => {
-        ajustarFilaTags();
-        ensureScrollRunway();
-        updateStickyImage();
-      });
+      document.fonts.ready.then(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); });
     }
 
     // Read active navigation vector from sessionStorage.
@@ -1210,14 +1078,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
         if (window.innerWidth < 480) {
-          if (window.scrollY > 0) {
-            const startY = window.scrollY;
+          if (raizPagina.scrollTop > 0) {
+            const startY = raizPagina.scrollTop;
             const t0 = performance.now();
             const DUR = 350;
             const easeOut = (t) => 1 - Math.pow(1 - t, 3);
             const stepFrame = () => {
               const p = Math.min(1, (performance.now() - t0) / DUR);
-              window.scrollTo(0, Math.round(startY * (1 - easeOut(p))));
+              raizPagina.scrollTop = Math.round(startY * (1 - easeOut(p)));
               if (p < 1) setTimeout(stepFrame, 16);
             };
             stepFrame();
@@ -1347,23 +1215,29 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </script>
 
 <style>
-  /* Scroll anchoring (on by default) fights the pinned-image scroll math:
-     Chrome tries to keep on-screen content visually stable whenever an
-     off-screen box changes size, and will silently nudge scrollY to
-     compensate whenever #detail-image-crop, #detail-image-sentinel,
-     #detail-header-spacer or #detail-scroll-runway resize — which then
-     feeds back into updateStickyImage()'s own scroll handler, compounding
-     into an unpredictable final scroll position. These are the only
-     elements whose height changes purely from script, never from
-     user-visible content shifting around, so disabling anchoring on them
-     specifically is safe. */
-  #detail-image-crop,
-  #detail-image-sentinel,
-  #detail-header-spacer,
-  #detail-tags-fixed-spacer,
-  #detail-scroll-runway {
-    overflow-anchor: none;
+  @media (max-width: 1023px) {
+    /* La cabecera se ancla con la fila de la X por encima del borde: lo que
+       queda pegado arriba es solo el título y los tags. */
+    #detail-cabecera {
+      top: calc(-1 * var(--mel-cab-x, 48px) + var(--mel-revelado, 0px));
+    }
+    /* La foto va FIJA, no pegajosa: `sticky` se suelta cuando acaba su
+       contenedor, y por ahí la foto se escapaba hacia arriba por detrás de la
+       cabecera justo al llegar a su tamaño mínimo. Fija se queda donde está
+       para siempre y el contenido le pasa por debajo. Su `top` sale de una
+       variable medida una vez al iniciar — no de leer en vivo el rectángulo de
+       otro elemento fijo, que es lo que se descolocaba en el móvil (D-103).
+       El hueco lo reserva #detail-image-column, con alto congelado. */
+    .fijada #detail-image-sticky {
+      position: fixed;
+      top: calc(var(--mel-cab-fija, 176px) + var(--mel-revelado, 0px));
+      left: 0;
+      right: 0;
+      margin: 0;
+      width: 100%;
+    }
   }
+
 
   /* Custom Typography style sheets mapping Figma tokens */
   .typo-tag-label {

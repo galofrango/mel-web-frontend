@@ -2,6 +2,12 @@
 
 :root {
   /* Layout Spacing Tokens */
+  /* Aire por encima de la fila de cabecera en MÓVIL. Antes cada pantalla
+     repetía a mano `calc(10vh - 40px)`, que en un teléfono de 844px daban 44px
+     de nada arriba del todo. Un token: se cambia una vez y las seis pantallas
+     siguen coherentes entre sí, que es lo que costó conseguir. */
+  --mel-header-pt-mobile: 16px;
+
   --mel-header-pt-desktop: clamp(32px, 5vh, 88px);
 
   /* ==========================================================================
