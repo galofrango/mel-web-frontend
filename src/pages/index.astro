@@ -1826,11 +1826,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // aplicarse ANTES (para que el primer render ya salga filtrado) y la posición
   // dentro de ese resultado DESPUÉS.
   // El estado de vuelta vive en `_s` (no en una variable suelta) y con fecha de
-  // caducidad porque astro:page-load dispara DOS veces por navegación suave:
-  // la segunda pasada de initHomePage() volvía a resetear página, lotes y
-  // scroll justo después de que la primera los hubiera restaurado. Aplicándolo
-  // en ambas pasadas, la restauración aguanta; la caducidad evita que una
-  // visita posterior a `/` reviva un sitio viejo.
+  // caducidad.
+  //
+  // OJO, esto decía que `astro:page-load` dispara DOS veces por navegación
+  // suave. **Es falso**, y está medido: dispara UNA. Lo que había eran varias
+  // copias de initHomePage() enganchadas —una por cada visita a la home, porque
+  // el script se reevalúa y `document` sobrevive—, y en cada carga corrían todas
+  // (D-126). Ese era el origen de la "segunda pasada" que reseteaba página,
+  // lotes y scroll justo después de que la primera los hubiera restaurado.
+  //
+  // Con el registro ya idempotente solo corre una, pero la caducidad se queda:
+  // sigue haciendo falta para que una visita posterior a `/` no reviva un sitio
+  // viejo, y para que el guard de restaurandoVuelta() sepa cuándo callar los
+  // reseteos de arranque (D-121).
   const RETURN_STATE_TTL_MS = 4000;
 
   function readReturnState() {
@@ -4479,7 +4487,31 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // pagination click advanced two pages, and every re-render kicked off
   // two overlapping view transitions.
   // -------------------------------------------------------
-  document.addEventListener('astro:page-load', initHomePage);
+  // El registro es IDEMPOTENTE, y sin eso se acumulaba una copia por visita.
+  //
+  // El script en línea de esta página se **reevalúa en cada navegación suave**
+  // que vuelva aquí, mientras que `document` sobrevive al intercambio de cuerpo.
+  // Así que cada vuelta a la home dejaba enganchado otro initHomePage, y en el
+  // siguiente page-load corrían TODOS. Medido con tres idas y vueltas a una
+  // ficha, contando corridas por carga:
+  //
+  //   /event/…  2      /  2
+  //   /event/…  3      /  3
+  //
+  // Crece una por visita y no se limpia mientras dure la pestaña. De ahí la
+  // tormenta de repintados al volver de un evento (D-119, D-121): NO era
+  // `astro:page-load` disparando dos veces —dispara una, medido— sino dos copias
+  // del inicializador pisándose. El comentario de readReturnState() que dice lo
+  // contrario queda corregido.
+  //
+  // La copia que sobrevive es la primera, con el `initialArchives` de aquella
+  // carga. Es asumible: ese valor solo se usa para sembrar `_melState` (que ya
+  // está protegido y solo corre una vez) y como red de seguridad si el estado
+  // llegara vacío. El orden real de la sesión vive en `mel-session-order`.
+  if (!window._melHomeInitBound) {
+    window._melHomeInitBound = true;
+    document.addEventListener('astro:page-load', initHomePage);
+  }
 
   // La galería entrante nace OCULTA, antes de que el navegador la pinte.
   //

@@ -1407,3 +1407,21 @@ El propietario probó lo anterior y no vio ningún fundido: vio **un parpadeo y 
 - **Solo en el eje en línea**: el alto lo sigue poniendo la imagen, que es de lo que vive el masonry. Verificado que los `row-span` se siguen calculando (`span 60` con la contención puesta).
 - **Verificado en los tres anchos reales**: 152px (móvil, dos columnas) → oculta; 223px (cuatro columnas a 1180) → oculta; 288px (cuatro columnas a 1440) → presente.
 - **No hace falta tocar el marcado**, así que la réplica en JS de `FlyerCard` (regla 7) no se desincroniza por esto: la regla vive en el CSS global y alcanza por igual a las tarjetas del SSR y a las que construye el scroll infinito.
+
+## D-126 · Un solo inicializador por página: el registro tenía que ser idempotente
+
+- **Hallazgo**, salido de perseguir el bug de las 21 pestañas (D-123 en la ficha, este en la home): `document.addEventListener('astro:page-load', init…)` estaba en el ámbito del módulo, y **eso se acumula**. Astro reevalúa el script en línea de una página en cada navegación suave que vuelva a ella, mientras que `document` sobrevive al intercambio del cuerpo. Cada visita dejaba enganchada otra copia, y en el siguiente `page-load` corrían todas.
+- **Medido en la home, tres idas y vueltas a una ficha**, contando corridas por carga:
+
+  | | antes | después |
+  |---|---|---|
+  | 1.ª vuelta | 2 | 1 |
+  | 2.ª vuelta | 3 | 1 |
+  | 3.ª vuelta | 3 | 1 |
+
+  Crecía una por visita y no se limpiaba mientras durase la pestaña.
+- **Corrige una creencia equivocada del repo**: varios comentarios afirmaban que *"`astro:page-load` dispara dos veces por navegación suave"*. **No es cierto**: dispara una, y así se midió con un contador propio en el evento mientras el inicializador corría cuatro veces. La "segunda pasada" nunca fue el evento, eran dos copias. El comentario de `readReturnState()` queda corregido en el código.
+- **Es el origen de la tormenta de repintados** que costó D-119 y D-121: al volver de un evento, cada copia reseteaba contador y scroll y disparaba su propio repintado. Medido tras el arreglo: la vuelta pasa de **cinco repintados a tres**, todos pintando ya lo correcto.
+- **La copia que sobrevive es la primera**, con las variables `define:vars` de aquella carga. Asumible en las dos páginas: la ficha lee su identidad y sus imágenes del DOM y no de la closure (ya estaba previsto), y en la home `initialArchives` solo siembra `_melState` —protegido, corre una vez— y sirve de red de seguridad si el estado llegara vacío; el orden real de la sesión vive en `mel-session-order`.
+- **Verificado que no rompe la vuelta**: cerrar desde un evento distinto al que se abrió deja la galería en ese evento, 50 tarjetas, ninguna duplicada, el flyer centrado con desviación 0 y las cuatro columnas intactas. `npm run build` pasa.
+- **Lección**: el patrón `document.addEventListener('astro:page-load', …)` a nivel de módulo es seguro **solo** en una página a la que nunca se vuelve. En este sitio se vuelve a las dos. Cualquier página nueva debe registrar con guard.
