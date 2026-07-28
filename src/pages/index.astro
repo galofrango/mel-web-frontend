@@ -171,7 +171,7 @@ try {
     // Gather initial unique statistics
     initialArchives.forEach(item => {
       if (item.artistas) {
-        item.artistas.split(/[,;\/]+/).forEach(a => {
+        item.artistas.split(/,+/).forEach(a => {
           const cleanA = a.trim().toLowerCase();
           if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') initialArtists.add(cleanA);
         });
@@ -2266,7 +2266,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     
     filtered.forEach(item => {
       if (item.artistas) {
-        item.artistas.split(/[,;\/]+/).forEach(a => {
+        item.artistas.split(/,+/).forEach(a => {
           const cleanA = a.trim().toLowerCase();
           if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') filteredArtists.add(cleanA);
         });
@@ -3162,7 +3162,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const promotersSet = new Set();
       group.events.forEach(evt => {
         if (evt.artistas) {
-          evt.artistas.split(/[,;\/]+/).forEach(a => {
+          evt.artistas.split(/,+/).forEach(a => {
             const cleanA = a.trim().toLowerCase();
             if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') artistsSet.add(cleanA);
           });

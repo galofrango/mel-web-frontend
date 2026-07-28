@@ -199,7 +199,7 @@ const TAGS_EVENTO = [
 // representa como una única entrada, que sale de aquí igual que un
 // "Desconocido".
 const nombresArtistas = (eventData.artists || '')
-  .split(/[,;\/]+/)
+  .split(/,+/)
   .map(a => a.trim())
   .filter(Boolean);
 const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre => {
@@ -1355,20 +1355,41 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     }
   }
 
-  // Bind carousel and listener init to page-load so it functions perfectly on transition navigation
-  document.addEventListener('astro:page-load', initPage);
+  // Bind carousel and listener init to page-load so it functions perfectly on
+  // transition navigation.
+  //
+  // El registro es IDEMPOTENTE, y sin eso se acumulaba. El script en línea de
+  // esta página se **reevalúa en cada navegación suave** a otra ficha, mientras
+  // que `document` sobrevive al intercambio: cada visita dejaba enganchada otra
+  // copia de initPage(), y en el siguiente page-load corrían todas. Como el
+  // listener del cartel no se limpiaba, un solo toque abría tantas pestañas como
+  // fichas se hubieran recorrido — el propietario llegó a 21.
+  //
+  // Medido antes de arreglarlo: `astro:page-load` dispara UNA vez por
+  // navegación, y aun así un toque abría 4 pestañas tras 4 fichas. O sea que no
+  // era el evento repitiéndose (que es lo que dicen varios comentarios de este
+  // repo), sino cuatro copias del inicializador.
+  //
+  // La copia que sobrevive es la primera, con las variables `define:vars` de
+  // aquella ficha. Ya está contemplado: initPage lee la identidad y las imágenes
+  // del DOM y no de la closure (ver `dataNode.dataset`), justo por esto. Y
+  // `allEvents` es el archivo entero, idéntico en todas las fichas.
+  if (!window._melDetailInitBound) {
+    window._melDetailInitBound = true;
+    document.addEventListener('astro:page-load', initPage);
 
-  // Clean transition intervals on Astro page unload
-  document.addEventListener('astro:before-preparation', () => {
-    if (window.melAutoplayInterval) {
-      clearInterval(window.melAutoplayInterval);
-      window.melAutoplayInterval = null;
-    }
-    if (window.melOverlayKeydownHandler) {
-      document.removeEventListener('keydown', window.melOverlayKeydownHandler);
-      window.melOverlayKeydownHandler = null;
-    }
-  });
+    // Clean transition intervals on Astro page unload
+    document.addEventListener('astro:before-preparation', () => {
+      if (window.melAutoplayInterval) {
+        clearInterval(window.melAutoplayInterval);
+        window.melAutoplayInterval = null;
+      }
+      if (window.melOverlayKeydownHandler) {
+        document.removeEventListener('keydown', window.melOverlayKeydownHandler);
+        window.melOverlayKeydownHandler = null;
+      }
+    });
+  }
 </script>
 
 <style>

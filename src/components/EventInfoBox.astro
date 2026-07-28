@@ -8,7 +8,7 @@ interface Props {
 
 const { description, artists, organizer, designer } = Astro.props;
 
-const cleanArtists = artists ? artists.split(/[,;\/]+/).map(a => a.trim()).filter(a => a.toLowerCase() !== 'no detallados' && a.toLowerCase() !== 'desconocido') : [];
+const cleanArtists = artists ? artists.split(/,+/).map(a => a.trim()).filter(a => a.toLowerCase() !== 'no detallados' && a.toLowerCase() !== 'desconocido') : [];
 ---
 <div class="grid grid-cols-1 md:grid-cols-12 gap-8 py-8" data-node-id="EventInfoBox">
   <!-- Main description -->
