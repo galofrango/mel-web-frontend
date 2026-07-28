@@ -246,7 +246,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          `astro:page-load`, la identidad siempre es la de la página visible. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none pt-[calc(10vh-40px)] lg:pt-0"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
@@ -661,6 +661,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // Distancia, en el documento, desde el origen hasta el punto en que la
     // columna de la foto llega a su posición pegada. Se mide una vez.
     let inicioEncogido = 0;
+    let alturaX = 0;
 
     function medirCabecera() {
       if (!cabecera || !filaX || !tituloTags) return;
@@ -673,7 +674,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         raizPagina.classList.remove('fijada', 'revelada');
         return;
       }
-      raiz.style.setProperty('--mel-cab-x', `${filaX.getBoundingClientRect().height}px`);
+      alturaX = filaX.getBoundingClientRect().height;
+      raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
       raiz.style.setProperty('--mel-cab-fija', `${tituloTags.getBoundingClientRect().height}px`);
       // Alto CONGELADO de la columna de la foto. Es la invariante que impide
       // que el encogido se realimente: si la columna encogiera con el recorte,
@@ -703,15 +705,6 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       const y = window.scrollY;
       if (window.innerWidth >= 1024) { ultimoY = y; return; }
 
-      // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
-      // Antes de ese punto va en flujo normal: fijarla desde el principio la
-      // colocaría sobre el título, porque `fixed` no sabe de reposo.
-      const pasado = Math.max(0, y - inicioEncogido);
-      raizPagina.classList.toggle('fijada', pasado > 0);
-      if (imageCrop) {
-        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado)}px`;
-      }
-
       // La X reaparece en cuanto se arrastra hacia abajo. El umbral de 4px
       // evita que el temblor de un dedo quieto la haga parpadear.
       if (cabecera) {
@@ -720,6 +713,22 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         else if (dy < -4) raizPagina.classList.add('revelada');
         else if (dy > 4) raizPagina.classList.remove('revelada');
       }
+      // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
+      // Antes de ese punto va en flujo normal: fijarla desde el principio la
+      // colocaría sobre el título, porque `fixed` no sabe de reposo.
+      // Al revelar la X, la cabecera y la foto bajan `alturaX`, pero el
+      // contenido no: sin compensar, la caja se comía justo esos píxeles de
+      // las letras y no los devolvía en toda la vuelta (medido: solape
+      // constante). Descontándolos del alto, el borde inferior de la foto se
+      // queda donde estaba y el contenido no se entera — que es lo que hace
+      // que la reampliación sea lo ÚLTIMO que ocurre.
+      const compensacion = raizPagina.classList.contains('revelada') ? alturaX : 0;
+      const pasado = Math.max(0, y - inicioEncogido);
+      raizPagina.classList.toggle('fijada', pasado > 0);
+      if (imageCrop) {
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado - compensacion)}px`;
+      }
+
       ultimoY = y;
     }
 

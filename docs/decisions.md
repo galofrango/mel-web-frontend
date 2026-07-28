@@ -1191,3 +1191,11 @@ Estado final de la ficha de evento en móvil, tras cuatro correcciones del propi
 - **El contenido no lleva margen superior**: arranca a ras del borde inferior del bloque de la foto y pasa por debajo. Cuando el evento no tiene paginación, la caja de la foto lleva un faldón macizo propio de 32px; cuando la tiene, los 24px de abajo del `py-6` de los puntos ya hacen ese papel.
 
 Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12 columnas, la foto estática y el título en su columna, sin cambios.
+
+## D-107 · Aire superior de móvil en un token, y la foto compensa el revelado de la X
+
+- **Aire superior**: las seis pantallas repetían a mano `pt-[calc(10vh-40px)]`, que en un teléfono de 844px daban 44px muertos arriba del todo. Pasa a `--mel-header-pt-mobile: 16px` en `global.css` (9 usos migrados). Se cambia en un sitio y las seis siguen coherentes. Verificado: el icono de menú o la X quedan a 20px del borde en home, información y ficha de evento — las tres iguales, 28px más arriba que antes. En escritorio no cambia nada (`--mel-header-pt-desktop` sigue igual).
+- **El bug del "tirón" de la foto**: al revelarse la X, la cabecera y la foto bajan `alturaX` (48px) pero el contenido no. Resultado medido en todo el camino de vuelta: **solape constante de 48px** entre el borde inferior de la foto y el comienzo del contenido, que la caja se comía y no devolvía nunca. El propietario lo describió como que las letras "tiran" de la caja.
+  - **Arreglo**: al estar revelada, el recorte descuenta esos mismos 48px de su alto. El borde inferior de la foto se queda donde estaba y el contenido no se entera del revelado.
+  - **Efecto buscado**: con eso la reampliación de la foto es de verdad **lo último** que ocurre al volver arriba. Medido: el recorte se mantiene en su mínimo de 200 hasta que el solape llega a 0, y solo entonces empieza a crecer.
+  - **Orden de operaciones**: la clase `revelada` se decide ANTES de calcular el alto del recorte, o la compensación llegaría un fotograma tarde.
