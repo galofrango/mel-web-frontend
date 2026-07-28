@@ -1136,6 +1136,71 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // scroll vertical sobre la foto no cambia de imagen. Cuando sí ha sido
     // deslizamiento, se suprime el `click` que el navegador dispara después,
     // para no expandir la imagen sin querer al terminar el gesto.
+    // La caja de la foto va `position: fixed` porque es lo que hace que la
+    // geometría cuadre: el hueco lo reserva un placeholder de alto constante y
+    // el contenido pasa por DEBAJO. El precio es que un elemento fijo queda
+    // fuera de la cadena de scroll — el navegador busca el ancestro desplazable
+    // por la cadena de bloques contenedores, y para un fijo esa cadena acaba en
+    // el viewport, que aquí no se desplaza. Arrastrar sobre la foto no movía
+    // nada, y con la caja encogida eso es media pantalla muerta.
+    //
+    // Se probó la vía "correcta" —anclar la columna con `sticky`, que sí está
+    // en la cadena— y hubo que revertirla: con la foto en flujo el contenido va
+    // DESPUÉS de ella, así que al encoger o queda hueco o la columna encoge y
+    // realimenta el scroll (roadmap, problemas conocidos 9 y 10).
+    //
+    // Así que se reenvía el gesto a mano, sin tocar la geometría. Solo el eje
+    // vertical: el horizontal sigue siendo del deslizamiento entre fotos y el
+    // toque limpio sigue abriendo el lightbox.
+    function habilitarArrastreVertical(zona) {
+      if (!zona) return;
+      const MINIMO = 6;            // por debajo de esto es un toque, no un arrastre
+      const ROCE = 0.95;           // frenado de la inercia por fotograma
+      const VELOCIDAD_MINIMA = 0.05;
+      let y0 = null, x0 = null, scroll0 = 0, arrastrando = false;
+      let ultimaY = 0, ultimoT = 0, velocidad = 0, inercia = null;
+
+      zona.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        if (inercia) { cancelAnimationFrame(inercia); inercia = null; }
+        y0 = e.clientY; x0 = e.clientX; scroll0 = raizPagina.scrollTop;
+        ultimaY = e.clientY; ultimoT = e.timeStamp; velocidad = 0; arrastrando = false;
+      }, { signal: wSig });
+
+      zona.addEventListener('pointermove', (e) => {
+        if (y0 === null) return;
+        const dy = e.clientY - y0;
+        // El gesto solo se toma cuando es claramente vertical; si no, se deja
+        // pasar para que el deslizamiento entre fotos siga funcionando.
+        if (!arrastrando) {
+          if (Math.abs(dy) < MINIMO || Math.abs(dy) <= Math.abs(e.clientX - x0)) return;
+          arrastrando = true;
+        }
+        const dt = e.timeStamp - ultimoT;
+        if (dt > 0) velocidad = (e.clientY - ultimaY) / dt;
+        ultimaY = e.clientY; ultimoT = e.timeStamp;
+        raizPagina.scrollTop = scroll0 - dy;
+      }, { signal: wSig });
+
+      const soltar = () => {
+        if (y0 === null) return;
+        const iba = arrastrando;
+        y0 = null; x0 = null; arrastrando = false;
+        if (!iba || Math.abs(velocidad) < VELOCIDAD_MINIMA) return;
+        // Inercia propia: sin ella el desplazamiento se corta en seco al
+        // levantar el dedo y se nota que esa zona va aparte del resto.
+        let v = velocidad * 16;
+        const paso = () => {
+          raizPagina.scrollTop -= v;
+          v *= ROCE;
+          inercia = Math.abs(v) > 0.5 ? requestAnimationFrame(paso) : null;
+        };
+        inercia = requestAnimationFrame(paso);
+      };
+      zona.addEventListener('pointerup', soltar, { signal: wSig });
+      zona.addEventListener('pointercancel', soltar, { signal: wSig });
+    }
+
     function habilitarDeslizamiento(zona, irA, indiceActual) {
       if (!zona || !imageUrls || imageUrls.length <= 1) return;
 
@@ -1190,6 +1255,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
     habilitarDeslizamiento(mainImageContainer, (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
     habilitarDeslizamiento(document.getElementById('overlay-image-box'), showOverlayImage, () => overlayIndex);
+    // El arrastre vertical se engancha a TODA la caja fija, no solo a la foto:
+    // la paginación y el faldón también son zona muerta si no.
+    habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
 
     // Initialize carousel and autoplay
     if (imageUrls && imageUrls.length > 0) {
