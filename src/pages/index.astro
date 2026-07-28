@@ -1726,11 +1726,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // infinito, página de Lista, cámara del mapa, rango de años — vive aquí.
   // Se guarda en sessionStorage (no en memoria) para sobrevivir también a un
   // F5 hecho dentro de la propia ficha de evento.
-  // Qué flyer se abrió por última vez, para poder volver a ÉL y no a un píxel.
-  function recordarFlyerAbierto(idMel) {
-    _s.ultimoFlyerAbierto = idMel || null;
-  }
-
   function saveReturnState() {
     try {
       const view = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
@@ -1744,13 +1739,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         maxYear,
         // El local del panel no se guarda aquí: viaja en la propia URL de
         // vuelta (?location=), que es donde updateMapMarkers() lo busca.
-        // Además del píxel, QUÉ flyer se estaba mirando. El píxel es frágil por
-        // construcción en esta galería: el masonry mide cada tarjeta cuando su
-        // imagen carga, así que el alto crece durante el primer segundo y el
-        // píxel guardado deja de caer donde caía — de ahí que la vuelta no
-        // siempre acertase con el flyer de origen. El identificador sigue
-        // siendo verdad aunque el alto cambie.
-        flyer: _s.ultimoFlyerAbierto || null,
         scroll: {
           galeria: document.getElementById('view-galería')?.scrollTop || 0,
           listaTable: document.getElementById('list-table-wrapper')?.scrollTop || 0,
@@ -1815,29 +1803,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   // Insiste en devolver un contenedor a `target` mientras su contenido siga
   // creciendo (imágenes cargando ⇒ alto final desconocido al principio).
-  // Lleva la galería hasta una tarjeta concreta. Reintenta igual que
-  // restoreScroll() porque la tarjeta puede no existir todavía: el scroll
-  // infinito carga por lotes y el masonry la coloca cuando su imagen mide.
-  // Devuelve false si al cabo del plazo no aparece, para que quien llama pueda
-  // recaer en el píxel guardado.
-  function volverAlFlyer(idMel, timeoutMs = 2500) {
-    const cont = document.getElementById('view-galería');
-    if (!cont || !idMel) return false;
-    const t0 = Date.now();
-    const intento = setInterval(() => {
-      const tarjeta = cont.querySelector(`.gallery-item[data-id="${idMel}"]`);
-      if (tarjeta) {
-        // `block: 'center'` y no 'start': el flyer queda donde el ojo lo
-        // buscaría, no pegado al borde superior bajo la toolbar.
-        tarjeta.scrollIntoView({ block: 'center', behavior: 'instant' });
-        clearInterval(intento);
-        return;
-      }
-      if (Date.now() - t0 > timeoutMs) clearInterval(intento);
-    }, 60);
-    return true;
-  }
-
   function restoreScroll(containerId, target, timeoutMs = 2500) {
     if (!target) return;
     const el = document.getElementById(containerId);
@@ -1898,11 +1863,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // frame a frame hasta que la posición aguanta, con tope de tiempo — y se
     // abandona en cuanto el visitante toca el scroll, para no pelearse con él.
     const s = st.scroll || {};
-    // Si sabemos por qué flyer se entró, se vuelve a ÉL. El píxel queda de red
-    // de seguridad para cuando no hay flyer (se entró desde lista o mapa) o
-    // cuando ese flyer ya no está en pantalla porque cambió el filtro.
-    if (st.flyer && !volverAlFlyer(st.flyer)) restoreScroll('view-galería', s.galeria);
-    else if (!st.flyer) restoreScroll('view-galería', s.galeria);
+    restoreScroll('view-galería', s.galeria);
     restoreScroll('list-table-wrapper', s.listaTable);
     restoreScroll('list-mobile-cards', s.listaCards);
 
@@ -1945,8 +1906,6 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   }
 
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
-    // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
-    recordarFlyerAbierto(idMel);
     saveReturnState();
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
     const params = new URLSearchParams();
