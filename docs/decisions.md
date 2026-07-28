@@ -1215,3 +1215,10 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Decisión**: quitar la causa. El padding lateral baja del envoltorio a los hijos que lo necesitan (cabecera, contenido y navegación), y cabecera y foto pasan a `w-full` sin márgenes negativos. Nada sobresale, así que no hay nada que recortar.
 - **Trampa al hacerlo**: la columna de info conservaba un `pl-0` de cuando el padding venía de fuera, y le ganaba a `px-6`. El contenido quedó pegado al borde izquierdo hasta quitarlo.
 - Verificado a 390px: sin scroll horizontal (`scrollWidth` = `clientWidth`), X, título, descripción y ARTISTAS todos a 24px, y la foto de 0 a 390. A 1440 no cambia nada.
+
+## D-110 · La cabecera anclada tapaba 16px de la foto
+
+- **Síntoma**: "la foto se empieza a cortar ligeramente por arriba cuando la caja se hace más pequeña".
+- **No era el recorte de la imagen**: el `<img>` usa `object-contain`, así que al encoger la caja la foto **escala**, no se corta (verificado con un cartel vertical de 992×1403: pasa de 255×360 a 218×309 con el borde superior siempre a ras).
+- **Causa real**: el punto donde se fija la foto se calculaba como el alto de título+tags, pero el borde inferior REAL de la cabecera anclada incluye además el aire superior del contenedor. Eran 160 frente a 176: **la cabecera se comía 16px de la parte de arriba del cartel**, que en un archivo de diseño gráfico es justo lo que no se puede tocar. Ahora `--mel-cab-fija` se mide como `alto de cabecera - lo que se esconde + padding superior`. Verificado: solape 0 en todo el recorrido.
+- **Pendiente, no resuelto**: al volver arriba queda un escalón en la altura del recorte cerca del punto de anclaje. Se quitó la compensación de 48px que lo provocaba (era un salto por definición), pero sigue apareciendo. Además las lecturas de scroll salen inestables en ese tramo —se pide una posición y se lee otra—, lo que apunta a que al fijarse y soltarse la foto el contenedor recoloca la posición. Queda por depurar con el dispositivo delante.

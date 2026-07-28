@@ -662,6 +662,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // columna de la foto llega a su posición pegada. Se mide una vez.
     let inicioEncogido = 0;
     let alturaX = 0;
+    // Desplazamiento a partir del cual la cabecera queda anclada arriba.
+    let puntoAnclaje = 0;
 
     function medirCabecera() {
       if (!cabecera || !filaX || !tituloTags) return;
@@ -675,8 +677,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         return;
       }
       alturaX = filaX.getBoundingClientRect().height;
+      puntoAnclaje = alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
       raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
-      raiz.style.setProperty('--mel-cab-fija', `${tituloTags.getBoundingClientRect().height}px`);
+      raiz.style.setProperty('--mel-cab-fija', `${cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0)}px`);
       // Alto CONGELADO de la columna de la foto. Es la invariante que impide
       // que el encogido se realimente: si la columna encogiera con el recorte,
       // el documento se acortaría a mitad de scroll, el navegador recolocaría
@@ -709,24 +712,20 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // evita que el temblor de un dedo quieto la haga parpadear.
       if (cabecera) {
         const dy = y - ultimoY;
-        if (y <= 0) raizPagina.classList.remove('revelada');
+        // Solo tiene sentido revelar mientras la cabecera está anclada: por
+        // debajo de ese punto ya se ve entera, y bajarla ahí empujaba la página
+        // unos píxeles y luego la soltaba de golpe.
+        if (y <= puntoAnclaje) raizPagina.classList.remove('revelada');
         else if (dy < -4) raizPagina.classList.add('revelada');
         else if (dy > 4) raizPagina.classList.remove('revelada');
       }
       // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
       // Antes de ese punto va en flujo normal: fijarla desde el principio la
       // colocaría sobre el título, porque `fixed` no sabe de reposo.
-      // Al revelar la X, la cabecera y la foto bajan `alturaX`, pero el
-      // contenido no: sin compensar, la caja se comía justo esos píxeles de
-      // las letras y no los devolvía en toda la vuelta (medido: solape
-      // constante). Descontándolos del alto, el borde inferior de la foto se
-      // queda donde estaba y el contenido no se entera — que es lo que hace
-      // que la reampliación sea lo ÚLTIMO que ocurre.
-      const compensacion = raizPagina.classList.contains('revelada') ? alturaX : 0;
       const pasado = Math.max(0, y - inicioEncogido);
       raizPagina.classList.toggle('fijada', pasado > 0);
       if (imageCrop) {
-        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado - compensacion)}px`;
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado)}px`;
       }
 
       ultimoY = y;
