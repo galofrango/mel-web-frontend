@@ -366,14 +366,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              de tiempo (que queda a la vista, atenuado) y todo lo de abajo. -->
         <div
           id="map-side-panel-backdrop"
-          class="lg:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[19] opacity-0 pointer-events-none transition-opacity duration-500"
+          class="lg:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[99] opacity-0 pointer-events-none transition-opacity duration-500"
           aria-hidden="true"
         ></div>
 
         <!-- Side Panel / Place Events Panel -->
         <div
           id="map-side-panel"
-          class="w-0 h-full bg-mel-bg-primary border-l-0 border-mel-border flex flex-col justify-start z-20 overflow-hidden shrink-0 transition-all duration-300 relative"
+          class="w-0 h-full bg-mel-bg-primary border-l-0 border-mel-border flex flex-col justify-start max-lg:z-[100] lg:z-20 overflow-hidden shrink-0 transition-all duration-300 relative"
           style="opacity: 1;"
           data-node-id="341:25563"
         >
@@ -1198,6 +1198,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     #map-side-panel {
       position: fixed;
       inset: var(--mel-sheet-top, 40px) 0 0 0;
+      /* El apilamiento va en la clase (`max-lg:z-[100]`) y no aquí: una regla
+         de id en este bloque no le ganaba a la utilidad `z-20`. Mientras el
+         sheet se paraba justo por encima del slider no se pisaban; al subirlo a
+         40px pasa por delante de los recuentos y del selector de vista, y sin
+         eso se pintaban ENCIMA del panel durante toda la animación de apertura
+         (visible en el vídeo: el selector sobre el nombre del local). */
       width: 100% !important;
       height: auto !important;
       border-left-width: 0 !important;
