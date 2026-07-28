@@ -3860,18 +3860,33 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // (por encima de un umbral) o lo suelta de vuelta a su sitio. Solo
     // actúa bajo el breakpoint md (ver media query de #map-side-panel);
     // en escritorio el tirador ni siquiera es visible.
-    // La zona de agarre es la cabecera ENTERA (misma franja que cierra al
-    // tocarla), no el tirador de 80x5: con el pulgar nadie acierta ahí.
-    const sidePanelHandle = document.getElementById('map-side-panel-close-zone')
-      || document.getElementById('map-side-panel-handle');
+    // Se agarra desde CUALQUIER punto del panel, no solo desde la cabecera.
+    // La única zona que puede entrar en conflicto es la lista de eventos, que
+    // tiene scroll propio, y ahí se aplica la regla habitual de las hojas
+    // móviles: el panel solo se lleva el gesto si la lista ya está arriba del
+    // todo y se tira hacia abajo; en cualquier otro caso manda la lista.
+    const sidePanelHandle = document.getElementById('map-side-panel');
     if (sidePanelHandle && sidePanel) {
       let dragStartY = 0;
       let dragCurrentY = 0;
       let isDragging = false;
 
+      const listaEventos = document.getElementById('side-panel-event-list');
+      let desdeLista = false;
+
       const dragMove = (e) => {
         if (!isDragging) return;
-        dragCurrentY = e.touches ? e.touches[0].clientY : e.clientY;
+        const y = e.touches ? e.touches[0].clientY : e.clientY;
+        // Empezando sobre la lista, el panel espera su turno: solo se lleva el
+        // gesto cuando la lista no tiene ya nada que desplazar hacia arriba y
+        // se está tirando hacia abajo. Así no se cierra el panel al querer
+        // volver al principio de la lista.
+        if (desdeLista && (listaEventos.scrollTop > 0 || y <= dragStartY)) {
+          dragStartY = y;   // el arrastre útil empieza donde la lista se queda sin recorrido
+          dragCurrentY = y;
+          return;
+        }
+        dragCurrentY = y;
         const delta = Math.max(0, dragCurrentY - dragStartY);
         sidePanel.style.transform = `translate3d(0, ${delta}px, 0)`;
       };
@@ -3891,10 +3906,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       };
       const dragStart = (e) => {
         if (window.innerWidth >= 1024) return; // Bottom sheet solo bajo lg
+        desdeLista = !!(listaEventos && e.target && listaEventos.contains(e.target));
         isDragging = true;
         dragCurrentY = dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
         sidePanel.classList.add('side-panel-dragging');
       };
+
+      // En captura, para adelantarse a los enlaces de la lista y de los tags.
+      sidePanelHandle.addEventListener('click', (e) => {
+        if (!window._melArrastroSheet) return;
+        window._melArrastroSheet = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }, { capture: true, signal: wSig });
 
       sidePanelHandle.addEventListener('touchstart', dragStart, { passive: true, signal: wSig });
       sidePanelHandle.addEventListener('touchmove', dragMove, { passive: true, signal: wSig });
