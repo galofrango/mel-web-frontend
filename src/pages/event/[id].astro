@@ -233,7 +233,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        around there from the screen's bottom edge once fully scrolled, per
        spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
        this scroll behavior). -->
-  <div class="w-full max-w-[1440px] mx-auto min-h-dvh bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
+  <div class="w-full max-w-[1440px] mx-auto h-dvh overflow-hidden lg:h-auto lg:min-h-dvh lg:overflow-visible bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] px-6 sm:px-12 lg:px-[108px]">
     <!-- Main Box Container (Figma 1224px wide).
          data-event-id / data-image-urls: la identidad del evento viaja en el
          DOM, no solo en las variables de `define:vars`. Esas quedan congeladas
@@ -246,7 +246,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          `astro:page-load`, la identidad siempre es la de la página visible. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 flex-1 min-h-0 overflow-y-auto lg:flex-none lg:overflow-visible"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
@@ -296,7 +296,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            gesto (que era D-103). Fondo opaco porque la foto le pasa por debajo.
            A partir de `lg` se desmonta: el título vive en la columna de info y
            los tags en su propia columna. -->
-      <div id="detail-titulo-tags" class="w-full pb-8 lg:pb-0 lg:contents">
+      <div id="detail-titulo-tags" class="w-full shrink-0 pb-8 lg:pb-0 lg:contents">
         <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-8">
           {eventData.title}
         </h2>
@@ -319,7 +319,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              desktop). order-1 (lg:order-2 restores the desktop middle-column
              position) puts it first below `lg`, matching Figma 369:32751's
              image-then-tags-then-info mobile flow. -->
-        <div id="detail-image-column" class="w-full lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
+        <div id="detail-image-column" class="w-full shrink-0 lg:order-2 lg:col-span-5 flex flex-col items-center relative h-auto lg:h-[400px] lg:mx-0 lg:w-full" data-name="Image Viewer / Desktop">
 
           <!-- Pinned image box (Figma 369:32751: min-h-[200px] on scroll).
                Below `lg`, updateStickyImage() drives `position: fixed` plus
@@ -429,7 +429,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div id="detail-scroll" class="lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info">
+        <div id="detail-scroll" class="shrink-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full pl-0 lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
@@ -693,16 +693,16 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         columnaFoto.style.height = '';
         columnaFoto.style.height = `${cajaFoto.getBoundingClientRect().height}px`;
         inicioEncogido = Math.max(0,
-          cajaFoto.getBoundingClientRect().top + window.scrollY - tituloTags.getBoundingClientRect().height);
+          cajaFoto.getBoundingClientRect().top + raizPagina.scrollTop - tituloTags.getBoundingClientRect().height);
         imageCrop.style.height = altoPrevio;
         if (fijadaAntes) raizPagina.classList.add('fijada');
       }
     }
 
     // Lo único ligado al scroll. Dos escrituras: una altura y una clase.
-    let ultimoY = window.scrollY;
+    let ultimoY = 0;
     function alDesplazar() {
-      const y = window.scrollY;
+      const y = raizPagina.scrollTop;
       if (window.innerWidth >= 1024) { ultimoY = y; return; }
 
       // La X reaparece en cuanto se arrastra hacia abajo. El umbral de 4px
@@ -791,7 +791,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     medirCabecera();
     ajustarFilaTags();
     alDesplazar();
-    window.addEventListener('scroll', alDesplazar, { passive: true, signal: wSig });
+    raizPagina.addEventListener('scroll', alDesplazar, { passive: true, signal: wSig });
     let resizeRaf = null;
     window.addEventListener('resize', () => {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
@@ -1065,14 +1065,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
         if (window.innerWidth < 480) {
-          if (window.scrollY > 0) {
-            const startY = window.scrollY;
+          if (raizPagina.scrollTop > 0) {
+            const startY = raizPagina.scrollTop;
             const t0 = performance.now();
             const DUR = 350;
             const easeOut = (t) => 1 - Math.pow(1 - t, 3);
             const stepFrame = () => {
               const p = Math.min(1, (performance.now() - t0) / DUR);
-              window.scrollTo(0, Math.round(startY * (1 - easeOut(p))));
+              raizPagina.scrollTop = Math.round(startY * (1 - easeOut(p)));
               if (p < 1) setTimeout(stepFrame, 16);
             };
             stepFrame();
