@@ -476,7 +476,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       </div>
 
 
-      <div id="detail-nav-block" class="px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div id="detail-nav-block" class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
@@ -1283,6 +1283,25 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </script>
 
 <style>
+  @media (max-width: 1023px) {
+    /* El divisor sobre la navegación se dibuja con un pseudoelemento y no con
+       `border-top`: el borde se pinta sobre la caja del bloque, así que llegaba
+       a sangre mientras el contenido de dentro respeta los márgenes laterales.
+       Acotado a los mismos 24px (48 a partir de `sm`) que el resto. */
+    #detail-nav-block::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 24px;
+      right: 24px;
+      border-top: 1px solid var(--mel-border);
+    }
+  }
+
+  @media (min-width: 640px) and (max-width: 1023px) {
+    #detail-nav-block::before { left: 48px; right: 48px; }
+  }
+
   @media (max-width: 1023px) {
     /* La cabecera se ancla con la fila de la X por encima del borde: lo que
        queda pegado arriba es solo el título y los tags. */
