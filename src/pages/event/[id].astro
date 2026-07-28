@@ -631,7 +631,17 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // vuelta sea instantánea, con todo tal cual se dejó, antes que una
       // animación que no acaba de cuadrar. El estado de vuelta viaja en
       // sessionStorage, así que la recarga no pierde nada.
-      if (activeLocation) closeBtn.setAttribute('data-astro-reload', '');
+      if (activeLocation) {
+        closeBtn.setAttribute('data-astro-reload', '');
+        // Marca para la home: esto es una VUELTA a un estado, no un viaje a un
+        // sitio. Sin ella, la carga completa reproducía la secuencia de entrada
+        // entera —galería, cambio a mapa, cámara buscando el marcador y el
+        // panel abriéndose con su segundo de espera—, que tiene sentido
+        // llegando desde una tag de "Lugar" y ninguno volviendo.
+        closeBtn.addEventListener('click', () => {
+          try { sessionStorage.setItem('mel-volviendo-al-panel', activeLocation); } catch (e) {}
+        }, { once: true });
+      }
       else closeBtn.removeAttribute('data-astro-reload');
     }
 

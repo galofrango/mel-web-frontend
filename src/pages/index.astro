@@ -3245,7 +3245,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // had open before this render (e.g. still on ?location= from an
       // earlier auto-open) shouldn't re-snap the camera/re-delay on every
       // re-render.
-      if (justAutoOpened && googleMap) {
+      // Volviendo de un evento: el panel estaba abierto y debe seguir estándolo,
+      // sin coreografía. La cámara se coloca sin animación y el panel se puebla
+      // en el acto, en vez de recorrer el viaje de "el mapa encuentra el sitio
+      // y ENTONCES abre el panel", que es para llegar desde una tag de "Lugar".
+      let volviendoAlPanel = null;
+      try {
+        volviendoAlPanel = sessionStorage.getItem('mel-volviendo-al-panel');
+        if (volviendoAlPanel) sessionStorage.removeItem('mel-volviendo-al-panel');
+      } catch (e) {}
+
+      if (justAutoOpened && volviendoAlPanel && googleMap) {
+        googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
+        googleMap.setZoom(15);
+        populateSidePanel(locationGroups[activeSidePanelKey]);
+      } else if (justAutoOpened && googleMap) {
         googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
         googleMap.setZoom(15);
         // Store the timeout ID so initHomePage can cancel it if it re-runs
