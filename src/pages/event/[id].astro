@@ -898,6 +898,30 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     };
 
     // Render navigation dynamically based on active search/location matches (using visibility:hidden to preserve grid layout!)
+    // Precarga de los vecinos. La documentación (D-090) da esto por hecho, pero
+    // en esta página no quedaba ni una línea: se perdió en alguna reescritura y
+    // el resultado es que al pulsar Anterior/Siguiente la página llegaba y SOLO
+    // ENTONCES se pedía la foto — unos 400ms viéndola aparecer a trompicones.
+    //
+    // Se adelantan las dos cosas y por separado, porque no son lo mismo:
+    // `prefetch` trae el HTML de la ficha vecina, y `preload as=image` trae su
+    // primera foto, que es lo único que se ve tardar. La foto pesa mucho más que
+    // el HTML, así que es la que de verdad cambia la sensación.
+    function adelantarVecino(item) {
+      if (!item) return;
+      const meter = (rel, href, comoImagen) => {
+        if (!href || document.querySelector(`link[rel="${rel}"][href="${href}"]`)) return;
+        const l = document.createElement('link');
+        l.rel = rel;
+        l.href = href;
+        if (comoImagen) { l.as = 'image'; l.referrerPolicy = 'no-referrer'; }
+        document.head.appendChild(l);
+      };
+      meter('prefetch', `/event/${item.idMel}`, false);
+      const foto = item.carruselItems && item.carruselItems[0];
+      if (foto) meter('preload', extractDriveImage(foto.urlDrive), true);
+    }
+
     const prevContainer = document.getElementById('nav-prev-container');
     if (prevContainer) {
       if (prevEventItem) {
@@ -917,6 +941,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (deadLink) deadLink.href = '#';
       }
     }
+
+    adelantarVecino(prevEventItem);
+    adelantarVecino(nextEventItem);
 
     const nextContainer = document.getElementById('nav-next-container');
     if (nextContainer) {
