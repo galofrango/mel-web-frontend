@@ -11,6 +11,7 @@ import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
 import IntroAnimation from '../components/IntroAnimation.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
+import EmptyState from '../components/EmptyState.astro';
 
 // Extract Year from Date String
 function getYear(dateStr) {
@@ -300,7 +301,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            del estado vacío. El contenido va algo más arriba de lo centrado
            (pb mayor que pt) ahora que el toggle desaparece en este estado y
            queda hueco de sobra por debajo. -->
-      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pt-8 pb-24 lg:items-center lg:pt-0 overflow-y-auto"></div>
+      <!-- El estado vacío es el COMPONENTE, pintado aquí en SSR y solo mostrado u
+           ocultado por JS. Antes se generaba con una plantilla de cadena que
+           replicaba su marcado a mano, y se desincronizó a la primera: al
+           cambiar el alto de la foto en el componente, la home seguía con el
+           anterior. Sin `pt` propio en móvil para que la foto arranque a 32px
+           de los recuentos y no a 89. -->
+      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pb-24 lg:items-center overflow-y-auto">
+        <EmptyState variant="no-results" class="pt-0 lg:pt-[24px]" />
+      </div>
 
       <!-- 1. GALLERY VIEW (masonry 2.1: CSS Grid + row-span medido por imagen,
            cada flyer entero a ancho de columna y ratio original, sin recortes;
@@ -2163,28 +2172,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const listTableWrapper = document.getElementById('list-table-wrapper');
       const listMobileCards = document.getElementById('list-mobile-cards');
 
-      function getEmptyStateHtml() {
-        return `
-          <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
-            <div class="h-[208px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-              <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
-              <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
-            </div>
-            <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
-              <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-              <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
-            </div>
-            <a href="/" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
-              <span>Quitar filtros</span>
-            </a>
-          </div>
-        `;
-      }
-
       if (filtered.length === 0) {
         if (gridContainer) gridContainer.innerHTML = '';
         if (viewsEmptyState) {
-          viewsEmptyState.innerHTML = getEmptyStateHtml();
           viewsEmptyState.classList.remove('hidden');
           viewsEmptyState.classList.add('flex');
         }

@@ -38,12 +38,11 @@ import IconButton from './IconButton.astro';
       />
     </div>
     
-    <!-- Sin título: la palabra "Menú" no añadía nada que el icono no dijera ya,
-         y su hueco se lo queda la lista, que respira mucho mejor. Se conserva
-         exactamente el mismo espacio superior (los 8+32+32 que ocupaban el
-         bloque y su interlínea) para que los items arranquen donde arrancaba el
-         título, no más arriba. -->
-    <div class="h-[72px] shrink-0 w-full" aria-hidden="true"></div>
+    <!-- Sin título: la palabra "Menú" no añadía nada que el icono no dijera ya.
+         Se conserva un respiro entre la X y el primer item, pero no los 72px que
+         ocupaba el bloque entero: dejarlos abría un hueco enorme arriba (el
+         propietario lo vio en cuanto se quitó el texto). -->
+    <div class="h-[24px] shrink-0 w-full" aria-hidden="true"></div>
     
     <!-- Menu List (Without divide-y, using absolute offset dividers inside anchors) -->
     <div class="flex flex-col items-start w-full relative" data-node-id="562:70115" data-name="Menu List">
