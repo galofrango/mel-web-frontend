@@ -249,3 +249,23 @@ inmediata, no una transición de 200ms que llega cuando ya has soltado el dedo.
 **No se puede "usar el hover como pulsado" sin más**: las clases `hover:` de
 Tailwind compilan a selectores `:hover`, y remapearlas en bloque exigiría tocar
 la configuración del framework, con efecto en todo el sitio.
+
+
+## Cuándo NO debe verse el estado pulsado
+
+Dos casos, los dos detectados usando el sitio en un teléfono:
+
+1. **Lo que no hace nada no se pulsa.** Los recuentos de la home y del panel
+   (Eventos, Artistas, Diseñadores…) llevan la clase `.filter-tag` y estaban en
+   la regla genérica de atenuado, así que se apagaban al tocarlos sin ser
+   pulsables: prometían una acción inexistente. Una tag que sí enlaza entra por
+   `a:active`, porque su valor es un enlace de verdad.
+
+2. **Desplazar no es pulsar.** El navegador enciende `:active` en cuanto tocas y
+   lo mantiene durante todo el gesto, así que arrastrar para hacer scroll sobre
+   una lista dejaba sus filas iluminadas como si fueran a abrirse. Un oyente en
+   `Layout.astro` marca la raíz con `mel-desplazando` en cuanto el dedo se mueve
+   más de 8px, y el CSS anula el pulsado mientras dure. Por debajo de ese umbral
+   —un dedo quieto que tiembla— el pulsado sí se ve, que es lo que se quiere.
+   La marca se retira en el fotograma siguiente al `touchend`: quitarla en el
+   acto deja que el `:active` residual pinte un parpadeo al levantar el dedo.
