@@ -2907,6 +2907,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
     const isAlreadyOpen = sidePanel.classList.contains('side-panel-open');
 
+    // Firma de lo que el panel está mostrando. La consume la rama de
+    // resincronización de updateMapMarkers() para no repintar lo mismo; aquí
+    // solo se registra, porque cortar la función entera se saltaría además la
+    // apertura y dejaría el panel con su transformación de cerrado.
+    sidePanel.dataset.firmaPanel = group.locationName + '|' + group.events.map(e => e.idMel).join(',');
+
     const updateSidePanelDOM = () => {
       // Identidad del local que el panel está mostrando ahora mismo: es lo que
       // permite distinguir "cambiar de local" (con fundido) de "refrescar el
@@ -3224,7 +3230,20 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           populateSidePanel(locationGroups[activeSidePanelKey], 300);
         }, 1000);
       } else {
-        populateSidePanel(locationGroups[activeSidePanelKey]);
+        // Esta rama existe para resincronizar el panel cuando cambian los
+        // filtros. Si lo que tocaría pintar es EXACTAMENTE lo que ya se ve, no
+        // hay nada que hacer: rehacer la lista y relanzar el reparto de tags se
+        // ve como un parpadeo. Al volver de un evento abierto desde el panel
+        // ocurría dos veces —medido a los 5ms y otra vez a los 1958ms—, la
+        // segunda cuando el mapa termina de cargar y vuelve a pasar por aquí
+        // con `?location=` todavía en la URL.
+        const grupo = locationGroups[activeSidePanelKey];
+        const panelEl = document.getElementById('map-side-panel');
+        const firma = grupo.locationName + '|' + grupo.events.map(e => e.idMel).join(',');
+        const yaPintado = panelEl
+          && panelEl.classList.contains('side-panel-open')
+          && panelEl.dataset.firmaPanel === firma;
+        if (!yaPintado) populateSidePanel(grupo);
       }
     } else {
       activeSidePanelKey = null;
