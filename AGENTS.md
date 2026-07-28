@@ -14,6 +14,11 @@ Lee este documento primero; después, consulta según la tarea:
 - Estado del proyecto y roadmap → [docs/roadmap.md](docs/roadmap.md)
 - Diario de sesiones (**congelado**, solo histórico) → [docs/journal.md](docs/journal.md)
 
+> **¿Retomando el proyecto en una sesión nueva?** Empieza por
+> **[docs/traspaso.md](docs/traspaso.md)**: qué quedó a medias, cómo probar en un
+> teléfono real, qué NO se puede reproducir en un entorno de agente, y las
+> trampas de este código que ya han costado horas.
+
 > **Cómo funciona la navegación del sitio** (orden de las tarjetas, navegación
 > entre eventos, filtros, volver al sitio de origen) → **[Contrato de Navegación](docs/architecture.md#contrato-de-navegación-fuente-única-de-verdad)**.
 > Es normativo: si el código lo contradice, es un bug del código.
