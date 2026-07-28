@@ -2220,34 +2220,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       return yearMatch && searchMatch;
     });
 
-    // Apply sorting
-    if (currentSortCol) {
-      if (currentSortCol === 'fecha') {
-        tempFiltered.sort((a, b) => {
-          const parseDate = (dStr) => {
-            if (!dStr || dStr === 'SIN FECHA') return 0;
-            const parts = dStr.split('/');
-            if (parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]).getTime();
-            const parts2 = dStr.split('-');
-            if (parts2.length === 3) return new Date(parts2[0], parts2[1]-1, parts2[2]).getTime();
-            return 0;
-          };
-          const valA = parseDate(a.fecha);
-          const valB = parseDate(b.fecha);
-          return currentSortDir === 'asc' ? valA - valB : valB - valA;
-        });
-      } else {
-        tempFiltered.sort((a, b) => {
-          const dbField = currentSortCol === 'disenador' ? 'disenador' : currentSortCol;
-          const valA = (a[dbField] || '').toLowerCase().trim();
-          const valB = (b[dbField] || '').toLowerCase().trim();
-          if (!valA || valA === 'desconocido') return 1;
-          if (!valB || valB === 'desconocido') return -1;
-          return currentSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        });
-      }
-    }
-
+    // Aquí NO se ordena: filtrar solo quita, nunca reordena. El orden lo lleva
+    // ya `archives`, que es la secuencia de la sesión, y ordenarlo es cosa de
+    // aplicarOrden() (ver allí por qué). Antes se reordenaba en cada llamada
+    // partiendo del archivo base, y por eso cada ordenación borraba la anterior.
     filtered = tempFiltered;
 
     // El vector de navegación de la ficha de evento ES la secuencia visible:
@@ -4340,6 +4316,54 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query } }));
   };
 
+  // Reordena LA SECUENCIA DE LA SESIÓN, no una copia de paso.
+  //
+  // Ordenar es acumulativo, por decisión del propietario: el segundo criterio es
+  // siempre la ordenación anterior, y la primera vez esa anterior es el barajado
+  // con el que arrancó la sesión. Ordenar por fecha y luego por nombre deja el
+  // nombre mandando y la fecha decidiendo dentro de cada nombre.
+  //
+  // No hace falta nada para conseguirlo: `Array.prototype.sort` es estable desde
+  // ES2019, así que ordenar por la columna nueva conserva intacto el orden
+  // previo dentro de cada empate. Lo que sí hacía falta era dejar de partir del
+  // archivo base en cada ordenación, que es lo que borraba la anterior.
+  //
+  // Se ordena `archives` y no una copia porque esa secuencia es la que ven TODAS
+  // las vistas: la galería, la lista y el Anterior/Siguiente de la ficha salen
+  // de ella (contrato de navegación). Y se persiste con el mismo mecanismo que
+  // el barajado inicial, para que sobreviva a volver de un evento y a un F5.
+  function aplicarOrden(col, dir) {
+    const fecha = (d) => {
+      if (!d || d === 'SIN FECHA') return 0;
+      const p = d.split('/');
+      if (p.length === 3) return new Date(p[2], p[1] - 1, p[0]).getTime();
+      const p2 = d.split('-');
+      if (p2.length === 3) return new Date(p2[0], p2[1] - 1, p2[2]).getTime();
+      return 0;
+    };
+    // Sin dato va al final se ordene como se ordene. El comparador anterior
+    // devolvía 1 mirando solo un lado, sin comprobar el otro: eso no es un orden
+    // total, y con un comparador incoherente el navegador puede devolver
+    // cualquier cosa — incluida la estabilidad de la que depende todo esto.
+    const vacio = (v) => !v || v === 'desconocido';
+    archives.sort((a, b) => {
+      if (col === 'fecha') {
+        const ta = fecha(a.fecha), tb = fecha(b.fecha);
+        return dir === 'asc' ? ta - tb : tb - ta;
+      }
+      const va = (a[col] || '').toLowerCase().trim();
+      const vb = (b[col] || '').toLowerCase().trim();
+      if (vacio(va) && vacio(vb)) return 0;
+      if (vacio(va)) return 1;
+      if (vacio(vb)) return -1;
+      return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+    _s.archives = archives;
+    try {
+      sessionStorage.setItem('mel-session-order', JSON.stringify(archives.map(x => x.idMel)));
+    } catch (e) {}
+  }
+
   function handleSortClick(col) {
     if (currentSortCol === col) {
       currentSortDir = currentSortDir === 'asc' ? 'desc' : 'asc';
@@ -4347,6 +4371,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       currentSortCol = col;
       currentSortDir = 'asc';
     }
+    aplicarOrden(currentSortCol, currentSortDir);
     try {
       sessionStorage.setItem('mel-sort-state', JSON.stringify({ col: currentSortCol, dir: currentSortDir }));
     } catch (e) {}
