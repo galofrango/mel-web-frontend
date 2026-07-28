@@ -371,25 +371,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           <!-- Tirador + pliegue decorativo: solo bottom sheet en móvil (Figma
                "Bottom Sheet Header", node 269:11222). Cerrar deslizando hacia
                abajo, ver setupSidePanelDrag(). -->
-          <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" />
+          <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" closeId="map-side-panel-close-zone" />
 
 
           <!-- Header / Close button. Pegada a la caja contenedora (pt-0, a la
                misma altura donde arranca #map-container) en todas las anchuras
                — antes solo en el bottom sheet móvil, el propietario pidió lo
                mismo en desktop viendo que sobraba hueco arriba del todo. -->
-          <!-- La X solo existe como bottom sheet (móvil/tablet). Cuando el panel
-               es lateral se oculta ENTERA la fila (lg:hidden) para recuperar su
-               altura: ahí se cierra pulsando de nuevo en el nombre/dirección
-               del local (ver #side-panel-header-toggle). -->
-          <div class="flex items-center pb-[8px] px-4 sm:px-10 lg:px-4 pt-0 shrink-0 w-full lg:hidden">
-            <IconButton
-              id="close-map-side-panel"
-              icon="x"
-              variant="ghost"
-              aria-label="Cerrar panel"
-            />
-          </div>
+          <!-- Ya no hay X en el bottom sheet: cierra la cabecera entera
+               (BottomSheetHeader, arriba), que es una zona de acierto mucho
+               mayor para un pulgar que un icono de 40px. Como panel lateral se
+               cierra pulsando de nuevo el nombre/dirección del local (ver
+               #side-panel-header-toggle). -->
 
           <!-- Title & Address. pt-16 (no el pt-24 original de Figma) en todas
                las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
@@ -2208,10 +2201,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (toggleWrapper) {
           toggleWrapper.classList.add('invisible', 'pointer-events-none', 'max-lg:hidden');
         }
-        const filaTags = document.getElementById('home-highlights-tags');
-        if (filaTags) {
-          filaTags.classList.add('invisible', 'pointer-events-none', 'max-lg:hidden');
-        }
+        // El selector de vista se retira, pero los recuentos NO: al arrastrar
+        // el slider de años se entra y se sale de "sin resultados" continuamente,
+        // y unas tags que parpadean son peor que unas tags con ceros.
+        // Al no estar el selector, ocupan el ancho que este deja libre.
+        updateHomeToolbarLayout();
       } else {
         if (viewsEmptyState) {
           viewsEmptyState.classList.add('hidden');
@@ -2221,10 +2215,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         if (toggleWrapper) {
           toggleWrapper.classList.remove('invisible', 'pointer-events-none', 'max-lg:hidden');
         }
-        const filaTags = document.getElementById('home-highlights-tags');
-        if (filaTags) {
-          filaTags.classList.remove('invisible', 'pointer-events-none', 'max-lg:hidden');
-        }
+        updateHomeToolbarLayout();
         gridContainer.classList.remove('hidden');
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
@@ -3648,9 +3639,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const toolbar = document.getElementById('home-highlights-toolbar');
       const toggleWrapper = document.getElementById('home-toggle-wrapper');
       if (!toolbar || !toggleWrapper) return;
+      const toggleOculto = toggleWrapper.classList.contains('invisible');
       const isSharing = updateAdaptiveTagsRow('home-highlights-tags', {
         containerId: 'home-highlights-toolbar',
         getReservedWidth: (toolbarWidth) => {
+          if (toggleOculto) return 0;   // sin selector, el renglón es entero para las tags
           const fourColWidth = (toolbarWidth - 264) / 3 + 72;
           const toggleWidth = Math.max(320, fourColWidth);
           return toggleWidth + 24; // + the row↔Toggle gap
@@ -3770,9 +3763,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // manually via a stored reference instead.
     const closePanelBtn = document.getElementById('close-map-side-panel');
     const sidePanel = document.getElementById('map-side-panel');
-    if (closePanelBtn && sidePanel) {
-      // Remove any previously attached listener to avoid duplicates
-      if (window._melClosePanelHandler) {
+    if (sidePanel) {
+      // Se define SIEMPRE, no dentro del `if` de la X: esa X ya no existe en el
+      // bottom sheet, y colgar de ella dejaba sin manejador a todo lo demás
+      // (la cabecera que cierra al tocarla, el nombre/dirección del lateral).
+      if (closePanelBtn && window._melClosePanelHandler) {
         closePanelBtn.removeEventListener('click', window._melClosePanelHandler);
       }
       window._melClosePanelHandler = () => {
@@ -3806,7 +3801,24 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // other non-active marker since activeSidePanelKey is cleared.
         updateMapMarkers(false);
       };
-      closePanelBtn.addEventListener('click', window._melClosePanelHandler);
+      if (closePanelBtn) closePanelBtn.addEventListener('click', window._melClosePanelHandler);
+    }
+
+    // La cabecera del bottom sheet cierra el panel con un solo toque. Sustituye
+    // a la X que había: un icono de 40px en la esquina es un objetivo pequeño
+    // para un pulgar, y esta franja ocupa todo el ancho. Misma gestión manual
+    // de listeners que la X, por el mismo motivo (debe sobrevivir a las
+    // navegaciones suaves sin duplicarse).
+    const zonaCierrePanel = document.getElementById('map-side-panel-close-zone');
+    if (zonaCierrePanel && sidePanel) {
+      if (window._melCloseZoneHandler) {
+        zonaCierrePanel.removeEventListener('click', window._melCloseZoneHandler);
+      }
+      window._melCloseZoneHandler = () => {
+        if (window.innerWidth >= 1024) return;   // como lateral manda el nombre/dirección
+        if (window._melClosePanelHandler) window._melClosePanelHandler();
+      };
+      zonaCierrePanel.addEventListener('click', window._melCloseZoneHandler);
     }
 
     // Como panel lateral (lg+) no hay X: se cierra pulsando el nombre/dirección,
