@@ -38,12 +38,12 @@ import IconButton from './IconButton.astro';
       />
     </div>
     
-    <!-- Title (Figma matches: pb-[32px] pt-[8px] px-[16px] + px-[8px] on inner text) -->
-    <div class="flex flex-col gap-[8px] items-start pb-[32px] pt-[8px] px-[16px] shrink-0 w-full relative">
-      <p class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary px-[8px]">
-        Menú
-      </p>
-    </div>
+    <!-- Sin título: la palabra "Menú" no añadía nada que el icono no dijera ya,
+         y su hueco se lo queda la lista, que respira mucho mejor. Se conserva
+         exactamente el mismo espacio superior (los 8+32+32 que ocupaban el
+         bloque y su interlínea) para que los items arranquen donde arrancaba el
+         título, no más arriba. -->
+    <div class="h-[72px] shrink-0 w-full" aria-hidden="true"></div>
     
     <!-- Menu List (Without divide-y, using absolute offset dividers inside anchors) -->
     <div class="flex flex-col items-start w-full relative" data-node-id="562:70115" data-name="Menu List">

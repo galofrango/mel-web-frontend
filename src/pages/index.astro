@@ -300,7 +300,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            del estado vacío. El contenido va algo más arriba de lo centrado
            (pb mayor que pt) ahora que el toggle desaparece en este estado y
            queda hueco de sobra por debajo. -->
-      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pt-0 pb-24 lg:items-center overflow-y-auto"></div>
+      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pt-8 pb-24 lg:items-center lg:pt-0 overflow-y-auto"></div>
 
       <!-- 1. GALLERY VIEW (masonry 2.1: CSS Grid + row-span medido por imagen,
            cada flyer entero a ancho de columna y ratio original, sin recortes;
@@ -2166,7 +2166,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       function getEmptyStateHtml() {
         return `
           <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
-            <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
+            <div class="h-[208px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
               <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
               <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
             </div>
