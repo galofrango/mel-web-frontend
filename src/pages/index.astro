@@ -1521,9 +1521,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         ${item.fecha ? `<p class="font-serif font-medium text-[12px] leading-[16px] tracking-[0.15px] text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
       </div>
     `;
-    card.addEventListener('pointerenter', () => {
+    // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
+    // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
+    // ficha aparecía al instante y en el teléfono se notaba la espera.
+    // `touchstart` ocurre al posar el dedo, unos cientos de milisegundos
+    // antes de que se suelte: justo el margen que hace falta para adelantarla.
+    ['pointerenter', 'touchstart'].forEach((evento) => card.addEventListener(evento, () => {
       prefetchEventUrl(item.idMel, { search: searchQuery });
-    }, { once: true });
+    }, { once: true, passive: true }));
     card.addEventListener('click', () => {
       openLightbox(item);
     });
@@ -1964,10 +1969,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 
   function bindInitialCardClicks() {
     document.querySelectorAll('.gallery-item').forEach(card => {
-      card.addEventListener('pointerenter', () => {
+      // Mismo motivo que en buildGalleryCard: en un móvil no hay `pointerenter`.
+      ['pointerenter', 'touchstart'].forEach((evento) => card.addEventListener(evento, () => {
         const id = card.dataset.id;
         if (id) prefetchEventUrl(id, { search: searchQuery });
-      }, { once: true });
+      }, { once: true, passive: true }));
       card.addEventListener('click', () => {
         const id = card.dataset.id;
         const item = archives.find(x => x.idMel === id);
@@ -2415,9 +2421,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
             row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
             row.dataset.id = item.idMel;
             row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
-            row.addEventListener('pointerenter', () => {
+            // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
+            // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
+            // ficha aparecía al instante y en el teléfono se notaba la espera.
+            // `touchstart` ocurre al posar el dedo, unos cientos de milisegundos
+            // antes de que se suelte: justo el margen que hace falta para adelantarla.
+            ['pointerenter', 'touchstart'].forEach((evento) => row.addEventListener(evento, () => {
               prefetchEventUrl(item.idMel, { search: searchQuery });
-            }, { once: true });
+            }, { once: true, passive: true }));
             row.addEventListener('click', () => {
               navigateToEvent(item.idMel, { search: searchQuery });
             });
@@ -3001,9 +3012,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
-        card.addEventListener('pointerenter', () => {
+        // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
+        // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
+        // ficha aparecía al instante y en el teléfono se notaba la espera.
+        // `touchstart` ocurre al posar el dedo, unos cientos de milisegundos
+        // antes de que se suelte: justo el margen que hace falta para adelantarla.
+        ['pointerenter', 'touchstart'].forEach((evento) => card.addEventListener(evento, () => {
           prefetchEventUrl(evt.idMel, { location: evt.lugar });
-        }, { once: true });
+        }, { once: true, passive: true }));
         card.addEventListener('click', () => {
           // Al entrar desde el panel, Anterior/Siguiente queda acotado a los
           // eventos DE ESE LOCAL, en el mismo orden en que se ven en el panel.

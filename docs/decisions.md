@@ -1268,3 +1268,13 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Implementación**: la X de la ficha lleva `data-astro-reload` **solo cuando se vuelve a un panel abierto** (`activeLocation`). Sin transición no hay capa superior, así que no hay nada que llegue a destiempo. El resto de vueltas —galería, lista— conservan su transición.
 - **Coste**: esa vuelta concreta es una carga completa en lugar de una navegación suave. El estado de vuelta viaja en `sessionStorage`, así que no se pierde nada. Medido: el panel aterriza directamente en su posición final (top 40) con sus eventos ya puestos.
 - **Lección**: cuatro arreglos sucesivos sin que el síntoma desaparezca es la señal de que el marco es el problema, no la pieza. La animación era el marco.
+
+## D-118 · La página se guarda montada en la CDN, y la precarga llega también al móvil
+
+- **Medición de partida** (producción, 390px): el servidor responde en **18ms**, pero el HTML tarda **645ms** en llegar entero y la primera tinta cae en **644ms**. No es ancho de banda: Astro envía en streaming y el cuerpo espera a que Google Sheets conteste. Prácticamente **el 100% de la primera tinta era esperar a la hoja**, y ocurría en cada visita de cada visitante — no había ninguna caché declarada.
+- **Y afecta a lo que más molesta al propietario**: la ficha de evento también se construye en el servidor, así que cada toque en una tarjeta repetía esa carrera a Google. Esa era la mayor parte de la espera entre apretar y que pase algo.
+- **Decisión**: `Cache-Control: public, s-maxage=300, stale-while-revalidate=86400` en las cuatro páginas SSR. Cinco minutos de frescura, elegidos por el propietario, y un día sirviendo la copia mientras se rehace por detrás, de modo que nadie espera a Google ni siquiera justo después de caducar.
+  - Se cachea por URL completa: `?view=`, `?search=` y `?location=` tienen cada una su copia.
+  - **Comprobar que un cambio de la hoja ha subido**: añadir cualquier parámetro nuevo a la URL (`?v=2`) fuerza una construcción desde cero, porque es otra clave de caché.
+  - **No cuesta dinero y de hecho abarata**: la copia es del HTML, no de las fotos —que siguen viniendo de Drive—, y cada visita servida desde el borde es una que no hace trabajar al servidor.
+- **La precarga solo llegaba a escritorio**: se disparaba con `pointerenter`, que en un móvil no existe — no hay puntero que entre en nada. De ahí que en escritorio la ficha apareciera al instante y en el teléfono se notara la espera. Ahora se registra también en `touchstart`, que ocurre al posar el dedo, unos cientos de milisegundos antes de soltarlo: justo el margen para adelantar la página. Cuatro puntos de precarga migrados.
