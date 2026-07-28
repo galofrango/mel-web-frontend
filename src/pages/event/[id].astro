@@ -255,9 +255,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            Se ancla en `top: -alturaX`, o sea con la fila de la X por encima
            del borde de la pantalla: al desplazar, lo que queda pegado arriba
            es solo el título y los tags. Al arrastrar hacia abajo, la clase
-           `revelada` la baja con un `translateY` y la X vuelve a asomar — es
-           lo primero que aparece. Se usa `transform` y no `top` porque el
-           navegador lo compone aparte, sin pasar por la maquetación.
+           su anclaje baja píxel a píxel siguiendo al dedo (`--mel-revelado`) y
+           la X vuelve a asomar — es lo primero que aparece. Es una cantidad
+           continua, no un interruptor: con un interruptor el bloque visible
+           crecía de golpe y algo tenía que ceder, o la foto tapaba contenido o
+           encogía de un salto.
            A partir de `lg` el bloque se disuelve (`contents`) y cada pieza
            vuelve a su sitio en la rejilla. -->
       <div id="detail-cabecera" class="sticky z-40 w-full px-6 sm:px-12 bg-mel-bg-primary lg:static lg:px-0 lg:bg-transparent lg:contents">
@@ -664,6 +666,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     let alturaX = 0;
     // Desplazamiento a partir del cual la cabecera queda anclada arriba.
     let puntoAnclaje = 0;
+    // Distancia desde el borde superior a la que se clava la foto. La usan la
+    // variable CSS que la posiciona y el cálculo de cuándo empieza a encoger:
+    // tienen que ser EXACTAMENTE el mismo número o dejan de ir sincronizadas.
+    let anclajeFoto = 0;
+    let revelado = 0;
 
     function medirCabecera() {
       if (!cabecera || !filaX || !tituloTags) return;
@@ -673,13 +680,15 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         raiz.style.removeProperty('--mel-cab-fija');
         if (columnaFoto) columnaFoto.style.height = '';
         if (imageCrop) imageCrop.style.height = '';
-        raizPagina.classList.remove('fijada', 'revelada');
+        raizPagina.classList.remove('fijada');
+        raizPagina.style.removeProperty('--mel-revelado');
         return;
       }
       alturaX = filaX.getBoundingClientRect().height;
       puntoAnclaje = alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
       raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
-      raiz.style.setProperty('--mel-cab-fija', `${cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0)}px`);
+      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
+      raiz.style.setProperty('--mel-cab-fija', `${anclajeFoto}px`);
       // Alto CONGELADO de la columna de la foto. Es la invariante que impide
       // que el encogido se realimente: si la columna encogiera con el recorte,
       // el documento se acortaría a mitad de scroll, el navegador recolocaría
@@ -696,7 +705,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         columnaFoto.style.height = '';
         columnaFoto.style.height = `${cajaFoto.getBoundingClientRect().height}px`;
         inicioEncogido = Math.max(0,
-          cajaFoto.getBoundingClientRect().top + raizPagina.scrollTop - tituloTags.getBoundingClientRect().height);
+          cajaFoto.getBoundingClientRect().top + raizPagina.scrollTop - anclajeFoto);
         imageCrop.style.height = altoPrevio;
         if (fijadaAntes) raizPagina.classList.add('fijada');
       }
@@ -712,12 +721,17 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // evita que el temblor de un dedo quieto la haga parpadear.
       if (cabecera) {
         const dy = y - ultimoY;
-        // Solo tiene sentido revelar mientras la cabecera está anclada: por
-        // debajo de ese punto ya se ve entera, y bajarla ahí empujaba la página
-        // unos píxeles y luego la soltaba de golpe.
-        if (y <= puntoAnclaje) raizPagina.classList.remove('revelada');
-        else if (dy < -4) raizPagina.classList.add('revelada');
-        else if (dy > 4) raizPagina.classList.remove('revelada');
+        // Cuánto asoma la X, de 0 a su alto. Sigue al dedo: bajando se
+        // esconde, subiendo reaparece, píxel a píxel. Por debajo del punto de
+        // anclaje se fuerza a 0 porque ahí la cabecera ya está en su sitio
+        // natural y cualquier desplazamiento la empujaría fuera de él.
+        // Acotado además por lo que se lleva desplazado por encima del punto de
+        // anclaje: al soltarse la cabecera, lo que se ve de la X pasa a depender
+        // de la posición y no del gesto, así que el revelado tiene que llegar a
+        // cero justo ahí. Sin este tope había un escalón de 58px en ese punto.
+        const tope = Math.max(0, Math.min(alturaX, y - puntoAnclaje));
+        revelado = y <= puntoAnclaje ? 0 : Math.max(0, Math.min(tope, revelado - dy));
+        raizPagina.style.setProperty('--mel-revelado', `${revelado}px`);
       }
       // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
       // Antes de ese punto va en flujo normal: fijarla desde el principio la
@@ -725,7 +739,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       const pasado = Math.max(0, y - inicioEncogido);
       raizPagina.classList.toggle('fijada', pasado > 0);
       if (imageCrop) {
-        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado)}px`;
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado - revelado)}px`;
       }
 
       ultimoY = y;
@@ -1205,8 +1219,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     /* La cabecera se ancla con la fila de la X por encima del borde: lo que
        queda pegado arriba es solo el título y los tags. */
     #detail-cabecera {
-      top: calc(-1 * var(--mel-cab-x, 92px));
-      transition: transform 0.25s ease;
+      top: calc(-1 * var(--mel-cab-x, 48px) + var(--mel-revelado, 0px));
     }
     /* La foto va FIJA, no pegajosa: `sticky` se suelta cuando acaba su
        contenedor, y por ahí la foto se escapaba hacia arriba por detrás de la
@@ -1217,18 +1230,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        El hueco lo reserva #detail-image-column, con alto congelado. */
     .fijada #detail-image-sticky {
       position: fixed;
-      top: var(--mel-cab-fija, 144px);
+      top: calc(var(--mel-cab-fija, 176px) + var(--mel-revelado, 0px));
       left: 0;
       right: 0;
       margin: 0;
       width: 100%;
-      transition: transform 0.25s ease;
-    }
-    /* Al revelarse la X, cabecera y foto bajan LO MISMO: si solo bajara la
-       cabecera, se comería la parte de arriba de la foto. */
-    .revelada #detail-cabecera,
-    .revelada #detail-image-sticky {
-      transform: translateY(var(--mel-cab-x, 92px));
     }
   }
 
