@@ -623,6 +623,16 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       if (activeSearch) returnParams.set('search', activeSearch);
       if (activeLocation) returnParams.set('location', activeLocation);
       closeBtn.href = `/?${returnParams.toString()}`;
+      // Volviendo a un panel abierto, sin transición de página. Con ella, la
+      // cabecera y la toolbar se promocionan a la capa superior del navegador y
+      // el panel llega a destiempo: se le ve formarse detrás del slider y los
+      // tags y saltar por delante al terminar (D-116 y cuatro intentos de
+      // arreglarlo dentro de la transición). El propietario prefiere que la
+      // vuelta sea instantánea, con todo tal cual se dejó, antes que una
+      // animación que no acaba de cuadrar. El estado de vuelta viaja en
+      // sessionStorage, así que la recarga no pierde nada.
+      if (activeLocation) closeBtn.setAttribute('data-astro-reload', '');
+      else closeBtn.removeAttribute('data-astro-reload');
     }
 
     // Abort any previous window listeners to prevent duplicates across page transitions.

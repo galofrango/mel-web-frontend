@@ -1259,3 +1259,12 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Descartado por el camino**: se pensó primero en un bloque contenedor accidental (`position: fixed` bajo un ancestro con `transform`). Encaja con los síntomas y este proyecto ya lo sufrió, pero no era: la promoción de capa lo explica mejor y es comprobable en el marcado.
 - **Arreglo**: el panel recibe su propio `view-transition-name` y su grupo se ordena por encima del de la toolbar. Entra en la misma capa que los demás, en el orden correcto.
 - **No estaba causado por subir el sheet a 40px**, aunque fue lo que lo destapó: antes el panel se paraba tan abajo que apenas se solapaba con la toolbar y no se veía.
+
+
+## D-117 · La vuelta a un panel abierto va sin transición de página
+
+- **Contexto**: cuatro intentos de que el panel llegara bien **dentro** de la transición (repoblado duplicado, apilamiento, firma de la lista, nombre de transición propio). Cada uno arregló algo real y medible, y el síntoma seguía: el panel se ve formarse detrás del slider y los tags y saltar por delante al terminar.
+- **Decisión del propietario, aceptada**: "no me importa para nada que al volver de los eventos el panel esté todo tal cual se dejó sin animación". Volver es una restauración, no un viaje; la animación no estaba contando nada que el visitante necesite.
+- **Implementación**: la X de la ficha lleva `data-astro-reload` **solo cuando se vuelve a un panel abierto** (`activeLocation`). Sin transición no hay capa superior, así que no hay nada que llegue a destiempo. El resto de vueltas —galería, lista— conservan su transición.
+- **Coste**: esa vuelta concreta es una carga completa en lugar de una navegación suave. El estado de vuelta viaja en `sessionStorage`, así que no se pierde nada. Medido: el panel aterriza directamente en su posición final (top 40) con sus eventos ya puestos.
+- **Lección**: cuatro arreglos sucesivos sin que el síntoma desaparezca es la señal de que el marco es el problema, no la pieza. La animación era el marco.
