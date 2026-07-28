@@ -652,6 +652,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     z-index: 100;
   }
 
+  /* El bottom sheet también entra en la capa de transición, y por encima de la
+     toolbar. Sin nombre propio se quedaba en la página normal mientras cabecera
+     y toolbar se promocionaban a la capa superior del navegador — que ignora
+     cualquier `z-index` de la página (regla 2 de AGENTS.md). Al volver de un
+     evento eso se veía como si hubiera DOS paneles: el primero formándose
+     detrás del slider y los tags, y al acabar la transición otro apareciendo de
+     golpe por delante de todo. Es el mismo, cambiando de capa. */
+  ::view-transition-group(mel-side-panel) {
+    z-index: 101;
+  }
+
   /* Define typographic Lora variables at root for clean token mapping */
   :root {
     --Font-Size-Body-Roman: 16px;
@@ -1198,6 +1209,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     #map-side-panel {
       position: fixed;
       inset: var(--mel-sheet-top, 40px) 0 0 0;
+      view-transition-name: mel-side-panel;
       /* El apilamiento va en la clase (`max-lg:z-[100]`) y no aquí: una regla
          de id en este bloque no le ganaba a la utilidad `z-20`. Mientras el
          sheet se paraba justo por encima del slider no se pisaban; al subirlo a

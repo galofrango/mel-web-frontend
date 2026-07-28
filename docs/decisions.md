@@ -1250,3 +1250,12 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Se pide un tamaño mayor que el de la ficha** (`sz=w2000` en vez de w1000): es una vista para mirar de cerca. **Ojo**: Drive no amplía por encima del original, así que el techo de detalle es la resolución del escaneo. En un cartel de 992px de ancho, w2000 devuelve el mismo archivo — sin coste extra, pero sin ganancia. Si se quiere más detalle en piezas concretas, hay que subir mejores escaneos.
 - **El pellizco de la página sigue habilitado** a propósito (`<meta viewport>` sin `user-scalable=no`). Desactivarlo impediría ampliar a quien lo necesita por accesibilidad, y ahora además hay una alternativa mejor para el caso concreto del cartel.
 - **Un arrastre no cuenta como toque**: al desplazar a mano (D-114) el navegador no siempre suprime el `click`, así que se suprime en captura. Verificado: toque limpio arriba abre la imagen; toque tras arrastrar no abre nada.
+
+
+## D-116 · El panel del mapa entra en la capa de transición, o parece que hay dos
+
+- **Síntoma, descrito por el propietario a cámara lenta**: al volver de un evento, el panel se forma **detrás** del slider, los tags y el selector de vista; después "desaparece" y aparece otro ya por delante de todo y casi en su sitio.
+- **No son dos paneles**: es el mismo cambiando de capa. La cabecera y la toolbar llevan `view-transition-name`, y un elemento con nombre de transición **se anima en la capa superior del navegador, que ignora cualquier `z-index` de la página** — la regla 2 de AGENTS.md, escrita en su día a raíz de otro bug. El panel no tenía nombre, así que se quedaba en la página normal mientras los otros dos se promocionaban por encima. Al terminar la transición todo vuelve al flujo y el `z-index` del panel manda: eso es el "segundo panel".
+- **Descartado por el camino**: se pensó primero en un bloque contenedor accidental (`position: fixed` bajo un ancestro con `transform`). Encaja con los síntomas y este proyecto ya lo sufrió, pero no era: la promoción de capa lo explica mejor y es comprobable en el marcado.
+- **Arreglo**: el panel recibe su propio `view-transition-name` y su grupo se ordena por encima del de la toolbar. Entra en la misma capa que los demás, en el orden correcto.
+- **No estaba causado por subir el sheet a 40px**, aunque fue lo que lo destapó: antes el panel se paraba tan abajo que apenas se solapaba con la toolbar y no se veía.
