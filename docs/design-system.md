@@ -232,3 +232,20 @@ if (typeof window.__melNavigate === 'function') {
   setTimeout(() => { window.location.href = url; }, 150);
 }
 ```
+
+
+## Estado pulsado en táctil (provisional)
+
+En un móvil no hay `hover`, y el diseño solo define ese estado: se toca un botón
+y no cambia nada hasta que la acción termina. `:active` **es** el pseudo-estado
+nativo de "pulsado", así que no hay que inventar nada — solo usarlo.
+
+Mientras cada componente no tenga su estado pulsado diseñado, `global.css`
+aplica una respuesta **uniforme y neutral** bajo `@media (hover: none)`: opacidad
+0,55 y `transition-duration: 0s` sobre enlaces, botones, `summary` y `.filter-tag`.
+La duración a cero es deliberada: la realimentación al pulsar tiene que ser
+inmediata, no una transición de 200ms que llega cuando ya has soltado el dedo.
+
+**No se puede "usar el hover como pulsado" sin más**: las clases `hover:` de
+Tailwind compilan a selectores `:hover`, y remapearlas en bloque exigiría tocar
+la configuración del framework, con efecto en todo el sitio.

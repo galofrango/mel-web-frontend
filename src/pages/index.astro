@@ -300,7 +300,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            del estado vacío. El contenido va algo más arriba de lo centrado
            (pb mayor que pt) ahora que el toggle desaparece en este estado y
            queda hueco de sobra por debajo. -->
-      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-center justify-center pt-0 pb-24"></div>
+      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pt-0 pb-24 lg:items-center overflow-y-auto"></div>
 
       <!-- 1. GALLERY VIEW (masonry 2.1: CSS Grid + row-span medido por imagen,
            cada flyer entero a ancho de columna y ratio original, sin recortes;
@@ -2206,7 +2206,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // no descolocar la toolbar mientras tanto.
         const toggleWrapper = document.getElementById('home-toggle-wrapper');
         if (toggleWrapper) {
-          toggleWrapper.classList.add('invisible', 'pointer-events-none');
+          toggleWrapper.classList.add('invisible', 'pointer-events-none', 'max-lg:hidden');
+        }
+        const filaTags = document.getElementById('home-highlights-tags');
+        if (filaTags) {
+          filaTags.classList.add('invisible', 'pointer-events-none', 'max-lg:hidden');
         }
       } else {
         if (viewsEmptyState) {
@@ -2215,7 +2219,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         }
         const toggleWrapper = document.getElementById('home-toggle-wrapper');
         if (toggleWrapper) {
-          toggleWrapper.classList.remove('invisible', 'pointer-events-none');
+          toggleWrapper.classList.remove('invisible', 'pointer-events-none', 'max-lg:hidden');
+        }
+        const filaTags = document.getElementById('home-highlights-tags');
+        if (filaTags) {
+          filaTags.classList.remove('invisible', 'pointer-events-none', 'max-lg:hidden');
         }
         gridContainer.classList.remove('hidden');
         if (listTableWrapper) listTableWrapper.style.display = '';

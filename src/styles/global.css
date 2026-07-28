@@ -209,6 +209,31 @@ html {
   overscroll-behavior: none;
 }
 
+/* Estado pulsado en táctil. `:active` ES el pseudo-estado nativo de "pulsado",
+   no hace falta inventar nada — pero por sí solo casi ningún componente cambia,
+   porque el diseño solo define `hover`, y en un móvil no hay hover. Resultado:
+   se toca un botón y no pasa nada visible hasta que la acción termina.
+   Se aplica solo donde NO hay puntero fino, para no tocar el escritorio.
+
+   No se puede "usar el hover como pulsado" sin más: las clases `hover:` de
+   Tailwind compilan a selectores `:hover` y remapearlas en bloque exigiría
+   tocar la configuración del framework, que afectaría a todo el sitio. Así que
+   esto es una respuesta uniforme y neutral —la misma para todo lo pulsable—
+   hasta que cada componente tenga su estado pulsado diseñado (ver roadmap).
+
+   `transition-duration: 0s` a propósito: la realimentación al pulsar tiene que
+   ser inmediata, no una transición de 200ms que llega cuando ya has soltado. */
+@media (hover: none) {
+  a:active,
+  button:active,
+  summary:active,
+  [role="button"]:active,
+  .filter-tag:active {
+    opacity: 0.55;
+    transition-duration: 0s;
+  }
+}
+
 body {
   background-color: var(--mel-bg-primary);
   color: var(--mel-text-primary);
