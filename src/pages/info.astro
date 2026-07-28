@@ -194,21 +194,6 @@ function linkify(s) {
     .replace(/(^|\s)@([\w.]*\w)/g, (_m, pre, handle) => `${pre}${wrap(`https://instagram.com/${handle}`, `@${handle}`, 'target="_blank" rel="noopener"')}`);
 }
 
-// La página se guarda ya montada en la CDN de Vercel durante 5 minutos. Sin
-// esto, CADA visita —y cada toque en una tarjeta, porque la ficha también se
-// construye en el servidor— obliga a ir a Google Sheets y esperar su respuesta
-// antes de poder pintar nada: medido, 645ms de los 650 que tardaba la primera
-// tinta.
-//
-// `stale-while-revalidate` de un día: pasados los 5 minutos el visitante sigue
-// recibiendo la copia al instante y la CDN la rehace por detrás. Nadie espera a
-// Google, ni siquiera el primero que llega tras caducar.
-//
-// Se cachea por URL completa, así que ?view=, ?search= y ?location= tienen cada
-// una la suya. Para comprobar que un cambio de la hoja ha subido bien, añade
-// cualquier parámetro nuevo (?v=2): es otra clave de caché y se construye desde
-// cero.
-Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=86400');
 ---
 
 <Layout title="Proyecto, Equipo y Contacto">
