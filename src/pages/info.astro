@@ -269,8 +269,8 @@ function linkify(s) {
                           // Same tint-overlay technique as EmptyState.astro (image behind, a
                           // mix-blend-screen tint layer on top) — this component's own scale
                           // (h-[320px]/w-[288px]) is kept as-is, only the tinting layer changed.
-                          <div class="h-[320px] max-h-[320px] overflow-hidden relative shrink-0 w-[288px] rounded-sm select-none" data-node-id="600:91789">
-                            <img src={item.photo} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="absolute inset-0 size-full object-cover pointer-events-none" />
+                          <div class="h-[320px] max-h-[320px] overflow-hidden relative shrink-0 w-[288px] select-none" data-node-id="600:91789">
+                            <img src={item.photo} alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="absolute inset-0 size-full object-cover object-center pointer-events-none" />
                             <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
                           </div>
                         )}

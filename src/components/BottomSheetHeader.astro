@@ -20,14 +20,22 @@ interface Props {
   notch?: number;      // px del pliegue en la esquina (Figma: 40)
   height?: number;     // px de alto de la franja (Figma: 56)
   handleId?: string;   // id del tirador para engancharle el gesto de arrastre
+  closeId?: string;    // id de la franja completa, que cierra el panel al tocarla
   class?: string;
 }
 
-const { notch = 40, height = 56, handleId, class: className = '' } = Astro.props;
+const { notch = 40, height = 56, handleId, closeId, class: className = '' } = Astro.props;
 ---
 
+<!-- `pointer-events-auto` y `cursor-pointer` cuando lleva `closeId`: la franja
+     entera es el botón de cierre, no solo el tirador. Es deliberado que sea tan
+     grande — sustituye a una X de 40px en la esquina, que para un pulgar es un
+     objetivo pequeño. -->
 <div
-  class:list={["relative w-full shrink-0 pointer-events-none", className]}
+  id={closeId}
+  role={closeId ? "button" : undefined}
+  aria-label={closeId ? "Cerrar panel" : undefined}
+  class:list={["relative w-full shrink-0", closeId ? "pointer-events-auto cursor-pointer" : "pointer-events-none", className]}
   style={`height:${height}px`}
   data-node-id="269:11222"
   data-name="Bottom Sheet Header"

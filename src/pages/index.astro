@@ -11,6 +11,7 @@ import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
 import IntroAnimation from '../components/IntroAnimation.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
+import EmptyState from '../components/EmptyState.astro';
 
 // Extract Year from Date String
 function getYear(dateStr) {
@@ -300,7 +301,15 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            del estado vacío. El contenido va algo más arriba de lo centrado
            (pb mayor que pt) ahora que el toggle desaparece en este estado y
            queda hueco de sobra por debajo. -->
-      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-center justify-center pt-0 pb-24"></div>
+      <!-- El estado vacío es el COMPONENTE, pintado aquí en SSR y solo mostrado u
+           ocultado por JS. Antes se generaba con una plantilla de cadena que
+           replicaba su marcado a mano, y se desincronizó a la primera: al
+           cambiar el alto de la foto en el componente, la home seguía con el
+           anterior. Sin `pt` propio en móvil para que la foto arranque a 32px
+           de los recuentos y no a 89. -->
+      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pb-24 lg:items-center overflow-y-auto">
+        <EmptyState variant="no-results" class="pt-0 lg:pt-[24px]" />
+      </div>
 
       <!-- 1. GALLERY VIEW (masonry 2.1: CSS Grid + row-span medido por imagen,
            cada flyer entero a ancho de columna y ratio original, sin recortes;
@@ -357,39 +366,32 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              de tiempo (que queda a la vista, atenuado) y todo lo de abajo. -->
         <div
           id="map-side-panel-backdrop"
-          class="lg:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[19] opacity-0 pointer-events-none transition-opacity duration-500"
+          class="lg:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[99] opacity-0 pointer-events-none transition-opacity duration-500"
           aria-hidden="true"
         ></div>
 
         <!-- Side Panel / Place Events Panel -->
         <div
           id="map-side-panel"
-          class="w-0 h-full bg-mel-bg-primary border-l-0 border-mel-border flex flex-col justify-start z-20 overflow-hidden shrink-0 transition-all duration-300 relative"
+          class="w-0 h-full bg-mel-bg-primary border-l-0 border-mel-border flex flex-col justify-start max-lg:z-[100] lg:z-20 overflow-hidden shrink-0 transition-all duration-300 relative"
           style="opacity: 1;"
           data-node-id="341:25563"
         >
           <!-- Tirador + pliegue decorativo: solo bottom sheet en móvil (Figma
                "Bottom Sheet Header", node 269:11222). Cerrar deslizando hacia
                abajo, ver setupSidePanelDrag(). -->
-          <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" />
+          <BottomSheetHeader handleId="map-side-panel-handle" class="lg:hidden" closeId="map-side-panel-close-zone" />
 
 
           <!-- Header / Close button. Pegada a la caja contenedora (pt-0, a la
                misma altura donde arranca #map-container) en todas las anchuras
                — antes solo en el bottom sheet móvil, el propietario pidió lo
                mismo en desktop viendo que sobraba hueco arriba del todo. -->
-          <!-- La X solo existe como bottom sheet (móvil/tablet). Cuando el panel
-               es lateral se oculta ENTERA la fila (lg:hidden) para recuperar su
-               altura: ahí se cierra pulsando de nuevo en el nombre/dirección
-               del local (ver #side-panel-header-toggle). -->
-          <div class="flex items-center pb-[8px] px-4 sm:px-10 lg:px-4 pt-0 shrink-0 w-full lg:hidden">
-            <IconButton
-              id="close-map-side-panel"
-              icon="x"
-              variant="ghost"
-              aria-label="Cerrar panel"
-            />
-          </div>
+          <!-- Ya no hay X en el bottom sheet: cierra la cabecera entera
+               (BottomSheetHeader, arriba), que es una zona de acierto mucho
+               mayor para un pulgar que un icono de 40px. Como panel lateral se
+               cierra pulsando de nuevo el nombre/dirección del local (ver
+               #side-panel-header-toggle). -->
 
           <!-- Title & Address. pt-16 (no el pt-24 original de Figma) en todas
                las anchuras: 8px más cerca de la X, mismo criterio que arriba. -->
@@ -427,7 +429,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           </div>
           
           <!-- Event List (Scrollable) -->
-          <div id="side-panel-event-list" class="flex-1 overflow-y-auto bg-mel-bg-primary relative">
+          <div id="side-panel-event-list" class="flex-1 overflow-y-auto bg-mel-bg-primary relative pb-8">
             <!-- Dynamically populated -->
           </div>
         </div>
@@ -648,6 +650,17 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   ::view-transition-group(mel-toolbar),
   ::view-transition-group(mel-pagination) {
     z-index: 100;
+  }
+
+  /* El bottom sheet también entra en la capa de transición, y por encima de la
+     toolbar. Sin nombre propio se quedaba en la página normal mientras cabecera
+     y toolbar se promocionaban a la capa superior del navegador — que ignora
+     cualquier `z-index` de la página (regla 2 de AGENTS.md). Al volver de un
+     evento eso se veía como si hubiera DOS paneles: el primero formándose
+     detrás del slider y los tags, y al acabar la transición otro apareciendo de
+     golpe por delante de todo. Es el mismo, cambiando de capa. */
+  ::view-transition-group(mel-side-panel) {
+    z-index: 101;
   }
 
   /* Define typographic Lora variables at root for clean token mapping */
@@ -1195,7 +1208,14 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   @media (max-width: 1023px) {
     #map-side-panel {
       position: fixed;
-      inset: var(--mel-sheet-top, 180px) 0 0 0;
+      inset: var(--mel-sheet-top, 40px) 0 0 0;
+      view-transition-name: mel-side-panel;
+      /* El apilamiento va en la clase (`max-lg:z-[100]`) y no aquí: una regla
+         de id en este bloque no le ganaba a la utilidad `z-20`. Mientras el
+         sheet se paraba justo por encima del slider no se pisaban; al subirlo a
+         40px pasa por delante de los recuentos y del selector de vista, y sin
+         eso se pintaban ENCIMA del panel durante toda la animación de apertura
+         (visible en el vídeo: el selector sobre el nombre del local). */
       width: 100% !important;
       height: auto !important;
       border-left-width: 0 !important;
@@ -1441,7 +1461,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary truncate w-full">${escHtml(evt.evento)}</p>
         <p class="typo-body-roman text-mel-text-secondary">${escHtml(formatFechaDMY(evt.fecha))}</p>
       </div>
-      <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200">
+      <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
       ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 border-b border-mel-border/60"></div>' : ''}
@@ -2170,28 +2190,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const listTableWrapper = document.getElementById('list-table-wrapper');
       const listMobileCards = document.getElementById('list-mobile-cards');
 
-      function getEmptyStateHtml() {
-        return `
-          <div class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto" data-name="Empty State">
-            <div class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none" data-name="Empty State Image">
-              <img src="/empty-state-no-results.png" alt="" class="absolute inset-0 size-full pointer-events-none object-bottom" referrerpolicy="no-referrer" />
-              <div class="absolute inset-0 bg-[var(--mel-primitive-le-900)] mix-blend-screen pointer-events-none"></div>
-            </div>
-            <div class="flex flex-col gap-[16px] items-center w-full" data-name="Text">
-              <h2 class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0">Sin resultados</h2>
-              <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0">Elimina los filtros o prueba a buscar otra cosa.</p>
-            </div>
-            <a href="/" class="empty-state-clear-btn inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]" data-name="Button">
-              <span>Quitar filtros</span>
-            </a>
-          </div>
-        `;
-      }
-
       if (filtered.length === 0) {
         if (gridContainer) gridContainer.innerHTML = '';
         if (viewsEmptyState) {
-          viewsEmptyState.innerHTML = getEmptyStateHtml();
           viewsEmptyState.classList.remove('hidden');
           viewsEmptyState.classList.add('flex');
         }
@@ -2206,8 +2207,18 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // no descolocar la toolbar mientras tanto.
         const toggleWrapper = document.getElementById('home-toggle-wrapper');
         if (toggleWrapper) {
-          toggleWrapper.classList.add('invisible', 'pointer-events-none');
+          toggleWrapper.classList.add('hidden');
         }
+        // El selector de vista se retira, pero los recuentos NO: al arrastrar
+        // el slider de años se entra y se sale de "sin resultados" continuamente,
+        // y unas tags que parpadean son peor que unas tags con ceros.
+        // Al no estar el selector, ocupan el ancho que este deja libre.
+        //
+        // En el fotograma siguiente y no aquí mismo: llamándolo en el acto, el
+        // reparto se calculaba antes de que el resto del pintado terminara y
+        // quedaba con el ancho de cuando el selector todavía estaba (medido:
+        // 808px en vez de 1224).
+        requestAnimationFrame(() => window._melActualizarToolbar && window._melActualizarToolbar());
       } else {
         if (viewsEmptyState) {
           viewsEmptyState.classList.add('hidden');
@@ -2215,8 +2226,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         }
         const toggleWrapper = document.getElementById('home-toggle-wrapper');
         if (toggleWrapper) {
-          toggleWrapper.classList.remove('invisible', 'pointer-events-none');
+          toggleWrapper.classList.remove('hidden');
         }
+        requestAnimationFrame(() => window._melActualizarToolbar && window._melActualizarToolbar());
         gridContainer.classList.remove('hidden');
         if (listTableWrapper) listTableWrapper.style.display = '';
         if (listMobileCards) listMobileCards.style.display = '';
@@ -2400,7 +2412,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           mobileListItems.innerHTML = '';
           paginated.forEach((item, idx) => {
             const row = document.createElement('div');
-            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
             row.dataset.id = item.idMel;
             row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
             row.addEventListener('pointerenter', () => {
@@ -2898,11 +2910,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // hasta cubrirlo entero). Su alto (top) no es fijo: se mide el borde
   // SUPERIOR del slider y se publica en --mel-sheet-top (lo consume la media
   // query del sheet). Se recalcula al abrir y en cada resize.
+  const SHEET_MARGEN_SUPERIOR = 40;
   function syncSheetTop() {
-    const slider = document.getElementById('slider-track-wrapper');
-    if (!slider) return;
-    const top = Math.round(slider.getBoundingClientRect().top);
-    document.documentElement.style.setProperty('--mel-sheet-top', top + 'px');
+    document.documentElement.style.setProperty('--mel-sheet-top', SHEET_MARGEN_SUPERIOR + 'px');
   }
 
   // Populate side panel details dynamically.
@@ -2914,6 +2924,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     if (!sidePanel) return;
 
     const isAlreadyOpen = sidePanel.classList.contains('side-panel-open');
+
+    // Firma de lo que el panel está mostrando. La consume la rama de
+    // resincronización de updateMapMarkers() para no repintar lo mismo; aquí
+    // solo se registra, porque cortar la función entera se saltaría además la
+    // apertura y dejaría el panel con su transformación de cerrado.
+    sidePanel.dataset.firmaPanel = group.locationName + '|' + group.events.map(e => e.idMel).join(',');
 
     const updateSidePanelDOM = () => {
       // Identidad del local que el panel está mostrando ahora mismo: es lo que
@@ -2968,13 +2984,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // width — re-decide equal-vs-content mode (D-059/D-060).
       updateAdaptiveTagsRow('side-panel-tags-container');
 
-      // Populate event cards list inside side panel
+      // Reconstruir la lista con EXACTAMENTE los mismos eventos que ya están
+      // pintados hace que sus fotos se descarguen otra vez: desaparecen un
+      // instante y vuelven. Se ve al volver de un evento, justo cuando el panel
+      // termina de subir, porque al restaurar la página la lista ya venía bien
+      // y aun así se rehacía entera. La firma va en un data-* del propio
+      // contenedor para que sobreviva a la restauración del DOM.
       const listContainer = document.getElementById('side-panel-event-list');
+      const firmaLista = group.events.map(e => e.idMel).join(',');
+      if (listContainer.dataset.firmaLista === firmaLista && listContainer.children.length) return;
+      listContainer.dataset.firmaLista = firmaLista;
       listContainer.innerHTML = '';
 
       group.events.forEach((evt, idx) => {
         const card = document.createElement('div');
-        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary transition-colors duration-200';
+        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
         card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
 
         card.addEventListener('pointerenter', () => {
@@ -3221,7 +3245,21 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       // had open before this render (e.g. still on ?location= from an
       // earlier auto-open) shouldn't re-snap the camera/re-delay on every
       // re-render.
-      if (justAutoOpened && googleMap) {
+      // Volviendo de un evento: el panel estaba abierto y debe seguir estándolo,
+      // sin coreografía. La cámara se coloca sin animación y el panel se puebla
+      // en el acto, en vez de recorrer el viaje de "el mapa encuentra el sitio
+      // y ENTONCES abre el panel", que es para llegar desde una tag de "Lugar".
+      let volviendoAlPanel = null;
+      try {
+        volviendoAlPanel = sessionStorage.getItem('mel-volviendo-al-panel');
+        if (volviendoAlPanel) sessionStorage.removeItem('mel-volviendo-al-panel');
+      } catch (e) {}
+
+      if (justAutoOpened && volviendoAlPanel && googleMap) {
+        googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
+        googleMap.setZoom(15);
+        populateSidePanel(locationGroups[activeSidePanelKey]);
+      } else if (justAutoOpened && googleMap) {
         googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
         googleMap.setZoom(15);
         // Store the timeout ID so initHomePage can cancel it if it re-runs
@@ -3232,7 +3270,20 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
           populateSidePanel(locationGroups[activeSidePanelKey], 300);
         }, 1000);
       } else {
-        populateSidePanel(locationGroups[activeSidePanelKey]);
+        // Esta rama existe para resincronizar el panel cuando cambian los
+        // filtros. Si lo que tocaría pintar es EXACTAMENTE lo que ya se ve, no
+        // hay nada que hacer: rehacer la lista y relanzar el reparto de tags se
+        // ve como un parpadeo. Al volver de un evento abierto desde el panel
+        // ocurría dos veces —medido a los 5ms y otra vez a los 1958ms—, la
+        // segunda cuando el mapa termina de cargar y vuelve a pasar por aquí
+        // con `?location=` todavía en la URL.
+        const grupo = locationGroups[activeSidePanelKey];
+        const panelEl = document.getElementById('map-side-panel');
+        const firma = grupo.locationName + '|' + grupo.events.map(e => e.idMel).join(',');
+        const yaPintado = panelEl
+          && panelEl.classList.contains('side-panel-open')
+          && panelEl.dataset.firmaPanel === firma;
+        if (!yaPintado) populateSidePanel(grupo);
       }
     } else {
       activeSidePanelKey = null;
@@ -3640,9 +3691,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       const toolbar = document.getElementById('home-highlights-toolbar');
       const toggleWrapper = document.getElementById('home-toggle-wrapper');
       if (!toolbar || !toggleWrapper) return;
+      const toggleOculto = toggleWrapper.classList.contains('hidden');
       const isSharing = updateAdaptiveTagsRow('home-highlights-tags', {
         containerId: 'home-highlights-toolbar',
         getReservedWidth: (toolbarWidth) => {
+          if (toggleOculto) return 0;   // sin selector, el renglón es entero para las tags
           const fourColWidth = (toolbarWidth - 264) / 3 + 72;
           const toggleWidth = Math.max(320, fourColWidth);
           return toggleWidth + 24; // + the row↔Toggle gap
@@ -3650,6 +3703,9 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       });
       toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
     }
+    // filterArchives() es hermana de initHomePage, no hija: sin esta referencia
+    // no puede pedir el recálculo del reparto al entrar o salir de "sin resultados".
+    window._melActualizarToolbar = updateHomeToolbarLayout;
 
     updateHomeToolbarLayout();
     let highlightsResizePending = false;
@@ -3762,9 +3818,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // manually via a stored reference instead.
     const closePanelBtn = document.getElementById('close-map-side-panel');
     const sidePanel = document.getElementById('map-side-panel');
-    if (closePanelBtn && sidePanel) {
-      // Remove any previously attached listener to avoid duplicates
-      if (window._melClosePanelHandler) {
+    if (sidePanel) {
+      // Se define SIEMPRE, no dentro del `if` de la X: esa X ya no existe en el
+      // bottom sheet, y colgar de ella dejaba sin manejador a todo lo demás
+      // (la cabecera que cierra al tocarla, el nombre/dirección del lateral).
+      if (closePanelBtn && window._melClosePanelHandler) {
         closePanelBtn.removeEventListener('click', window._melClosePanelHandler);
       }
       window._melClosePanelHandler = () => {
@@ -3798,7 +3856,25 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
         // other non-active marker since activeSidePanelKey is cleared.
         updateMapMarkers(false);
       };
-      closePanelBtn.addEventListener('click', window._melClosePanelHandler);
+      if (closePanelBtn) closePanelBtn.addEventListener('click', window._melClosePanelHandler);
+    }
+
+    // La cabecera del bottom sheet cierra el panel con un solo toque. Sustituye
+    // a la X que había: un icono de 40px en la esquina es un objetivo pequeño
+    // para un pulgar, y esta franja ocupa todo el ancho. Misma gestión manual
+    // de listeners que la X, por el mismo motivo (debe sobrevivir a las
+    // navegaciones suaves sin duplicarse).
+    const zonaCierrePanel = document.getElementById('map-side-panel-close-zone');
+    if (zonaCierrePanel && sidePanel) {
+      if (window._melCloseZoneHandler) {
+        zonaCierrePanel.removeEventListener('click', window._melCloseZoneHandler);
+      }
+      window._melCloseZoneHandler = () => {
+        if (window.innerWidth >= 1024) return;   // como lateral manda el nombre/dirección
+        if (window._melArrastroSheet) { window._melArrastroSheet = false; return; }
+        if (window._melClosePanelHandler) window._melClosePanelHandler();
+      };
+      zonaCierrePanel.addEventListener('click', window._melCloseZoneHandler);
     }
 
     // Como panel lateral (lg+) no hay X: se cierra pulsando el nombre/dirección,
@@ -3827,11 +3903,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // Same manual listener management as closePanelBtn — must survive
     // AbortController replacement.
     const sidePanelBackdrop = document.getElementById('map-side-panel-backdrop');
-    if (sidePanelBackdrop && closePanelBtn) {
+    if (sidePanelBackdrop) {
       if (window._melBackdropHandler) {
         sidePanelBackdrop.removeEventListener('click', window._melBackdropHandler);
       }
-      window._melBackdropHandler = () => closePanelBtn.click();
+      window._melBackdropHandler = () => {
+        if (window._melClosePanelHandler) window._melClosePanelHandler();
+      };
       sidePanelBackdrop.addEventListener('click', window._melBackdropHandler);
     }
 
@@ -3839,35 +3917,65 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // (por encima de un umbral) o lo suelta de vuelta a su sitio. Solo
     // actúa bajo el breakpoint md (ver media query de #map-side-panel);
     // en escritorio el tirador ni siquiera es visible.
-    const sidePanelHandle = document.getElementById('map-side-panel-handle');
+    // Se agarra desde CUALQUIER punto del panel, no solo desde la cabecera.
+    // La única zona que puede entrar en conflicto es la lista de eventos, que
+    // tiene scroll propio, y ahí se aplica la regla habitual de las hojas
+    // móviles: el panel solo se lleva el gesto si la lista ya está arriba del
+    // todo y se tira hacia abajo; en cualquier otro caso manda la lista.
+    const sidePanelHandle = document.getElementById('map-side-panel');
     if (sidePanelHandle && sidePanel) {
       let dragStartY = 0;
       let dragCurrentY = 0;
       let isDragging = false;
 
+      const listaEventos = document.getElementById('side-panel-event-list');
+      let desdeLista = false;
+
       const dragMove = (e) => {
         if (!isDragging) return;
-        dragCurrentY = e.touches ? e.touches[0].clientY : e.clientY;
+        const y = e.touches ? e.touches[0].clientY : e.clientY;
+        // Empezando sobre la lista, el panel espera su turno: solo se lleva el
+        // gesto cuando la lista no tiene ya nada que desplazar hacia arriba y
+        // se está tirando hacia abajo. Así no se cierra el panel al querer
+        // volver al principio de la lista.
+        if (desdeLista && (listaEventos.scrollTop > 0 || y <= dragStartY)) {
+          dragStartY = y;   // el arrastre útil empieza donde la lista se queda sin recorrido
+          dragCurrentY = y;
+          return;
+        }
+        dragCurrentY = y;
         const delta = Math.max(0, dragCurrentY - dragStartY);
         sidePanel.style.transform = `translate3d(0, ${delta}px, 0)`;
       };
       const dragEnd = () => {
         if (!isDragging) return;
         isDragging = false;
+        // Un arrastre que no llega al umbral devuelve el panel a su sitio, pero
+        // NO debe contar además como toque de cierre.
+        if (Math.abs(dragCurrentY - dragStartY) > 6) window._melArrastroSheet = true;
         sidePanel.classList.remove('side-panel-dragging');
         sidePanel.style.transform = '';
         const delta = Math.max(0, dragCurrentY - dragStartY);
         // Umbral de cierre: una cuarta parte del tirón habitual de un sheet.
-        if (delta > 120 && closePanelBtn) closePanelBtn.click();
+        if (delta > 120 && window._melClosePanelHandler) window._melClosePanelHandler();
         dragStartY = 0;
         dragCurrentY = 0;
       };
       const dragStart = (e) => {
         if (window.innerWidth >= 1024) return; // Bottom sheet solo bajo lg
+        desdeLista = !!(listaEventos && e.target && listaEventos.contains(e.target));
         isDragging = true;
         dragCurrentY = dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
         sidePanel.classList.add('side-panel-dragging');
       };
+
+      // En captura, para adelantarse a los enlaces de la lista y de los tags.
+      sidePanelHandle.addEventListener('click', (e) => {
+        if (!window._melArrastroSheet) return;
+        window._melArrastroSheet = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }, { capture: true, signal: wSig });
 
       sidePanelHandle.addEventListener('touchstart', dragStart, { passive: true, signal: wSig });
       sidePanelHandle.addEventListener('touchmove', dragMove, { passive: true, signal: wSig });

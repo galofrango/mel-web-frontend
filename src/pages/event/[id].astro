@@ -476,7 +476,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       </div>
 
 
-      <div id="detail-nav-block" class="px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 border-t border-mel-border lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div id="detail-nav-block" class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
@@ -623,6 +623,26 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       if (activeSearch) returnParams.set('search', activeSearch);
       if (activeLocation) returnParams.set('location', activeLocation);
       closeBtn.href = `/?${returnParams.toString()}`;
+      // Volviendo a un panel abierto, sin transición de página. Con ella, la
+      // cabecera y la toolbar se promocionan a la capa superior del navegador y
+      // el panel llega a destiempo: se le ve formarse detrás del slider y los
+      // tags y saltar por delante al terminar (D-116 y cuatro intentos de
+      // arreglarlo dentro de la transición). El propietario prefiere que la
+      // vuelta sea instantánea, con todo tal cual se dejó, antes que una
+      // animación que no acaba de cuadrar. El estado de vuelta viaja en
+      // sessionStorage, así que la recarga no pierde nada.
+      if (activeLocation) {
+        closeBtn.setAttribute('data-astro-reload', '');
+        // Marca para la home: esto es una VUELTA a un estado, no un viaje a un
+        // sitio. Sin ella, la carga completa reproducía la secuencia de entrada
+        // entera —galería, cambio a mapa, cámara buscando el marcador y el
+        // panel abriéndose con su segundo de espera—, que tiene sentido
+        // llegando desde una tag de "Lugar" y ninguno volviendo.
+        closeBtn.addEventListener('click', () => {
+          try { sessionStorage.setItem('mel-volviendo-al-panel', activeLocation); } catch (e) {}
+        }, { once: true });
+      }
+      else closeBtn.removeAttribute('data-astro-reload');
     }
 
     // Abort any previous window listeners to prevent duplicates across page transitions.
@@ -1078,6 +1098,18 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
         if (window.innerWidth < 480) {
+          // Con la ficha arriba del todo, el toque abre el cartel como imagen
+          // suelta: a partir de ahí manda el visor del propio navegador, con su
+          // pellizco, su doble toque, guardar y compartir. Es la única forma de
+          // ampliar el cartel sin ampliar la página entera, porque los
+          // navegadores solo aplican el pellizco al viewport y no a un
+          // elemento. Se pide a Drive un tamaño mayor que el de la ficha: es
+          // una vista para mirar de cerca, y a w1000 no habría nada que ampliar.
+          if (raizPagina.scrollTop <= 0) {
+            const url = (imageUrls[currentIndex] || '').replace(/sz=w\d+/, 'sz=w2000');
+            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+          }
           if (raizPagina.scrollTop > 0) {
             const startY = raizPagina.scrollTop;
             const t0 = performance.now();
@@ -1136,6 +1168,80 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // scroll vertical sobre la foto no cambia de imagen. Cuando sí ha sido
     // deslizamiento, se suprime el `click` que el navegador dispara después,
     // para no expandir la imagen sin querer al terminar el gesto.
+    // La caja de la foto va `position: fixed` porque es lo que hace que la
+    // geometría cuadre: el hueco lo reserva un placeholder de alto constante y
+    // el contenido pasa por DEBAJO. El precio es que un elemento fijo queda
+    // fuera de la cadena de scroll — el navegador busca el ancestro desplazable
+    // por la cadena de bloques contenedores, y para un fijo esa cadena acaba en
+    // el viewport, que aquí no se desplaza. Arrastrar sobre la foto no movía
+    // nada, y con la caja encogida eso es media pantalla muerta.
+    //
+    // Se probó la vía "correcta" —anclar la columna con `sticky`, que sí está
+    // en la cadena— y hubo que revertirla: con la foto en flujo el contenido va
+    // DESPUÉS de ella, así que al encoger o queda hueco o la columna encoge y
+    // realimenta el scroll (roadmap, problemas conocidos 9 y 10).
+    //
+    // Así que se reenvía el gesto a mano, sin tocar la geometría. Solo el eje
+    // vertical: el horizontal sigue siendo del deslizamiento entre fotos y el
+    // toque limpio sigue abriendo el lightbox.
+    function habilitarArrastreVertical(zona) {
+      if (!zona) return;
+      const MINIMO = 6;            // por debajo de esto es un toque, no un arrastre
+      const ROCE = 0.95;           // frenado de la inercia por fotograma
+      const VELOCIDAD_MINIMA = 0.05;
+      let y0 = null, x0 = null, scroll0 = 0, arrastrando = false;
+      let ultimaY = 0, ultimoT = 0, velocidad = 0, inercia = null, huboArrastre = false;
+
+      // En captura, para llegar antes que el listener que abre la imagen.
+      zona.addEventListener('click', (e) => {
+        if (!huboArrastre) return;
+        huboArrastre = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }, { capture: true, signal: wSig });
+
+      zona.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        if (inercia) { cancelAnimationFrame(inercia); inercia = null; }
+        y0 = e.clientY; x0 = e.clientX; scroll0 = raizPagina.scrollTop;
+        ultimaY = e.clientY; ultimoT = e.timeStamp; velocidad = 0; arrastrando = false;
+        huboArrastre = false;
+      }, { signal: wSig });
+
+      zona.addEventListener('pointermove', (e) => {
+        if (y0 === null) return;
+        const dy = e.clientY - y0;
+        // El gesto solo se toma cuando es claramente vertical; si no, se deja
+        // pasar para que el deslizamiento entre fotos siga funcionando.
+        if (!arrastrando) {
+          if (Math.abs(dy) < MINIMO || Math.abs(dy) <= Math.abs(e.clientX - x0)) return;
+          arrastrando = true; huboArrastre = true;
+        }
+        const dt = e.timeStamp - ultimoT;
+        if (dt > 0) velocidad = (e.clientY - ultimaY) / dt;
+        ultimaY = e.clientY; ultimoT = e.timeStamp;
+        raizPagina.scrollTop = scroll0 - dy;
+      }, { signal: wSig });
+
+      const soltar = () => {
+        if (y0 === null) return;
+        const iba = arrastrando;
+        y0 = null; x0 = null; arrastrando = false;
+        if (!iba || Math.abs(velocidad) < VELOCIDAD_MINIMA) return;
+        // Inercia propia: sin ella el desplazamiento se corta en seco al
+        // levantar el dedo y se nota que esa zona va aparte del resto.
+        let v = velocidad * 16;
+        const paso = () => {
+          raizPagina.scrollTop -= v;
+          v *= ROCE;
+          inercia = Math.abs(v) > 0.5 ? requestAnimationFrame(paso) : null;
+        };
+        inercia = requestAnimationFrame(paso);
+      };
+      zona.addEventListener('pointerup', soltar, { signal: wSig });
+      zona.addEventListener('pointercancel', soltar, { signal: wSig });
+    }
+
     function habilitarDeslizamiento(zona, irA, indiceActual) {
       if (!zona || !imageUrls || imageUrls.length <= 1) return;
 
@@ -1190,6 +1296,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
     habilitarDeslizamiento(mainImageContainer, (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
     habilitarDeslizamiento(document.getElementById('overlay-image-box'), showOverlayImage, () => overlayIndex);
+    // El arrastre vertical se engancha a TODA la caja fija, no solo a la foto:
+    // la paginación y el faldón también son zona muerta si no.
+    habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
 
     // Initialize carousel and autoplay
     if (imageUrls && imageUrls.length > 0) {
@@ -1215,6 +1324,25 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </script>
 
 <style>
+  @media (max-width: 1023px) {
+    /* El divisor sobre la navegación se dibuja con un pseudoelemento y no con
+       `border-top`: el borde se pinta sobre la caja del bloque, así que llegaba
+       a sangre mientras el contenido de dentro respeta los márgenes laterales.
+       Acotado a los mismos 24px (48 a partir de `sm`) que el resto. */
+    #detail-nav-block::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 24px;
+      right: 24px;
+      border-top: 1px solid var(--mel-border);
+    }
+  }
+
+  @media (min-width: 640px) and (max-width: 1023px) {
+    #detail-nav-block::before { left: 48px; right: 48px; }
+  }
+
   @media (max-width: 1023px) {
     /* La cabecera se ancla con la fila de la X por encima del borde: lo que
        queda pegado arriba es solo el título y los tags. */

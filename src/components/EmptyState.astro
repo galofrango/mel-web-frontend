@@ -10,6 +10,7 @@ interface Props {
   showButton?: boolean;
   buttonText?: string;
   buttonLink?: string;
+  class?: string;
 }
 
 const {
@@ -19,7 +20,8 @@ const {
   showImage = true,
   showButton = true,
   buttonText,
-  buttonLink = "/"
+  buttonLink = "/",
+  class: className = ""
 } = Astro.props;
 
 // Textos, foto y encuadre por variante (Figma: 825:72958 para construcción y
@@ -31,21 +33,23 @@ const VARIANTES = {
     description: "Estamos trabajando para poder ofrecerte más cosas interesantes.",
     button: "De acuerdo",
     image: "/empty-state-construction.png",
-    fit: "object-cover",
+    fit: "object-cover object-center",
   },
   "no-results": {
     title: "Sin resultados",
     description: "Elimina los filtros o prueba a buscar otra cosa.",
     button: "Quitar filtros",
     image: "/empty-state-no-results.png",
-    fit: "object-bottom",
+    // Centrada como las demás: iba anclada abajo (`object-bottom`), así que al
+    // recortar se comía siempre la parte de arriba en vez de repartir por igual.
+    fit: "object-cover object-center",
   },
   "404": {
     title: "404",
-    description: "El ritmo que buscas no existe aún.",
+    description: "El ritmo que buscas aún no existe",
     button: "Ir al inicio",
     image: "/empty-state-404.png",
-    fit: "object-cover",
+    fit: "object-cover object-center",
   },
 };
 
@@ -59,14 +63,14 @@ const imgFitClass = cfg.fit;
 ---
 
 <div 
-  class="flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto"
+  class:list={["flex flex-col gap-[32px] items-center p-[24px] relative text-center max-w-[400px] w-full mx-auto", className]}
   data-node-id="810:71904"
   data-name="Empty State"
 >
   <!-- Tinted Photographic Empty State Image -->
   {showImage && (
     <div 
-      class="h-[240px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none"
+      class="h-[208px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none"
       data-node-id="821:72317"
       data-name="Empty State Image"
     >

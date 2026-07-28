@@ -23,7 +23,7 @@ const { title, date, imageUrl, showDivider = true, class: className = '' } = Ast
      in index.astro) — the structure below serves as reference. Ver AGENTS.md
      regla 7: si cambia el diseño aquí, actualiza también esa réplica JS. -->
 <div
-  class:list={["group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary transition-colors duration-200", className]}
+  class:list={["group content-stretch cursor-pointer flex gap-[16px] items-center pl-[24px] pr-[24px] py-[16px] relative w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200", className]}
   data-node-id="291:13479"
   data-name="Event Card List"
 >
@@ -45,7 +45,7 @@ const { title, date, imageUrl, showDivider = true, class: className = '' } = Ast
       {date}
     </p>
   </div>
-  <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary transition-colors duration-200" data-name="Icon Button">
+  <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200" data-name="Icon Button">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     </svg>

@@ -1232,3 +1232,39 @@ Todo esto se desmonta a partir de `lg` con `display: contents`: la rejilla de 12
 - **Segundo tope, menos evidente**: el revelado se acota además por lo desplazado por encima del punto de anclaje. Al soltarse la cabecera, lo que se ve de la X pasa a depender de la posición y no del gesto; sin ese tope quedaba un escalón de 58px justo ahí.
 - **Verificado con pasos de 5px sobre todo el recorrido, ida y vuelta**: contenido tapado 0, cabecera sobre la foto 0, salto máximo del recorte 10px, salto máximo de la cabecera 5px — o sea, 1:1 con el dedo.
 - **Un descuido previo que este trabajo destapó**: al corregir el anclaje de 160 a 176 (D-110), el cálculo de cuándo empieza a encoger la foto se quedó con el 160 viejo. Ahora los dos leen la misma variable, `anclajeFoto`. Dos números que tienen que ser idénticos no se calculan por separado.
+
+## D-114 · El gesto se reenvía a mano en vez de cambiar la geometría
+
+- **Problema**: la caja de la foto va `position: fixed` y un elemento fijo queda **fuera de la cadena de scroll** — el navegador busca el ancestro desplazable por la cadena de bloques contenedores, y para un fijo esa cadena acaba en el viewport, que en esta pantalla no se desplaza. Arrastrar sobre la foto no movía nada, y con la caja encogida eso es media pantalla muerta.
+- **Por qué `fixed` y no `sticky`**: con la foto en flujo el contenido va **después** de ella, así que al encoger la caja o queda un hueco o la columna encoge y realimenta el scroll. Con `fixed` el hueco lo reserva un placeholder de alto constante y el contenido pasa **por debajo**, que es lo que hace que la cuenta cuadre. Ya se intentó la vía `sticky` y hubo que revertirla con tres regresiones.
+- **Decisión**: no se toca la geometría; se reenvía el gesto. Un oyente de puntero sobre la caja traduce el arrastre **vertical** a `scrollTop` del contenedor, con inercia propia al soltar. El eje horizontal se deja pasar intacto —sigue siendo del deslizamiento entre fotos— y el toque limpio sigue abriendo el lightbox: el gesto solo se toma cuando el recorrido vertical supera 6px **y** es mayor que el horizontal.
+- **Ventaja de método**: al ser código propio respondiendo a eventos y no scroll nativo, **sí se puede verificar en este entorno** con eventos de puntero sintéticos, que es justo lo que no se podía hacer con la cadena de scroll del navegador.
+- **Verificado**: arrastre vertical de 72px sobre la foto → el contenedor se desplaza 72 (1:1). Arrastre horizontal de 72px → el desplazamiento se queda en 0. Geometría idéntica a `detalles-v2.2` a 390×844: recorrido 115, contenido tapado 0, cabecera sobre la foto 0, salto máximo de recorte 10px.
+- **Limitación conocida**: la inercia es propia, no la del navegador, así que la deceleración no será idéntica a la del resto de la página. No se pudo comprobar aquí porque `requestAnimationFrame` no corre de forma fiable en este entorno.
+
+## D-115 · Ampliar el cartel: se delega en el visor del navegador
+
+- **Necesidad**: poder ampliar el cartel en móvil sin ampliar la página entera.
+- **Por qué no un pellizco propio**: los navegadores aplican el pellizco **al viewport, no a un elemento**. Hacerlo dentro de una caja obliga a implementarlo a mano con transformaciones, que es justo el tipo de complejidad que esta pantalla ya ha demostrado que sale cara.
+- **Decisión**: con la ficha arriba del todo, el toque sobre el cartel lo abre como **imagen suelta en otra pestaña**. A partir de ahí manda el visor nativo: pellizco, doble toque, guardar y compartir, sin una línea de código nuestro.
+- **Se pide un tamaño mayor que el de la ficha** (`sz=w2000` en vez de w1000): es una vista para mirar de cerca. **Ojo**: Drive no amplía por encima del original, así que el techo de detalle es la resolución del escaneo. En un cartel de 992px de ancho, w2000 devuelve el mismo archivo — sin coste extra, pero sin ganancia. Si se quiere más detalle en piezas concretas, hay que subir mejores escaneos.
+- **El pellizco de la página sigue habilitado** a propósito (`<meta viewport>` sin `user-scalable=no`). Desactivarlo impediría ampliar a quien lo necesita por accesibilidad, y ahora además hay una alternativa mejor para el caso concreto del cartel.
+- **Un arrastre no cuenta como toque**: al desplazar a mano (D-114) el navegador no siempre suprime el `click`, así que se suprime en captura. Verificado: toque limpio arriba abre la imagen; toque tras arrastrar no abre nada.
+
+
+## D-116 · El panel del mapa entra en la capa de transición, o parece que hay dos
+
+- **Síntoma, descrito por el propietario a cámara lenta**: al volver de un evento, el panel se forma **detrás** del slider, los tags y el selector de vista; después "desaparece" y aparece otro ya por delante de todo y casi en su sitio.
+- **No son dos paneles**: es el mismo cambiando de capa. La cabecera y la toolbar llevan `view-transition-name`, y un elemento con nombre de transición **se anima en la capa superior del navegador, que ignora cualquier `z-index` de la página** — la regla 2 de AGENTS.md, escrita en su día a raíz de otro bug. El panel no tenía nombre, así que se quedaba en la página normal mientras los otros dos se promocionaban por encima. Al terminar la transición todo vuelve al flujo y el `z-index` del panel manda: eso es el "segundo panel".
+- **Descartado por el camino**: se pensó primero en un bloque contenedor accidental (`position: fixed` bajo un ancestro con `transform`). Encaja con los síntomas y este proyecto ya lo sufrió, pero no era: la promoción de capa lo explica mejor y es comprobable en el marcado.
+- **Arreglo**: el panel recibe su propio `view-transition-name` y su grupo se ordena por encima del de la toolbar. Entra en la misma capa que los demás, en el orden correcto.
+- **No estaba causado por subir el sheet a 40px**, aunque fue lo que lo destapó: antes el panel se paraba tan abajo que apenas se solapaba con la toolbar y no se veía.
+
+
+## D-117 · La vuelta a un panel abierto va sin transición de página
+
+- **Contexto**: cuatro intentos de que el panel llegara bien **dentro** de la transición (repoblado duplicado, apilamiento, firma de la lista, nombre de transición propio). Cada uno arregló algo real y medible, y el síntoma seguía: el panel se ve formarse detrás del slider y los tags y saltar por delante al terminar.
+- **Decisión del propietario, aceptada**: "no me importa para nada que al volver de los eventos el panel esté todo tal cual se dejó sin animación". Volver es una restauración, no un viaje; la animación no estaba contando nada que el visitante necesite.
+- **Implementación**: la X de la ficha lleva `data-astro-reload` **solo cuando se vuelve a un panel abierto** (`activeLocation`). Sin transición no hay capa superior, así que no hay nada que llegue a destiempo. El resto de vueltas —galería, lista— conservan su transición.
+- **Coste**: esa vuelta concreta es una carga completa en lugar de una navegación suave. El estado de vuelta viaja en `sessionStorage`, así que no se pierde nada. Medido: el panel aterriza directamente en su posición final (top 40) con sus eventos ya puestos.
+- **Lección**: cuatro arreglos sucesivos sin que el síntoma desaparezca es la señal de que el marco es el problema, no la pieza. La animación era el marco.
