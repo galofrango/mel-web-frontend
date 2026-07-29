@@ -11,7 +11,16 @@ interface Props {
 
 const { title, category, location, year, date, image, id } = Astro.props;
 ---
+<!-- El `view-transition-name` va en LA TARJETA, no en la imagen de dentro.
+     Estuvo en la `<img>` y eso hacía que al reordenar volase solo la foto: la
+     caja blanca con su sombra se quedaba en la posición vieja haciendo un
+     fundido, porque sin nombre propio pertenece al fotograma de la raíz. Se veía
+     como marcos blancos fijos por detrás de las fotos en movimiento, y como que
+     "las cartas no se mueven" — y era literal, no se movían, solo las fotos.
+     Con el nombre aquí viaja la tarjeta entera: fondo, sombra, imagen y
+     etiqueta, como un solo objeto. -->
 <div
+  style={`view-transition-name: flyer-img-${id};`}
   class="gallery-item unsized relative overflow-hidden bg-white cursor-pointer transition-all duration-300 group hover:z-30"
   data-id={id}
   data-year={year}
@@ -32,7 +41,6 @@ const { title, category, location, year, date, image, id } = Astro.props;
     decoding="async"
     referrerpolicy="no-referrer"
     class="w-full h-auto block pointer-events-none"
-    style={`view-transition-name: flyer-img-${id};`}
     onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)"
     onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);"
   />

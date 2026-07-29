@@ -1493,3 +1493,206 @@ El propietario probó lo anterior y no vio ningún fundido: vio **un parpadeo y 
    - **Ojo con el entorno**: esto NO se puede observar aquí. Los fotogramas solo ocurren al forzar una captura, así que cualquier medición de animación en este sandbox es inservible — una de esta sesión ya salió imposible por eso.
 2. **La curva y la duración**, a revisar con el ojo del propietario.
 3. **La posición del botón respecto al borde inferior**, pendiente de probar en un móvil real por lo de la barra de URL replegable.
+
+## D-132 · Las cartas no se movían porque nunca se movieron: el nombre de transición estaba en la imagen
+
+- **Los dos síntomas eran el mismo fallo.** El propietario reportó (a) que las cartas no se mueven al reordenar y (b) que aparecen **marcos blancos fijos por detrás de las fotos** durante el movimiento.
+- **Mi hipótesis de la noche anterior era falsa**, y quedó anotada como no confirmada precisamente por esto: no era cuestión de velocidad. Alargar la animación a 1,5s no arregló nada porque no había nada que alargar.
+- **Causa**: el `view-transition-name` vivía en la `<img>`, no en la tarjeta. Así que al reordenar el navegador solo animaba la foto; la tarjeta —su fondo blanco, su sombra y su etiqueta— no tiene nombre propio, pertenece al fotograma de la raíz y solo hace un fundido en el sitio viejo. De ahí los marcos blancos quietos detrás de las fotos volando, y de ahí que "las cartas no se muevan": es literal, no se movían.
+- **Arreglo**: el nombre pasa a la tarjeta y se retira de la imagen. Viaja la tarjeta entera como un solo objeto. Cambiado en los DOS sitios (`FlyerCard.astro` y la réplica JS de `buildGalleryCard`, regla 7). **Verificado**: 32 tarjetas con nombre, 0 imágenes con nombre, 32 nombres únicos — importante, porque un nombre repetido aborta la transición entera.
+- **Efecto secundario asumido**: el morphing de ida a la ficha ahora empareja *tarjeta* con *imagen* en vez de *imagen* con *imagen*. Pendiente del ojo del propietario; si no convence, la alternativa es dar a la tarjeta un nombre propio distinto y devolver el suyo a la imagen, a costa de duplicar los elementos nombrados.
+
+### Y en Lista no había animación en absoluto
+
+- **El FLIP solo tocaba las filas de la TABLA.** Por debajo de 440px la lista se dibuja como tarjetas (`#list-mobile-cards`), y ahí no se animaba nada — que es justamente donde vive el botón de ordenación. No era que se viera poco: no existía.
+- **Arreglo**: el FLIP registra y reproduce también las tarjetas de móvil. Solo una de las dos vistas está montada a la vez, así que juntarlas no anima nada dos veces.
+- **Verificado con un observador de mutaciones**, que es la única forma fiable aquí: 44 desplazamientos aplicados y 28 tarjetas recibiendo `transform 1500ms cubic-bezier(0.65, 0, 0.35, 1)`.
+- **Lección de método**: la medición directa no servía —al leer el DOM tras el clic, el repintado aún no había ocurrido, porque va dentro de una transición asíncrona y aquí los fotogramas están congelados. Un `MutationObserver` sí lo capta, porque registra lo que pasó aunque nadie estuviera mirando.
+
+## D-133 · Corrección de D-132, y la aritmética que explica la galería
+
+D-132 daba por arreglados dos síntomas. El propietario probó en su teléfono: el de los marcos blancos sí (la tarjeta entera viaja, confirmado), los otros dos no. Lo que sigue corrige aquel registro.
+
+### Lista: el FLIP se ejecutaba sobre nodos condenados
+
+- **Causa**: el paso de reproducción del FLIP estaba escrito de un tirón para las filas de la tabla y las tarjetas de móvil, en el punto donde se reconstruye **la tabla** — que es *antes* de donde se reconstruyen **las tarjetas** (`mobileListItems.innerHTML = ''`, unas cuarenta líneas más abajo). En móvil medía y transformaba los nodos VIEJOS, que se tiraban a la basura acto seguido.
+- **Mi medición de D-132 era correcta y mi lectura de ella no**: los 28 `transform 1500ms` se aplicaban de verdad. A elementos que no llegaban vivos al siguiente fotograma. Medir que una instrucción se ejecuta no es medir que produce un efecto.
+- **Arreglo**: el paso se extrae a `reproducirFlip(nodos)` y se llama **dos veces**, cada una justo después de que su propio contenedor exista. Juntarlas otra vez devuelve el bug; queda advertido en el código.
+
+### Galería: no hay nada que mover, y es aritmética
+
+- **84 eventos en el archivo, `PAGE_SIZE` = 32.** Ascendente muestra los eventos 1–32; descendente, los 84–53. **La intersección es vacía.**
+- Una transición de vista solo puede *mover* un elemento presente a ambos lados con el mismo nombre. Al pasar de descendente a ascendente no sobrevive en pantalla ni una tarjeta. El fundido no es un fallo: es lo único que el navegador puede hacer.
+- **La misma cuenta explica la observación contraria**, que es lo que la hace fiable: el barajado toma 32 al azar de 84 y comparte ~12 con las anteriores, así que un tercio largo sí viaja. Por eso el barajado "se ve" y el ascendente no.
+- **Ninguna de mis dos hipótesis anteriores (velocidad, después nombre de transición) tocaba esto.** No era un fallo de implementación en ningún momento.
+- **Consecuencia de producto, pendiente de decisión del propietario**: si se quiere que reordenar "tenga gracia", tiene que ser una animación de entrada deliberada (escalonada), no una transición de vista. Es una decisión de diseño, no un arreglo.
+
+### Volver a Lista desde una ficha estando en la página 2
+
+- **Causa**: en `updateSlider()`, `currentPage = 1` estaba **fuera** del guard `if (!restaurandoVuelta())` mientras `galleryVisibleCount` y el scroll estaban dentro. El comentario de `readReturnState` ya decía que updateSlider resetea las dos cosas; se protegió solo una.
+- **Por qué no se había visto**: la galería no usa `currentPage` (pagina por scroll infinito), así que el reseteo no tenía efecto visible. Solo se manifestaba volviendo a la Lista desde la página 2.
+- **Arreglo**: `currentPage` dentro del guard, con los otros dos.
+
+## D-134 · Rectificación de D-133, y las tres causas reales del reordenado
+
+D-133 explicaba la galería con una cuenta equivocada. Queda corregido aquí.
+
+### La aritmética de D-133 era falsa
+
+- Dije "84 eventos, intersección vacía". **La hoja tiene 84 filas, pero se agrupan en 50 eventos** (varios flyers por evento vía carrusel). Con 50 y páginas de 32, ascendente y descendente **comparten 14**.
+- **Medido en el navegador**: `{ascN:32, descN:32, comunes:14}`. Catorce tarjetas tenían pareja a ambos lados y aun así no se movían. Mi explicación no explicaba nada.
+- Lección: la cuenta salió de `grep` sobre los `idMel` del HTML sin comprobar contra lo que la propia interfaz declara (el contador dice 50 en pantalla). Un número plausible que nadie contrasta es peor que no tener número.
+
+### Causa real 1 — la cuadrícula se fotografía sin medir
+
+- El ratio de cada cartel vivía **solo** en `card.dataset.ratio`. Cada reconstrucción de la galería (cualquier filtro, búsqueda o reordenado) lo tiraba con la tarjeta y volvía a esperar al `onload` de la imagen.
+- El navegador fotografía el estado nuevo al salir del callback de la transición. En ese instante las 32 tarjetas eran placeholders `.unsized` del mismo alto: **la foto era de la cuadrícula equivocada**. De ahí las cajas blancas altas y el salto de la cuadrícula un segundo después.
+- **Arreglo**: `ratiosMedidos`, un Map por `idMel` que sobrevive a las reconstrucciones, más `dimensionarConocidas()` que aplica las alturas conocidas en una sola pasada antes de que se tome la foto.
+- **Verificado**: tras un reordenado, 9 de 12 tarjetas ya medidas sobrevivieron y **las 9 volvieron ya dimensionadas** (`gridRowEnd` puesto, sin `.unsized`), sin esperar a su imagen.
+- Vale más allá de la animación: la galería dejaba de recolocarse en cada filtro.
+
+### Causa real 2 — nombres por contenido donde hacía falta por hueco (idea del propietario)
+
+- Las 18 tarjetas sin pareja no podían moverse por definición. Su propuesta: mover las hojas blancas mientras las imágenes se funden.
+- Resulta ser exactamente lo que hace el mecanismo si se le nombra por **hueco** (`mel-hueco-{i}`) en vez de por contenido: las 32 emparejan, la caja viaja de su sitio viejo al nuevo y el contenido se disuelve dentro. Y es **más barato** que ahora: 32 grupos emparejados en vez de 32 que se van más 32 que llegan.
+- **Arreglo**: `nombrarHuecos(true)` sobre las salientes antes de arrancar y sobre las entrantes dentro del callback; `nombrarHuecos(false)` al acabar, porque el nombre de contenido es el que empareja con la ficha del evento.
+
+### Causa real 3 — el mismo fallo del guard, escrito dos veces
+
+- `currentPage = 1` estaba fuera de `if (!restaurandoVuelta())` en **dos** sitios: el slider de años y el arranque del buscador. Arreglar solo el primero no cambió nada porque el que dispara en una vuelta es el segundo (su propio comentario ya lo decía).
+- **Arreglo**: un único `reiniciarPosicion()` con el guard dentro, llamado desde los dos. Un guard por copia vuelve a divergir.
+
+### Lo que este entorno NO puede verificar
+
+- `document.hidden === true`: la pestaña del agente va en segundo plano y **Chrome aborta toda transición de vista en un documento oculto** (`InvalidStateError: Transition was aborted`). No es un fallo del sitio; es que aquí la animación no se puede ver ni medir de ninguna forma.
+- Sí se puede comprobar lo estático: 39 elementos nombrados y **0 duplicados** (un nombre repetido aborta la transición entera, y era la otra sospecha razonable).
+- Todo juicio sobre cómo QUEDA la animación es del propietario en un teléfono real.
+
+## D-135 · Afinado del reordenado: curva, cascada en Lista y rebobinado del scroll
+
+### Curva más rápida por el medio
+
+- `cubic-bezier(0.65, 0, 0.35, 1)` (cúbica) → **`cubic-bezier(0.83, 0, 0.17, 1)`** (quíntica). Misma duración; lo que sube es la velocidad punta, de ~1,9× la media a ~2,6×.
+- La escala queda anotada junto a la constante (cúbica → quíntica → expo ~3,2×). Se mueve tocando **una** línea: `ORDEN_ANIM_EASE`, que es la única fuente de la curva para galería y lista.
+
+### Lista: cascada para las filas sin pareja
+
+- **El truco de la galería no es trasladable tal cual, y el motivo importa**: allí funciona porque cada cartel mide distinto, así que el hueco 3 cae en otro píxel al reordenar y las cajas viajan de verdad. En la Lista todas las filas miden lo mismo — el hueco 3 está en el MISMO píxel antes y después. Nombrar por hueco daría exactamente cero movimiento.
+- Lo único que puede viajar de verdad son las filas que ya existían en otro sitio (14 de 32 entre ascendente y descendente). Para las otras 18, la cascada.
+- **Arreglo**: reordenando, las filas sin pareja entran escalonadas (26 ms de paso, tope 520 ms, 620 ms cada una, misma curva) en vez del parpadeo corto de `list-row-intro`, que se conserva para filtros y búsquedas.
+- **Verificado**: 38 eventos de viaje a 1500 ms y 72 de cascada a 620 ms en el mismo reordenado, con retardos `26, 52, 78, 104, 130…`.
+
+### Rebobinar el scroll en vez de teletransportarse
+
+- Antes se hacía `scrollTop = 0` de golpe y **después** se reordenaba: el truco de magia ocurría en una pantalla a la que el visitante no había llegado por su pie, y el botón parecía haberse movido de sitio.
+- **Arreglo**: `rebobinar()` sube deslizándose y solo cuando ha llegado arriba se reordena. Los dos gestos SEGUIDOS y no a la vez: la transición fotografía el estado viejo al arrancar, así que con el contenedor aún deslizándose la foto saldría de una posición que ya no existe.
+- **`scrollend` con red obligatoria de 700 ms**: no existe en Safari anterior al 18, y un desliz interrumpido por el dedo tampoco lo dispara. Sin la red la promesa no se resolvería nunca y **el botón quedaría muerto para siempre**.
+- **Verificado justamente en el peor caso**: en este entorno el documento está oculto y `scrollend` no llega; aun así scroll 1200 → 0, orden `desc` → `asc`, primera tarjeta `MEL-00080` → `MEL-00001`, y un segundo clic seguido vuelve a avanzar (el guard `rebobinando` no se queda pillado).
+
+## D-136 · Subir y reordenar como un solo movimiento (sustituye al rebobinado de D-135)
+
+El rebobinado de D-135 hacía los dos gestos SEGUIDOS: primero deslizarse arriba, luego reordenar. El propietario pidió que empezasen a la vez. Se consigue sin simular nada, y con menos código: se borra `rebobinar()`, `scrollerActivo()` y el guard `rebobinando`.
+
+### El truco está en CUÁNDO, no en QUÉ
+
+- El navegador fotografía el estado **viejo antes de entrar** en el callback de `startViewTransition`, y el **nuevo al salir**. Poniendo el scroll a cero *dentro* del callback, la foto vieja queda con el visitante donde estuviera y la nueva desde arriba: cada tarjeta viaja entonces su desplazamiento de reordenación **más** el del scroll, de una vez.
+- Puesto antes de arrancar la transición (como estaba), la foto vieja ya sale desde arriba y el scroll se pierde: salto seco y luego animación.
+- En la galería va **después** de reconstruir la rejilla: a media reconstrucción el alto del contenedor todavía no es el definitivo.
+- En la Lista sale gratis por el mismo motivo, sin transición de por medio: el FLIP apunta las posiciones viejas, se pone el scroll a cero y luego mide las nuevas, así que el desplazamiento entra dentro del salto que calcula. **El orden de esas tres cosas es el arreglo entero**; moverlo lo deshace.
+
+### Verificado
+
+- Lista con 900 px de scroll: los saltos pasan de ser solo de recolocación a ir de **−2044 a +244 px**, con 36 de 56 filas por encima de 500 px. Scroll final 0.
+- Galería con 1500 px de scroll: scroll final 0, primera tarjeta `MEL-00001` → `MEL-00067`, 32 tarjetas.
+
+### Riesgo conocido, pendiente del ojo del propietario
+
+- **El viaje crece con la profundidad del scroll**: a 900 px ya hay filas recorriendo 2000 px en 1500 ms. Muy abajo (3000–4000 px) el recorrido puede leerse como un borrón.
+- No se pone tope por iniciativa propia: acotarlo cambia el carácter de la animación y esa decisión es suya. Si hace falta, el sitio es la duración o un tope al desplazamiento de scroll que se incorpora al salto.
+
+## D-137 · Tres reglas de z-index llevaban muertas desde que se escribieron (ámbito de Astro)
+
+### El hallazgo
+
+El propietario reportó que al reordenar las tarjetas pasan por encima de toda la interfaz. La interfaz YA estaba nombrada (`mel-header`, `mel-toolbar`) con `z-index: 100`, así que en teoría debían pasar por detrás. Mirando el CSS **compilado**:
+
+```
+[data-astro-cid-lcdefpme]::view-transition-group(mel-header){z-index:100}
+```
+
+Astro le pone ámbito a los `<style>` reescribiendo el último compuesto del selector. Pero `::view-transition-group()` **solo existe en la raíz del documento**, y `html` no lleva el atributo de ámbito: **la regla no seleccionaba nada**.
+
+### Qué estaba roto sin que se supiera
+
+Las tres capas, desde el día en que se escribieron:
+- `mel-header` / `mel-toolbar` / `mel-pagination` (z-index 100)
+- `mel-side-panel` (z-index 101) — **el arreglo de D-116 nunca llegó a aplicarse**
+- `mel-boton-orden` (z-index 102) — **tampoco**; se dio por bueno porque el síntoma dejó de reportarse, no porque se comprobara
+
+Las reglas de `orden-cambiando` sí funcionaban, y eso es lo que despistaba: sobreviven porque empiezan por `html`, que Astro no reescribe. Dos bloques contiguos, uno vivo y otro muerto.
+
+### Arreglo y lección
+
+- Prefijo `html` en los tres selectores. Verificado en el CSS compilado, que es el único sitio donde esto se ve.
+- **Un `<style>` de Astro no es CSS global.** Cualquier regla sobre pseudoelementos de la raíz (`::view-transition-*`, `::backdrop`, `::selection` a nivel de documento) tiene que empezar por `html`/`:root` o ir en `is:global`.
+- **Lección de método**: un arreglo de CSS no está verificado hasta haber mirado la hoja compilada. "El síntoma dejó de aparecer" no es evidencia — aquí el síntoma dejó de reportarse durante días con la regla muerta.
+
+## D-138 · Curva asimétrica y duración proporcional al scroll
+
+- **Curva**: `cubic-bezier(0.83, 0, 0.17, 1)` (simétrica) → **`cubic-bezier(0.4, 0, 0.15, 1)`**. El primer par es la entrada: bajar su x hace que la velocidad punta se alcance antes. El segundo se deja bajo para conservar el frenado largo. Petición del propietario: tardaba demasiado en coger velocidad.
+- **Duración proporcional al scroll, con tope**: recorriendo mucho pasan muchas más tarjetas por delante en el mismo tiempo y se lee como un borrón; estirar el reloj lo compensa. Con tope, porque la idea es dar la vuelta al principio, no recorrerse el archivo cartel a cartel.
+  - `ORDEN_ANIM_MS_BASE` 1400 · `ORDEN_MS_POR_PX` 0.15 · `ORDEN_ANIM_MS_MAX` 2200. Son la perilla entera; el resto del código no sabe de esto.
+  - Se mide al pulsar, **antes** de que `performDOMUpdates` ponga el scroll a cero: después la distancia ya se ha perdido.
+- **Verificado**: 0 px → 1400 ms · 1500 px → 1625 ms · 2702 px → 1805 ms, con la curva nueva publicándose en `--mel-orden-ease`.
+
+## D-139 · `#bloque-cabecera`: la interfaz fija pasa a ser una pieza opaca
+
+- **Síntoma**: resucitado el z-index (D-137), las tarjetas ya pasaban por detrás de la cabecera y la toolbar, pero seguían viéndose **entre** ellas.
+- **Causa**: eran DOS islas nombradas. El hueco entre ambas y el `pt` de arriba pertenecen al fondo de la página, que en la capa de transición va por DEBAJO de las tarjetas.
+- **Arreglo**: una envoltura `#bloque-cabecera` que agrupa cabecera + toolbar, con `bg-mel-bg-primary`, el `pt` superior (movido desde el contenedor exterior) y sangrado horizontal por márgenes negativos que anulan el `px` de la página — igual que hace el slider. Así llega a los cuatro bordes.
+- **Su nombre lo pone y lo quita JS**, dentro de `nombrarHuecos()`, solo durante el reordenado. Fijo se metería en las transiciones entre páginas, donde no tiene destino que le corresponda.
+- **Los dos nombres interiores se apagan mientras tanto**: si siguieran puestos se capturarían aparte y dejarían su silueta recortada en el bloque — justo el agujero que se quería tapar. Arriba no se mueve nada durante un reordenado, así que no necesitan grupo propio.
+- **Se apagan y encienden por `id`, no por el atributo `style`**: al apagarlos el `style` deja de contener el nombre, así que un selector como `[style*="mel-header"]` los encontraría a la ida y no a la vuelta, y se quedarían apagados para siempre. De ahí `#home-header` y `#home-toolbar`.
+
+### Verificado
+
+- **Geometría sin cambios** (era el riesgo: tocar el marcado del monolito). Móvil 390px: bloque `t:0 l:0 w:390`, y las cuentas cierran — 16 (pt) + 48 (cabecera) + 24 (hueco) + 196 (toolbar) = 284, galería en 300. Escritorio 1600px: bloque de 80 a 1520, exactamente el contenedor de 1440 sin desbordarlo, con la galería (144→1456) dentro, así que tampoco asoman por los lados.
+- **Ida y vuelta de los nombres**: durante el reordenado `mel-bloque-fijo` + los dos interiores en `none`; al acabar, bloque vacío y `mel-header` / `mel-toolbar` restaurados.
+
+### Escala de tiempo rebajada
+
+`ORDEN_ANIM_MS_BASE` 1400 → **1000**, `ORDEN_MS_POR_PX` 0.15 → **0.12**, `ORDEN_ANIM_MS_MAX` 2200 → **1600**.
+0 px → 1000 ms · 1500 px → 1180 ms · 2700 px → 1324 ms · 5000 px o más → 1600 ms.
+
+## D-140 · Ordenar cancela la vuelta, y en Lista no se arranca transición
+
+### Al volver de una ficha, ordenar no animaba
+
+- **Causa**: `restaurandoVuelta()` sigue siendo cierto durante 4s (`RETURN_STATE_TTL_MS`) tras aterrizar, y `filterArchives` se salta la transición entera mientras lo sea — con razón: la del ClientRouter sigue viva y apilar otra la supersede (regla 3).
+- **Por qué solo pasaba sin haber hecho scroll**: tocar el scroll cancelaba la vuelta por otra vía, y a partir de ahí sí animaba.
+- **Arreglo**: `cancelarVuelta()`, llamado al principio de `avanzarOrden()`. Elegir un orden nuevo deja de ser "estoy volviendo": es pedir otra cosa.
+- **Verificado** montando la condición exacta (`window._melState.pendingReturn` vivo al pulsar): vuelta viva → cancelada → 1 transición arrancada. Antes, 0.
+
+### En Lista, el cambio a ascendente era un fundido
+
+- **Causa**: las filas no llevan `view-transition-name` a propósito (regla 2: con nombre se promocionan a la capa superior y se escapan del recorte del scroll). Al no tenerlo pertenecen a la foto de la RAÍZ — y esa foto vieja se funde por encima del FLIP durante toda la animación, tapándola. El movimiento estaba ahí debajo; no se veía.
+- **Arreglo**: reordenando en Lista no se arranca transición de vista. Ahí la animación la hace el FLIP, y arriba no cambia nada durante un reordenado, así que la transición no aportaba nada que perder.
+- **Verificado**: 0 transiciones de vista (síncronamente y tras forzar fotogramas), 20 filas viajando a `transform 1072ms cubic-bezier(0.4, 0, 0.15, 1)` — 1000 + 600×0,12, exacto — y 12 en cascada. Las 32 contabilizadas.
+
+### Nota de método
+
+Dos falsos negativos seguidos en esta sesión por lo mismo: **el paso que reproduce el FLIP vive dentro de `requestAnimationFrame`, y en el entorno del agente los fotogramas están congelados** (documento oculto) salvo que se fuerce uno con una captura. La cascada es síncrona y sí se registraba, lo que hacía parecer que solo fallaba el viaje. Midiendo sin forzar fotograma: 0 viajes. Forzándolo: 20. Un `MutationObserver` tampoco salva esto si se desconecta en la misma tanda síncrona — sus registros se entregan como microtarea.
+
+## D-141 · Por qué NO se enmascaran las tarjetas (alternativa valorada)
+
+El propietario propuso recortar las tarjetas durante la animación en vez de taparlas con un bloque opaco, observando —con razón— que la sensación de scroll normal la produce el recorte (`overflow-y: auto` del panel).
+
+Es viable (`clip-path` sobre `::view-transition-group()`), pero sale peor en las tres cosas:
+
+1. **No se puede seleccionar por prefijo.** No hay forma de decir `mel-hueco-*`: habría que recortar `*` y desrecortar a mano cada nombre de la interfaz. Una lista que hay que mantener para siempre, y olvidar uno lo recorta.
+2. **Tampoco ahorra JS.** El rectángulo de recorte es el borde superior de la galería en coordenadas de viewport: solo lo sabe JS, y hay que publicarlo como variable CSS en cada reordenado.
+3. **Es más pesado, no menos.** Un rectángulo opaco es lo más barato que sabe hacer un compositor —puede incluso saltarse lo que queda detrás—. Un `clip-path` es una máscara por capa evaluada en cada fotograma: con 32 tarjetas animando, 32 máscaras por fotograma en vez de un cuadrilátero opaco.
+
+A favor del recorte: se ajustaría al borde de la galería pase lo que pase por encima, mientras que el bloque opaco depende de que la interfaz siga estando justo encima. Hoy lo está, y el resultado es idéntico.
+
+Y una razón de fondo: `#bloque-cabecera` no es andamiaje de animación. El bloque fijo de cabecera ES una pieza con fondo propio; darle elemento y fondo es describir la página como es. El recorte habría tapado el síntoma dejando vivo el fallo real —las tres reglas de z-index muertas de D-137—, y con él el panel del mapa y el botón seguirían rotos.
