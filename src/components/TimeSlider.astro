@@ -9,7 +9,15 @@ import SliderHandler from './SliderHandler.astro';
     on window), so the browser's own touch gesture recognition has nothing
     useful to do here — telling it not to try removes the conflict at the
     source, on both the handles (SliderHandler.astro) and the track. */}
-<div id="slider-track-wrapper" class="relative w-full py-8 select-none cursor-pointer touch-none" data-node-id="Slider Bar/Time Slider">
+<!-- El alto sale del TIRADOR (36px, fijo en SliderHandler), no de un relleno.
+     Antes eran `py-8`: 64px de relleno puro, porque la barra y los tiradores van
+     en posición absoluta y no aportan alto ninguno. Ese relleno era invisible
+     pero contaba, así que el hueco entre el slider y lo de al lado era 32px
+     mayor que entre el resto de elementos — el propietario lo cazó con el
+     inspector: "hay algún elemento que no está construido con el mismo padding".
+     Sin él, el componente ocupa lo que ocupa y quien manda en la separación es
+     el contenedor de la home, que la saca de la escala del DS. -->
+<div id="slider-track-wrapper" class="relative w-full h-9 select-none cursor-pointer touch-none" data-node-id="Slider Bar/Time Slider">
   
   <!-- Inactive Slider Bar Background (8px height, rounded-none, color mel-border) -->
   <div class="h-2 w-full bg-mel-border absolute top-1/2 -translate-y-1/2 rounded-none"></div>

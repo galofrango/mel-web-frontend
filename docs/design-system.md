@@ -102,7 +102,20 @@ Clases utilitarias `typo-*` en `global.css` (responsive, diseño móvil primero 
 
 ## Espaciado y Layout
 
-Tokens de espaciado: `--mel-spacing-xs/s/sm/m/l/xl` = 4 / 8 / 12 / 16 / 24 / 32px.
+**Tokens de espaciado**: `--mel-spacing-xs/s/m/l/xl` = **8 / 16 / 24 / 32 / 40px**.
+Utilidades Tailwind correspondientes: `gap-mel-s`, `pb-mel-m`, etc.
+
+> Escala revisada el 29-07-2026 a petición del propietario (antes 4/8/12/16/24/32
+> con un `sm` intermedio, ahora retirado). Se pudo cambiar sin romper nada porque
+> de los seis tokens **solo uno se usaba en el marcado**. Al reescalar, el hueco
+> de la galería —que debe seguir siendo 24px— pasó de `mel-l` a `mel-m`.
+> **Cuidado**: ese valor está también escrito a mano en `GALLERY_GAP` (JS), y los
+> dos números tienen que coincidir o el masonry se descuadra.
+
+**Huecos verticales de la home**: salen de esta escala y se aprietan un paso en
+móvil, donde el alto es el recurso escaso — `S` por debajo de `md`, `M` a partir
+de ahí. Medido en una pantalla de 812px: los controles ocupaban 328px (el 40% de
+la pantalla) y la galería 484; tras apretarlos, **la galería pasa a 524px**.
 - **Grid de Página**: 12 columnas, `gap-6` (24px), ancho máximo `1440px`, padding lateral `px-6 / sm:px-12 / md:px-[108px]`.
 - **Espaciados Verticales en `vh`**: Header `pt-[10vh]`, fondo de página `pb-[3vh]`, reservas de paginación `6vh` (Lista con números) / `13vh` (Galería) / `7vh` (Lista). La Intro utiliza valores relativos en `%` del ancho.
 

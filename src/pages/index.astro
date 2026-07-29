@@ -218,7 +218,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
        ENTERA, incluida la franja que ocupan las barras del navegador, así que la
        página quedaba más alta que lo realmente visible y siempre sobraba un
        scroll vertical con el final tapado. `dvh` mide solo el área visible. -->
-  <div class="w-full max-w-[1440px] h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-6 overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <!-- Los huecos verticales salen de la escala del DS y suben una talla a partir
+       de tablet (`md`, 768px, el mismo corte en el que la rejilla pasa de dos a
+       tres columnas): `M` (24px) en móvil, `L` (32px) de tablet en adelante.
+       El alto de más en móvil NO se gana apretando estos huecos —se probó a `S`
+       y el propietario lo vio agobiado— sino quitando el relleno invisible que
+       el slider llevaba dentro (64px de `py-8`, ver TimeSlider.astro). -->
+  <div class="w-full max-w-[1440px] h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)] pb-[3vh] flex flex-col gap-mel-m md:gap-mel-l overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
@@ -242,7 +248,23 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
          toolbar arranca más pegado a la cabecera) lo recortamos a 16px con
          -mt-2, restaurando 24px en desktop (lg:mt-0). El pb-4 mantiene el hueco
          hacia el contenido de abajo. Tailwind: gap-6=24px, -mt-2=-8px. -->
-    <div class="flex flex-col gap-6 pb-4 shrink-0 -mt-2 lg:mt-0" style="view-transition-name: mel-toolbar;">
+    <!-- El hueco hasta la galería es a propósito UNA TALLA MAYOR que el resto:
+         el propietario quiere que la rejilla respire respecto a los controles.
+         Sale de `pb + gap − 8` (el −8 lo pone el `-mt-2` del contenedor de
+         vistas). Con `pb-mel-s` fijo, el escalón sale solo en las dos tallas:
+         móvil 16+24−8 = 32 sobre un ritmo de 24, y tablet 16+32−8 = 40 sobre un
+         ritmo de 32. Por eso el `pb` NO lleva variante: subirlo también en `md`
+         daba 48, que son dos tallas de salto y no una. -->
+    <!-- `mt` y `pb` van en la escala, no a pelo. Antes: `-mt-2 lg:mt-0`, un −8px
+         suelto que se comía parte del primer hueco y hacía que entre el título y
+         el slider hubiera 16 donde el resto tenía 24. Ahora el margen SUMA en
+         escritorio (`XS`) en vez de restar en móvil, que es lo que pidió el
+         propietario: una talla más entre título y slider en todas las pantallas.
+         Título→slider queda en 24 (móvil) / 32 (tablet) / 40 (escritorio).
+         El `pb` baja a `XS` en escritorio: allí el hueco hasta la galería suma
+         además los 16px del `lg:mt` de la propia galería (D-064) y se iba a 56,
+         que el propietario ve excesivo. Con esto, 48. -->
+    <div class="flex flex-col gap-mel-m md:gap-mel-l pb-mel-s lg:pb-mel-xs shrink-0 lg:mt-mel-xs" style="view-transition-name: mel-toolbar;">
       <!-- Year Slider Bar (Removed text header label as requested). On mobile the
            slider runs full-bleed to the screen edges (negative margins cancel the
            page's px-6), per the mobile toolbar design (Figma 315:17658). -->
@@ -257,7 +279,10 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
            D-060): the propietario asked for at least 32px of vertical gap
            between the tags and a wrapped Toggle — mt-0 lg:mt-2 (unrelated:
            the slider→toolbar gap) stays as-is. -->
-      <div id="home-highlights-toolbar" class="flex flex-wrap items-center gap-x-6 gap-y-8 mt-0 lg:mt-2">
+      <!-- `gap-y` solo se ve cuando el selector cae bajo las tags, o sea en
+           móvil. `gap-x` es el hueco entre tags y selector cuando comparten
+           renglón. Los dos en `M`, el mismo ritmo que el resto. -->
+      <div id="home-highlights-toolbar" class="flex flex-wrap items-center gap-x-mel-m gap-y-mel-m md:gap-x-mel-l md:gap-y-mel-l mt-0 lg:mt-2">
         <!-- Event Stats Tags — AdaptiveTagsRow.astro (D-059/D-060), shared
              with the event detail's horizontal tags row and the map side
              panel. Layout mode (equal-width grid vs content-sized+scroll)
@@ -350,7 +375,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              21; a dos, los 21, y se ven cuatro a la vez (D-124).
              La cuarta columna la enciende `.galeria-cuatro`, ver
              updateHomeToolbarLayout(). -->
-        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-l auto-rows-[4px] w-full pb-[13vh]">
+        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-m auto-rows-[4px] w-full pb-[13vh]">
           {shuffledArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
@@ -1509,7 +1534,12 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // orden aleatorio estable y scroll infinito.
   // -------------------------------------------------------
   const GALLERY_ROW = 4;   // grid-auto-rows del contenedor, en px
-  const GALLERY_GAP = 24;  // hueco entre tarjetas (mel-l), horizontal y vertical
+  // Hueco entre tarjetas, horizontal y vertical. TIENE QUE VALER LO MISMO que el
+  // `gap-x-mel-m` de la rejilla: si dejan de coincidir, los row-span salen mal y
+  // el masonry se descuadra. Dos números que deben ser el mismo, escritos por
+  // separado — la trampa nº 2 del traspaso. Al cambiar la escala del DS
+  // (M pasó a ser 24, antes lo era L) se movió la clase, no el número.
+  const GALLERY_GAP = 24;
 
   let galleryVisibleCount = PAGE_SIZE;
   let galleryOrderedCache = [];
@@ -2251,20 +2281,48 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
   // had its OWN separate classList.remove('hidden') that showed
 
 
+  // La búsqueda perdona tildes, diéresis y puntuación.
+  //
+  // Sin esto, escribir "leon" no encontraba "León", ni "mucrovision" a
+  // "Mucrovisión", ni "valdepielago" a "Valdepiélago". En una sola ficha hay
+  // cuatro nombres con tilde o diéresis (Hüugen, León, Mucrovisión, Don Vilón),
+  // y en un teléfono prácticamente nadie escribe los acentos: la búsqueda
+  // fallaba en silencio, que es la peor manera de fallar.
+  //
+  // `normalize('NFD')` separa cada letra de su acento y el rango ̀-ͯ
+  // barre los acentos sueltos. La puntuación se convierte en espacio y no se
+  // borra, para no pegar palabras: "Promissing/Youngster" queda como dos
+  // palabras y sigue encontrándose escribiéndolo con barra o sin ella.
+  //
+  // Una sola función para las dos vistas: este filtro estaba copiado tal cual en
+  // la galería y en el mapa, y así no pueden separarse (regla 7).
+  function normalizarParaBuscar(texto) {
+    return (texto || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function coincideConLaBusqueda(item, consulta) {
+    if (!consulta) return true;
+    return normalizarParaBuscar(item.evento).includes(consulta)
+      || normalizarParaBuscar(item.lugar).includes(consulta)
+      || normalizarParaBuscar(item.localidad).includes(consulta)
+      || normalizarParaBuscar(item.artistas).includes(consulta)
+      || normalizarParaBuscar(item.organiza).includes(consulta)
+      || normalizarParaBuscar(item.disenador).includes(consulta);
+  }
+
   // Filter Archives by Year & Search Query and Recalculate unique counts
   function filterArchives(shouldFitBounds = false) {
     let tempFiltered = archives.filter(item => {
       const yr = getYear(item.fecha);
       const yearMatch = yr >= minYear && yr <= maxYear;
       
-      const searchMatch = !searchQuery || 
-        item.evento.toLowerCase().includes(searchQuery) || 
-        item.lugar.toLowerCase().includes(searchQuery) ||
-        item.localidad.toLowerCase().includes(searchQuery) ||
-        item.artistas.toLowerCase().includes(searchQuery) ||
-        item.organiza.toLowerCase().includes(searchQuery) ||
-        item.disenador.toLowerCase().includes(searchQuery);
-        
+      const searchMatch = coincideConLaBusqueda(item, normalizarParaBuscar(searchQuery));
+
       return yearMatch && searchMatch;
     });
 
@@ -3420,13 +3478,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     const filtered = archives.filter(item => {
       const yr = getYear(item.fecha);
       const yearMatch = yr >= minYear && yr <= maxYear;
-      const searchMatch = !searchQuery || 
-        item.evento.toLowerCase().includes(searchQuery) || 
-        item.lugar.toLowerCase().includes(searchQuery) ||
-        item.localidad.toLowerCase().includes(searchQuery) ||
-        item.artistas.toLowerCase().includes(searchQuery) ||
-        item.organiza.toLowerCase().includes(searchQuery) ||
-        item.disenador.toLowerCase().includes(searchQuery);
+      const searchMatch = coincideConLaBusqueda(item, normalizarParaBuscar(searchQuery));
       return yearMatch && searchMatch;
     });
 
@@ -3951,13 +4003,48 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       });
       toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
 
-      // La galería pasa a cuatro columnas en el mismo momento. Se hace aquí y
-      // no con un `:has()` en CSS porque al cambiar el ancho de columna TODOS
-      // los row-span quedan viejos (regla 11): hay que volver a medirlos, y así
-      // el remedido va enganchado al cambio y no a que alguien se acuerde.
+      // El cálculo puede decir que caben y el navegador plegarlos igualmente.
+      // El hueco reservado se calcula clavado, sin holgura: hay anchos en los
+      // que tags + hueco + selector suman EXACTAMENTE el ancho disponible
+      // (medido a 1190: 630 + 24 + 320 = 974) y el redondeo de subpíxel basta
+      // para que `flex-wrap` se lo lleve abajo. Cuando pasaba eso, el selector
+      // quedaba plegado PERO con su tope de ancho puesto: abajo y estrecho, que
+      // es lo peor de las dos opciones. El propietario lo cazó entre 1170 y 1215.
+      //
+      // En vez de afinar la fórmula, se comprueba el resultado REAL: si han
+      // acabado en renglones distintos, se le quita el tope y ocupa el ancho
+      // entero, que es lo que debe hacer al plegarse. No oscila: sin tope el
+      // selector es más ancho todavía, así que sigue plegado.
+      const filaTags = document.getElementById('home-highlights-tags');
+      let comparteDeVerdad = isSharing;
+      if (isSharing && filaTags) {
+        const plegado = Math.abs(toggleWrapper.getBoundingClientRect().top - filaTags.getBoundingClientRect().top) > 4;
+        if (plegado) {
+          toggleWrapper.classList.remove('toggle-shares-line');
+          comparteDeVerdad = false;
+          // Y las tags se recalculan SIN reserva. Se habían repartido dejando
+          // hueco para un selector que ya no está en su renglón, así que se
+          // quedaban apretadas a la izquierda con el resto de la línea vacío
+          // (el propietario lo vio entre 1170 y 1260). Cuando algo se pliega a
+          // su propia línea, cada línea usa el ancho entero: es el mismo caso
+          // que cuando el selector está oculto, y se resuelve igual.
+          updateAdaptiveTagsRow('home-highlights-tags', {
+            containerId: 'home-highlights-toolbar',
+            getReservedWidth: () => 0,
+          });
+        }
+      }
+
+      // La galería pasa a cuatro columnas en el mismo momento. Se cuelga de si
+      // comparten renglón DE VERDAD, no de si el cálculo decía que cabían: a
+      // 1190 el selector está plegado, así que allí tocan tres columnas.
+      // Se hace aquí y no con un `:has()` en CSS porque al cambiar el ancho de
+      // columna TODOS los row-span quedan viejos (regla 11): hay que volver a
+      // medirlos, y así el remedido va enganchado al cambio y no a que alguien
+      // se acuerde.
       const rejilla = document.getElementById('gallery-grid');
-      if (rejilla && rejilla.classList.contains('galeria-cuatro') !== isSharing) {
-        rejilla.classList.toggle('galeria-cuatro', isSharing);
+      if (rejilla && rejilla.classList.contains('galeria-cuatro') !== comparteDeVerdad) {
+        rejilla.classList.toggle('galeria-cuatro', comparteDeVerdad);
         const primera = rejilla.querySelector('.gallery-item');
         const ancho = primera ? primera.clientWidth : 0;
         if (ancho) rejilla.querySelectorAll('.gallery-item').forEach(c => sizeGalleryCard(c, ancho));

@@ -357,7 +357,11 @@ import IconButton from './IconButton.astro';
   #search-box-container::after {
     content: '';
     position: absolute;
-    bottom: 0;
+    /* Separado 4px del fondo de la caja y no pegado a él. La caja mide 48px
+       mientras la fila del título mide 40, así que el subrayado caía 8px por
+       debajo del resto de la fila: se leía lejos del propio buscador y, al
+       abrirse, demasiado cerca del slider. */
+    bottom: 4px;
     left: 0;
     width: 100%;
     height: 2px;

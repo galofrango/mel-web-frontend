@@ -1425,3 +1425,39 @@ El propietario probó lo anterior y no vio ningún fundido: vio **un parpadeo y 
 - **La copia que sobrevive es la primera**, con las variables `define:vars` de aquella carga. Asumible en las dos páginas: la ficha lee su identidad y sus imágenes del DOM y no de la closure (ya estaba previsto), y en la home `initialArchives` solo siembra `_melState` —protegido, corre una vez— y sirve de red de seguridad si el estado llegara vacío; el orden real de la sesión vive en `mel-session-order`.
 - **Verificado que no rompe la vuelta**: cerrar desde un evento distinto al que se abrió deja la galería en ese evento, 50 tarjetas, ninguna duplicada, el flyer centrado con desviación 0 y las cuatro columnas intactas. `npm run build` pasa.
 - **Lección**: el patrón `document.addEventListener('astro:page-load', …)` a nivel de módulo es seguro **solo** en una página a la que nunca se vuelve. En este sitio se vuelve a las dos. Cualquier página nueva debe registrar con guard.
+
+## D-127 · La escala de espaciado pasa a ser la del propietario, y la cabecera móvil se aprieta con ella
+
+- **Conflicto detectado antes de tocar nada** (nivel 3 de la política de documentación): los tokens ya existían con **otra escala** que la que dictó el propietario. En el código, `xs/s/sm/m/l/xl` = 4/8/12/16/24/32. La suya: XS=8, S=16, M=24, L=32, XL=40 — desplazada un paso, sin el 4 ni el 12, y con un 40 nuevo. Se le planteó y eligió la suya, con el argumento de que tener dos escalas —una hablada y otra en el código— garantiza pedir mal un espacio.
+- **Se pudo cambiar sin romper nada porque de los seis tokens solo uno se usaba en el marcado**: `gap-x-mel-l`, el hueco de la galería. Los otros cinco estaban declarados y sin usar.
+- **Trampa esquivada**: ese hueco vale 24px y está escrito **también a mano** en `GALLERY_GAP` (JS), de donde salen los `row-span` del masonry. Reescalar `l` a 32 habría dejado el CSS en 32 y el JS en 24, y el masonry descuadrado sin avisar. Se movió la **clase** (`gap-x-mel-l` → `gap-x-mel-m`) y no el número. Es la trampa nº 2 del traspaso: dos números que deben coincidir, calculados por separado.
+- **Cabecera móvil**: los huecos verticales pasan a salir de la escala y se aprietan un paso en móvil (`S` = 16px por debajo de `md`, `M` = 24px a partir de ahí, que es lo que ya había). Tocados tres contenedores: el de página, el de la toolbar y el de tags+selector.
+- **Medido en una pantalla de 812px**: los controles ocupaban **328px, el 40% de la pantalla**, de los cuales 104px eran solo huecos. Ahora empiezan la galería en 288 en vez de 328: **la galería pasa de 484px a 524px (+8%)**, que con dos columnas son unos 40px más de cartel por fila.
+- **Escritorio sin cambios**, verificado: cuatro columnas, hueco de rejilla 24px, cartel de 288px y la galería arrancando donde arrancaba. El `gap-y` que sí cambia solo se ve cuando el selector cae bajo las tags, o sea en móvil.
+
+## D-128 · El slider no lleva relleno propio: el alto lo pone su tirador
+
+- **Lo cazó el propietario con el inspector**: los huecos de la cabecera no se veían parejos aunque todos salieran de la misma escala. *"Hay algún elemento que no está construido con el mismo padding."*
+- **Era el slider**: `#slider-track-wrapper` llevaba `py-8`, o sea **64px de relleno puro**. La barra y los tiradores van en posición absoluta y no aportan alto ninguno, así que ese componente medía 64px sin contener nada — y el hueco a su alrededor salía 32px mayor que entre los demás elementos.
+- **Arreglo**: el envoltorio pasa a `h-9` (36px), que es exactamente el alto del tirador, fijado en `SliderHandler`. Verificado que el tirador encaja al milímetro (0px de holgura arriba y abajo). Quien manda en la separación es ahora el contenedor de la home, que la saca de la escala del DS.
+- **Y con eso, la talla sube en vez de bajar**: se probó a apretar los huecos a `S` (16px) y el propietario lo vio agobiado. Todos los huecos verticales pasan a `M` (24px) en todas las pantallas — un solo ritmo, más ancho que antes— y el alto que se gana viene del relleno invisible que se ha quitado, no de apretar.
+- **El último salto necesitaba `XS`**, no `M`: bajo la toolbar hay un `-mt-2` (−8px) en el contenedor de vistas, así que el hueco real es `pb + gap − 8`. Con `pb-mel-xs` sale 8+24−8 = 24; con `S` salían 32 y el ritmo se rompía justo en el último paso.
+- **Medido en 812px de alto**: ritmo **24 / 24 / 24** exacto, la galería arranca en 284 (antes 328) y mide **528px (antes 484)**.
+- **Escritorio se beneficia igual**: la galería pasa de 591 a 627px, con las cuatro columnas y el cartel de 288px intactos.
+
+## D-129 · Cuando el selector se pliega, cada línea ocupa el ancho entero
+
+- **Síntoma, cazado por el propietario entre 1170 y 1215px**: el selector de vista se plegaba bajo las tags pero **sin ocupar el ancho completo**, y las tags se quedaban apretadas a la izquierda con media línea vacía.
+- **Causa, aritmética**: el hueco que se reserva para el selector se calcula **clavado, sin holgura**. Medido a 1190: toolbar 974, tags 630, hueco 24, selector 320 — suman exactamente 974. Con el redondeo de subpíxel, `flex-wrap` lo baja igualmente, pero el JS seguía creyendo que compartían renglón: le dejaba puesto su tope de ancho (abajo **y** estrecho, lo peor de las dos opciones) y a las tags el reparto que reservaba sitio para un vecino que ya no estaba en su línea.
+- **Arreglo**: no se afina la fórmula, se **comprueba el resultado real**. Si los dos elementos acaban en renglones distintos, se le quita el tope al selector y se recalculan las tags **sin reserva**. No oscila: sin tope el selector es más ancho todavía, así que sigue plegado.
+- **Y la cuarta columna se cuelga de lo que pasa de verdad**, no de lo que decía el cálculo: a 1190 el selector está plegado, así que allí tocan tres columnas y no cuatro.
+- **Verificado**: a 1190 y 1215, tags y selector ocupan los 974/999 enteros; a 1260 y 1280 vuelven a compartir renglón con cuatro columnas.
+- **Criterio general, por si vuelve a aparecer**: cuando algo se pliega a su propia línea, esa línea usa el ancho completo. Guardar hueco para un vecino ausente no lo hace nadie.
+
+## D-130 · La búsqueda perdona tildes y puntuación
+
+- **Antes fallaba en silencio**, que es la peor manera de fallar: escribir "leon" no encontraba "León", ni "mucrovision" a "Mucrovisión", ni "valdepielago" a "Valdepiélago". En una sola ficha hay cuatro nombres con tilde o diéresis (Hüugen, León, Mucrovisión, Don Vilón), y en un teléfono prácticamente nadie escribe los acentos.
+- **Implementación**: `normalize('NFD')` separa cada letra de su acento y se barren los acentos sueltos; la puntuación se convierte en **espacio** y no se borra, para no pegar palabras. Así "Promissing/Youngster" se encuentra escribiéndolo con barra o sin ella.
+- **Se unifican de paso las dos copias del filtro**: estaba duplicado tal cual en la galería y en el mapa (regla 7). Ahora es una sola función y no pueden separarse.
+- **Verificado**: `leon` = `León` = 30 resultados; `valdepielago` = `Valdepiélago` = 13; `mucrovision` = 3 y `huugen` = 8, que antes daban 0; `promissing/youngster` = `promissing youngster` = 3. Una consulta sin sentido sigue dando 0.
+- **Nota de escala**: normaliza en cada tecleo sobre los seis campos de cada evento. Con 50 eventos es gratis. Si el archivo creciera a miles, tocaría precalcular la versión normalizada al cargar.

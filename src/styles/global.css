@@ -5,7 +5,11 @@
   /* Aire por encima de la fila de cabecera en MÓVIL. Antes cada pantalla
      repetía a mano `calc(10vh - 40px)`, que en un teléfono de 844px daban 44px
      de nada arriba del todo. Un token: se cambia una vez y las seis pantallas
-     siguen coherentes entre sí, que es lo que costó conseguir. */
+     siguen coherentes entre sí, que es lo que costó conseguir.
+     Los 16px son de móvil a propósito: ahí el alto es el recurso escaso. En
+     tablet no lo es, así que sube dos tallas de la escala (S → L) justo abajo.
+     Se hace sobre el token y no en el marcado para no romper la regla 10: seis
+     pantallas usan este valor y tienen que seguir cuadrando entre ellas. */
   --mel-header-pt-mobile: 16px;
 
   --mel-header-pt-desktop: clamp(32px, 5vh, 88px);
@@ -76,13 +80,17 @@
      transparentarlo) — sin blend mode, cubre en claro y oscuro. */
   --mel-scrim: rgb(var(--mel-shadow-rgb) / 0.92);
 
-  /* Spacing */
-  --mel-spacing-xs: 4px;
-  --mel-spacing-s: 8px;
-  --mel-spacing-sm: 12px;
-  --mel-spacing-m: 16px;
-  --mel-spacing-l: 24px;
-  --mel-spacing-xl: 32px;
+  /* Spacing — escala del propietario (2026-07-29).
+     Antes era 4/8/12/16/24/32 con un `sm` intermedio. Se reescala un paso
+     arriba y se retira `sm`: la escala que el propietario tiene en la cabeza es
+     esta, y tener dos escalas —una hablada y otra en el código— es garantía de
+     equivocarse al pedir "un espacio S". Se pudo cambiar sin romper nada porque
+     de los seis tokens solo se usaba uno en el marcado (ver mel-m más abajo). */
+  --mel-spacing-xs: 8px;
+  --mel-spacing-s: 16px;
+  --mel-spacing-m: 24px;
+  --mel-spacing-l: 32px;
+  --mel-spacing-xl: 40px;
 
   /* ==========================================================================
      COLOR MODE SEMANTIC VARIABLES (LIGHT DEFAULT)
@@ -112,6 +120,19 @@
   --mel-cyan: var(--mel-primitive-cian);
   --mel-magenta: var(--mel-primitive-magenta);
   --mel-yellow: var(--mel-primitive-yellow);
+}
+
+/* De tablet en adelante (`md`, 768px) la cabecera respira: el nombre del token
+   se queda por historia, pero su valor sube dos tallas (S → L). A partir de
+   `lg` manda `--mel-header-pt-desktop`, el calibrado en vh de la regla 9, que
+   no se toca.
+   Va AQUÍ, después de que `:root` cierre, y no metido entre los tokens: al
+   colocarlo ahí dentro partía el bloque en dos y dejaba todos los colores y
+   espaciados dentro del media query, o sea sin aplicar por debajo de 768px. */
+@media (min-width: 768px) {
+  :root {
+    --mel-header-pt-mobile: var(--mel-spacing-l);
+  }
 }
 
 .dark {
@@ -182,7 +203,6 @@
   
   --spacing-mel-xs: var(--mel-spacing-xs);
   --spacing-mel-s: var(--mel-spacing-s);
-  --spacing-mel-sm: var(--mel-spacing-sm);
   --spacing-mel-m: var(--mel-spacing-m);
   --spacing-mel-l: var(--mel-spacing-l);
   --spacing-mel-xl: var(--mel-spacing-xl);
