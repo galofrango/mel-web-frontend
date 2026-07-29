@@ -1,0 +1,106 @@
+---
+/**
+ * Botón flotante de ordenación — Figma 1085:47259.
+ *
+ * Sustituye a las columnas ordenables de la tabla allí donde no hay tabla: por
+ * debajo de 440px la Lista se dibuja como tarjetas y la Galería no tiene
+ * columnas nunca, así que sin esto no había forma de reordenar el archivo.
+ *
+ * EL ICONO MUESTRA LA ACCIÓN SIGUIENTE, no el estado actual (decisión del
+ * propietario). En un control cíclico sin etiqueta, un icono que solo describe
+ * dónde estás no deja adivinar qué va a pasar al pulsarlo.
+ *
+ * Ciclo: cronológico ascendente → barajar → cronológico descendente → vuelta a
+ * empezar. El barajado va en segundo lugar a propósito, "para que la gracia se
+ * pille lo antes posible".
+ *
+ * Los tres iconos son los del Figma, copiados trazo a trazo. Van aquí y no como
+ * archivos sueltos porque se cambian los tres a la vez desde JS y así no hay
+ * que ir a buscarlos a otro sitio.
+ */
+---
+
+<!-- `fixed` y no `sticky`: la galería y la lista son contenedores con scroll
+     propio, así que un pegajoso se quedaría dentro de su caja. A 16px del borde
+     derecho y 32px del inferior (Figma).
+     Oculto a partir de 440px, que es exactamente donde la Lista pasa a tabla con
+     cabeceras ordenables y este botón deja de hacer falta. -->
+<button
+  id="boton-orden"
+  type="button"
+  data-visible="false"
+  class="fixed right-[16px] bottom-[32px] z-[120] size-[48px] items-center justify-center backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] bg-mel-action-secondary hover:bg-mel-action-primary active:bg-mel-action-tertiary text-mel-text-on-action transition-colors duration-200 cursor-pointer select-none"
+  aria-live="polite"
+  data-node-id="1085:47259"
+>
+  <!-- Los tres iconos viajan en el marcado y JS solo enseña uno. Así no hay que
+       reconstruir SVGs desde JavaScript, que es de donde salen las réplicas que
+       se desincronizan (regla 7 de AGENTS.md). -->
+  <!-- OJO con el emparejamiento: la flecha hacia ABAJO es la que ordena
+       cronológico ASCENDENTE, y la de arriba la descendente. Es deliberado y no
+       una errata. La lectura del propietario, que comparto: para un lector
+       occidental bajar es avanzar en el tiempo (ir hacia el futuro) y subir es
+       retroceder hacia el pasado. Manda esa metáfora, no el nombre técnico del
+       criterio de ordenación. -->
+  <svg data-icono="asc" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 18L18 22L22 18" />
+    <path d="M16 2V6" />
+    <path d="M18 14V22" />
+    <path d="M21 11.354V6C21 5.46957 20.7893 4.96086 20.4142 4.58579C20.0391 4.21071 19.5304 4 19 4H5C4.46957 4 3.96086 4.21071 3.58579 4.58579C3.21071 4.96086 3 5.46957 3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H12.343" />
+    <path d="M3 10H21" />
+    <path d="M8 2V6" />
+  </svg>
+
+  <svg data-icono="shuffle" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 14L22 18L18 22" />
+    <path d="M18 2L22 6L18 10" />
+    <path d="M2 18H3.973C4.61949 18.0044 5.25742 17.8521 5.83215 17.556C6.40687 17.2599 6.90127 16.829 7.273 16.3L12.727 7.7C13.0987 7.17105 13.5931 6.74008 14.1679 6.44401C14.7426 6.14794 15.3805 5.99558 16.027 6H22" />
+    <path d="M2 6H3.972C4.71746 5.99481 5.44954 6.19805 6.08564 6.58678C6.72174 6.9755 7.23655 7.53426 7.572 8.2" />
+    <path d="M22 18H15.959C15.3036 17.9933 14.6598 17.8257 14.0844 17.5118C13.509 17.1979 13.0195 16.7474 12.659 16.2L12.3 15.75" />
+  </svg>
+
+  <svg data-icono="desc" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 18L18 14L22 18" />
+    <path d="M16 2V6" />
+    <path d="M18 22V14" />
+    <path d="M21 11.343V6C21 5.46957 20.7893 4.96086 20.4142 4.58579C20.0391 4.21071 19.5304 4 19 4H5C4.46957 4 3.96086 4.21071 3.58579 4.58579C3.21071 4.96086 3 5.46957 3 6V20C3 20.5304 3.21071 21.0391 3.58579 21.4142C3.96086 21.7893 4.46957 22 5 22H14" />
+    <path d="M3 10H21" />
+    <path d="M8 2V6" />
+  </svg>
+</button>
+
+<style is:global>
+  /* Dos condiciones mandan sobre este botón y se reparten así para que no
+     peleen por especificidad: el ANCHO lo decide el CSS (por debajo de 440px,
+     que es donde la Lista aún no tiene tabla con cabeceras ordenables) y la
+     VISTA la decide el JS con `data-visible` (solo Galería y Lista; en el Mapa
+     no hay nada que ordenar). Resolverlo con clases de utilidad obligaba a
+     pelear `hidden` contra `flex`, que tienen la misma especificidad y dependen
+     del orden en la hoja. */
+  #boton-orden {
+    display: none;
+    /* Nombre propio para que entre en la capa de transición junto a los
+       carteles. Sin él se quedaba en la página normal mientras las imágenes se
+       promocionaban por encima (regla 2), y algunas le pasaban por delante al
+       reordenarse. El orden entre grupos se fija en index.astro. */
+    view-transition-name: mel-boton-orden;
+  }
+  @media (max-width: 439px) {
+    #boton-orden[data-visible="true"] {
+      display: flex;
+    }
+  }
+
+  /* Solo se ve el icono de la acción siguiente. */
+  #boton-orden svg {
+    display: none;
+  }
+  #boton-orden[data-siguiente="asc"] svg[data-icono="asc"],
+  #boton-orden[data-siguiente="shuffle"] svg[data-icono="shuffle"],
+  #boton-orden[data-siguiente="desc"] svg[data-icono="desc"] {
+    display: block;
+  }
+</style>

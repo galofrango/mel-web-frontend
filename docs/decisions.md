@@ -1461,3 +1461,35 @@ El propietario probó lo anterior y no vio ningún fundido: vio **un parpadeo y 
 - **Se unifican de paso las dos copias del filtro**: estaba duplicado tal cual en la galería y en el mapa (regla 7). Ahora es una sola función y no pueden separarse.
 - **Verificado**: `leon` = `León` = 30 resultados; `valdepielago` = `Valdepiélago` = 13; `mucrovision` = 3 y `huugen` = 8, que antes daban 0; `promissing/youngster` = `promissing youngster` = 3. Una consulta sin sentido sigue dando 0.
 - **Nota de escala**: normaliza en cada tecleo sobre los seis campos de cada evento. Con 50 eventos es gratis. Si el archivo creciera a miles, tocaría precalcular la versión normalizada al cargar.
+
+## D-131 · Botón flotante de ordenación, y el archivo entra cronológico
+
+- **Qué es** (Figma 1085:47259): un botón de 48×48 fijo a 16px del borde derecho y 32px del inferior, que cicla el orden de todo el archivo. Sustituye a las cabeceras ordenables de la tabla **allí donde no hay tabla**.
+- **Ciclo, decidido por el propietario**: cronológico ascendente → **barajar** → cronológico descendente → vuelta. El barajado va en segundo lugar a propósito, *"para que la gracia se pille lo antes posible"*.
+- **El icono muestra la ACCIÓN SIGUIENTE, no el estado actual.** En un control cíclico de tres estados y sin etiqueta, un icono que solo describe dónde estás no deja adivinar qué pasa al pulsarlo. (El `aria-label` dice la acción completa, que es lo que oye un lector de pantalla.)
+- **Barajar da un orden NUEVO cada vez**, no devuelve el de entrada. Decisión del propietario: prefiere que sorprenda. Consecuencia asumida: no hay "deshacer".
+- **Se ve por debajo de 440px y solo en Galería y Lista.** 440 es exactamente donde la Lista pasa de tarjetas a tabla con cabeceras ordenables — el criterio del propietario es que **exista** tabla, no que se vea entera (la tabla completa sin scroll horizontal no llega hasta ~1032px, medido). En el Mapa no aparece: allí el orden no se ve por ningún lado.
+- **Las dos condiciones se reparten a propósito**: el ancho lo decide el CSS y la vista el JS (`data-visible`). Resolverlo todo con utilidades obligaba a pelear `hidden` contra `flex`, que tienen la misma especificidad y dependen del orden de la hoja.
+
+### El archivo se sirve ya en orden cronológico ascendente
+
+- **Cambia la puerta de entrada** respecto a D-015/D-073, donde el aleatorio era *la* forma de entrar. Con el botón, barajar sigue estando a un toque, así que deja de ser una pérdida.
+- **Y quita trabajo en vez de añadirlo**: había dos barajados —el del servidor para la primera carga y el que hacía falta en el cliente para volver a barajar— y ahora hay uno solo, en el cliente. El servidor ya ordenaba cronológicamente antes de barajar, así que fue quitar el paso de barajado, no añadir nada.
+- **Verificado**: el ciclo completo da los tres órdenes y vuelve al primero; el icono va siempre un paso por delante; se oculta en Mapa y a partir de 440px; el orden elegido sobrevive a entrar y salir de una ficha, y la vuelta al flyer sigue aterrizando en su tarjeta (desviación 0) sin duplicados. `npm run build` pasa.
+- **Lo que NO se puede verificar aquí y necesita el móvil del propietario**: un elemento `position: fixed` a 32px del borde inferior es justo lo que descoloca la barra de URL replegable de Chrome y Safari móvil, el problema nº1 de los que este entorno no reproduce. La posición definitiva queda pendiente de esa prueba.
+
+### D-131 (ronda 2) · Ajustes del botón tras la primera prueba del propietario
+
+- **Los iconos van al revés de lo que dice su nombre, y es deliberado**: la flecha hacia **abajo** ordena cronológico **ascendente** y la de arriba, descendente. Razonamiento del propietario, que comparto: para un lector occidental bajar es avanzar en el tiempo y subir es retroceder. Manda la metáfora, no el nombre del criterio. Queda anotado en el propio componente para que nadie lo "corrija".
+- **Las tarjetas pasaban por delante del botón, y no era a posta**: es la regla 2 otra vez. Las imágenes llevan `view-transition-name`, así que al reordenarse se promocionan a la capa superior del navegador, que ignora el `z-index` de la página. Mismo remedio que con el panel del mapa (D-116): el botón recibe nombre propio (`mel-boton-orden`) y su grupo se ordena por encima. Y se le fija duración 0 en esa capa: debe quedarse quieto mientras las cartas vuelan, no reptar durante segundo y medio.
+- **El reordenado del botón se anima más despacio**: 1500ms con `cubic-bezier(0.65, 0, 0.35, 1)` (entrada y salida suaves), frente a los 320ms de un filtro cualquiera. El propietario apenas llegaba a ver la animación en Chrome. El criterio: aquí el movimiento **es** el contenido —es lo que le da la gracia al botón— mientras que al filtrar es un efecto secundario.
+- **Los dos valores mandan sobre las dos animaciones**, la de la galería (transiciones de vista) y la de la lista (FLIP propio con `transform`), y se publican como propiedades CSS desde el script en vez de repetirse en la hoja. Dos duraciones que deben coincidir escritas por separado acaban separándose.
+- **Lo que este entorno NO puede verificar**: cómo se ve la animación. Los fotogramas aquí solo ocurren al forzar una captura, así que una transición de 1,5s no se puede cronometrar ni observar. Está comprobado que las reglas llegan al CSS compilado, que el script publica los valores y que la clase no se queda pegada al terminar; lo demás es para el ojo del propietario.
+
+### D-131 · Pendiente para la próxima sesión (reportado por el propietario)
+
+1. **Las cartas no se mueven al pasar a cronológico ascendente, ni en modo Lista.** Yo supuse que sí animaba y que el problema era la velocidad, y alargué la animación a 1,5s por eso. **El propietario sigue viéndolo quieto**, y él lo mira en Safari, donde sí percibe las animaciones cortas. Así que la hipótesis de la velocidad **no está confirmada y probablemente sea falsa**: hay que reproducirlo y medirlo antes de tocar nada más.
+   - Por dónde empezar: comprobar si las tarjetas comparten `view-transition-name` entre los dos estados (si el lote visible cambia entero, no hay nada que morphear y solo hay fundido), y si el FLIP de la lista llega a encontrar posiciones antiguas que comparar (`oldRowRects`).
+   - **Ojo con el entorno**: esto NO se puede observar aquí. Los fotogramas solo ocurren al forzar una captura, así que cualquier medición de animación en este sandbox es inservible — una de esta sesión ya salió imposible por eso.
+2. **La curva y la duración**, a revisar con el ojo del propietario.
+3. **La posición del botón respecto al borde inferior**, pendiente de probar en un móvil real por lo de la barra de URL replegable.

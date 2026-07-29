@@ -6,6 +6,7 @@ import SideMenu from '../components/SideMenu.astro';
 import TimeSlider from '../components/TimeSlider.astro';
 import TagWithLink from '../components/TagWithLink.astro';
 import AdaptiveTagsRow from '../components/AdaptiveTagsRow.astro';
+import BotonOrden from '../components/BotonOrden.astro';
 import ToggleSelector from '../components/ToggleSelector.astro';
 import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
@@ -198,15 +199,14 @@ const tags = [
   { label: "Promotores", count: initialPromoters.size }
 ];
 
-// Orden aleatorio de la galería (ver decisions.md D-015): cada visita baraja
-// el archivo entero (Fisher-Yates) — la galería es deliberadamente "random",
-// pensada para quien entra a mirar sin buscar nada concreto. El cliente
-// siembra sus claves aleatorias con este mismo orden al arrancar.
-const shuffledArchives = [...initialArchives];
-for (let i = shuffledArchives.length - 1; i > 0; i--) {
-  const j = Math.floor(Math.random() * (i + 1));
-  [shuffledArchives[i], shuffledArchives[j]] = [shuffledArchives[j], shuffledArchives[i]];
-}
+// El servidor sirve SIEMPRE el archivo en orden cronológico ascendente, que es
+// como ya lo deja `initialArchives` unas líneas más arriba. Antes lo barajaba
+// aquí (D-015) y el aleatorio era la puerta de entrada; ahora barajar es una
+// acción del visitante, con el botón de ordenación (D-131).
+//
+// El cambio quita trabajo en vez de añadirlo: había dos mecanismos de barajado
+// —el del servidor para la primera carga y el que hacía falta en el cliente para
+// volver a barajar— y ahora hay uno solo, en el cliente.
 
 ---
 
@@ -329,6 +329,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     </div>
 
     <!-- Main Visual Space: Galería / Mapa / Lista dynamic views -->
+    <!-- Va fuera del contenedor de vistas y no dentro: es `fixed`, así que su
+         sitio no depende de dónde esté en el marcado, y colgándolo de una vista
+         concreta desaparecería al cambiar de pestaña. -->
+    <BotonOrden />
+
     <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px]">
       <!-- Single Sitewide Empty State Overlay anchored to content-views for Galería, Mapa, and Lista -->
       <!-- Cubre desde top-0, no desde top-[24px]: la vista Mapa arranca en 0 bajo
@@ -376,7 +381,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
              La cuarta columna la enciende `.galeria-cuatro`, ver
              updateHomeToolbarLayout(). -->
         <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-m auto-rows-[4px] w-full pb-[13vh]">
-          {shuffledArchives.slice(0, 32).map((item, i) => {
+          {initialArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const yr = getYear(item.fecha) || 2004;
             return (
@@ -704,6 +709,32 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
      golpe por delante de todo. Es el mismo, cambiando de capa. */
   ::view-transition-group(mel-side-panel) {
     z-index: 101;
+  }
+
+  /* El botón de ordenación también entra en la capa de transición, y por encima
+     de los carteles. Las imágenes de la galería llevan `view-transition-name`
+     (flyer-img-…), así que durante el reordenado se promocionan a la capa
+     superior del navegador, que ignora el z-index de la página (regla 2): el
+     botón se quedaba abajo y algunas tarjetas le pasaban por delante mientras
+     volaban. Mismo remedio que con el panel del mapa (D-116): nombre propio y
+     un grupo por encima. */
+  ::view-transition-group(mel-boton-orden) {
+    z-index: 102;
+  }
+
+  /* Reordenado venido del botón: más lento y con entrada y salida suaves. Los
+     valores los publica JS al arrancar la transición (ORDEN_ANIM_MS y
+     ORDEN_ANIM_EASE), para no tener la misma duración escrita en la hoja y en
+     el script. El botón se excluye: debe quedarse quieto mientras las cartas
+     se mueven, no reptar durante segundo y medio. */
+  html.orden-cambiando::view-transition-group(*),
+  html.orden-cambiando::view-transition-old(*),
+  html.orden-cambiando::view-transition-new(*) {
+    animation-duration: var(--mel-orden-dur, 1500ms);
+    animation-timing-function: var(--mel-orden-ease, ease-in-out);
+  }
+  html.orden-cambiando::view-transition-group(mel-boton-orden) {
+    animation-duration: 0s;
   }
 
   /* Define typographic Lora variables at root for clean token mapping */
@@ -1301,7 +1332,7 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
 </style>
 
 <!-- Client Side Scripting for complete interactivity -->
-<script define:vars={{ initialArchives: shuffledArchives }}>
+<script define:vars={{ initialArchives }}>
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
@@ -2658,14 +2689,19 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
               // Force layout so the inverted transform above is committed
               // before we transition it away, then let it glide to rest.
               void listBody.offsetHeight;
+              // Viniendo del botón de ordenación se alarga, igual que en la
+              // galería y con los mismos dos valores: allí el movimiento ES el
+              // contenido, no un efecto secundario de haber filtrado.
+              const dur = animacionOrdenLenta ? ORDEN_ANIM_MS : 320;
+              const ease = animacionOrdenLenta ? ORDEN_ANIM_EASE : 'cubic-bezier(0.16, 1, 0.3, 1)';
               requestAnimationFrame(() => {
                 toPlay.forEach(tr => {
-                  tr.style.transition = 'transform 0.32s cubic-bezier(0.16, 1, 0.3, 1)';
+                  tr.style.transition = `transform ${dur}ms ${ease}`;
                   tr.style.transform = '';
                 });
                 setTimeout(() => {
                   toPlay.forEach(tr => { tr.style.transition = ''; tr.style.transform = ''; });
-                }, 340);
+                }, dur + 20);
               });
             }
           }
@@ -2761,13 +2797,32 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     // transición viva sigue siendo la de la página.
     if (document.startViewTransition && !arrastrandoSlider && !restaurandoVuelta()) {
       try {
+        // Si el reordenado viene del botón de ordenación, la transición se
+        // alarga. La clase se pone ANTES de arrancarla porque las animaciones de
+        // los pseudoelementos se resuelven al crearse, no después.
+        const lenta = animacionOrdenLenta;
+        if (lenta) {
+          const raiz = document.documentElement;
+          raiz.style.setProperty('--mel-orden-dur', ORDEN_ANIM_MS + 'ms');
+          raiz.style.setProperty('--mel-orden-ease', ORDEN_ANIM_EASE);
+          raiz.classList.add('orden-cambiando');
+        }
         const transition = document.startViewTransition(performDOMUpdates);
-        transition.finished.catch(() => {});
+        transition.finished.catch(() => {}).finally(() => {
+          if (lenta) {
+            document.documentElement.classList.remove('orden-cambiando');
+            // La bandera se apaga AQUÍ y no al arrancar: el FLIP de la lista la
+            // lee dentro de performDOMUpdates, que corre después.
+            animacionOrdenLenta = false;
+          }
+        });
       } catch (err) {
         performDOMUpdates();
+        animacionOrdenLenta = false;
       }
     } else {
       performDOMUpdates();
+      animacionOrdenLenta = false;
     }
   }
 
@@ -2847,6 +2902,11 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     } catch (e) {
       console.warn("Unable to update URL query params", e);
     }
+
+    // El botón de ordenación aparece o se retira según la vista: en el Mapa no
+    // hay orden que enseñar. Se pide al final del fotograma porque las clases
+    // `hidden` de los paneles se cambian más abajo en esta misma función.
+    requestAnimationFrame(() => window._melPintarBotonOrden && window._melPintarBotonOrden());
 
     // Update sliding indicator position
     if (activeIndicator) {
@@ -4428,6 +4488,13 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
     bindInitialCardClicks();
     initSortHeaders();
 
+    // Botón flotante de ordenación. Se engancha con el AbortController de la
+    // página (regla 1): initHomePage puede volver a correr y sin esto quedarían
+    // dos escuchas y cada toque avanzaría dos pasos del ciclo.
+    const botonOrden = document.getElementById('boton-orden');
+    if (botonOrden) botonOrden.addEventListener('click', avanzarOrden, { signal: wSig });
+    pintarBotonOrden();
+
     // Parse view, search, and location from URL parameters on load
     const loadParams = new URLSearchParams(window.location.search);
     const viewParam = loadParams.get('view');
@@ -4513,9 +4580,108 @@ for (let i = shuffledArchives.length - 1; i > 0; i--) {
       return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
     });
     _s.archives = archives;
+    guardarSecuenciaDeLaSesion();
+  }
+
+  function guardarSecuenciaDeLaSesion() {
     try {
       sessionStorage.setItem('mel-session-order', JSON.stringify(archives.map(x => x.idMel)));
     } catch (e) {}
+  }
+
+  // Baraja el archivo entero, Fisher-Yates, y lo deja como secuencia de la
+  // sesión. Cada pulsación da un orden NUEVO: el propietario prefirió que
+  // barajar sorprenda a que devuelva el orden con el que se entró.
+  // Vive en el cliente porque desde D-131 el servidor sirve siempre cronológico;
+  // antes barajaba él y hacían falta los dos mecanismos.
+  function barajarArchivo() {
+    for (let i = archives.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [archives[i], archives[j]] = [archives[j], archives[i]];
+    }
+    _s.archives = archives;
+    guardarSecuenciaDeLaSesion();
+  }
+
+  // --- Botón flotante de ordenación (Figma 1085:47259, D-131) ---
+  //
+  // Ciclo: cronológico ascendente → barajar → cronológico descendente → vuelta.
+  // El icono muestra SIEMPRE la acción siguiente, no el estado actual.
+  const CICLO_ORDEN = ['asc', 'shuffle', 'desc'];
+
+  // El reordenado del botón se anima MÁS LENTO que el de un filtro cualquiera, y
+  // a propósito: aquí el movimiento es el contenido —es lo que le da la gracia
+  // al botón— mientras que en un filtro es un efecto secundario. Un segundo y
+  // medio con entrada y salida suaves, que el propietario en Chrome apenas
+  // llegaba a ver el de 0,32s.
+  //
+  // Estos dos valores mandan sobre las DOS animaciones: la galería (transiciones
+  // de vista) y la lista (FLIP propio con transform). Se publican como
+  // propiedades CSS al arrancar la transición en vez de repetirse en la hoja,
+  // porque dos duraciones que deben coincidir escritas por separado acaban
+  // separándose — la trampa nº2 del traspaso.
+  const ORDEN_ANIM_MS = 1500;
+  const ORDEN_ANIM_EASE = 'cubic-bezier(0.65, 0, 0.35, 1)';   // ease-in-out
+  let animacionOrdenLenta = false;
+
+  function ordenActual() {
+    try {
+      const guardado = sessionStorage.getItem('mel-orden-galeria');
+      if (CICLO_ORDEN.includes(guardado)) return guardado;
+    } catch (e) {}
+    return 'asc';   // el archivo se sirve cronológico ascendente
+  }
+
+  function pintarBotonOrden() {
+    const boton = document.getElementById('boton-orden');
+    if (!boton) return;
+    const actual = ordenActual();
+    const siguiente = CICLO_ORDEN[(CICLO_ORDEN.indexOf(actual) + 1) % CICLO_ORDEN.length];
+    boton.dataset.siguiente = siguiente;
+    boton.setAttribute('aria-label', {
+      asc: 'Ordenar del evento más antiguo al más reciente',
+      shuffle: 'Barajar el archivo',
+      desc: 'Ordenar del evento más reciente al más antiguo',
+    }[siguiente]);
+    // Solo donde no hay tabla que ordenar. El Mapa queda fuera: allí el orden
+    // no se ve por ningún lado.
+    const vista = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '');
+    boton.dataset.visible = (vista === 'galería' || vista === 'lista') ? 'true' : 'false';
+  }
+  window._melPintarBotonOrden = pintarBotonOrden;
+
+  function avanzarOrden() {
+    const actual = ordenActual();
+    const siguiente = CICLO_ORDEN[(CICLO_ORDEN.indexOf(actual) + 1) % CICLO_ORDEN.length];
+    try { sessionStorage.setItem('mel-orden-galeria', siguiente); } catch (e) {}
+
+    if (siguiente === 'shuffle') barajarArchivo();
+    else aplicarOrden('fecha', siguiente);
+
+    // Las cabeceras de la tabla dejan de mandar: el visitante acaba de elegir
+    // otro orden desde el botón, y dejar una flecha encendida en una columna
+    // que ya no ordena nada sería mentir.
+    currentSortCol = siguiente === 'shuffle' ? null : 'fecha';
+    currentSortDir = siguiente === 'shuffle' ? 'asc' : siguiente;
+    try {
+      sessionStorage.setItem('mel-sort-state', JSON.stringify({ col: currentSortCol, dir: currentSortDir }));
+    } catch (e) {}
+    syncState();
+    updateSortHeaderIcons();
+
+    // Arriba del todo: se acaba de reordenar el archivo entero bajo los pies del
+    // visitante, y quedarse a media altura lo deja entre carteles que ya no son
+    // los que miraba. Mismo criterio que al cambiar un filtro.
+    currentPage = 1;
+    galleryVisibleCount = PAGE_SIZE;
+    const galeria = document.getElementById('view-galería');
+    if (galeria) galeria.scrollTop = 0;
+    const listaCards = document.getElementById('list-mobile-cards');
+    if (listaCards) listaCards.scrollTop = 0;
+
+    pintarBotonOrden();
+    animacionOrdenLenta = true;
+    filterArchives();
   }
 
   function handleSortClick(col) {
