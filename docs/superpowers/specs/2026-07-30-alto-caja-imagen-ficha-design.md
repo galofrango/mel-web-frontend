@@ -1,7 +1,7 @@
 # Alto de la caja de imagen de la ficha de evento
 
 **Fecha**: 30 de julio de 2026
-**Estado**: diseño validado por el propietario, pendiente de plan de implementación
+**Estado**: **implementado** el 30/07/2026 (ver D-157). Este documento queda como el porqué.
 
 ---
 
@@ -129,14 +129,21 @@ con aire, que es el comportamiento de hoy.
 
 ```css
 @media (max-width: 1023px) {
-  #detail-image-crop {
+  #detail-image-crop[style*="--mel-ratio-cartel"] {
     aspect-ratio: var(--mel-ratio-cartel);
     height: auto;
     min-height: 200px;
-    max-height: 360px;
+    max-height: min(360px, var(--mel-alto-cartel));
   }
 }
 ```
+
+> **Corregido durante la implementación.** El diseño llevaba `max-height: 360px` a
+> secas, y la verificación lo pilló: `aspect-ratio` calcula con el ancho de la
+> CAJA, pero un cartel de menos resolución que la pantalla no se estira, así que se
+> pinta más bajo de lo que la proporción sugiere. A 1023px de ancho, Trip With Us
+> dejaba la caja en 360 con la imagen a 289 — 71px de aire. El segundo tope,
+> `--mel-alto-cartel`, es su alto real y cierra el hueco.
 
 Da exactamente `clamp(200, ancho ÷ ratio, 360)` **sin una línea de JavaScript**, y
 se readapta solo al girar el móvil. Funciona porque la caja es **a sangre** en

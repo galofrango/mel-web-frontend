@@ -7,6 +7,7 @@ import LikeButton from '../../components/LikeButton.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 import { fetchEvents, extractDriveImage } from '../../lib/mel';
+import flyerRatios from '../../data/flyer_ratios.json';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
 // sheet fresh on every visit instead of baking it in at build time, so new
@@ -70,6 +71,36 @@ const allEvents = eventsList.map((e: any) => ({
 }));
 
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
+
+// Dimensiones reales de cada cartel, medidas offline por
+// `scripts/medir-carteles.mjs`. Sirven para dar a la caja de imagen el alto que
+// de verdad necesita en vez de 360px fijos, y para no ampliar nunca una imagen
+// por encima de su tamaño real.
+//
+// Tienen que venir del servidor, no medirse en el navegador: medir en cliente
+// significa pintar primero con un alto provisional y corregirlo después, que es
+// exactamente el salto que esto viene a quitar.
+//
+// Si un cartel no está en el fichero —recién subido, sin volver a pasar el
+// script— no se emite nada y el CSS se queda con el `h-[360px]` de siempre. Es a
+// propósito: lo desconocido se comporta como hoy y no puede empeorar nada.
+const idDeDrive = (url?: string) => {
+  if (!url) return '';
+  if (url.includes('id=')) return url.split('id=')[1].split('&')[0];
+  if (url.includes('/d/')) return url.split('/d/')[1].split('/')[0];
+  return '';
+};
+const medidas = eventData.carruselItems
+  .map((i: any) => flyerRatios[idDeDrive(i.urlDrive)])
+  .filter((d: any): d is [number, number] => Array.isArray(d) && d[0] > 0 && d[1] > 0);
+
+// La MÁS ALTA manda, y ese es el punto: si la caja se ajustara a cada imagen,
+// pasar de una a otra daría un salto. Con la más alta, las demás quedan con aire
+// arriba y abajo y la caja no se mueve nunca.
+// "Más alta" = mayor alto A IGUALDAD DE ANCHO, o sea la de menor proporción.
+const masAlta = medidas.length
+  ? medidas.reduce((a, b) => (a[0] / a[1] <= b[0] / b[1] ? a : b))
+  : null;
 
 // Centinelas con los que la hoja marca "aquí no hay dato". Los cuatro reciben
 // el mismo trato (D-097): el término NO se pinta, se sustituye por la
@@ -294,7 +325,16 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                  to fit), so shrinking the wrapper crops it evenly from the
                  top and bottom at its real size/ratio, keeping the image
                  centered instead of pinned to the top edge. -->
-            <div id="detail-image-crop" class="relative w-full overflow-hidden flex flex-col justify-center h-[360px] lg:h-[400px]">
+            <!-- `--mel-ratio-cartel`: la proporción de la imagen MÁS ALTA del
+                 evento. El CSS la convierte en el alto de la caja, acotado entre
+                 200 y 360 (ver el bloque `@media (max-width: 1023px)` de abajo).
+                 Sin ella —cartel aún sin medir— manda el `h-[360px]` de la clase
+                 y todo se comporta como antes. -->
+            <div
+              id="detail-image-crop"
+              class="relative w-full overflow-hidden flex flex-col justify-center h-[360px] lg:h-[400px]"
+              style={masAlta ? `--mel-ratio-cartel: ${masAlta[0]} / ${masAlta[1]}; --mel-alto-cartel: ${masAlta[1]}px;` : undefined}
+            >
               <button
                 id="carousel-main-container"
                 class="relative w-full h-full lg:h-[400px] overflow-hidden flex items-center justify-center cursor-zoom-in outline-none group bg-transparent"
@@ -309,17 +349,28 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                   class="flex w-full h-full transition-transform duration-500 ease-out z-10 pointer-events-none"
                   style="transform: translate3d(0, 0, 0);"
                 >
-                  {imageUrls.map((img, idx) => (
+                  {imageUrls.map((img, idx) => {
+                    // NUNCA se amplía un cartel por encima de su tamaño real: si
+                    // no da la resolución se pinta al máximo que tenga, centrado,
+                    // y no estirado. `object-contain` por sí solo NO basta —
+                    // también agranda para llenar la caja. El tope va en la caja
+                    // de la propia imagen; el centrado ya lo pone el padre.
+                    const d = flyerRatios[idDeDrive(eventData.carruselItems[idx]?.urlDrive)];
+                    const tope = Array.isArray(d) && d[0] > 0
+                      ? `max-width: ${d[0]}px; max-height: ${d[1]}px;` : '';
+                    const nombre = idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : '';
+                    return (
                     <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
                       <img
                         src={img}
                         alt={eventData.title}
                         referrerpolicy="no-referrer"
                         class="w-full h-full object-contain"
-                        style={idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : ""}
+                        style={`${tope}${nombre}`}
                       />
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </button>
             </div>
@@ -676,7 +727,15 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     const cajaFoto = document.getElementById('detail-image-sticky');
     const raizPagina = document.getElementById('detail-page-container');
     const imageCrop = document.getElementById('detail-image-crop');
-    const IMAGE_MAX_H = 360;
+    // Alto de partida de la caja. YA NO es una constante: lo decide el CSS a
+    // partir de la proporción del cartel (ver `#detail-image-crop` en el bloque
+    // de estilos) y medirCabecera() lo lee. 360 es solo el valor de arranque por
+    // si se consultara antes de la primera medición.
+    //
+    // Antes el 360 estaba escrito DOS VECES —en la clase `h-[360px]` y aquí— que
+    // es la trampa nº2 del traspaso: dos números que deben coincidir, calculados
+    // por separado. Ahora manda el CSS y aquí solo se lee.
+    let altoMaximo = 360;
     // 200px es la especificación de Figma para la foto fijada (369:32751) y es un
     // SUELO DURO: el propietario no quiere nada más pequeño en el sitio, por
     // respeto a los diseños. Se probó calcularlo para que la cola del contenido
@@ -724,7 +783,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         const altoPrevio = imageCrop.style.height;
         const fijadaAntes = raizPagina.classList.contains('fijada');
         raizPagina.classList.remove('fijada');
-        imageCrop.style.height = `${IMAGE_MAX_H}px`;
+        // Se limpia el alto en línea para que mande el CSS, y se LEE lo que
+        // decide. Ese es el alto de partida del encogido, y ya viene acotado
+        // entre 200 y 360 por la propia regla.
+        imageCrop.style.height = '';
+        altoMaximo = Math.round(imageCrop.getBoundingClientRect().height) || 360;
         columnaFoto.style.height = '';
         columnaFoto.style.height = `${cajaFoto.getBoundingClientRect().height}px`;
         inicioEncogido = Math.max(0,
@@ -762,7 +825,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       const pasado = Math.max(0, y - inicioEncogido);
       raizPagina.classList.toggle('fijada', pasado > 0);
       if (imageCrop) {
-        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, IMAGE_MAX_H - pasado - revelado)}px`;
+        // Si la caja ya nace en el suelo (cartel apaisado), esto no encoge nada:
+        // no hay aire que recuperar. Es la consecuencia buscada, no un fallo.
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, altoMaximo - pasado - revelado)}px`;
       }
 
       ultimoY = y;
@@ -1409,6 +1474,35 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        variable medida una vez al iniciar — no de leer en vivo el rectángulo de
        otro elemento fijo, que es lo que se descolocaba en el móvil (D-103).
        El hueco lo reserva #detail-image-column, con alto congelado. */
+    /* El alto de la caja sale de la proporción del cartel más alto del evento,
+       acotado entre el suelo y el tope. Toda la regla, en tres declaraciones:
+
+           alto = clamp(200, ancho ÷ proporción, 360)
+
+       Funciona sin una línea de JavaScript porque en móvil la caja va A SANGRE:
+       su ancho es siempre el del viewport. Y por eso mismo se readapta sola al
+       girar el teléfono, sin escuchar nada.
+
+       El suelo de 200px es la cota de Figma (369:32751) y manda: un cartel muy
+       apaisado deja la caja en 200 aunque él mida menos, y se queda centrado
+       dentro con aire. Que la CAJA tenga un mínimo y la IMAGEN un máximo no es
+       contradictorio: son cotas de dos elementos distintos.
+
+       `aspect-ratio` no hace nada si la variable no existe, así que un cartel sin
+       medir se queda con el `h-[360px]` de su clase. */
+    #detail-image-crop[style*="--mel-ratio-cartel"] {
+      aspect-ratio: var(--mel-ratio-cartel);
+      height: auto;
+      min-height: 200px;
+      /* Dos topes, y el segundo no sobra. `aspect-ratio` calcula con el ancho de
+         la CAJA, pero un cartel de menos resolución que la pantalla no se estira
+         (no ampliamos nunca), así que se pinta más estrecho y más bajo de lo que
+         la proporción sugiere. Sin `--mel-alto-cartel`, a 1023px de ancho Trip
+         With Us dejaba la caja en 360 con la imagen a 289: 71px de aire.
+         Acotando por su alto real, la caja mide exactamente lo que ocupa. */
+      max-height: min(360px, var(--mel-alto-cartel));
+    }
+
     .fijada #detail-image-sticky {
       position: fixed;
       top: calc(var(--mel-cab-fija, 176px) + var(--mel-revelado, 0px));

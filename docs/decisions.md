@@ -2264,3 +2264,73 @@ pienso"*). No es trabajo pendiente: es una idea anotada.
 
 **Verificado tras revertir**: build exit 0, máscara fuera (`maskImage: none`),
 recorte de vuelta a 200px en el tope del scroll, y el faldón 1 intacto.
+
+---
+
+### D-157 — La caja de imagen mide lo que el cartel necesita
+
+Diseño completo y razonado en
+[el spec](superpowers/specs/2026-07-30-alto-caja-imagen-ficha-design.md). Aquí
+solo lo que hay que saber para no romperlo.
+
+**Qué cambia**: la caja de imagen de la ficha tenía 360px fijos en móvil. Ahora
+sale de la proporción del cartel **más alto del evento**:
+
+```
+alto = clamp(200, ancho ÷ proporción, mín(360, alto real del cartel))
+```
+
+Medido a 393px: "Trip With Us" pasa de 360 a **200** (160px recuperados),
+"Turrón del duro" a **239** (121px), y "FIV VI", con carteles verticales, se queda
+en **360** como antes.
+
+**Se usa la más alta del evento a propósito**: si la caja se ajustara a cada
+imagen, pasar de una a otra daría un salto. Así las demás quedan con aire y la
+caja no se mueve.
+
+**Nunca se amplía un cartel.** `object-contain` por sí solo no basta: también
+agranda para llenar la caja. El tope va en la caja de la propia imagen
+(`max-width`/`max-height` con su tamaño real). Se aplica también en escritorio —
+el propietario lo planteó como regla general del sitio, no de móvil.
+
+**Los dos topes del CSS, y por qué el segundo no sobra**: `aspect-ratio` calcula
+con el ancho de la CAJA, pero un cartel de menos resolución que la pantalla no se
+estira, así que se pinta más bajo de lo que la proporción sugiere. Sin
+`--mel-alto-cartel`, a 1023px de ancho Trip With Us dejaba la caja en 360 con la
+imagen a 289: 71px de aire. Lo cazó la verificación, no el diseño.
+
+**Sin JavaScript.** Funciona porque en móvil la caja va a sangre y su ancho es el
+del viewport, así que `aspect-ratio` basta y se readapta sola al girar.
+
+**El 360 ya no está escrito dos veces.** Era la clase `h-[360px]` y la constante
+`IMAGE_MAX_H`, la trampa nº2 del traspaso. Ahora manda el CSS y `medirCabecera()`
+lee el alto ya calculado. `IMAGE_MIN_H = 200` **no se toca**: es la cota de Figma
+(369:32751) y el propietario la fijó como suelo duro (D-156).
+
+**De dónde salen las medidas**: `scripts/medir-carteles.mjs` las saca de la
+cabecera del fichero (SOF del JPEG, IHDR del PNG, bytes 6–9 del GIF) y las cachea
+en `src/data/flyer_ratios.json`, commiteado. El SSR lo importa: **coste en
+producción cero**. Es incremental — al añadir carteles, se vuelve a pasar.
+
+**Si un cartel no está medido**, no se emite variable y manda el `h-[360px]` de
+siempre. Verificado borrando entradas a mano: se comporta exactamente como antes.
+Un cartel recién subido no puede empeorar nada.
+
+**Trampa para el próximo**: `curl` recibe **0 bytes** de ese endpoint de Drive;
+`fetch` de Node funciona. Si el script falla, mira ahí antes de dudar de la URL.
+
+**Verificado**: los tres casos del spec con sus números exactos; anchos 393, 1023
+y 1280; el encogido al desplazar en los tres (0px en apaisado, 39 en Turrón, 160
+en FIV VI); y el fallback. **Sin verificar**: iOS Safari real (traspaso §4.1).
+
+**Hallazgos del censo de las 84 imágenes**, todos en
+[docs/imagenes.md](imagenes.md):
+
+- **Drive conserva el formato del original.** 33 de 84 son PNG, y un PNG se sirve
+  como PNG a cualquier tamaño: 113 KB contra 11 KB del mismo cartel en JPEG a
+  tamaño de miniatura. Es la mayor palanca sobre el peso, con diferencia.
+- **Hay un GIF de 15 MB** (`MEL-00074`), y Drive **ni siquiera lo redimensiona**:
+  devuelve los mismos bytes pidas el ancho que pidas.
+- **12 imágenes por debajo de 1200px** de lado mayor. Con el no-ampliar, no se ven
+  mal: se ven pequeñas.
+- La rotación por EXIF **no aplica**: Drive la hornea en los píxeles.
