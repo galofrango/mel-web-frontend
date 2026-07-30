@@ -72,7 +72,7 @@ const isDisabled = state === "Disabled";
   /* Apply Lora font styles without hardcoding using Figma token variables */
   .mel-link-active {
     /* Default color from theme variable */
-    color: var(--Text-Secondary, var(--mel-text-secondary));
+    color: var(--mel-text-secondary);
     background-color: transparent;
   }
 
@@ -91,14 +91,14 @@ const isDisabled = state === "Disabled";
 
   .mel-link-active:hover {
     /* Action Primary color in Hover state for ALL nested elements (inheriting bg/color) */
-    color: var(--Action-Primary, var(--mel-action-primary));
+    color: var(--mel-action-primary);
   }
 
   .mel-link-disabled {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--Text-Tertiary, var(--mel-text-tertiary));
+    color: var(--mel-text-tertiary);
     user-select: none;
   }
 

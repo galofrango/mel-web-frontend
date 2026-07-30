@@ -5,7 +5,7 @@
 
 <div
   id="intro-animation-overlay"
-  class="fixed inset-0 bg-[#f7f3f5] z-[300] flex items-end justify-center overflow-hidden transition-opacity duration-[1000ms] ease-in-out opacity-0 pointer-events-none hidden"
+  class="fixed inset-0 bg-[var(--mel-primitive-tinted-50)] z-[300] flex items-end justify-center overflow-hidden transition-opacity duration-[1000ms] ease-in-out opacity-0 pointer-events-none hidden"
 >
   <!-- Animated container keeping a fixed aspect ratio of 1440x1024 to match Figma
        coordinate space perfectly. Padding is a percentage of the container width
@@ -21,7 +21,7 @@
         <!-- CIAN Layer: Solid opacity-100 -->
         <div 
           id="intro-layer-cian"
-          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#00ffff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
+          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[var(--mel-primitive-cian)] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
         >
           <span class="block">Memoria</span>
           <span class="block">Electrónica</span>
@@ -31,7 +31,7 @@
         <!-- YELLOW Layer: Solid opacity-100 -->
         <div 
           id="intro-layer-yellow"
-          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ffff00] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
+          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[var(--mel-primitive-yellow)] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
         >
           <span class="block">Memoria</span>
           <span class="block">Electrónica</span>
@@ -41,12 +41,12 @@
         <!-- MAGENTA Layer: Solid opacity-100 -->
         <div 
           id="intro-layer-magenta"
-          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[#ff00ff] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
+          class="intro-title-layer absolute left-0 bottom-0 flex flex-col font-sans font-bold leading-[0.8] text-[13.8vw] md:text-[200px] text-[var(--mel-primitive-magenta)] tracking-[-0.05em] whitespace-nowrap mix-blend-multiply opacity-100"
         >
           <span class="block">Memoria</span>
           <span class="block">Electrónica</span>
           <span class="block">
-            Leonesa<span class="text-[#981932] text-[0.8em] tracking-[-0.05em] font-sans font-bold select-none relative -top-[0.1em] ml-1">®</span>
+            Leonesa<span class="text-[var(--mel-primitive-le-500)] text-[0.8em] tracking-[-0.05em] font-sans font-bold select-none relative -top-[0.1em] ml-1">®</span>
           </span>
         </div>
 
@@ -63,7 +63,7 @@
       <!-- Subtitle Container: Equidistant from the divider, dynamic word-by-word split container -->
       <div
         id="intro-subtitle-container"
-        class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[4.6vw] md:text-[38px] text-[#190609] tracking-[-0.04em] relative w-full"
+        class="flex items-center flex-wrap h-[48px] shrink-0 font-sans font-normal text-[4.6vw] md:text-[38px] text-[var(--mel-primitive-le-950)] tracking-[-0.04em] relative w-full"
       >
         <!-- Populated dynamically via JS -->
       </div>

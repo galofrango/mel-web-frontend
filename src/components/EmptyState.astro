@@ -70,7 +70,7 @@ const imgFitClass = cfg.fit;
   <!-- Tinted Photographic Empty State Image -->
   {showImage && (
     <div 
-      class="h-[208px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border/40 flex items-center justify-center select-none"
+      class="h-[208px] w-[320px] overflow-hidden relative shrink-0 border border-mel-border flex items-center justify-center select-none"
       data-node-id="821:72317"
       data-name="Empty State Image"
     >
@@ -96,13 +96,13 @@ const imgFitClass = cfg.fit;
     data-name="Text"
   >
     <h2 
-      class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary w-full m-0"
+ class="typo-h2 text-mel-text-primary w-full m-0"
       data-node-id="810:71902"
     >
       {displayTitle}
     </h2>
     <p 
-      class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-secondary w-full m-0"
+ class="typo-lead text-mel-text-secondary w-full m-0"
       data-node-id="810:71905"
     >
       {displayDescription}
@@ -114,7 +114,7 @@ const imgFitClass = cfg.fit;
     <a
       href={buttonLink}
       id={variant === "construction" ? "empty-state-back-btn" : undefined}
-      class={`${variant === "no-results" ? "empty-state-clear-btn " : ""}inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action font-sans font-bold text-[17px] leading-[24px] tracking-[-0.34px] no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]`}
+      class={`typo-button ${variant ==="no-results" ?"empty-state-clear-btn" :""}inline-flex gap-[8px] items-center justify-center px-[24px] py-[12px] bg-mel-action-secondary border border-mel-action-secondary text-mel-text-on-action no-underline hover:bg-mel-action-primary hover:border-mel-action-primary hover:text-mel-text-on-action-primary transition-colors duration-200 cursor-pointer shadow-[var(--mel-shadow-sm)]`}
       data-node-id="821:72737"
       data-name="Button"
     >

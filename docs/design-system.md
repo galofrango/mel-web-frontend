@@ -88,15 +88,43 @@ Fuentes del proyecto:
 
 Clases utilitarias `typo-*` en `global.css` (responsive, diseño móvil primero con overrides en `md`):
 
+> **Interletrado e interlineado**: Lead, Body y Button comparten **−1%** y **28**,
+> los dos valores de Body, por decisión del propietario (30/07/2026). El 28 se
+> afinó en su día para que el bloque de texto pesara lo mismo que Body Roman;
+> Lead y Button se habían quedado en 26. El interletrado sale de Figma, que
+> tenía Lead y Button en −2% y Body en −1%.
+>
+> **Dónde manda cada uno.** Los INTERLINEADOS de Lead, Body y Button (28)
+> y el escritorio de Caption (14/18) se ajustaron aquí después de dibujar
+> el DS y **no se actualizaron en Figma**, que sigue diciendo 24 y 13/16. Manda
+> este fichero; Figma es lo que hay que corregir. Los TAMAÑOS y el
+> INTERLETRADO, en cambio, salen de Figma. Verificado contra el archivo el
+> 30/07/2026 y contra el historial de git (`a9ddb2b`, `abee25c`, `072792d`).
+
+### Licencias del sistema
+
+Tres sitios se salen del DS **a propósito**. No son descuidos y no hay que
+"arreglarlos" en la próxima pasada:
+
+| Dónde | Qué usa | Por qué |
+|---|---|---|
+| Título del header **en reposo** (`HeaderTitle.astro`) | Sans 22/28 · **600** · `text-tertiary`, a pelo | El **peso 600 no existe en el DS**, y `typo-h3` (700) le gana a un `font-semibold` puesto al lado, así que este elemento no puede usar la clase. El resto de la fila —"Menú", campo del buscador, texto buscado y el título de las páginas sin buscador— **sí usa `typo-h3`**. El 600 viene de decisiones abiertas en [insights.md](insights.md): contraste aplazado y el interletrado del "efecto arroz glutinoso". Se normaliza cuando eso se cierre |
+| Placeholder de ese mismo campo | **20px · peso 400** (`placeholder:text-[20px] placeholder:font-normal`) | Más pequeño y más fino que el texto escrito (22/700), para que se distinga lo tecleado de la invitación a teclear |
+
+
 | Clase Utilitaria | Móvil | Desktop (≥768px) | Uso principal |
 | --- | --- | --- | --- |
-| `typo-lead` | Sans 17/26 · 500 · −2% | 16/26px | Texto de introducción y resúmenes |
-| `typo-body-sans` | Sans 17/28 · 400 · −2% | 16/28px | Cuerpo de texto Sans estándar |
+| `typo-h0` | Sans 40/40 · 700 · −4% | 49/48px | Título de sección de página |
+| `typo-h1` | Sans 32/40 · 700 · −3% | 39/40px | — (definido, aún sin uso) |
+| `typo-h2` | Sans 28/32 · 700 · −2% | 31/32px | Títulos grandes: estados vacíos, ficha, panel del mapa |
+| `typo-h4` | Sans 20/24 · 700 · −2% | 20/24px | Títulos de acordeón |
+| `typo-lead` | Sans 17/28 · 500 · **−1%** | 16/28px | Texto de introducción y resúmenes |
+| `typo-body-sans` | Sans 17/28 · 400 · **−1%** | 16/28px | Cuerpo de texto Sans estándar |
 | `typo-body-roman` | Lora 16/24 · 500 · +1% | 15/24px | Valores de datos, celdas y enlaces de artistas |
-| `typo-h3` | Sans 22/28 · 700 · −2% | 25/32 | Encabezados de sección |
+| `typo-h3` | Sans 22/28 · 700 · −2% | **22/28 (no escala)** | Fila del header: "Menú", buscador, título de páginas sin buscador |
 | `typo-caption` | Sans 16/20 · 500 | 14/18px | Captions, notas, badges y botón "Me presta" |
 | `typo-overline` | Sans 13/16 · 700 · +12% · uppercase | 12px | Etiquetas superiores de datos (*OVERLINE*) |
-| `typo-button` | Sans 17/26 · 700 · −2% | 16/26px | Texto interno de botones de acción |
+| `typo-button` | Sans 17/28 · 700 · **−1%** | 16/28px | Texto interno de botones de acción |
 
 ---
 

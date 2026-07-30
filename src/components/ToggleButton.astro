@@ -18,9 +18,12 @@ const { label, active = false, dataView = "", class: className = "" } = Astro.pr
   data-view={dataView}
   data-active={active ? "true" : "false"}
 >
+  {/* El peso cambia con el estado, así que la clase del DS también: `typo-button`
+      (700) activo y `typo-lead` (500) en reposo. Las dos son 17/24 con el mismo
+      interletrado, así que solo cambia el grosor y no salta nada de sitio. */}
   <span class:list={[
-    "overflow-hidden text-ellipsis whitespace-nowrap text-[17px] tracking-[-0.34px] leading-[24px] font-sans relative z-10 transition-colors duration-200",
-    active ? "font-bold text-mel-text-on-action" : "font-medium text-mel-text-secondary"
+    "overflow-hidden text-ellipsis whitespace-nowrap relative z-10 transition-colors duration-200",
+    active ? "typo-button text-mel-text-on-action" : "typo-lead text-mel-text-secondary"
   ]}>
     {label}
   </span>

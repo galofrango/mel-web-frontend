@@ -295,13 +295,13 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 500;
-  line-height: 26px;
-  letter-spacing: -0.02em;
+  line-height: 28px;
+  letter-spacing: -0.01em;
 }
 @media (min-width: 768px) {
   .typo-lead {
     font-size: 16px;
-    line-height: 26px;
+    line-height: 28px;
   }
 }
 
@@ -310,7 +310,7 @@ body {
   font-size: 17px;
   font-weight: 400;
   line-height: 28px;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 @media (min-width: 768px) {
   .typo-body-sans {
@@ -333,18 +333,79 @@ body {
   }
 }
 
+/* H0–H2 y H4 faltaban en el CSS aunque llevan tiempo en el DS de Figma y en el
+   marcado (escritos a pelo). Tamaños y interlineados de la tabla Device (Sizes);
+   interletrado de los estilos "MEL Typo", donde Figma lo guarda en porcentaje:
+   H0 −4, H1 −3, H2 −2.
+
+   H4 es el caso raro: existe como TAMAÑO en Figma (20/24 en los dos anchos) pero
+   NO tiene estilo de texto, así que no hay interletrado oficial. Se le pone −2%,
+   que es lo que sigue en la escala (H2 y H3 son −2%). El único sitio que lo usa
+   hoy —el título de acordeón de info.astro— lleva −4%, que es el de H0 y parece
+   un descuido; con esta clase se corrige. */
+.typo-h0 {
+  font-family: var(--font-sans);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 40px;
+  letter-spacing: -0.04em;
+}
+@media (min-width: 768px) {
+  .typo-h0 {
+    font-size: 49px;
+    line-height: 48px;
+  }
+}
+
+.typo-h1 {
+  font-family: var(--font-sans);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 40px;
+  letter-spacing: -0.03em;
+}
+@media (min-width: 768px) {
+  .typo-h1 {
+    font-size: 39px;
+    line-height: 40px;
+  }
+}
+
+.typo-h2 {
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: -0.02em;
+}
+@media (min-width: 768px) {
+  .typo-h2 {
+    font-size: 31px;
+    line-height: 32px;
+  }
+}
+
+.typo-h4 {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+}
+
+/* NO escala en escritorio, y es a propósito (decisión del propietario,
+   30/07/2026). Figma tiene H3 en 25/32 para escritorio, pero su único consumidor
+   real es la fila del header —título del sitio, "Menú", campo del buscador— y
+   esa fila NO puede crecer: si lo hace, el título salta de tamaño al navegar
+   entre páginas o al pulsar el buscador (regla 10). Se probó con el escalado
+   puesto y "Menú" salía visiblemente mayor que "Memoria Electrónica Leonesa".
+   Cuando aparezca un H3 que sí deba escalar, esto se replantea. */
 .typo-h3 {
   font-family: var(--font-sans);
   font-size: 22px;
   font-weight: 700;
   line-height: 28px;
   letter-spacing: -0.02em;
-}
-@media (min-width: 768px) {
-  .typo-h3 {
-    font-size: 25px;
-    line-height: 32px;
-  }
 }
 
 .typo-caption {
@@ -379,13 +440,13 @@ body {
   font-family: var(--font-sans);
   font-size: 17px;
   font-weight: 700;
-  line-height: 26px;
-  letter-spacing: -0.02em;
+  line-height: 28px;
+  letter-spacing: -0.01em;
 }
 @media (min-width: 768px) {
   .typo-button {
     font-size: 16px;
-    line-height: 26px;
+    line-height: 28px;
   }
 }
 

@@ -2334,3 +2334,142 @@ en FIV VI); y el fallback. **Sin verificar**: iOS Safari real (traspaso §4.1).
 - **12 imágenes por debajo de 1200px** de lado mayor. Con el no-ampliar, no se ven
   mal: se ven pequeñas.
 - La rotación por EXIF **no aplica**: Drive la hornea en los píxeles.
+
+---
+
+### D-158 — Auditoría de color y texto: los literales al token y el marcado al DS
+
+Petición original del propietario al abrir la sesión. Lo que salió:
+
+#### Color
+
+**Todos los literales eran tokens escritos dos veces, y ya derivaban.** Los
+acordeones de `info.astro` reimplementaban a mano el cambio claro/oscuro —cuatro
+colores y tres reglas `.dark`— cuando `--mel-bg-secondary` y `--mel-bg-tertiary`
+lo hacen solos; el de oscuro se había separado 9,9 del tinted-900 al que quería
+parecerse. Pasan a token semántico y las tres reglas `.dark` desaparecen.
+
+`IntroAnimation` tenía seis hexes: los tres CMYK y tinted-50, le-500, le-950.
+Pasan a primitivos (ahí no hay semántico que valga: son tinta, no rol).
+`ToggleSelector` llevaba `var(--mel-border, #D4C4C7)`, un respaldo que nunca se
+usaba —el token siempre está definido— y que además duplicaba su valor.
+
+**Regla que fija el propietario**: sin alpha en los colores. Solo `--mel-dim` y
+las sombras la llevan.
+
+#### El segundo sistema de nombres que no hacía nada
+
+`Link.astro` pedía `var(--Text-Secondary, …)`, `var(--Action-Primary, …)` y
+`var(--Text-Tertiary, …)`, nombres de Figma. `--Text-Tertiary` **no existía en
+ningún sitio**, y las otras dos solo se definían en el `:root` del `<style>` de
+`index.astro`, que no viaja a las demás páginas. **Las tres caían siempre al
+respaldo.** Fuera, junto con `--Font-Size-Body-Roman` y
+`--Line-Height-Body-Roman`, definidas y con cero usos.
+
+#### Tipografía: el CSS era una copia incompleta del DS
+
+32 declaraciones a pelo (`text-[Npx] leading-[Npx] tracking-[Npx]`) frente a ~29
+usos de clases. Comparadas con el archivo de Figma, **ninguna estaba inventada**:
+todas eran estilos del DS. Lo que fallaba era `global.css`, al que le faltaban
+**H0, H1, H2 y H4** — de ahí que quien escribía marcado copiara los números en
+vez de usar una clase que no existía.
+
+**Quién manda sobre quién, que era la pregunta de fondo:**
+
+- **Tamaños e interletrado → Figma.** Ahí se resolvió que Body es −1% y no −2%.
+- **Interlineados de Lead (26), Body (28), Button (26) y Caption escritorio
+  (14/18) → el CSS.** Se ajustaron después de dibujar el DS y no se llevaron a
+  Figma. Lo confirma el historial: `a9ddb2b`, `3973da6`, `e74436c`, `abee25c`,
+  `fb06600` y su revert `560677d`, `072792d`. **Figma es lo desactualizado.**
+
+Casi caigo en tomar Figma por bueno y "corregir" cuatro clases que estaban bien.
+Lo paró el propietario al recordarlo, y el historial de git lo confirmó.
+
+**Decisión suya**: Lead, Body y Button comparten el interletrado de Body, −1%.
+
+**Consecuencia que hay que saber**: migrar el marcado a las clases propaga esos
+interlineados a 12 sitios que seguían con el 24 viejo — +2px en el menú lateral,
+estados vacíos y toggle; +4px en los párrafos de `info.astro`. Verificado que no
+rompe nada: las filas del menú siguen a 64px (alto fijo), el toggle a 48 y su
+indicador cuadra.
+
+**Qué queda a pelo, y por qué**: el título del header en reposo
+(`HeaderTitle.astro:67`). Lleva peso **600**, que no existe en el DS, y encima
+tiene decisiones abiertas documentadas en `insights.md` —el aplazamiento del
+contraste y el ajuste del interletrado por el "efecto arroz glutinoso"—. Se toca
+cuando se cierre eso, no antes.
+
+**La etiqueta de la tarjeta de flyer** pasa a `typo-overline` entera, título y
+fecha, por decisión del propietario. La fecha deja de ser Lora.
+
+#### Contraste
+
+Dos hallazgos, ninguno arreglado todavía:
+
+1. Las celdas "sin dato" de la Lista llevan `text-tertiary` **y `opacity-60`**:
+   contraste **1,82** en claro y 1,79 en oscuro, sobre un umbral AA de 3,0. No
+   está cubierto por el aplazamiento del título de `insights.md` — son sitios
+   distintos.
+2. En oscuro, `action-primary` (le-400) como color de enlace da **3,24**: pasa
+   como icono (3,0) pero falla como texto (4,5). El propietario lo revisa.
+
+El resto pasa con holgura: 17,85 el texto primario, 14,33 sobre acción
+secundaria.
+
+#### Lo que hay que corregir EN FIGMA
+
+- Lead, Body y Button: interlineado 24 → **26 / 28 / 26**
+- Caption escritorio: 13/16 → **14/18**
+- Lead y Button: interletrado −2 → **−1**
+
+---
+
+### D-159 — `typo-h3` deja de escalar, y el globo del mapa nunca existió
+
+**El H3 no escala** (decisión del propietario, 30/07/2026). Figma lo tiene en
+25/32 para escritorio, pero su único consumidor real es la fila del header
+—título del sitio, "Menú", campo del buscador— y esa fila **no puede crecer**: si
+lo hace, el título salta de tamaño al navegar entre páginas o al pulsar el
+buscador, que es lo que prohíbe la regla 10. Se probó con el escalado puesto y
+"Menú" salía visiblemente mayor que "Memoria Electrónica Leonesa"; lo cazó el
+propietario mirando la pantalla.
+
+La alternativa era dejar la fila con sus valores a pelo, fuera del sistema. Se
+prefirió meterla dentro y quitarle el escalado a la clase. Cuando aparezca un H3
+que sí deba escalar, se replantea.
+
+**Excepción dentro de la excepción**: el título **en reposo** sigue a pelo. Su
+peso es 600, que no existe en el DS, y `typo-h3` (700) **le gana** a un
+`font-semibold` puesto al lado — la misma trampa que rompió el toggle.
+
+#### El globo del mapa: 146 líneas de CSS para algo que no se abre nunca
+
+Buscando alphas y blurs apareció `.gm-style .gm-style-iw-c` con su cristal
+esmerilado (`rgba(246,244,245,0.92)` + `backdrop-filter: blur(12px)`), más un
+sistema entero de `.mel-popup-*`. **El `InfoWindow` se crea, se guarda en el
+estado y se cierra, pero nadie lo abre**: no hay un solo `.open()` ni
+`.setContent()` en todo el archivo. Y `.mel-popup-card` solo aparece en su propia
+definición — ese marcado no lo genera nadie.
+
+Es el mismo patrón del lightbox (D-154): una funcionalidad sustituida —aquí por
+el panel lateral— cuyo código se quedó decorando el vacío.
+
+Fuera: 146 líneas de CSS (20 reglas) y las seis referencias al `InfoWindow`.
+
+Los marcadores, que es lo que el propietario creía que era el globo, están
+limpios: su único efecto es un `drop-shadow`, que es sombra y por tanto sí puede
+llevar alpha.
+
+**Queda anotado**: el propietario quiere afinar el diseño de los marcadores. No
+es trabajo pendiente, es una idea suya sin encargar.
+
+#### El título del panel del mapa acaba en H2 puro
+
+Venía de D-... con una mezcla: H2 en móvil (28/32) y 25/32 en escritorio, que era
+el H3 de escritorio de Figma. Al dejar de escalar el H3, ese 25/32 se quedó
+huérfano. Se probó bajarlo a H3 (22/28) y el propietario lo prefirió más grande,
+así que ahora es **`typo-h2` a secas**: 28/32 en móvil y 31/32 en escritorio, un
+solo token en los dos anchos y sin valores sueltos.
+
+De paso se retiró la variante `lg:typo-h3` que se había creado para el caso
+anterior: sin usuarios.

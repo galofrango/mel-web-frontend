@@ -272,7 +272,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
            A partir de `lg` se desmonta: el título vive en la columna de info y
            los tags en su propia columna. -->
       <div id="detail-titulo-tags" class="w-full shrink-0 pb-8 lg:pb-0 lg:contents">
-        <h2 class="lg:hidden font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] text-mel-text-primary pt-4 pb-8">
+        <h2 class="typo-h2 lg:hidden text-mel-text-primary pt-4 pb-8">
           {eventData.title}
         </h2>
 
@@ -434,7 +434,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 w-full lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
-          <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
+          <h2 class="typo-h2 hidden lg:block text-mel-text-primary">
             {eventData.title}
           </h2>
 
@@ -457,7 +457,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
             )}
 
             <div class="flex flex-col gap-2">
-              <span class="typo-tag-label font-sans font-bold text-[13px] leading-[16px] tracking-[1.56px] uppercase text-mel-text-primary">Artistas</span>
+              <span class="typo-overline typo-tag-label text-mel-text-primary">Artistas</span>
               <div class="flex flex-wrap gap-y-1">
                 {ARTISTAS.map((a, idx) => (
                   <span class="inline-flex items-center whitespace-nowrap">
@@ -1501,6 +1501,19 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          With Us dejaba la caja en 360 con la imagen a 289: 71px de aire.
          Acotando por su alto real, la caja mide exactamente lo que ocupa. */
       max-height: min(360px, var(--mel-alto-cartel));
+    }
+
+    /* La primera tag (Fecha) no lleva divisor: una raya vertical antes del
+       primer elemento no separa nada, solo cuelga del borde izquierdo.
+       Mismo criterio que el panel del mapa, que ya lo hacía con esta regla
+       (`#side-panel-tags-container` en index.astro).
+
+       Hace falta `:global()` porque el divisor lo pinta AdaptiveTagsRow, otro
+       componente, y el ámbito de estilos de Astro no cruza esa frontera — sin
+       él la regla se escribe pero no aplica (comprobado). Es lo mismo que ya
+       necesita TagWithLink para llegar a Link. */
+    :global(#detail-tags-fixed-row .highlight-unit:first-child > .bg-mel-border) {
+      display: none;
     }
 
     .fijada #detail-image-sticky {

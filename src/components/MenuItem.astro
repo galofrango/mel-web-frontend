@@ -12,7 +12,12 @@ const { id } = Astro.props;
   class="flex gap-4 h-10 items-center relative bg-transparent border-none cursor-pointer group outline-none select-none text-left"
   data-node-id="Menú Item"
 >
-  <span class="hidden md:inline font-sans font-bold text-[22px] leading-[28px] tracking-[-0.44px] text-mel-text-primary group-hover:text-mel-action-primary transition-colors duration-200 select-none">
+  {/* 22/28 FIJO, no `typo-h3`. "Menú" vive en la misma fila que el título del
+      sitio y tiene que medir lo mismo que él (regla 10). `typo-h3` sube a 25/32
+      en escritorio —así lo manda el DS— y el título no lo hace, porque es una
+      licencia fija (ver design-system.md). Con la clase puesta, "Menú" salía
+      visiblemente más grande que "Memoria Electrónica Leonesa". */}
+  <span class="typo-h3 hidden md:inline text-mel-text-primary group-hover:text-mel-action-primary transition-colors duration-200 select-none">
     Menú
   </span>
   <!-- Custom 40px icon holder behaving as a single hover unit with valid non-nested HTML —

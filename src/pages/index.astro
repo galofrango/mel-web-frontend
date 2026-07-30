@@ -330,7 +330,7 @@ const tags = [
               id="side-panel-header-toggle"
               class="flex flex-col gap-[8px] items-start justify-center w-full lg:cursor-pointer lg:select-none"
             >
-              <h2 id="side-panel-title" class="font-sans font-bold text-[28px] leading-[32px] tracking-[-0.56px] lg:text-[25px] lg:leading-[32px] lg:tracking-[-0.5px] text-mel-text-primary truncate w-full"></h2>
+              <h2 id="side-panel-title" class="typo-h2 text-mel-text-primary truncate w-full"></h2>
               <p id="side-panel-address" class="typo-body-roman text-mel-text-secondary truncate w-full"></p>
             </div>
           </div>
@@ -579,14 +579,6 @@ const tags = [
   }
   html.orden-cambiando::view-transition-group(mel-boton-orden) {
     animation-duration: 0s;
-  }
-
-  /* Define typographic Lora variables at root for clean token mapping */
-  :root {
-    --Font-Size-Body-Roman: 16px;
-    --Line-Height-Body-Roman: 24px;
-    --Text-Secondary: var(--mel-text-secondary);
-    --Action-Primary: var(--mel-action-primary);
   }
 
   /* Custom CSS for Range Slider */
@@ -855,152 +847,6 @@ const tags = [
     filter: brightness(1.05);
   }
 
-  /* Google Maps popup card glassmorphism */
-  .gm-style .gm-style-iw-c {
-    background: rgba(246,244,245,0.92) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 2px solid var(--mel-border) !important;
-    border-radius: 0 !important;
-    box-shadow: 0px 10px 10.5px rgb(var(--mel-shadow-rgb) / 0.1), 0px 38px 19px rgb(var(--mel-shadow-rgb) / 0.09) !important;
-    padding: 0 !important;
-    max-width: 360px !important;
-  }
-
-  .gm-style .gm-style-iw-d {
-    overflow: hidden !important;
-    max-height: 400px !important;
-  }
-
-  .gm-style .gm-style-iw-tc::after {
-    background: rgba(246,244,245,0.92) !important;
-    border: 1px solid var(--mel-border);
-    box-shadow: none !important;
-  }
-
-  .gm-style .gm-ui-hover-effect {
-    top: 8px !important;
-    right: 8px !important;
-    background-color: transparent !important;
-  }
-  
-  .gm-style .gm-ui-hover-effect span {
-    background-color: var(--mel-action-secondary) !important;
-  }
-
-  .mel-popup-card {
-    display: flex;
-    flex-direction: column;
-    width: 100%;
-    color: var(--mel-text-primary);
-    font-family: var(--font-sans);
-  }
-
-  .mel-popup-header {
-    background-color: var(--mel-bg-secondary);
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--mel-border);
-  }
-
-  .mel-popup-header-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--mel-action-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .mel-popup-event {
-    justify-content: space-between;
-    gap: 8px;
-  }
-
-  .mel-popup-event-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .mel-popup-event-title {
-    font-weight: 700;
-    font-size: 17px;
-    line-height: 24px;
-    letter-spacing: -0.17px;
-    color: var(--mel-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .mel-popup-event-date {
-    font-weight: 500;
-    font-size: 16px;
-    line-height: 20px;
-    color: var(--mel-text-secondary);
-  }
-
-  .mel-popup-event-location {
-    font-weight: 500;
-    font-size: 14px;
-    line-height: 20px;
-    color: var(--mel-text-secondary);
-  }
-
-  .mel-popup-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px 12px 4px 8px;
-    background-color: var(--mel-action-secondary);
-    border: 1px solid var(--mel-action-secondary);
-    color: var(--mel-text-on-action);
-    font-family: var(--font-sans);
-    font-weight: 500;
-    font-size: 14px;
-    line-height: 20px;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-    flex-shrink: 0;
-  }
-
-  .mel-popup-btn:hover {
-    background-color: var(--mel-action-primary);
-    border-color: var(--mel-action-primary);
-    color: var(--mel-text-on-action-primary);
-  }
-
-  .mel-popup-btn svg {
-    width: 14px;
-    height: 14px;
-  }
-
-  .mel-popup-divider {
-    height: 1px;
-    background: var(--mel-border);
-    margin: 12px 0;
-  }
-
-  .mel-popup-single {
-    display: flex;
-    gap: 16px;
-    align-items: flex-start;
-  }
-
-  .mel-popup-thumb {
-    width: 80px;
-    height: 100px;
-    overflow: hidden;
-    flex-shrink: 0;
-    border: 1px solid var(--mel-border);
-  }
-
-  .mel-popup-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-  }
   .sort-header {
     cursor: pointer;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -1226,7 +1072,6 @@ const tags = [
       locationMarkers: new Map(),
       mapInitialized: false,
       mapContainerEl: null,
-      infoWindow: null,
       mapCore: null,
       markerLib: null,
       googleMapClusterer: null,
@@ -1412,13 +1257,13 @@ const tags = [
         <img src="${imgSrc}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="absolute inset-0 max-w-none object-contain pointer-events-none size-full" />
       </div>
       <div class="flex flex-col flex-1 min-w-0 gap-[4px] items-start">
-        <p class="font-sans font-medium text-[17px] leading-[24px] tracking-[-0.34px] text-mel-text-primary truncate w-full">${escHtml(evt.evento)}</p>
+        <p class="typo-lead text-mel-text-primary truncate w-full">${escHtml(evt.evento)}</p>
         <p class="typo-body-roman text-mel-text-secondary">${escHtml(formatFechaDMY(evt.fecha))}</p>
       </div>
       <div class="shrink-0 size-[24px] flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 12L10 8L6 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </div>
-      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 border-b border-mel-border/60"></div>' : ''}
+      ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 border-b border-mel-border"></div>' : ''}
     `;
     return row;
   }
@@ -1569,8 +1414,8 @@ const tags = [
 
       <!-- Overlay info on hover (Figma "Event Info" 481:238727 — mirrors FlyerCard.astro, ver AGENTS.md regla 7) -->
       <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
-        <p class="font-sans font-bold text-[12px] leading-[16px] tracking-[0.5px] text-mel-text-on-action truncate min-w-0">${escHtml(item.evento)}</p>
-        ${item.fecha ? `<p class="font-serif font-medium text-[12px] leading-[16px] tracking-[0.15px] text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
+        <p class="typo-caption text-mel-text-on-action truncate min-w-0">${escHtml(item.evento)}</p>
+        ${item.fecha ? `<p class="typo-caption text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
       </div>
     `;
     // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
@@ -2664,7 +2509,7 @@ const tags = [
           listTable.style.height = '';
           paginated.forEach(item => {
             const tr = document.createElement('tr');
-            tr.className = 'hover:bg-mel-bg-secondary/10 transition-colors';
+            tr.className = 'hover:bg-mel-bg-secondary transition-colors';
             tr.dataset.id = item.idMel;
             
             // Format date nicely to DD/MM/YYYY
@@ -2682,7 +2527,7 @@ const tags = [
                   <div class="bg-mel-bg-secondary w-[40px] h-full overflow-clip flex items-center justify-center shrink-0">
                     ${firstImg ? `<img alt="" class="list-img-link object-contain w-full h-full cursor-pointer hover:brightness-110 transition-all duration-200" data-id="${item.idMel}" src="${firstImg}" loading="lazy" decoding="async" referrerpolicy="no-referrer" />` : ''}
                   </div>
-                  <span class="font-sans font-medium text-[17px] leading-[24px] text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
+                  <span class="typo-lead text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 cursor-pointer event-title-link marquee-cell flex-1 min-w-0" data-id="${item.idMel}">
                     <span class="marquee-inner">${escHtml(item.evento)}<span class="table-link-underline"></span></span>
                     <svg class="title-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                   </span>
@@ -2696,22 +2541,22 @@ const tags = [
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.lugar); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
                   : `<span class="marquee-inner search-cell-link location-cell-link" data-location="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.localidad); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
                   : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.organiza); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
                   : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.disenador); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary opacity-60">${escHtml(sd)}</span>`
+                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
                   : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}<span class="table-link-underline"></span></span>`; })()}
               </td>
             `;
@@ -2928,7 +2773,6 @@ const tags = [
   let locationMarkers = _s.locationMarkers;
   let mapInitialized = _s.mapInitialized;
   let mapContainerEl = _s.mapContainerEl;
-  let infoWindow    = _s.infoWindow;
   let mapCore       = _s.mapCore;
   let markerLib     = _s.markerLib;
   let googleMapClusterer = _s.googleMapClusterer;
@@ -2973,12 +2817,21 @@ const tags = [
 
       const span = btn.querySelector('span');
       if (span) {
+        // El peso lo pone la clase del DS, no `font-bold`/`font-medium`:
+        // `typo-button` es 700 y `typo-lead` 500, y las dos son 17/26 con el
+        // mismo interletrado, así que solo cambia el grosor.
+        //
+        // Ojo con volver a las utilidades: mientras el marcado SSR llevaba la
+        // clase `typo-*` y esto intercambiaba `font-bold`/`font-medium`, GANABA
+        // LA CLASE. Resultado: la pestaña que se apagaba se quedaba en negrita y
+        // la que se encendía no engordaba — exactamente al revés. Las dos cosas
+        // tienen que hablar el mismo idioma (ver ToggleButton.astro).
         if (isActive) {
-          span.classList.add('font-bold', 'text-mel-text-on-action');
-          span.classList.remove('font-medium', 'text-mel-text-secondary');
+          span.classList.add('typo-button', 'text-mel-text-on-action');
+          span.classList.remove('typo-lead', 'text-mel-text-secondary');
         } else {
-          span.classList.remove('font-bold', 'text-mel-text-on-action');
-          span.classList.add('font-medium', 'text-mel-text-secondary');
+          span.classList.remove('typo-button', 'text-mel-text-on-action');
+          span.classList.add('typo-lead', 'text-mel-text-secondary');
         }
       }
     });
@@ -3269,14 +3122,9 @@ const tags = [
         14
       );
 
-      infoWindow = new google.maps.InfoWindow({
-        minWidth: 280
-      });
-
       // Persist to global state
       _s.markerLib = markerLib;
       _s.mapCore = mapCore;
-      _s.infoWindow = infoWindow;
       _s.mapInitialized = true;
       mapInitialized = true;
 
@@ -3579,7 +3427,6 @@ const tags = [
     // on top of cluster bubbles too.
     const ACTIVE_MARKER_ZINDEX = Number(google.maps.Marker.MAX_ZINDEX) + 1000000;
 
-    if (infoWindow) infoWindow.close();
 
     // Get currently filtered archives
     const filtered = archives.filter(item => {
@@ -4003,7 +3850,6 @@ const tags = [
     locationMarkers    = _s.locationMarkers;
     mapInitialized     = _s.mapInitialized;
     mapContainerEl     = _s.mapContainerEl;
-    infoWindow         = _s.infoWindow;
     mapCore            = _s.mapCore;
     markerLib          = _s.markerLib;
     googleMapClusterer = _s.googleMapClusterer;
