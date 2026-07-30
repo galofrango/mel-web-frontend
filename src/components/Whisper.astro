@@ -1,0 +1,79 @@
+---
+/**
+ * Whisper — aviso efímero. Figma 1163:67466. Especificación en D-162.
+ *
+ * Nace para decir CON PALABRAS lo que el icono del botón de ordenación no puede
+ * decir: la flecha hacia abajo ordena ascendente, y eso necesitó un comentario
+ * defensivo en el código para que nadie lo "corrigiera". "Orden: de antiguo a
+ * reciente" no necesita nada. Sale del feedback de usuarios (ver insights.md).
+ *
+ * Es un CANAL, no un componente del botón: el segundo uso ya está previsto
+ * (cuántos eventos no puede ubicar el mapa). Por eso no sabe nada de quién le
+ * habla — recibe un texto y una duración, y ya.
+ *
+ * El marcado se sirve en SSR y JS solo escribe el texto y mueve el interruptor,
+ * que es el patrón que evita las réplicas de marcado en JavaScript (regla 7).
+ *
+ * Espaciado: 16px horizontal y 8px vertical. En NUESTRA escala son S y XS; el
+ * Figma los llama M y S. Mismos píxeles, nombres distintos — cuidado al leer uno
+ * y escribir en el otro.
+ */
+---
+
+<div
+  id="whisper"
+  role="status"
+  aria-live="polite"
+  data-visible="false"
+  class="fixed bottom-[32px] z-[119] flex items-center px-mel-s py-mel-xs min-h-[48px] bg-mel-action-primary backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] pointer-events-none select-none"
+  data-node-id="1163:67466"
+>
+  <p id="whisper-texto" class="typo-caption text-mel-text-on-action"></p>
+</div>
+
+<style is:global>
+  /* Aparecer y desaparecer con `visibility` ADEMÁS de `opacity`, y no con
+     `display`. Con `display:none` no hay transición ninguna: el navegador funde
+     los dos estados en un solo recálculo y el fundido no llega a existir — ya
+     costó una sesión entera descubrirlo con el revelado de la galería.
+     La `visibility` se retrasa al salir (para que el fundido se vea entero) y es
+     inmediata al entrar. */
+  #whisper {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 500ms ease-in-out, visibility 0s linear 500ms;
+    /* Nombre propio para entrar en la capa de transición junto a los carteles.
+       Sin él se quedaba en la página normal mientras las tarjetas se
+       promocionaban por encima (regla 2 de AGENTS.md: la capa superior del
+       navegador ignora el z-index de la página), y el whisper se veía POR DETRÁS
+       de las cartas hasta que estas se asentaban. Mismo remedio que el botón de
+       ordenación y que el panel del mapa. El orden entre grupos se fija en
+       index.astro. */
+    view-transition-name: mel-whisper;
+  }
+  #whisper[data-visible="true"] {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 500ms ease-in-out, visibility 0s linear 0s;
+  }
+
+  /* Dos líneas como máximo y elipsis a partir de ahí. `line-clamp` necesita la
+     caja flexible antigua de WebKit; no hay alternativa estándar con soporte
+     equivalente. El texto va en `typo-caption` (16/20), así que con una
+     línea manda el `min-height` de 48 y con dos el bloque mide 56. */
+  #whisper-texto {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #whisper,
+    #whisper[data-visible="true"] {
+      transition-duration: 0s;
+      transition-delay: 0s;
+    }
+  }
+</style>

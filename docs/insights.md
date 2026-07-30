@@ -152,6 +152,34 @@ el click al detectar scroll, y eso pide atender `touchend` a mano.
 
 ---
 
+## 2026-07-30 · Un iPhone que SÍ ve las fotos
+
+### El bloqueo de Safari no le pasa a todo el mundo
+
+**Fuente:** un conocido del propietario, en su propio iPhone.
+**Observación:** vio el sitio entero, con sus imágenes, sin hacer nada especial.
+**Por qué importa:** contradice el alcance con el que está escrito el problema
+nº12 del [roadmap](roadmap.md), que afirma que **cualquier** visitante de iPhone
+con los ajustes por defecto entra y no ve ni una foto. Eso, tal cual, es
+demasiado fuerte: hay al menos un iPhone donde no ocurre.
+
+**Hipótesis, sin confirmar:** el mecanismo diagnosticado sigue en pie y lo que
+falla es el "cualquiera". La restricción se levanta cuando Safari ha visto una
+interacción con `drive.google.com` **como sitio principal**, y esa concesión
+dura un tiempo. Quien usa Drive con normalidad la tiene concedida sin saberlo;
+quien no, no. El propietario ese día no la tenía y su conocido probablemente sí.
+
+**Si se confirma, el problema cambia de forma, no de gravedad:** el bloqueado
+deja de ser "un iPhone cualquiera" y pasa a ser **el iPhone que no usa Drive**,
+que es exactamente el visitante de fuera que llega al archivo por primera vez.
+Comprobarlo pide un iPhone en pestaña privada que nunca haya tocado Drive; el
+entorno del agente no puede.
+
+**Estado:** ABIERTO. No se toca el roadmap hasta que haya una prueba en un
+aparato real, en un sentido o en el otro.
+
+---
+
 ## Lo que este proyecto no puede verificar solo
 
 Recordatorio permanente, porque afecta a cómo se leen todas las entradas de

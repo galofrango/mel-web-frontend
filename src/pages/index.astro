@@ -7,6 +7,8 @@ import TimeSlider from '../components/TimeSlider.astro';
 import TagWithLink from '../components/TagWithLink.astro';
 import AdaptiveTagsRow from '../components/AdaptiveTagsRow.astro';
 import BotonOrden from '../components/BotonOrden.astro';
+import Whisper from '../components/Whisper.astro';
+import InfoBanner from '../components/InfoBanner.astro';
 import ToggleSelector from '../components/ToggleSelector.astro';
 import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
@@ -214,8 +216,16 @@ const tags = [
          sitio no depende de dónde esté en el marcado, y colgándolo de una vista
          concreta desaparecería al cambiar de pestaña. -->
     <BotonOrden />
+    <!-- Fuera del contenedor de vistas por el mismo motivo que el botón: es
+         `fixed`, así que su sitio no depende de dónde esté en el marcado, y
+         colgándolo de una vista concreta desaparecería al cambiar de pestaña. -->
+    <Whisper />
 
-    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px]">
+    <!-- `lg:-mt-6` sube las TRES vistas 16px más respecto del toggle en escritorio
+         (petición del propietario). Se toca AQUÍ y no en cada vista, para que
+         galería, mapa y lista sigan arrancando a la misma altura — desalinear una
+         sola ya se probó y se notó al instante (D-168). -->
+    <div id="content-views" class="relative flex-1 min-h-0 w-full overflow-visible flex flex-col justify-between transition-colors duration-300 -mt-[8px] lg:-mt-6">
       <!-- Single Sitewide Empty State Overlay anchored to content-views for Galería, Mapa, and Lista -->
       <!-- Cubre desde top-0, no desde top-[24px]: la vista Mapa arranca en 0 bajo
            lg, así que esos 24px dejaban asomar una banda de calles por encima
@@ -284,8 +294,30 @@ const tags = [
            lg:top-[24px] on desktop (D-067) — mirrors the gallery's own pt-0/lg:pt-[8px]
            split (D-064/D-067): the propietario asked to raise all three home views'
            content by 24px on mobile specifically, desktop untouched here. -->
-      <div id="view-mapa" class="view-panel hidden absolute top-0 lg:top-[24px] right-0 bottom-0 left-0 overflow-hidden flex">
-        <div id="map-container" class="flex-1 h-full"></div>
+      <!-- El mapa va A SANGRE por los lados: los insets negativos cancelan el
+           padding de la página (24 en móvil, 48 desde `sm`), igual que hace la
+           lista de móvil con sus `-mx`. Desde `lg` vuelve a quedar dentro del
+           contenedor de 1224, que es como está en Figma para escritorio.
+           `top-0` en móvil, NO un valor propio: las tres vistas tienen que
+           arrancar a la misma altura (D-067). Se probó bajarlo para dar 24px al
+           banner y dejaba el Mapa 8px por encima de Galería y Lista — el
+           propietario lo detectó al instante. El aire del banner se resuelve por
+           otro lado, no desalineando la vista. -->
+      <!-- `bottom-[-3vh]` en móvil cancela el `pb-[3vh]` de la página, igual que
+           la galería hace con su `-mb-[3vh]`: el mapa llega al borde inferior de
+           la pantalla en vez de dejar una franja de fondo debajo. Desde `lg` se
+           queda como estaba. -->
+      <div id="view-mapa" class="view-panel hidden absolute top-0 lg:top-[24px] bottom-[-3vh] lg:bottom-0 overflow-hidden flex -left-6 -right-6 sm:-left-12 sm:-right-12 lg:left-0 lg:right-0">
+        <!-- El mapa y su franja de estado comparten caja, con la franja SUPERPUESTA
+             (`absolute` dentro de este `relative`). Así el InfoBanner mide justo lo
+             que mide el mapa —y encoge con él al desplegarse el panel, sin calcular
+             nada— y sobre todo: al vaciarse desaparece y descubre el trozo de mapa
+             que tapaba, en vez de dejar un rectángulo gris. El mapa ocupa todo el
+             alto siempre, así que tampoco crece ni encoge. -->
+        <div class="flex-1 min-w-0 h-full relative">
+          <div id="map-container" class="absolute inset-0"></div>
+          <InfoBanner />
+        </div>
 
         <!-- Dim: solo cuando el panel es bottom sheet (bajo lg). Cubre el slider
              de tiempo (que queda a la vista, atenuado) y todo lo de abajo. -->
@@ -561,7 +593,8 @@ const tags = [
      botón se quedaba abajo y algunas tarjetas le pasaban por delante mientras
      volaban. Mismo remedio que con el panel del mapa (D-116): nombre propio y
      un grupo por encima. */
-  html::view-transition-group(mel-boton-orden) {
+  html::view-transition-group(mel-boton-orden),
+  html::view-transition-group(mel-whisper) {
     z-index: 102;
   }
 
@@ -579,6 +612,17 @@ const tags = [
   }
   html.orden-cambiando::view-transition-group(mel-boton-orden) {
     animation-duration: 0s;
+  }
+  /* El whisper conserva SUS 500ms y su curva. La regla de arriba se los aplica a
+     todos los grupos, y heredar el segundo largo de las cartas le cambiaría el
+     ritmo a un componente que tiene el suyo especificado (D-162). Aquí el grupo
+     no viaja —el whisper no se mueve de sitio—, así que lo que dura de verdad es
+     el fundido entre el estado invisible y el visible. */
+  html.orden-cambiando::view-transition-group(mel-whisper),
+  html.orden-cambiando::view-transition-old(mel-whisper),
+  html.orden-cambiando::view-transition-new(mel-whisper) {
+    animation-duration: 500ms;
+    animation-timing-function: ease-in-out;
   }
 
   /* Custom CSS for Range Slider */
@@ -2643,6 +2687,15 @@ const tags = [
       });
 
       updateMapMarkers(shouldFitBounds);
+
+      // El botón se repinta en CADA render, no solo al cambiar de vista.
+      // Depende de dos cosas que cambian al filtrar —si hay estado vacío y si hay
+      // búsqueda activa, que decide si se ofrece barajar— y sin esto se quedaba
+      // con lo último que se le dijo: seguía visible sobre un "Sin resultados" y
+      // enseñaba el icono de barajar durante una búsqueda que ya no lo permitía.
+      // El comportamiento al pulsarlo sí era correcto; lo que mentía era el icono.
+      pintarBotonOrden();
+      actualizarInfoBanner();
     };
 
     // Durante el arrastre del slider NO se envuelve en una view transition: el
@@ -2790,6 +2843,9 @@ const tags = [
     // El botón de ordenación aparece o se retira según la vista: en el Mapa no
     // hay orden que enseñar. Se pide al final del fotograma porque las clases
     // `hidden` de los paneles se cambian más abajo en esta misma función.
+    // El whisper habla del sitio donde estabas: cambiando de vista deja de venir
+    // a cuento, así que se retira sin esperar a su reloj.
+    ocultarWhisper();
     requestAnimationFrame(() => window._melPintarBotonOrden && window._melPintarBotonOrden());
 
     // Update sliding indicator position
@@ -3364,8 +3420,17 @@ const tags = [
       // Padding de seguridad en fitBounds para evitar que el globo/badge de los
       // marcadores más al norte (ej: Valdepiélago, que se extiende ~40px hacia arriba
       // desde sus coordenadas lat/lng) quede recortado en el borde superior del mapa.
+      // Y desde D-168 hay que sumarle lo que ocupa el InfoBanner, que va
+      // SUPERPUESTO al mapa y por tanto le come franja por arriba: su alto real
+      // (0 si está oculto porque no falta ningún evento) más 24 de aire, el mismo
+      // criterio que ya se usó para el globo. Sin esto, el banner tapaba el
+      // marcador más al norte.
+      const bannerEl = document.getElementById('info-banner');
+      const altoBanner = bannerEl && getComputedStyle(bannerEl).display !== 'none'
+        ? Math.round(bannerEl.getBoundingClientRect().height)
+        : 0;
       googleMap.fitBounds(bounds, {
-        top: 80,
+        top: 80 + (altoBanner ? altoBanner + 24 : 0),
         bottom: 40,
         left: 80,
         right: 80
@@ -4080,6 +4145,7 @@ const tags = [
       // de una vuelta: por eso el reseteo entero tiene que pasar por el guard.
       reiniciarPosicion();
       filterArchives(true);
+
     }, { signal: wSig });
 
     viewBtns.forEach(btn => {
@@ -4409,6 +4475,18 @@ const tags = [
     // Fase 2 de la vuelta: página, lotes cargados y scroll, ya con la vista
     // correcta montada.
     applyReturnState();
+
+    // El whisper de contexto: UNA vez por sesión, al entrar. Va aquí y no arriba
+    // porque depende de qué vista quede montada, que lo decide el switchView de
+    // unas líneas más arriba; y en un rAF porque las clases `hidden` de los
+    // paneles se asientan al final del fotograma.
+    // Volver de una ficha no lo dispara: la marca de sesión ya está puesta.
+    try {
+      if (!sessionStorage.getItem('mel-whisper-sesion')) {
+        sessionStorage.setItem('mel-whisper-sesion', '1');
+        requestAnimationFrame(() => whisperDeOrden(ordenActual()));
+      }
+    } catch (e) {}
   }
 
   // --- List View Sorting and Navigation Actions ---
@@ -4546,11 +4624,26 @@ const tags = [
     return 'asc';   // el archivo se sirve cronológico ascendente
   }
 
+  // El barajado NO se ofrece mientras hay una búsqueda activa: barajar un puñado
+  // de resultados que el visitante acaba de acotar no le dice nada.
+  function cicloActual() {
+    return (searchQuery && searchQuery.trim()) ? ['asc', 'desc'] : CICLO_ORDEN;
+  }
+
+  function siguienteOrden() {
+    const ciclo = cicloActual();
+    const i = ciclo.indexOf(ordenActual());
+    // Si el orden actual no está en el ciclo, es que se estaba en aleatorio y se
+    // ha buscado. NO se reordena por debajo —el visitante conserva el orden que
+    // tenía— y se le ofrece ascendente, que es lo que interesa en ese momento.
+    // Volver a aleatorio solo será posible al limpiar la búsqueda.
+    return i === -1 ? 'asc' : ciclo[(i + 1) % ciclo.length];
+  }
+
   function pintarBotonOrden() {
     const boton = document.getElementById('boton-orden');
     if (!boton) return;
-    const actual = ordenActual();
-    const siguiente = CICLO_ORDEN[(CICLO_ORDEN.indexOf(actual) + 1) % CICLO_ORDEN.length];
+    const siguiente = siguienteOrden();
     boton.dataset.siguiente = siguiente;
     boton.setAttribute('aria-label', {
       asc: 'Ordenar del evento más antiguo al más reciente',
@@ -4558,11 +4651,134 @@ const tags = [
       desc: 'Ordenar del evento más reciente al más antiguo',
     }[siguiente]);
     // Solo donde no hay tabla que ordenar. El Mapa queda fuera: allí el orden
-    // no se ve por ningún lado.
+    // no se ve por ningún lado. Y con el estado vacío tampoco: no hay nada que
+    // ordenar, así que ofrecerlo sería prometer una acción sin efecto.
     const vista = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '');
-    boton.dataset.visible = (vista === 'galería' || vista === 'lista') ? 'true' : 'false';
+    const vacio = document.getElementById('views-empty-state');
+    const hayVacio = vacio && !vacio.classList.contains('hidden');
+    boton.dataset.visible = ((vista === 'galería' || vista === 'lista') && !hayVacio) ? 'true' : 'false';
+    // Y si el estado vacío aparece con un whisper todavía en pantalla, se retira:
+    // anunciar un orden sobre "Sin resultados" no dice nada. Pasa buscando
+    // deprisa, antes de que el de contexto haya terminado sus 3 segundos.
+    if (hayVacio) ocultarWhisper();
   }
   window._melPintarBotonOrden = pintarBotonOrden;
+
+  // --- Whisper -------------------------------------------------------------
+  // Canal de avisos efímeros (D-162). No sabe quién le habla: recibe texto y
+  // duración. El primer uso es el orden activo; el segundo, los eventos que el
+  // mapa no puede ubicar.
+  const TEXTO_ORDEN = {
+    asc: 'Orden: de antiguo a reciente',
+    shuffle: 'Orden aleatorio',
+    desc: 'Orden: de reciente a antiguo',
+  };
+  const WHISPER_MS = 3000;   // igual en todas partes, mapa incluido
+  let whisperTimer = null;
+
+  // Centrado en pantalla, salvo que eso lo pegue al botón de ordenación: en ese
+  // caso se desplaza a la izquierda hasta dejar 16px.
+  //
+  // La cuenta: el botón ocupa de `ancho−64` a `ancho−16`, así que el borde
+  // derecho del whisper no puede pasar de `ancho−80`, y su izquierda no baja de
+  // 16. De ahí que su ancho máximo con botón sea `ancho−96` — con eso, aunque el
+  // texto llene el tope, los 16px de separación siguen saliendo.
+  function colocarWhisper() {
+    const w = document.getElementById('whisper');
+    if (!w) return;
+
+    // Sobre el MAPA se coloca contra el mapa, no contra la ventana: a 24px de su
+    // borde inferior y centrado en LA PARTE VISIBLE. `#map-container` es `flex-1`
+    // y encoge cuando se despliega el panel lateral, así que centrarse en su caja
+    // hace que el whisper se desplace solo hacia la izquierda al abrirse el panel
+    // — que es justo lo que pidió el propietario, y sale de leer la caja en vez de
+    // calcular el ancho del panel a mano.
+    const mapa = document.getElementById('view-mapa');
+    const cajaMapa = document.getElementById('map-container');
+    if (mapa && !mapa.classList.contains('hidden') && cajaMapa) {
+      const r = cajaMapa.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) {
+        w.style.maxWidth = Math.min(344, Math.round(r.width) - 32) + 'px';
+        const ancho = w.getBoundingClientRect().width;
+        w.style.left = Math.round(r.left + (r.width - ancho) / 2) + 'px';
+        w.style.bottom = Math.round(document.documentElement.clientHeight - r.bottom + 24) + 'px';
+        return;
+      }
+    }
+
+    // Galería y Lista: contra la ventana, a la altura del botón, y esquivándolo.
+    //
+    // El límite lateral es el MARGEN REAL de la página (24 en móvil, 48 y 108
+    // después), leído del contenedor en vez de repetir los breakpoints aquí — así
+    // no se desincroniza el día que ese padding cambie.
+    const pantalla = document.getElementById('pantalla-home');
+    const margen = pantalla ? parseFloat(getComputedStyle(pantalla).paddingLeft) || 16 : 16;
+    const boton = document.getElementById('boton-orden');
+    const conBoton = !!boton && getComputedStyle(boton).display !== 'none';
+    const vw = document.documentElement.clientWidth;
+    w.style.bottom = '32px';
+    // Con botón hay que reservar además su ancho y los 16 de separación; sin él,
+    // el whisper puede llegar hasta el margen por los dos lados.
+    const reservaDerecha = conBoton ? (vw - boton.getBoundingClientRect().left) + 16 : margen;
+    w.style.maxWidth = Math.max(0, vw - margen - reservaDerecha) + 'px';
+    const ancho = w.getBoundingClientRect().width;   // `visibility:hidden` conserva layout
+    const centrado = Math.round((vw - ancho) / 2);
+    const tope = vw - reservaDerecha - ancho;
+    w.style.left = Math.max(margen, Math.min(centrado, tope)) + 'px';
+  }
+
+  function ocultarWhisper() {
+    const w = document.getElementById('whisper');
+    if (!w || w.dataset.visible !== 'true') return;
+    clearTimeout(whisperTimer);
+    w.dataset.visible = 'false';
+  }
+
+  function mostrarWhisper(texto, ms = WHISPER_MS) {
+    const w = document.getElementById('whisper');
+    const t = document.getElementById('whisper-texto');
+    if (!w || !t) return;
+    t.textContent = texto;
+    colocarWhisper();
+    w.dataset.visible = 'true';
+    // Pulsando otra vez con uno en pantalla, el texto cambia y el reloj vuelve a
+    // empezar. No se apilan ni se encolan.
+    clearTimeout(whisperTimer);
+    whisperTimer = setTimeout(() => { w.dataset.visible = 'false'; }, ms);
+  }
+
+  // El whisper del ORDEN solo donde vive el botón: por encima de 440px se ordena
+  // por las cabeceras de la tabla, y allí basta con su animación y su flecha.
+  function whisperDeOrden(orden) {
+    const boton = document.getElementById('boton-orden');
+    if (!boton || getComputedStyle(boton).display === 'none') return;
+    mostrarWhisper(TEXTO_ORDEN[orden]);
+  }
+
+  // Segundo uso del canal: cuántos eventos no puede colocar el mapa. Son los que
+  // traen coordenadas que `parseCoords` no sabe leer —hoy, los que ponen
+  // "Desconocido" en la hoja— y son exactamente los que explican que el contador
+  // diga 50 y el mapa sume 47. Sin esto, esa diferencia parece un fallo.
+  //
+  // Cuántos eventos del filtro vigente no puede colocar el mapa: los que traen
+  // coordenadas que `parseCoords` no sabe leer (hoy, los que ponen "Desconocido"
+  // en la hoja). Son los que explican que el contador diga 50 y el mapa sume 47.
+  //
+  // Corre en CADA render, como los demás contadores, y por eso vive en un banner
+  // permanente y no en el Whisper: no es un suceso que anunciar, es un estado.
+  // Al quedarse a cero se oculta el texto pero NO la caja, para que el mapa no
+  // crezca y encoja mientras se escribe.
+  function actualizarInfoBanner() {
+    const banner = document.getElementById('info-banner');
+    const texto = document.getElementById('info-banner-texto');
+    if (!banner || !texto) return;
+    const sinUbicar = filtered.filter(it => !parseCoords(it.coordenadas, it.localidad)).length;
+    banner.dataset.vacio = sinUbicar < 1 ? 'true' : 'false';
+    if (sinUbicar < 1) return;
+    texto.textContent = sinUbicar === 1
+      ? '1 evento no se muestra en el mapa'
+      : `${sinUbicar} eventos no se muestran en el mapa`;
+  }
 
   function avanzarOrden() {
     // Elegir un orden nuevo deja de ser "estoy volviendo de una ficha": si la
@@ -4580,8 +4796,9 @@ const tags = [
       Math.round(ORDEN_ANIM_MS_BASE + distancia * ORDEN_MS_POR_PX)
     );
 
-    const actual = ordenActual();
-    const siguiente = CICLO_ORDEN[(CICLO_ORDEN.indexOf(actual) + 1) % CICLO_ORDEN.length];
+    // Del ciclo VIGENTE, que no siempre es el de tres: con una búsqueda activa
+    // el barajado no se ofrece (ver siguienteOrden).
+    const siguiente = siguienteOrden();
     try { sessionStorage.setItem('mel-orden-galeria', siguiente); } catch (e) {}
 
     if (siguiente === 'shuffle') barajarArchivo();
@@ -4609,6 +4826,9 @@ const tags = [
     galleryVisibleCount = PAGE_SIZE;
 
     pintarBotonOrden();
+    // El whisper anuncia el orden RECIÉN elegido, no el siguiente: el botón ya
+    // enseña lo que vendría después, y decir las dos cosas a la vez confunde.
+    whisperDeOrden(siguiente);
     animacionOrdenLenta = true;
     filterArchives();
   }

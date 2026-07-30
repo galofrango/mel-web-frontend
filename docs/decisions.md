@@ -2473,3 +2473,198 @@ solo token en los dos anchos y sin valores sueltos.
 
 De paso se retiró la variante `lg:typo-h3` que se había creado para el caso
 anterior: sin usuarios.
+
+## D-162 · Whisper — especificación cerrada (pendiente de implementar)
+
+Componente de aviso efímero para comunicar el orden activo de Galería/Lista, reutilizable para otros mensajes (empezando por los eventos que el mapa no puede ubicar). Figma `1163:67466`. **IMPLEMENTADO** — ver la sección de verificación al final.
+
+### Por qué existe
+
+Sale del feedback de usuarios (ver [insights.md](insights.md)): nadie identifica el control de ordenación. **El whisper dice con palabras lo que el icono no puede** — la flecha hacia abajo que ordena ascendente necesitó un comentario defensivo en el código para que nadie la "corrigiera"; "Orden: de antiguo a reciente" no necesita nada.
+
+### Aspecto
+
+- Fondo `action-primary`, texto `text-on-action`, `backdrop-blur` 2px, misma sombra que el botón de ordenar.
+- Relleno **16 horizontal / 8 vertical** (M / S). Ancho por contenido, **tope 344px**.
+- Tipografía: **`typo-lead`** tal cual (Space Grotesk Medium 17/28). Coincide con el Figma salvo el espaciado entre letras, donde **manda el DS** (`-0.01em`): Figma solo admite píxeles y por eso allí figura `-0.34px`.
+- **Máximo dos líneas**, truncado con elipsis a partir de ahí.
+- Alto **mínimo** 48px (no máximo), y crece con el contenido: **48px con una línea y 72px con dos** (8 + 28 + 8 = 44, así que el mínimo manda; 8 + 56 + 8 = 72).
+  Corregido respecto a la primera versión del componente, que llevaba 12 de relleno vertical: aquello daba 52px y el mínimo de 48 no llegaba a activarse nunca. Con 8 el número redondo sale solo.
+
+### Comportamiento
+
+- **Aparece**: la primera vez de CADA SESIÓN al entrar (contexto) y en cada reordenación.
+- **Entrada y salida de 500ms, simétricas**, con curva suave y simétrica — NO la del reordenado, que es asimétrica y está pensada para viajes largos.
+- **Dura 3s** en Galería/Lista. **5s** en el mapa.
+- **Whisper y botón CONVIVEN.** La propuesta inicial los alternaba (el botón desaparecía mientras hablaba el whisper) y se descartó: quitaba la afordancia justo cuando el visitante acaba de demostrar que la busca, dejaba 9s de espera para ir de descendente a ascendente, y acoplaba la visibilidad del botón a un canal de mensajes que va a servir para otras cosas.
+- **Pulsaciones seguidas**: cambia el texto y reinicia el reloj. No se apilan ni se encolan.
+- **Posición**: centrado en pantalla; si no cabe, mínimo 16px al botón. Se asume alineación por abajo con el botón (que no se mueve) cuando el whisper crece a dos líneas.
+- **Inmune al toque** (`pointer-events: none`): se superpone al contenido y no puede comerse pulsaciones sobre las tarjetas de debajo.
+- **Solo por debajo de 440px**, donde vive el botón. Por encima ordena la tabla y basta con su animación y la flecha de la cabecera.
+- **Accesibilidad**: anuncia SOLO el whisper; el botón se queda con su etiqueta y sin `aria-live`, o se solaparían. Respetar `prefers-reduced-motion`.
+
+### Reglas del botón de ordenación que entran con esto
+
+- **No se muestra con estado vacío.** Sin resultados no hay orden que anunciar, así que tampoco whisper.
+- **El barajado no se ofrece con una búsqueda activa.** Si el visitante ya estaba en aleatorio cuando busca, **NO se le reordena por debajo**: conserva su orden y el botón le ofrece cronológico ascendente, que es lo que interesa en ese momento. Lo que no puede es volver a aleatorio mientras la búsqueda siga activa. Al limpiarla, el aleatorio vuelve al ciclo.
+
+### Mensaje del mapa
+
+`"N eventos no se muestran en el mapa"`. Hoy N = 3: son los que traen `"coordenadas":"Desconocido"` desde la hoja (D-159), y explican por qué el contador dice 50 y el mapa suma 47.
+
+### Implementación y verificación (D-162)
+
+`src/components/Whisper.astro` + la lógica en `index.astro`. Montado fuera de `#content-views`, por el mismo motivo que el botón: es `fixed`, así que colgarlo de una vista lo haría desaparecer al cambiar de pestaña.
+
+**Colocación, que es la parte con cuenta.** El botón ocupa de `ancho−64` a `ancho−16`, así que el borde derecho del whisper no puede pasar de `ancho−80` y su izquierda no baja de 16. De ahí que su ancho máximo con botón sea `ancho−96`: con eso, aunque el texto llene el tope, los 16px de separación siguen saliendo. Luego se centra y se recorta contra ese límite — centrado si cabe, desplazado a la izquierda si no.
+
+**Verificado en el navegador:**
+- A 390px: alto **48** exactos (una línea, manda el `min-height`), separación al botón **16** exactos, ambos a 32 del borde inferior. El texto no cabe centrado, así que se desplaza — que es la regla.
+- A 439px: se **centra** (izquierda 142 = centro exacto).
+- Al pulsar: el whisper dice el orden RECIÉN elegido ("Orden aleatorio") mientras el botón ya muestra el siguiente. Son dos mensajes distintos a propósito.
+- Con búsqueda activa el ciclo es `asc ⇄ desc` en cuatro pulsaciones seguidas, **sin pasar nunca por aleatorio**, y estando en aleatorio al buscar se ofrece ascendente sin reordenar por debajo.
+- Con estado vacío, **sin botón y sin whisper**: el del orden se condiciona a que el botón esté visible, así que la regla sale sola.
+- En el Mapa: **"3 eventos no se muestran en el mapa"**, el recuento real de los que traen coordenadas ilegibles, centrado del todo porque allí no hay botón que esquivar.
+
+**Sin verificar aquí**: cómo se ve el fundido y si 3s se leen cómodos — los fotogramas están congelados en el entorno del agente. También quedó sin comprobar el `aria-live` con un lector real.
+
+**Trampa del compilador, tercera vez en la misma sesión**: un comentario HTML **entre los atributos de una etiqueta** rompe el build con `[CompilerError] Unexpected token`, igual que dentro de una expresión `{…}`. Los comentarios van SIEMPRE antes de la etiqueta. Queda advertido dentro de `BotonOrden.astro`, que es donde volvió a pasar.
+
+### Nota para la auditoría de estilos
+
+**Las dos escalas de espaciado usan nombres distintos para los mismos números.** El Figma llama M a 16px y S a 8px; nuestro DS llama S a 16px y XS a 8px. Los píxeles coinciden, los nombres no: leer uno y escribir en el otro sin darse cuenta produce un error de una talla entera. Añadir esto a la auditoría de `roadmap.md`.
+
+## D-163 · El whisper también entra en la capa de transición
+
+**Síntoma**: el whisper se quedaba POR DETRÁS de las tarjetas hasta que estas se asentaban.
+
+**Causa**: la regla 2 otra vez. Durante un reordenado las tarjetas llevan `view-transition-name`, así que el navegador las promociona a su capa superior, **que ignora el z-index de la página**. El whisper tenía `z-index: 119` en la página y eso allí no vale nada.
+
+**Arreglo**: el mismo que ya funcionó con el botón de ordenación y con el panel del mapa — nombre propio (`mel-whisper`) y su grupo ordenado por encima (z-index 102, junto al botón). El propietario lo intuyó exactamente así: *"¿no se puede agrupar de alguna forma con el botón, que creo que ya no le pasa eso?"*.
+
+**Y una duración propia**: la regla del reordenado aplica `--mel-orden-dur` a TODOS los grupos, así que el whisper habría heredado el segundo largo de las cartas en vez de sus 500ms. Se le devuelven los suyos con una regla específica sobre `group`, `old` y `new`. Su grupo no viaja —el whisper no se mueve de sitio—, así que lo que dura de verdad es el fundido entre el estado invisible y el visible.
+
+**Verificado**: nombre aplicado, **40 elementos nombrados y 0 duplicados** (uno repetido aborta la transición entera, que era el riesgo real de añadir otro), y las dos reglas presentes en la hoja compilada con `z-index:102` y `.5s`. Ambas empiezan por `html` porque si no Astro las reescribe con su identificador de ámbito y no seleccionan nada (D-137).
+
+**Sin verificar aquí**: que efectivamente se vea por delante. El entorno del agente tiene el documento oculto y Chrome aborta toda transición de vista en ese caso (`InvalidStateError`), así que la capa no se puede observar. Es el mismo nivel de comprobación que tuvo el arreglo del botón, que sí funcionó.
+
+## D-164 · El botón de ordenación se repinta en cada render, no solo al cambiar de vista
+
+Tres de los cuatro fallos que reportó el propietario tras probar el whisper eran **el mismo**: `pintarBotonOrden()` solo se llamaba al arrancar, al cambiar de vista y al pulsar el propio botón. Nunca al filtrar. Y de eso dependen dos cosas que SÍ cambian al filtrar:
+
+- si hay estado vacío → el botón seguía visible sobre un "Sin resultados";
+- si hay búsqueda activa → seguía enseñando el icono de barajar durante una búsqueda que ya no lo permitía.
+
+**Lo que engañaba**: el comportamiento al pulsarlo era correcto —`siguienteOrden()` se evalúa en el momento del clic y sí respetaba la búsqueda—, así que el propietario lo describió exactamente bien: *"el botón se ha quedado con la opción random visible mientras buscaba, aunque le he dado y me ha ordenado crono"*. Mentía el icono, no la lógica.
+
+**Arreglo**: `pintarBotonOrden()` al final de `performDOMUpdates`, que es el único sitio por el que pasan TODOS los renders.
+
+**Y el whisper se retira con el estado vacío**: buscando deprisa, el de contexto podía seguir en pantalla sobre un "Sin resultados". Anunciar un orden ahí no dice nada.
+
+**Verificado en caliente** (que era el caso que fallaba, no la carga limpia): buscando desde la página, el icono pasa de barajar a descendente con la búsqueda activa, y el botón desaparece al llegar el "Sin resultados".
+
+## D-165 · El aviso del mapa, cada vez que se entra
+
+Estaba limitado a una vez por sesión y eso no encaja con lo que cuenta: **el número depende de la búsqueda activa**, así que enseñarlo una sola vez lo dejaba viejo en cuanto el visitante filtrara. Ahora se recuenta y se enseña en cada entrada al Mapa.
+
+**Decisión que queda abierta**: NO se reanuncia mientras ya se está en el Mapa y se cambia la búsqueda. Cada pulsación de tecla dispara un filtrado, así que hacerlo sería un cartel parpadeando mientras se escribe. El recuento refleja la búsqueda vigente en el momento de entrar, que es lo que pidió el propietario; si quiere además que se actualice sin salir del Mapa, hay que decidir antes cómo evitar el parpadeo.
+
+## D-166 · El whisper sobre el mapa se coloca contra el mapa, y la búsqueda solo cuenta al confirmarse
+
+### Colocación
+
+Sobre el Mapa el whisper deja de referirse a la ventana: **24px por encima del borde inferior de `#map-container` y centrado en su caja**, no en la pantalla.
+
+Lo bueno de leer la caja en vez de calcular: `#map-container` es `flex-1` y **encoge cuando se despliega el panel lateral**, así que el whisper se desplaza solo hacia la izquierda buscando el centro de la parte visible del mapa. No hay que saber cuánto mide el panel ni escuchar su apertura — el dato ya está en el rectángulo.
+
+En Galería y Lista se mantiene lo de antes: contra la ventana, a 32px del borde inferior y esquivando el botón.
+
+**Verificado**: a 1440px, centro del whisper 720 = centro del mapa 720, y 24px exactos al borde inferior. Comprobado aparte que la caja del mapa efectivamente encoge al abrir el panel (de 108–1332 a 108–940), que es de lo que depende el desplazamiento.
+
+### Duración
+
+3s en todas partes, mapa incluido. Los 5s del mapa se quedaban largos.
+
+### La búsqueda solo cuenta cuando se confirma
+
+El aviso del mapa se actualiza con la búsqueda, pero **solo al confirmarla**. La búsqueda de este sitio es en vivo: el evento `mel-search` sale en cada tecla, así que reaccionar a todas dejaría un cartel parpadeando mientras se escribe.
+
+**Hacía falta un dato que no existía**: desde fuera, "está escribiendo" y "ha terminado" eran indistinguibles. `dispatchSearch` en `HeaderTitle.astro` gana un segundo argumento `confirmada`, que va a `true` solo desde `setState('filled', …)` — a ese estado se llega con Enter, limpiando o restaurando desde la URL, nunca escribiendo.
+
+**Verificado**: con el mapa abierto, una búsqueda en vivo NO reaparece el aviso; la misma búsqueda confirmada sí, y con el recuento recalculado (3 sin filtrar → 2 con el filtro puesto).
+
+## D-167 · `InfoBanner` — el estado del mapa sale del Whisper
+
+Figma `1172:71515` (escritorio) / `1172:71496` (móvil). Propuesta del propietario, y corrige un error de encaje que era mío.
+
+**Por qué**: "N eventos no se muestran en el mapa" **no es un suceso, es una propiedad del filtro activo**, igual que "Eventos 50". Meterlo en un canal efímero generaba preguntas sin buena respuesta —¿3 segundos o 5? ¿se reanuncia al buscar? ¿solo al confirmar?— y todas desaparecen al ponerlo donde le toca. El Whisper se queda con **un solo oficio**: el orden.
+
+- Franja permanente sobre el mapa. `bg-secondary`, texto `action-primary` centrado con `typo-caption` (16/20 Medium, que coincide exacto con el Figma), relleno horizontal de 24.
+- **48px de alto en móvil, 40 desde `lg`**.
+- Vive en una COLUMNA junto al mapa, no como hermano de la fila: así mide exactamente lo que mide el mapa y **encoge con él al desplegarse el panel**, sin calcular nada. `#map-container` cambia `h-full` por `flex-1 min-h-0` — dentro de una columna, `h-full` sería el 100% de una altura que ya incluye la franja y el mapa se saldría por abajo justo lo que mide el banner.
+- **A cero se oculta el TEXTO, no la caja** (decisión del propietario): si desapareciera entera, el mapa crecería y encogería mientras se escribe.
+- **Sin `aria-live`**, a propósito: es un estado, no un anuncio. Marcado como región viva se repetiría en cada tecla.
+
+**Verificado**: 40px de alto en escritorio, mismo ancho que el mapa y pegado encima; el recuento sigue la búsqueda EN VIVO (3 sin filtrar → 1 con "fiv", en singular → 0 con "quixotes"), y a cero la caja conserva sus 40px con el texto invisible.
+
+### Código retirado
+
+- `whisperMapa()` y su llamada desde `switchView`.
+- La marca `confirmada` de `dispatchSearch` en `HeaderTitle.astro` y su consumidor. **Existía solo para que el aviso del mapa no parpadeara en cada tecla**; con el banner permanente ya no hace falta que nadie distinga escribir de confirmar. Se retira en vez de dejarla sin consumidor.
+
+### Ancho del Whisper
+
+Deja de topar en 344px: crece hasta **el margen real de la página** (24 en móvil, 48 y 108 después), leído del contenedor en vez de repetir los breakpoints. Donde hay botón, sigue reservando su ancho más 16 de separación.
+
+### Pendiente
+
+Si algún día el banner hace falta en Galería o Lista, hoy está montado dentro de la columna del mapa. Habrá que sacarlo a un sitio común y decidir qué hace con el hueco en vistas que no lo reservan.
+
+## D-168 · El banner se superpone al mapa, y el mapa va a sangre
+
+Correcciones del propietario sobre D-167, con una aclaración que cambia el montaje: *"como si quedase siempre por encima del mapa"* significaba **superpuesto**, no reservando hueco. De ahí que al vaciarse tenga que desaparecer y dejar ver el trozo que tapaba, en vez de dejar un rectángulo gris.
+
+- **El banner pasa a capa** (`absolute` sobre el mapa). Al quedarse a cero, `display: none`: se va del todo y descubre el mapa. Y el mapa no crece ni encoge, porque siempre ocupó todo el alto.
+- **El mapa va a sangre por los lados** en móvil y tablet: insets negativos que cancelan el padding de la página (24 / 48), igual que hace la lista de móvil. Desde `lg` vuelve a quedar dentro del contenedor de 1224, como en Figma.
+- **24px del toggle al banner**, el mismo ritmo que el resto de la cabecera. Salía 56 y hubo que compensar 32 con `-top-2`. **OJO**: antes era `top-0` en móvil por D-067, que subía las TRES vistas 24px; esto desalinea el Mapa de Galería y Lista. Queda advertido en el marcado.
+
+### La trampa de la cascada, y por qué la regla no aplicaba
+
+`#info-banner[data-vacio="true"] { display: none }` estaba **en la hoja compilada y con selector correcto**, y aun así no se aplicaba: el elemento llevaba la utilidad `flex` de Tailwind, que vive en `@layer utilities`, y **esa capa se resuelve por encima de un `<style is:global>` de componente** — la especificidad no decide nada cuando compiten capas distintas.
+
+Arreglado quitando `flex` de las clases y dejando que el `display` lo gobierne solo la hoja del componente. **Sin `!important`**, que aquí habría tapado el síntoma sin explicar nada.
+
+Es la segunda vez en la sesión que una regla CSS correcta no hace nada por un motivo que no se ve en el código fuente (la primera fue el ámbito de Astro, D-137). La lección se amplía: **leer la hoja compilada no basta si hay capas de por medio; hay que mirar también qué gana la cascada.**
+
+## D-169 · Ajustes finos de la franja y el whisper
+
+- **Escritorio: las tres vistas 16px más cerca del toggle.** `lg:-mt-6` en `#content-views`, NO en cada vista: galería, mapa y lista tienen que arrancar a la misma altura, y desalinear una sola ya se probó y se notó al instante (D-168). Hueco al toggle: 56 → **40**.
+- **Móvil: el banner se sale 8px por arriba de su caja** (`-top-2 lg:top-0`). Hueco al toggle: **24**. Es un APAÑO reconocido y así queda escrito en el componente: el sitio de esta franja acabará siendo la cabecera fija, y entonces esto sobra. Se hace en el banner y no en la vista precisamente para no volver a desalinear el Mapa.
+- **Whisper a `typo-caption`** (16/20) en vez de `typo-lead`.
+
+## D-170 · La barra de Safari no puede ser transparente (respuesta a una duda del propietario)
+
+**No, y no es una limitación del sitio**: la barra de navegación es interfaz del navegador, dibujada fuera de la página. Ninguna web puede hacerla transparente ni pintar por debajo. Lo que sí hay:
+
+1. **Igualar su color al de la página.** Safari 15+ tiñe la barra con `<meta name="theme-color">` o, en su defecto, con el color de fondo del borde de la página. No es transparencia, pero el efecto de continuidad es el que se busca. **Ojo**: hay que declarar dos, uno por esquema de color, o en modo oscuro quedará mal.
+2. **`viewport-fit=cover` + `env(safe-area-inset-*)`** para que el contenido llegue de verdad hasta los bordes por debajo de las zonas seguras.
+3. **Modo standalone** (manifest o `apple-mobile-web-app-capable`): ahí la barra desaparece del todo y con `black-translucent` la de estado se superpone al contenido. Es lo más parecido a lo que se pide, pero convierte el sitio en algo que se instala — decisión de producto, no de CSS.
+
+Nada de esto se ha implementado. Queda como opción, siendo la 1 la barata y la 3 la que de verdad da el efecto.
+
+## D-171 · El mapa llega al borde inferior en móvil
+
+Le quedaban 26px de fondo debajo: el `pb-[3vh]` del contenedor de página, que la galería ya cancelaba con su `-mb-[3vh]` y el mapa no. Se cancela igual, con `bottom-[-3vh] lg:bottom-0`.
+
+**Verificado**: móvil 393×852 → hueco inferior 0 y el mapa toca el borde, conservando el sangrado lateral. Escritorio 1440 sin cambios (27px abajo, dentro del contenedor 108→1332).
+
+## D-172 · El banner no puede salirse por arriba: `#view-mapa` recorta
+
+Se intentó darle `-top-2` en móvil para ganarle 8px al hueco con el toggle. **No funciona**: `#view-mapa` lleva `overflow-hidden` —lo necesita para el panel deslizante— así que todo lo que se salga de su caja se recorta, y el banner quedaba cortado por la cabecera. Revertido, y advertido en el propio componente para que nadie lo reintente.
+
+El hueco de más se resolverá el día que esta franja pase a ser parte de la cabecera fija, que es donde le toca estar. Peleando con el recorte, no.
+
+### Dos datos que salieron al revisar
+
+- **`theme-color` NO está implementado.** Se creía que sí. No hay ni `theme-color`, ni manifest, ni metas de Apple en `Layout.astro` ni en `public/`. Lo que se ve en Safari es el navegador tiñendo su barra con el color de fondo de la página por su cuenta: funciona por defecto, no por diseño, y en modo oscuro no hay nada que lo gobierne.
+- **Los ~27px bajo el mapa en escritorio son PROPORCIONALES**, no fijos: `pb-[3vh]`, un 3% del alto de la ventana. Criterio del propietario: si es proporcional, se queda.

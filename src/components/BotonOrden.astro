@@ -24,13 +24,22 @@
      propio, así que un pegajoso se quedaría dentro de su caja. A 16px del borde
      derecho y 32px del inferior (Figma).
      Oculto a partir de 440px, que es exactamente donde la Lista pasa a tabla con
-     cabeceras ordenables y este botón deja de hacer falta. -->
+     cabeceras ordenables y este botón deja de hacer falta.
+
+     Este botón NO lleva `aria-live`: quien anuncia el cambio de orden es el
+     Whisper (D-162). Con los dos puestos, un lector de pantalla leía el aviso y
+     la etiqueta del botón solapados. Aquí queda solo la etiqueta, que describe la
+     acción siguiente y se lee al enfocar.
+
+     Y un aviso para quien venga a comentar algo: los comentarios van SIEMPRE
+     antes de la etiqueta, nunca entre sus atributos. Ahí dentro rompen la
+     compilación con `[CompilerError] Unexpected token`, igual que dentro de una
+     expresión `{…}`. Ha pasado tres veces en una sola sesión. -->
 <button
   id="boton-orden"
   type="button"
   data-visible="false"
   class="fixed right-[16px] bottom-[32px] z-[120] size-[48px] items-center justify-center backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] bg-mel-action-secondary hover:bg-mel-action-primary active:bg-mel-action-tertiary text-mel-text-on-action transition-colors duration-200 cursor-pointer select-none"
-  aria-live="polite"
   data-node-id="1085:47259"
 >
   <!-- Los tres iconos viajan en el marcado y JS solo enseña uno. Así no hay que

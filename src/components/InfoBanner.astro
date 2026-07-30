@@ -1,0 +1,67 @@
+---
+/**
+ * InfoBanner — franja de estado, permanente. Figma 1172:71515 / 1172:71496.
+ *
+ * Nace para sacar del Whisper un mensaje que nunca fue suyo: "N eventos no se
+ * muestran en el mapa" NO es un suceso, es una propiedad del filtro activo,
+ * igual que "Eventos 50". Meterlo en un canal efímero generaba preguntas sin
+ * buena respuesta (¿3 segundos o 5? ¿se reanuncia al buscar? ¿solo al
+ * confirmar?). Siendo permanente, el número simplemente sigue al filtro como
+ * cualquier otro contador, y esas preguntas desaparecen.
+ *
+ * NO lleva `aria-live` a propósito: es un estado, no un anuncio. Marcado como
+ * región viva, un lector de pantalla lo repetiría en cada tecla mientras se
+ * busca. Se lee como el texto que es, igual que las cifras de la toolbar.
+ *
+ * Va SUPERPUESTO al mapa, no encima en el flujo: tapa su franja superior. Por eso
+ * al quedarse a cero desaparece entero y deja ver el trozo de mapa que ocultaba,
+ * en vez de dejar un rectángulo gris. Y por eso el mapa no crece ni encoge al
+ * aparecer o irse — siempre ha ocupado todo el alto, esté el banner o no.
+ *
+ * NO intentar sacarlo por arriba con un `top` negativo para ganarle 8px al hueco:
+ * `#view-mapa` lleva `overflow-hidden` (lo necesita para el panel deslizante), así
+ * que lo que se salga de la caja se RECORTA — se probó y el banner quedaba cortado
+ * por la cabecera. El hueco de más se resuelve el día que esta franja pase a ser
+ * parte de la cabecera fija, no peleando con el recorte.
+ *
+ * Alto: 48px en móvil, 40 desde `lg` (Figma). El ancho lo pone su contenedor —
+ * hoy la columna del mapa, que encoge al desplegarse el panel lateral.
+ */
+---
+
+<div
+  id="info-banner"
+  data-vacio="true"
+  class="absolute top-0 left-0 right-0 z-10 h-[48px] lg:h-[40px] px-mel-m bg-mel-bg-secondary pointer-events-none"
+  data-node-id="1172:71515"
+>
+  <p id="info-banner-texto" class="typo-caption text-mel-action-primary text-center truncate"></p>
+</div>
+
+<style is:global>
+  /* El `display` lo gobierna esta hoja y NO una utilidad de Tailwind. Con
+     `flex` en las clases, la utilidad ganaba: vive en `@layer utilities` y esa
+     capa se resuelve por encima de este bloque, así que el `display:none` de
+     abajo no llegaba a aplicarse aunque su selector fuese más específico.
+     Comprobado en la hoja compilada: la regla estaba, pero perdía la cascada. */
+  #info-banner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* El texto centrado de verdad dentro de la caja: sin `flex-basis` propio, un
+     `<p>` con `truncate` no llena la línea y el centrado horizontal depende de su
+     ancho intrínseco. */
+  #info-banner-texto {
+    width: 100%;
+    /* `align-self` y no confiar en el `align-items` del padre: sin esto el <p> se
+       estira a los 48px de la caja y su línea de 20 queda pegada arriba, que es
+       exactamente el descentrado que se veía. */
+    align-self: center;
+  }
+  /* Sin nada que contar desaparece del todo: es una capa sobre el mapa, así que
+     irse no mueve nada y descubre lo que tapaba. */
+  #info-banner[data-vacio="true"] {
+    display: none;
+  }
+</style>
