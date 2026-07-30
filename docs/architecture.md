@@ -16,12 +16,37 @@ La navegación interna entre páginas utiliza el `ClientRouter` de Astro (View T
 
 ## Fuente de Datos: Hoja de Google Sheets
 
+> **Toda la capa de datos vive en `src/lib/mel.ts`.** Ninguna página vuelve a
+> declarar el `SHEET_ID`, ni parsea el JSON-P, ni mapea columnas por su cuenta.
+> Estuvo copiada en las tres páginas que leen la hoja y el copiar-y-pegar ya
+> había metido un typo (`notesArchivo`); ver **D-153**.
+>
+> | Función | Para qué |
+> |---|---|
+> | `sheetUrl(hoja?)` | La URL del endpoint `gviz` |
+> | `fetchSheetRows(hoja?)` | Filas crudas. Absorbe el fallo de red y devuelve `[]` |
+> | `fetchEvents()` | El archivo entero, agrupado y en orden cronológico |
+> | `mapSheetRow(c)` | Una fila → objeto (el mapa de columnas de abajo) |
+> | `extractDriveImage(url, ancho)` | Enlace de Drive → endpoint de miniatura |
+> | `parseDateToNumber` · `formatFechaDMY` · `getYear` | Fechas de la hoja |
+> | `escHtml` | Escape para `innerHTML` |
+
 `SHEET_ID = 1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E`
 
 Se consulta mediante el endpoint `gviz`:
 `https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:json[&sheet=NOMBRE]`
 
 La respuesta es una cadena JSONP que se parsea mediante regex (`google\.visualization\.Query\.setResponse\((…)\);`) y se transforma en objetos JSON estructurados.
+
+**Los scripts de cliente NO pueden importar de `src/lib/mel.ts`.** El script de
+la home y el de la ficha llevan `define:vars`, lo que en Astro implica que son
+scripts **inline**, y un script inline no pasa por Vite: un `import` ahí se queda
+como texto literal y revienta en el navegador (comprobado, no supuesto). Por eso
+el script de `index.astro` conserva sus propias copias de `extractDriveImage`,
+`escHtml`, `formatFechaDMY`, `getYear` y `parseDateToNumber`, y por eso la
+tarjeta de galería existe dos veces. Si algo tiene que cruzar al cliente, la vía
+es **calcularlo en el servidor y pasarlo por `define:vars`** — así se arregló la
+precarga de la foto del vecino en la ficha (D-155).
 
 ### Pestaña Principal (Archivo de Eventos)
 

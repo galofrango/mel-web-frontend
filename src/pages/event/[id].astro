@@ -6,100 +6,15 @@ import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
+import { fetchEvents, extractDriveImage } from '../../lib/mel';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
 // sheet fresh on every visit instead of baking it in at build time, so new
 // events/edits show up without a rebuild. Fetches + groups the full list
 // (not just the one event) because Anterior/Siguiente need their neighbors.
-const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
-const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
-
-let eventsList: any[] = [];
-try {
-  const response = await fetch(CONFIG_URL);
-  const text = await response.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-
-  if (match && match[1]) {
-    const json = JSON.parse(match[1]);
-    const rows = json.table.rows;
-
-    const rawItems = rows.map((row) => {
-      const c = row.c;
-      if (!c) return null;
-      return {
-        evento: c[0] ? c[0].v : 'Evento sin título',
-        urlDrive: c[2] ? c[2].v : '',
-        fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
-        lugar: c[4] ? c[4].v : '',   // sin dato es sin dato: rellenarlo con 'León' inventaba un local
-        localidad: c[5] ? c[5].v : '',
-        coordenadas: c[6] ? c[6].v : '',
-        artistas: c[7] ? c[7].v : '',
-        organiza: c[8] ? c[8].v : '',
-        descripcion: c[9] ? c[9].v : '',
-        idMel: c[10] ? c[10].v : '',
-        carruselOrder: c[11] ? c[11].v : '1',
-        disenador: c[13] ? c[13].v : 'Desconocido',
-        existeOriginal: c[16] ? c[16].v : '',
-        formato: c[21] ? c[21].v : 'Flyer',
-        notesArchivo: c[24] ? c[24].v : '',
-        ocr: c[25] ? c[25].v : ''
-      };
-    }).filter(item => item && item.idMel && item.idMel.startsWith('MEL-'));
-
-    // Group by Event Name + Date (same logic as index.astro to group multiple flyer images)
-    const groups = {};
-    rawItems.forEach(item => {
-      const key = `${item.evento.trim().toLowerCase()}_${item.fecha.trim().toLowerCase()}`;
-      if (!groups[key]) {
-        groups[key] = {
-          idMel: item.idMel,
-          title: item.evento,
-          date: item.fecha,
-          location: item.lugar,
-          locality: item.localidad,
-          description: item.descripcion,
-          artists: item.artistas,
-          organizer: item.organiza,
-          designer: item.disenador,
-          carruselItems: []
-        };
-      }
-      groups[key].carruselItems.push({
-        urlDrive: item.urlDrive,
-        order: parseInt(item.carruselOrder, 10) || 1
-      });
-    });
-
-    function parseDateToNumber(dateStr) {
-      if (!dateStr || dateStr === 'SIN FECHA') return 0;
-      const slashBits = String(dateStr).split('/');
-      if (slashBits.length === 3) {
-        const d = parseInt(slashBits[0], 10);
-        const m = parseInt(slashBits[1], 10) - 1;
-        const y = parseInt(slashBits[2], 10);
-        return new Date(y, m, d).getTime();
-      }
-      const dashBits = String(dateStr).split('-');
-      if (dashBits.length === 3) {
-        const y = parseInt(dashBits[0], 10);
-        const m = parseInt(dashBits[1], 10) - 1;
-        const d = parseInt(dashBits[2], 10);
-        return new Date(y, m, d).getTime();
-      }
-      return 0;
-    }
-
-    eventsList = Object.values(groups).map((g: any) => {
-      g.carruselItems.sort((a, b) => a.order - b.order);
-      return g;
-    });
-
-    eventsList.sort((a, b) => parseDateToNumber(a.date) - parseDateToNumber(b.date));
-  }
-} catch (e) {
-  console.error("Error fetching event data", e);
-}
+// La ficha necesita la lista COMPLETA, no solo su evento: Anterior/Siguiente
+// necesitan a los vecinos. Sale ya agrupada y en orden cronológico.
+const eventsList = await fetchEvents();
 
 const eventIndex = eventsList.findIndex((e: any) => e.idMel === Astro.params.id);
 if (eventIndex === -1) {
@@ -110,36 +25,49 @@ if (eventIndex === -1) {
   return Astro.rewrite('/404');
 }
 
-const eventData = eventsList[eventIndex];
-const prevEvent = eventIndex > 0 ? eventsList[eventIndex - 1] : null;
-const nextEvent = eventIndex < eventsList.length - 1 ? eventsList[eventIndex + 1] : null;
+// Nombres en inglés para el resto de la plantilla de esta página, que es la que
+// ya los usaba. El mapeo va aquí y no en el módulo compartido a propósito: la
+// home los quiere en español y renombrar su mitad sería un diff enorme en
+// index.astro por un beneficio nulo. Lo que importaba —el fetch, el parseo, el
+// mapa de columnas y el agrupado— ya es común.
+const evento = (e: any) => ({
+  idMel: e.idMel,
+  title: e.evento,
+  date: e.fecha,
+  location: e.lugar,
+  locality: e.localidad,
+  description: e.descripcion,
+  artists: e.artistas,
+  organizer: e.organiza,
+  designer: e.disenador,
+  carruselItems: e.carruselItems,
+});
 
-// Map full list of events for client-side search filtering
+const eventData = evento(eventsList[eventIndex]);
+const prevEvent = eventIndex > 0 ? evento(eventsList[eventIndex - 1]) : null;
+const nextEvent = eventIndex < eventsList.length - 1 ? evento(eventsList[eventIndex + 1]) : null;
+
+// Lista completa para el filtrado de búsqueda en cliente.
+//
+// `fotoUrl` va ya resuelta desde aquí, y no es un extra: `adelantarVecino()`
+// —la precarga de vecinos de D-090— llamaba a `extractDriveImage()` dentro del
+// script de cliente, donde esa función NO existe (vive en este frontmatter, que
+// corre en el servidor). No reventaba por casualidad: `allEvents` tampoco
+// llevaba `carruselItems`, así que su guarda `if (foto)` nunca se cumplía y la
+// llamada no se ejecutaba jamás. O sea que la mitad que precargaba LA FOTO
+// —según su propio comentario, "lo único que se ve tardar"— no ha funcionado
+// nunca. Resolviéndola en el servidor no hace falta ninguna copia cliente de la
+// función, y el cliente solo tiene que leer una cadena.
 const allEvents = eventsList.map((e: any) => ({
   idMel: e.idMel,
-  title: e.title,
-  location: e.location || '',
-  locality: e.locality || '',
-  artists: e.artists || '',
-  organizer: e.organizer || '',
-  designer: e.designer || ''
+  title: e.evento,
+  location: e.lugar || '',
+  locality: e.localidad || '',
+  artists: e.artistas || '',
+  organizer: e.organiza || '',
+  designer: e.disenador || '',
+  fotoUrl: extractDriveImage(e.carruselItems?.[0]?.urlDrive) || '',
 }));
-
-// `ancho` = el ancho que Drive debe servir, en píxeles. Pedir siempre w1000
-// costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
-// en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
-// llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
-// valor por defecto porque es el que necesitan la ficha y el lightbox.
-function extractDriveImage(url, ancho = 1000) {
-  if (!url) return '';
-  let fileId = '';
-  if (url.includes('id=')) {
-    fileId = url.split('id=')[1].split('&')[0];
-  } else if (url.includes('/d/')) {
-    fileId = url.split('/d/')[1].split('/')[0];
-  }
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
-}
 
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
 
@@ -975,8 +903,10 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         document.head.appendChild(l);
       };
       meter('prefetch', `/event/${item.idMel}`, false);
-      const foto = item.carruselItems && item.carruselItems[0];
-      if (foto) meter('preload', extractDriveImage(foto.urlDrive), true);
+      // `fotoUrl` la resuelve el servidor al construir `allEvents` — ver el
+      // comentario de ahí: esta línea llamaba a extractDriveImage(), que no
+      // existe en el cliente, sobre un carruselItems que tampoco se pasaba.
+      if (item.fotoUrl) meter('preload', item.fotoUrl, true);
     }
 
     const prevContainer = document.getElementById('nav-prev-container');

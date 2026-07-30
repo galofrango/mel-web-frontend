@@ -13,183 +13,40 @@ import IconButton from '../components/IconButton.astro';
 import IntroAnimation from '../components/IntroAnimation.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
 import EmptyState from '../components/EmptyState.astro';
+import { fetchEvents, extractDriveImage, formatFechaDMY } from '../lib/mel';
 
-// Extract Year from Date String
-function getYear(dateStr) {
-  if (!dateStr || dateStr === 'SIN FECHA') return null;
-  const slashBits = dateStr.split('/');
-  if (slashBits.length === 3) {
-    const yr = parseInt(slashBits[2], 10);
-    if (!isNaN(yr)) return yr;
-  }
-  const dashBits = dateStr.split('-');
-  if (dashBits.length === 3) {
-    const yr = parseInt(dashBits[0], 10);
-    if (!isNaN(yr)) return yr;
-  }
-  const match = dateStr.match(/\b(19\d\d|20\d\d)\b/);
-  if (match) {
-    return parseInt(match[1], 10);
-  }
-  return null;
-}
-
-// DD/MM/AAAA a partir del AAAA-MM-DD tal cual llega de la hoja (columna Fecha).
-// Espejo server-side de la versión cliente (más abajo, en el <script>) — ver
-// AGENTS.md regla 7: FlyerCard se renderiza en SSR y necesita su propia copia.
-function formatFechaDMY(fecha) {
-  let formatted = fecha || '';
-  if (formatted && formatted.includes('-')) {
-    const parts = formatted.split('-');
-    if (parts.length === 3) formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-  return formatted;
-}
-
-// Direct hotlink builder to bypass drive authentication/cors
-// `ancho` = el ancho que Drive debe servir, en píxeles. Pedir siempre w1000
-// costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
-// en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
-// llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
-// valor por defecto porque es el que necesitan la ficha y el lightbox.
 // Anchos por contexto, medidos en navegador: la tarjeta de galería se pinta a
 // 342px (684 con densidad 2) y la miniatura de la lista en una caja de 40px.
 const ANCHO_TARJETA = 700;
 const ANCHO_MINIATURA = 200;
 
-function extractDriveImage(url, ancho = 1000) {
-  if (!url) return '';
-  let fileId = '';
-  if (url.includes('id=')) {
-    fileId = url.split('id=')[1].split('&')[0];
-  } else if (url.includes('/d/')) {
-    fileId = url.split('/d/')[1].split('/')[0];
-  }
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
-}
+// El archivo entero, ya agrupado por evento y en orden cronológico ascendente.
+// El fetch, el parseo del JSON-P, el mapa de columnas y el agrupado viven en
+// src/lib/mel.ts porque la ficha de evento necesita exactamente lo mismo.
+const initialArchives = await fetchEvents();
 
-// Fetch and Group Sheets Google Viz JSON Database
-const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
-const CONFIG_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
-
-let initialArchives = [];
 const initialArtists = new Set();
 const initialDesigners = new Set();
 const initialPromoters = new Set();
 
-try {
-  const response = await fetch(CONFIG_URL);
-  const text = await response.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-  
-  if (match && match[1]) {
-    const cleanJson = JSON.parse(match[1]);
-    const rows = cleanJson.table.rows;
-    
-    const rawItems = rows.map((row) => {
-      const c = row.c;
-      if (!c) return null;
-      return {
-        evento: c[0] ? c[0].v : 'Evento sin título',
-        urlDrive: c[2] ? c[2].v : '',
-        fecha: c[3] ? c[3].f || c[3].v : 'SIN FECHA',
-        lugar: c[4] ? c[4].v : '',   // sin dato es sin dato: rellenarlo con 'León' inventaba un local
-        localidad: c[5] ? c[5].v : '',
-        coordenadas: c[6] ? c[6].v : '',
-        artistas: c[7] ? c[7].v : '',
-        organiza: c[8] ? c[8].v : '',
-        descripcion: c[9] ? c[9].v : '',
-        idMel: c[10] ? c[10].v : '',
-        carruselOrder: c[11] ? c[11].v : '1',
-        disenador: c[13] ? c[13].v : 'Desconocido',
-        existeOriginal: c[16] ? c[16].v : '',
-        formato: c[21] ? c[21].v : 'Flyer',
-        notasArchivo: c[24] ? c[24].v : '',
-        ocr: c[25] ? c[25].v : ''
-      };
-    }).filter(item => item && item.idMel && item.idMel.startsWith('MEL-'));
-    
-    // Group by Event Name + Date
-    const groups = {};
-    rawItems.forEach(item => {
-      const key = `${item.evento.trim().toLowerCase()}_${item.fecha.trim().toLowerCase()}`;
-      if (!groups[key]) {
-        groups[key] = {
-          evento: item.evento,
-          fecha: item.fecha,
-          carruselItems: [],
-          lugar: item.lugar,
-          localidad: item.localidad,
-          coordenadas: item.coordenadas,
-          artistas: item.artistas,
-          organiza: item.organiza,
-          descripcion: item.descripcion,
-          disenador: item.disenador,
-          existeOriginal: item.existeOriginal,
-          formato: item.formato,
-          notasArchivo: item.notasArchivo,
-          ocr: item.ocr,
-          idMel: item.idMel
-        };
-      }
-      groups[key].carruselItems.push({
-        urlDrive: item.urlDrive,
-        carruselOrder: parseInt(item.carruselOrder, 10) || 1,
-        idMel: item.idMel
-      });
-    });
-    function parseDateToNumber(dateStr) {
-      if (!dateStr || dateStr === 'SIN FECHA') return 0;
-      const slashBits = dateStr.split('/');
-      if (slashBits.length === 3) {
-        const d = parseInt(slashBits[0], 10);
-        const m = parseInt(slashBits[1], 10) - 1;
-        const y = parseInt(slashBits[2], 10);
-        return new Date(y, m, d).getTime();
-      }
-      const dashBits = dateStr.split('-');
-      if (dashBits.length === 3) {
-        const y = parseInt(dashBits[0], 10);
-        const m = parseInt(dashBits[1], 10) - 1;
-        const d = parseInt(dashBits[2], 10);
-        return new Date(y, m, d).getTime();
-      }
-      return 0;
-    }
-
-    initialArchives = Object.values(groups).map((g: any) => {
-      g.carruselItems.sort((a, b) => a.carruselOrder - b.carruselOrder);
-      return g;
-    });
-
-    // Sort by date ascending
-    initialArchives.sort((a, b) => {
-      const timeA = parseDateToNumber(a.fecha);
-      const timeB = parseDateToNumber(b.fecha);
-      return timeA - timeB;
-    });
-    
-    // Gather initial unique statistics
-    initialArchives.forEach(item => {
-      if (item.artistas) {
-        item.artistas.split(/,+/).forEach(a => {
-          const cleanA = a.trim().toLowerCase();
-          if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') initialArtists.add(cleanA);
-        });
-      }
-      if (item.organiza) {
-        const cleanP = item.organiza.trim().toLowerCase();
-        if (cleanP && cleanP !== 'desconocido' && cleanP !== 'varios') initialPromoters.add(cleanP);
-      }
-      if (item.disenador) {
-        const cleanD = item.disenador.trim().toLowerCase();
-        if (cleanD && cleanD !== 'desconocido') initialDesigners.add(cleanD);
-      }
+// Recuentos únicos para los tags de cabecera. Los centinelas con que la hoja
+// marca "aquí no hay dato" no cuentan como valor (D-097).
+initialArchives.forEach(item => {
+  if (item.artistas) {
+    item.artistas.split(/,+/).forEach(a => {
+      const cleanA = a.trim().toLowerCase();
+      if (cleanA && cleanA !== 'no detallados' && cleanA !== 'desconocido') initialArtists.add(cleanA);
     });
   }
-} catch (e) {
-  console.error("Error fetching or parsing GSheets JSON database", e);
-}
+  if (item.organiza) {
+    const cleanP = item.organiza.trim().toLowerCase();
+    if (cleanP && cleanP !== 'desconocido' && cleanP !== 'varios') initialPromoters.add(cleanP);
+  }
+  if (item.disenador) {
+    const cleanD = item.disenador.trim().toLowerCase();
+    if (cleanD && cleanD !== 'desconocido') initialDesigners.add(cleanD);
+  }
+});
 
 // Mapped stats matching Figma TagWithLink instances exactly
 const tags = [
@@ -407,14 +264,10 @@ const tags = [
         <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-m auto-rows-[4px] w-full pb-[13vh]">
           {initialArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
-            const yr = getYear(item.fecha) || 2004;
             return (
               <FlyerCard
                 id={item.idMel}
                 title={item.evento}
-                category={item.organiza || "Colectivo"}
-                location={`${item.lugar}. ${item.localidad}`}
-                year={yr}
                 date={formatFechaDMY(item.fecha)}
                 image={imgSrc}
               />
@@ -522,13 +375,13 @@ const tags = [
              whenever there are fewer rows than fit on screen) instead of hugging the table's real
              content, which is what "closing" the table means. Cells already carry border-l/border-r
              on every row, so no side borders needed here either. -->
-        <!-- Mobile: réplica compacta EventCardList (Figma 439:142691) sustituye
-             la tabla ancha de escritorio — ver AGENTS.md regla 7 (JS replica el
-             marcado de EventCardList.astro, poblado en performDOMUpdates()). -->
+        <!-- Mobile: filas compactas (Figma 439:142691) en vez de la tabla ancha
+             de escritorio. Las pinta buildEventCardList() desde
+             performDOMUpdates(); no hay componente Astro que replicar. -->
         <!-- -mx-6 sm:-mx-12 cancela el padding horizontal de la página (px-6 /
              sm:px-12) en todo el rango en que esta lista es visible: las filas
-             ya traen su propio pl-24/pr-16 (EventCardList), así que sin esto
-             quedaban CON DOBLE margen hasta el borde de pantalla. -->
+             ya traen su propio padding lateral, así que sin esto quedaban CON
+             DOBLE margen hasta el borde de pantalla. -->
         <div id="list-mobile-cards" class="block min-[440px]:hidden -mx-6 sm:-mx-12 flex-1 overflow-y-auto relative">
           <!-- `-mt-4` come 16px de scroll de partida, no acerca el componente.
                El hueco hasta el selector de vista eran 32px: 16 del hueco de la
@@ -665,61 +518,6 @@ const tags = [
 
   </div>
 
-  <!-- Lightbox Modal -->
-  <div id="lightbox" class="fixed inset-0 z-[100] bg-mel-bg-primary/95 backdrop-blur-md hidden items-center justify-center p-6 transition-all duration-300">
-    <IconButton 
-      id="close-lightbox" 
-      icon="x"
-      size={40}
-      variant="outline"
-      class="absolute top-6 right-6"
-      aria-label="Cerrar"
-    />
-    
-    <div class="max-w-4xl w-full flex flex-col md:flex-row gap-8 items-center justify-center">
-      <!-- Image frame with figma-like stripes background & Carousel Navigation -->
-      <div class="relative max-h-[75vh] md:w-3/5 overflow-hidden border border-mel-border shadow-2xl flex items-center justify-center p-4 bg-white/40">
-        <div class="absolute inset-0 striped-bg opacity-10 z-0"></div>
-        <img id="lightbox-image" src="" alt="" referrerpolicy="no-referrer" class="max-h-[70vh] max-w-full object-contain z-10 shadow-[var(--mel-shadow-md)]" />
-        
-        <!-- Carousel buttons (Hidden by default, shown for multiple images) -->
-        <IconButton 
-          id="lightbox-prev" 
-          icon="chevron-left"
-          size={40}
-          variant="outline"
-          class="absolute left-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-20 hidden"
-        />
-        <IconButton 
-          id="lightbox-next" 
-          icon="chevron-right"
-          size={40}
-          variant="outline"
-          class="absolute right-4 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white z-20 hidden"
-        />
-        
-        <!-- Carousel indicators (dots) -->
-        <div id="lightbox-dots" class="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-2 z-20"></div>
-      </div>
-      
-      <!-- Metadata -->
-      <div class="md:w-2/5 flex flex-col gap-4">
-        <span id="lightbox-category" class="typo-overline bg-mel-action-secondary text-mel-text-on-action px-3 py-1 self-start">Categoría</span>
-        <h2 id="lightbox-title" class="typo-h3 text-mel-text-primary text-3xl leading-tight">Título del Flyer</h2>
-        <div class="h-[1px] bg-mel-border/60 w-full my-2"></div>
-        <div class="flex flex-col gap-2 text-sm">
-          <div class="flex justify-between">
-            <span class="text-mel-text-secondary typo-overline font-semibold">Localización</span>
-            <span id="lightbox-location" class="text-mel-text-primary typo-body-roman">Localización</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-mel-text-secondary typo-overline font-semibold">Fecha de Archivo</span>
-            <span id="lightbox-date" class="text-mel-text-primary font-mono">Fecha</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <IntroAnimation />
   <SideMenu />
@@ -924,8 +722,9 @@ const tags = [
     animation: list-row-intro 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  /* Map side panel / overlay sidebar tags (makeTagHtml()): value never wraps
-     to a second line or bleeds past the tag's box — always ellipsis. */
+  /* Tags del panel lateral del mapa (marcado SSR de AdaptiveTagsRow, valores
+     escritos por updateAdaptiveTagsRow()): el valor nunca parte a dos líneas
+     ni se sale de la caja del tag — siempre puntos suspensivos. */
   .tag-value-link {
     min-width: 0;
     max-width: 100%;
@@ -1419,8 +1218,6 @@ const tags = [
       currentSortDir: __melSavedSort ? __melSavedSort.dir : 'asc',
       ABSOLUTE_MIN_YEAR: 2004,
       ABSOLUTE_MAX_YEAR: 2019,
-      currentDetailGroup: null,
-      currentCarruselIndex: 0,
       googleMap: null,
       mapMarkers: [],
       // locKey -> { marker, group, inClusterer } — lets updateMapMarkers() update
@@ -1480,8 +1277,6 @@ const tags = [
   let currentSortDir       = _s.currentSortDir;
   let ABSOLUTE_MIN_YEAR    = _s.ABSOLUTE_MIN_YEAR;
   let ABSOLUTE_MAX_YEAR    = _s.ABSOLUTE_MAX_YEAR;
-  let currentDetailGroup   = _s.currentDetailGroup;
-  let currentCarruselIndex = _s.currentCarruselIndex;
 
   // Helper to keep _melState in sync when we mutate these aliases
   function syncState() {
@@ -1491,12 +1286,10 @@ const tags = [
     _s.currentPage = currentPage; _s.currentSortCol = currentSortCol;
     _s.currentSortDir = currentSortDir;
     _s.ABSOLUTE_MIN_YEAR = ABSOLUTE_MIN_YEAR; _s.ABSOLUTE_MAX_YEAR = ABSOLUTE_MAX_YEAR;
-    _s.currentDetailGroup = currentDetailGroup; _s.currentCarruselIndex = currentCarruselIndex;
   }
 
   // DOM Element refs — re-assigned in initHomePage()
   let sliderMin, sliderMax, minHandle, maxHandle, minVal, maxVal, activeFill;
-  let lightbox, lightboxImg, lightboxTitle, lightboxLocation, lightboxCategory, lightboxDate, closeLightboxBtn;
   let btnPrevPage, btnNextPage, paginationNumbers;
 
   // Set false at the top of initHomePage() and flipped true once the initial
@@ -1551,7 +1344,7 @@ const tags = [
   // costaba ~679 KB de media por flyer (el peor del archivo, 2 MB) para pintarlo
   // en una tarjeta de 342px o, peor, en una miniatura de lista de 40px. Cada
   // llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
-  // valor por defecto porque es el que necesitan la ficha y el lightbox.
+  // valor por defecto porque es el que necesita la ficha del evento.
   const ANCHO_TARJETA = 700;
   const ANCHO_MINIATURA = 200;
 
@@ -1598,14 +1391,23 @@ const tags = [
     return formatted;
   }
 
-  // Réplica JS de EventCardList.astro (Figma "Event Card List", node
-  // 291:13479 / Bottom Sheet Mobile Place Events List 439:142691): fila
-  // compacta con miniatura 56x56 en fit (object-contain) sobre fondo
-  // secundario, título, fecha y chevron. Compartida por el panel lateral
-  // del mapa y la lista en móvil — ver AGENTS.md regla 7 si cambia el diseño.
-  function buildEventCardListHtml(evt, { showDivider = true } = {}) {
+  // Fila compacta de evento (Figma "Event Card List", node 291:13479 / Bottom
+  // Sheet Mobile Place Events List 439:142691): miniatura 56x56 en fit
+  // (object-contain) sobre fondo secundario, título, fecha y chevron.
+  // Compartida por el panel lateral del mapa y la lista en móvil.
+  //
+  // Devuelve el elemento COMPLETO, contenedor incluido, y ahí está el motivo de
+  // que exista. Antes devolvía solo el contenido y cada uno de los dos sitios
+  // que la usan escribía por su cuenta las doce utilidades del contenedor; había
+  // además un EventCardList.astro que no se importaba en ningún sitio y se
+  // anunciaba como "la referencia" del marcado — tres copias, y la referencia ya
+  // había divergido (su divisor seguía en 24px fijos cuando el que se ve lleva
+  // los insets responsive de abajo). Aquí hay UN sitio.
+  function buildEventCardList(evt, { showDivider = true, extraClass = '' } = {}) {
     const imgSrc = extractDriveImage(evt.carruselItems?.[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-1.png`;
-    return `
+    const row = document.createElement('div');
+    row.className = `group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200 ${extraClass}`.trim();
+    row.innerHTML = `
       <div class="bg-mel-bg-secondary overflow-clip relative shrink-0 size-[56px]">
         <img src="${imgSrc}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="absolute inset-0 max-w-none object-contain pointer-events-none size-full" />
       </div>
@@ -1618,6 +1420,7 @@ const tags = [
       </div>
       ${showDivider ? '<div class="absolute bottom-[0.5px] h-0 left-6 right-6 sm:left-12 sm:right-12 lg:left-6 lg:right-6 border-b border-mel-border/60"></div>' : ''}
     `;
+    return row;
   }
 
   // -------------------------------------------------------
@@ -1687,8 +1490,15 @@ const tags = [
   }
   window.__melMeasureFlyer = measureFlyerImg;
 
-  // Única fábrica de tarjetas de galería (render completo Y lotes del scroll
-  // infinito) — réplica JS de FlyerCard.astro, ver regla 7 de CLAUDE.md.
+  // Única fábrica de tarjetas de galería en cliente (render completo Y lotes del
+  // scroll infinito).
+  //
+  // ESPEJO de FlyerCard.astro (regla 7). Las dos copias existen a la fuerza y el
+  // por qué está escrito en la cabecera de ese componente: este script lleva
+  // `define:vars`, o sea que es inline, y un script inline no admite `import`.
+  // Si tocas el marcado de una, toca la otra — y compáralas, que ya se
+  // separaron una vez.
+  //
   // Durante un reordenado las tarjetas se nombran por HUECO y no por contenido.
   //
   // Normalmente cada tarjeta se llama `flyer-img-{id}`, que es lo que permite el
@@ -1735,7 +1545,11 @@ const tags = [
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
     const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
-    card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] group bg-white transition-all duration-300 cursor-pointer';
+    // Copiada LITERAL de FlyerCard.astro, en el mismo orden, para que un `diff`
+    // entre las dos cante en cuanto se separen. Ya lo hicieron: aquí estaba la
+    // sombra del DS y allí no, así que la galería cambiaba de aspecto en cuanto
+    // tocabas un filtro.
+    card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30';
     card.dataset.id = item.idMel;
     // Si este cartel ya se midió en esta sesión, la tarjeta nace sabiendo su
     // altura en vez de como placeholder. dimensionarConocidas() se la aplica en
@@ -1748,7 +1562,7 @@ const tags = [
     card.style.viewTransitionName = `flyer-img-${item.idMel}`;
     card.innerHTML = `
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-      <img src="${imgSrc}" alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" />
+      <img src="${imgSrc}" alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);" />
 
       <!-- Blending grid overlay (striped Figma style) -->
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
@@ -1768,7 +1582,7 @@ const tags = [
       prefetchEventUrl(item.idMel, { search: searchQuery });
     }, { once: true, passive: true }));
     card.addEventListener('click', () => {
-      openLightbox(item);
+      abrirFicha(item);
     });
     return card;
   }
@@ -1930,38 +1744,6 @@ const tags = [
     // deferred by the throttle above and not caught up yet.
     if (sliderMin) sliderMin.addEventListener('change', updateSlider);
     if (sliderMax) sliderMax.addEventListener('change', updateSlider);
-  }
-
-  // Carousel Render inside Lightbox
-  function updateLightboxCarousel() {
-    if (!currentDetailGroup) return;
-    const items = currentDetailGroup.carruselItems;
-    const activeItem = items[currentCarruselIndex];
-    lightboxImg.src = extractDriveImage(activeItem.urlDrive);
-    
-    const prevBtn = document.getElementById('lightbox-prev');
-    const nextBtn = document.getElementById('lightbox-next');
-    const dotsContainer = document.getElementById('lightbox-dots');
-    
-    dotsContainer.innerHTML = '';
-    
-    if (items.length > 1) {
-      prevBtn.classList.remove('hidden');
-      nextBtn.classList.remove('hidden');
-      
-      items.forEach((_, idx) => {
-        const dot = document.createElement('div');
-        dot.className = `w-2 h-2 cursor-pointer transition-colors border border-mel-border ${idx === currentCarruselIndex ? 'bg-mel-action-secondary' : 'bg-white/60'}`;
-        dot.addEventListener('click', () => {
-          currentCarruselIndex = idx;
-          updateLightboxCarousel();
-        });
-        dotsContainer.appendChild(dot);
-      });
-    } else {
-      prevBtn.classList.add('hidden');
-      nextBtn.classList.add('hidden');
-    }
   }
 
   // Guarda el contexto de navegación justo antes de salir de `/` hacia la
@@ -2408,42 +2190,12 @@ const tags = [
     }
   }
 
-  function openLightbox(item) {
+  // Abrir un cartel = navegar a su ficha. Se llamaba `openLightbox` y no abría
+  // ningún lightbox: aquel overlay se sustituyó por navegación real y el nombre
+  // se quedó, apuntando a un modal que ya no existía. Su marcado y sus listeners
+  // siguieron en pie hasta esta limpieza.
+  function abrirFicha(item) {
     navigateToEvent(item.idMel, { search: searchQuery });
-  }
-
-  function closeLightbox() {
-    lightbox.classList.remove('flex');
-    lightbox.classList.add('hidden');
-    document.body.classList.remove('overflow-hidden');
-    currentDetailGroup = null;
-  }
-
-  // Lightbox bindings — called from initHomePage()
-  function bindLightboxEvents() {
-    if (closeLightboxBtn) closeLightboxBtn.addEventListener('click', closeLightbox);
-    if (lightbox) lightbox.addEventListener('click', (e) => {
-      if (e.target === lightbox) closeLightbox();
-    });
-
-    const lbPrev = document.getElementById('lightbox-prev');
-    const lbNext = document.getElementById('lightbox-next');
-    if (lbPrev) lbPrev.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!currentDetailGroup) return;
-      const items = currentDetailGroup.carruselItems;
-      currentCarruselIndex = (currentCarruselIndex - 1 + items.length) % items.length;
-      syncState();
-      updateLightboxCarousel();
-    });
-    if (lbNext) lbNext.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!currentDetailGroup) return;
-      const items = currentDetailGroup.carruselItems;
-      currentCarruselIndex = (currentCarruselIndex + 1) % items.length;
-      syncState();
-      updateLightboxCarousel();
-    });
   }
 
   function bindInitialCardClicks() {
@@ -2456,7 +2208,7 @@ const tags = [
       card.addEventListener('click', () => {
         const id = card.dataset.id;
         const item = archives.find(x => x.idMel === id);
-        if (item) openLightbox(item);
+        if (item) abrirFicha(item);
       });
     });
   }
@@ -3001,10 +2753,11 @@ const tags = [
         if (mobileListItems && paginated.length > 0) {
           mobileListItems.innerHTML = '';
           paginated.forEach((item, idx) => {
-            const row = document.createElement('div');
-            row.className = 'mobile-event-card-list group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
+            const row = buildEventCardList(item, {
+              showDivider: idx < paginated.length - 1,
+              extraClass: 'mobile-event-card-list',
+            });
             row.dataset.id = item.idMel;
-            row.innerHTML = buildEventCardListHtml(item, { showDivider: idx < paginated.length - 1 });
             // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
             // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
             // ficha aparecía al instante y en el teléfono se notaba la espera.
@@ -3647,9 +3400,12 @@ const tags = [
       listContainer.innerHTML = '';
 
       group.events.forEach((evt, idx) => {
-        const card = document.createElement('div');
-        card.className = 'group content-stretch cursor-pointer flex gap-[16px] items-center px-6 sm:px-12 lg:px-6 py-[16px] relative shrink-0 w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200';
-        card.innerHTML = buildEventCardListHtml(evt, { showDivider: idx < group.events.length - 1 });
+        // `shrink-0`: el panel es una columna flex de alto acotado y sin esto las
+        // filas se encogen (trampa nº6 del traspaso).
+        const card = buildEventCardList(evt, {
+          showDivider: idx < group.events.length - 1,
+          extraClass: 'shrink-0',
+        });
 
         // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
         // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
@@ -4242,8 +3998,6 @@ const tags = [
     currentSortDir     = _s.currentSortDir;
     ABSOLUTE_MIN_YEAR  = _s.ABSOLUTE_MIN_YEAR;
     ABSOLUTE_MAX_YEAR  = _s.ABSOLUTE_MAX_YEAR;
-    currentDetailGroup   = _s.currentDetailGroup;
-    currentCarruselIndex = _s.currentCarruselIndex;
     googleMap          = _s.googleMap;
     mapMarkers         = _s.mapMarkers;
     locationMarkers    = _s.locationMarkers;
@@ -4262,14 +4016,6 @@ const tags = [
     minVal     = minHandle ? minHandle.querySelector('span') : null;
     maxVal     = maxHandle ? maxHandle.querySelector('span') : null;
     activeFill = document.getElementById('slider-active-fill');
-
-    lightbox         = document.getElementById('lightbox');
-    lightboxImg      = document.getElementById('lightbox-image');
-    lightboxTitle    = document.getElementById('lightbox-title');
-    lightboxLocation = document.getElementById('lightbox-location');
-    lightboxCategory = document.getElementById('lightbox-category');
-    lightboxDate     = document.getElementById('lightbox-date');
-    closeLightboxBtn = document.getElementById('close-lightbox');
 
     btnPrevPage      = document.getElementById('btn-prev-page');
     btnNextPage      = document.getElementById('btn-next-page');
@@ -4441,15 +4187,7 @@ const tags = [
 
     // Bind all event listeners
     bindSliderEvents();
-    bindLightboxEvents();
     bindPaginationEvents();
-
-    // Listen for lightbox open from map popup buttons
-    window.addEventListener('mel-open-lightbox', (e) => {
-      const id = e.detail.id;
-      const item = archives.find(x => x.idMel === id);
-      if (item) openLightbox(item);
-    }, { signal: wSig });
 
     // Listen for view switcher from menu items
     window.addEventListener('mel-switch-view', (e) => {
@@ -4695,7 +4433,7 @@ const tags = [
         if (!inTable && !inMobileCards) return; // Only handle clicks within the list view (table or mobile cards)
 
         // Mobile: the whole EventCardList row is clickable, same target as
-        // the table's thumbnail+title (openLightbox navigates with the
+        // the table's thumbnail+title (abrirFicha navigates with the
         // current search as context, unlike the map panel's location-scoped
         // navigateToEvent()).
         if (inMobileCards) {
@@ -4704,7 +4442,7 @@ const tags = [
             e.stopPropagation();
             const id = row.getAttribute('data-id');
             const item = archives.find(x => x.idMel === id);
-            if (item) openLightbox(item);
+            if (item) abrirFicha(item);
           }
           return;
         }
@@ -4717,7 +4455,7 @@ const tags = [
           const img = target.classList.contains('list-img-link') ? target : target.closest('.list-img-link');
           const id = img.getAttribute('data-id');
           const item = archives.find(x => x.idMel === id);
-          if (item) openLightbox(item);
+          if (item) abrirFicha(item);
           return;
         }
 
@@ -4727,7 +4465,7 @@ const tags = [
           const link = target.classList.contains('event-title-link') ? target : target.closest('.event-title-link');
           const id = link.getAttribute('data-id');
           const item = archives.find(x => x.idMel === id);
-          if (item) openLightbox(item);
+          if (item) abrirFicha(item);
           return;
         }
 

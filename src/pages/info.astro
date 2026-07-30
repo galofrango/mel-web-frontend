@@ -2,11 +2,10 @@
 import Layout from '../layouts/Layout.astro';
 import SideMenu from '../components/SideMenu.astro';
 import HeaderSimple from '../components/HeaderSimple.astro';
+import { fetchSheetRows, extractDriveImage, escHtml } from '../lib/mel';
 
 // Dynamic fetching from Google Sheets tab: "Página de Información"
-const SHEET_ID = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
-const sheetName = encodeURIComponent('Página de Información');
-const INFO_SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${sheetName}`;
+const HOJA_INFO = 'Página de Información';
 
 let sectionsData = [];
 
@@ -104,14 +103,12 @@ const fallbackSections = [
 //  E "Orden de módulo"    -> item order within its section
 //  F "Imagen"             -> optional image URL shown inside the accordion
 //  G "Contenido"          -> text (line breaks split paragraphs)
+// `fetchSheetRows()` ya absorbe el fallo de red y el JSON ilegible (devuelve
+// `[]`), así que aquí solo hace falta protegerse de que la hoja traiga filas con
+// una forma inesperada. Con cero secciones entran los textos de reserva de abajo.
 try {
-  const response = await fetch(INFO_SHEET_URL);
-  const text = await response.text();
-  const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-
-  if (match && match[1]) {
-    const cleanJson = JSON.parse(match[1]);
-    const rows = cleanJson.table.rows;
+  const rows = await fetchSheetRows(HOJA_INFO);
+  if (rows.length) {
     const sectionsMap = {};
 
     rows.forEach(row => {
@@ -126,17 +123,11 @@ try {
       const moduleTitle = c[3] ? c[3].v : '';
       const moduleOrder = c[4] && c[4].v != null ? Number(c[4].v) : 999;
       const rawImage = c[5] && c[5].v ? String(c[5].v).trim() : '';
-      // Google Drive share links can't load in an <img> directly — convert
-      // them to the thumbnail endpoint (same trick as the event flyers).
-      // Non-Drive URLs pass through untouched.
-      let imageUrl = rawImage;
-      if (rawImage.includes('drive.google.com')) {
-        let fileId = '';
-        if (rawImage.includes('id=')) fileId = rawImage.split('id=')[1].split('&')[0];
-        else if (rawImage.includes('/d/')) fileId = rawImage.split('/d/')[1].split('/')[0];
-        // Retrato de equipo en caja pequeña: w1000 traía ~700 KB para nada.
-        imageUrl = fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w500` : rawImage;
-      }
+      // Las URLs que no son de Drive pasan tal cual. 500px porque es un retrato
+      // de equipo en caja pequeña: w1000 traía ~700 KB para nada.
+      const imageUrl = rawImage.includes('drive.google.com')
+        ? (extractDriveImage(rawImage, 500) || rawImage)
+        : rawImage;
       const textVal = c[6] ? String(c[6].v) : '';
 
       if (!sectionsMap[sectionName]) {
@@ -178,9 +169,7 @@ if (sectionsData.length === 0) {
 // Turns plain sheet text into safe HTML where emails and @handles become
 // links (mailto: / instagram profile) — so contact info typed straight into
 // the sheet works as links without anyone touching code.
-function escapeHtml(s) {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+
 // Same style as Link.astro's default state (Body Roman Lora): serif font,
 // text-secondary that turns action-primary on hover, with a scaleX(0->1)
 // underline instead of the browser's native text-decoration. The font is
@@ -189,7 +178,7 @@ function escapeHtml(s) {
 function linkify(s) {
   const wrap = (href, label, extraAttrs = '') =>
     `<a href="${href}" ${extraAttrs} class="group typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors relative no-underline"><span class="relative inline-block text-inherit">${label}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
-  return escapeHtml(s)
+  return escHtml(s)
     .replace(/([\w.+-]+@[\w-]+\.[\w.-]*\w)/g, (_m, email) => wrap(`mailto:${email}`, email))
     .replace(/(^|\s)@([\w.]*\w)/g, (_m, pre, handle) => `${pre}${wrap(`https://instagram.com/${handle}`, `@${handle}`, 'target="_blank" rel="noopener"')}`);
 }

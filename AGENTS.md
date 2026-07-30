@@ -126,8 +126,9 @@ Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
 
 Ver el árbol comentado en [README.md](README.md#estructura-general). Puntos críticos:
 
-- `src/pages/index.astro` es un **monolito deliberado** (~3600 líneas): contiene las tres vistas de la home (Galería, Mapa, Lista), el buscador, los filtros, el mapa y el overlay SPA de detalle. **Nunca lo leas entero de golpe; usa `grep` para localizar secciones.**
-- `src/components/` contiene los componentes Astro de presentación, anotados con su nodo de Figma en `data-node-id`.
+- `src/pages/index.astro` es un **monolito deliberado** (~4900 líneas): contiene las tres vistas de la home (Galería, Mapa, Lista), el buscador, los filtros y el mapa con su panel lateral. **Nunca lo leas entero de golpe; usa `grep` para localizar secciones.** Ya no contiene ningún overlay de detalle — abrir un cartel navega a `/event/[id]` (D-154).
+- `src/lib/mel.ts` es la **capa de datos, y es la única**: lectura de la hoja, parseo del JSON-P, mapa de columnas, agrupado por evento y los ayudantes de fecha/imagen/escape. Las tres páginas que leen la hoja importan de aquí (D-153). Ojo con el límite de la regla 7: los scripts de cliente **no pueden importar de este módulo**.
+- `src/components/` contiene los componentes Astro de presentación, anotados con su nodo de Figma en `data-node-id`. Todos se importan desde algún sitio: si añades uno que no se use, bórralo o no lo añadas — un componente huérfano que dice ser "la referencia" de un marcado acaba mintiendo (D-154).
 
 ---
 
@@ -177,7 +178,15 @@ Si detectas discrepancias entre la documentación, el código o conversaciones p
 4. **`history.back()` + fade propio = tirón:** El `ClientRouter` de Astro intercepta la navegación y superpone su propia transición. Para navegaciones con fade manual usa `window.location.href = ...` (recarga dura).
 5. **`calc()` dentro de `<col style="width:...">` no es fiable:** En este entorno renderiza columnas desiguales; usa porcentajes planos calculados a mano.
 6. **`text-overflow: ellipsis` exige la cadena completa:** Aplica `overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%` al propio elemento. En contenedores flex anidados es indispensable añadir `min-w-0` a toda la cadena de padres.
-7. **Los componentes Astro no existen en cliente:** El HTML generado dinámicamente por JS (filas de tabla, tags del overlay, estados vacíos) debe replicar exactamente el marcado y clases de los componentes Astro. Si cambias un componente, actualiza sus réplicas JS (p. ej. `makeTagHtml()` o los renderers de la lista en `index.astro`).
+7. **Los componentes Astro no existen en cliente:** un componente `.astro` se renderiza en el servidor y punto; el HTML que genera el JS en el navegador tiene que replicar su marcado y sus clases a mano. **Y no se arregla con un `import`:** los scripts de `index.astro` y de la ficha llevan `define:vars`, lo que en Astro implica script **inline**, y un script inline no pasa por Vite — el `import` se queda como texto literal y revienta en el navegador (comprobado, ver D-155). Si algo tiene que cruzar al cliente, **calcúlalo en el servidor y pásalo por `define:vars`**.
+
+   Réplicas vivas **hoy** (la única que queda de marcado): `FlyerCard.astro` ⇄ `buildGalleryCard()` en `index.astro`. Están verificadas idénticas y cada una apunta a la otra; si tocas una, toca la otra y **compáralas**.
+
+   Duplicadas por la misma razón, en el script de `index.astro`: `extractDriveImage`, `escHtml`, `formatFechaDMY`, `getYear` y `parseDateToNumber`, cuya fuente de verdad es `src/lib/mel.ts`.
+
+   Y el patrón que **sí** esquiva el problema, preferible siempre que se pueda: `AdaptiveTagsRow` renderiza el marcado en SSR y `updateAdaptiveTagsRow()` solo escribe los valores dentro. Así se retiró `makeTagHtml()`, y así se hizo con `EmptyState`.
+
+   Lo que la historia de esta regla enseña: un componente que **no se importa en ningún sitio** y se anuncia como "la referencia" del marcado es peor que no tenerlo. Nada rompe cuando se desvía, así que se desvía. Pasó con `EventCardList.astro` (D-154).
 8. **URLs de Google Drive (`extractDriveImage`):** Un enlace `drive.google.com/file/d/ID/view` no carga en un `<img>`; conviértelo siempre al endpoint `https://drive.google.com/thumbnail?id=ID&sz=w1000`. Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
 9. **Espaciados verticales en `vh` y de intro en `%`:** Están calibrados a 1440px de ancho / ~1100px de alto para reproducir los píxeles aprobados por el propietario en pantalla 4K. No los reconviertas a píxeles fijos.
 10. **Geometría del Header unificada:** Mismo padding superior `pt-[10vh]` y misma fila en todas las páginas. El título colapsa a "M.E.L." por debajo de **440px** (no en `lg`; la cuenta está en `HeaderSimple.astro` y en D-152) y el menú a icono, con gap de 16px. En páginas nuevas **usa `<HeaderSimple />`**, no copies el marcado: estuvo duplicado byte a byte en `exposiciones`, `info` y `404` porque esta misma regla decía "replica el header", y eso es una invitación a que se desincronicen. La home no lo usa —lleva el buscador (`HeaderTitle`) y su título es un campo, no un enlace—, pero la geometría de la fila y el punto de colapso SÍ tienen que coincidir entre ambas: si no, el título salta de sitio al navegar.
@@ -218,7 +227,7 @@ Antes de dar cualquier tarea importante por finalizada, debes verificar internam
 
 1. **Localizar con `grep`:** Busca ids, clases o atributos `data-node-id` / `data-name`.
 2. **Consultar Figma:** Verifica nodos de Figma anotados en el código cuando realices ajustes visuales.
-3. **Mantenimiento en Espejo:** Si modificas el detalle de evento, actualiza `src/pages/event/[id].astro` **y** el overlay SPA en `src/pages/index.astro`.
+3. **La ficha de evento es UNA página, no un espejo.** Vive solo en `src/pages/event/[id].astro`. ~~Actualiza también el overlay SPA de `index.astro`.~~ **Ese overlay no existe**: era el lightbox viejo, se sustituyó por navegación real y su marcado se quedó muerto y oculto hasta que se borró (D-154). Esta regla mandaba durante ese tiempo a editar código que no se renderizaba nunca. Si buscas el espejo que queda, es el de la tarjeta de galería — regla 7.
 4. **Prueba local en servidor de desarrollo:**
    ```sh
    npm run dev      # servidor en http://localhost:4321

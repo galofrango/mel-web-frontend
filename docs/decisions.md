@@ -2057,3 +2057,140 @@ El navegador indexa lo precargado por **URL exacta**, así que no había acierto
 **Verificación**: estructural, no por muestreo — hay **una sola** función que produce la cadena y no queda ninguna otra plantilla `/event/${…}` en el archivo (comprobado por grep), así que los dos caminos no pueden divergir. Es más fuerte que cualquier medición puntual.
 
 **Lo que NO se pudo comprobar de extremo a extremo aquí**, y por qué: `pointerenter` no burbujea, así que un evento sintético no alcanza al manejador delegado de la tabla; los fotogramas están congelados, así que las filas quedan a medio FLIP; y sondear el estado a mano lo ensucia. Queda para el propietario confirmar la velocidad real en su teléfono.
+
+---
+
+### D-153 — La capa de datos, a un solo sitio (`src/lib/mel.ts`)
+
+**Contexto**: auditoría de componentes a peticion del propietario (30 jul 2026).
+No existía ninguna carpeta compartida, así que cada página que lee la hoja traía
+su propia copia de lo mismo. El recuento real: el `SHEET_ID` y el parseo del
+JSON-P **tres veces** (home, ficha, info); `extractDriveImage` **cuatro** (las dos
+mitades de la home —frontmatter y script—, la ficha, y una cuarta escrita a mano
+dentro de `info.astro`); el mapa de columnas `c[0]…c[25]` y el agrupado por
+evento+fecha, **dos**; `parseDateToNumber`, `formatFechaDMY` y `getYear`, **dos**
+cada una; el escapador de HTML, **dos** (`escHtml` / `escapeHtml`).
+
+**Lo que ya había costado**, y es el argumento entero de esta decisión:
+
+1. `event/[id].astro` decía `notesArchivo` donde las demás dicen `notasArchivo`.
+   Un typo de copiar y pegar. Solo era inofensivo porque ese campo —y con él
+   `existeOriginal`, `formato` y `ocr`— se leía de la hoja para tirarlo acto
+   seguido al construir los grupos.
+2. Los dos `getYear` **no eran iguales**: el del frontmatter llamaba a `.split()`
+   directamente sobre el argumento (revienta si la hoja devuelve un número) y no
+   reconocía un año suelto tipo `"2008"`. El del cliente sí. Nadie lo sabía.
+
+**Decisión**: `src/lib/mel.ts` es la única fuente. Las tres páginas importan de
+ahí.
+
+**Lo que NO se unificó, y por qué**: la ficha renombra los campos a inglés
+(`title`, `date`, `location`) y la home los deja en español (`evento`, `fecha`,
+`lugar`). El módulo devuelve español y la ficha hace su propio mapeo en cuatro
+líneas. Renombrar la mitad de `index.astro` habría sido un diff enorme por un
+beneficio nulo: lo que importaba —fetch, parseo, columnas y agrupado— ya es
+común.
+
+**`formatFechaDMY` se copió LITERAL**, con la tentación de mejorarla resistida a
+propósito: reordena sin normalizar los ceros, y de ahí sale que en pantalla
+convivan "9/10/2004" y "5/01/2005". Un `parseInt` por pieza habría cambiado
+fechas ya validadas por el propietario.
+
+**Verificación**: `npm run build` verde; las seis rutas responden lo que deben
+(incluido el 404 real en `/no-existe`); los recuentos de la home siguen dando
+50/165/1/5; la tabla de Lista sigue empezando por "Trip With Us · 9/10/2004 ·
+desconocido · S. Andrés del Rabanedo · Ravers 7.5 · Galo Franganillo"; el panel
+del mapa sigue abriendo Sala Retrovisor con sus 8 eventos.
+
+---
+
+### D-154 — El lightbox llevaba tiempo muerto y la regla 3 mandaba mantenerlo
+
+**Contexto**: `openLightbox()` era, desde alguna reescritura anterior, un alias de
+tres líneas de `navigateToEvent()`. El overlay que le daba nombre no se abría
+nunca: **nada** en las 5.000 líneas de `index.astro` le quitaba el `hidden`.
+
+Seguía en pie, sin embargo: 55 líneas de marcado, siete variables de módulo con
+sus siete `getElementById`, `updateLightboxCarousel()` (que no llamaba nadie),
+`bindLightboxEvents()` —esta **sí** se ejecutaba en cada `astro:page-load`,
+colgando listeners de close/prev/next sobre DOM permanentemente oculto— y un
+`window.addEventListener('mel-open-lightbox')` que nadie despachaba.
+
+**Lo grave no era el código muerto, era la documentación.** La regla 3 de
+`AGENTS.md` decía: *"Si modificas el detalle de evento, actualiza
+`event/[id].astro` **y** el overlay SPA en `index.astro`"*. Ese overlay ya no era
+un espejo de nada — era el lightbox viejo, con una estructura que no se parece a
+la ficha. Cualquier agente que siguiera la regla habría editado marcado muerto
+convencido de estar sincronizando. La regla 7 citaba además `makeTagHtml()`, una
+función que ya no existe (los tags del panel se hacen bien desde hace tiempo:
+marcado SSR de `AdaptiveTagsRow` y JS que solo escribe los valores).
+
+**Decisión**: fuera el subsistema entero. `openLightbox` pasa a `abrirFicha`,
+porque el nombre viejo mandaba a buscar un modal inexistente. Reglas 3 y 7 de
+`AGENTS.md` corregidas.
+
+**Y fuera ocho componentes que no importaba nadie** (581 líneas): `Card`,
+`EventCard`, `EventCardList`, `EventCarousel`, `EventHeader`, `EventInfoBox`,
+`MapMarker`, `TagButton`. Dos merecen mención:
+
+- `MapMarker.astro` implementaba el marcador con utilidades Tailwind mientras el
+  mapa real lo pinta con clases CSS `.mel-marker-*`. Dos implementaciones del
+  mismo nodo de Figma (261:10331), y la que parecía canónica era la que no se
+  usaba.
+- `EventCardList.astro` se anunciaba en su propio comentario como *"the structure
+  below serves as reference"* de la réplica JS. No se renderizaba nunca, así que
+  nada rompía al desviarse — **y ya se había desviado**: su divisor seguía en
+  `left-[24px] right-[24px]` cuando el que se ve lleva
+  `left-6 sm:left-12 lg:left-6`. Un componente que documenta un diseño que no
+  se envía es peor que no tenerlo. Su marcado se absorbió en
+  `buildEventCardList()`, que ahora devuelve el elemento COMPLETO y mata también
+  las dos copias del `className` del contenedor que había en sus dos llamantes.
+
+---
+
+### D-155 — La tarjeta de galería seguirá duplicada, y hay un motivo técnico
+
+**Contexto**: `FlyerCard.astro` (servidor, las 32 primeras) y
+`buildGalleryCard()` (cliente, todo lo demás) son el mismo objeto escrito dos
+veces, y se habían separado:
+
+| | `FlyerCard.astro` | `buildGalleryCard()` |
+|---|---|---|
+| sombra en reposo | *ninguna* | `--mel-shadow-sm` |
+| `onerror` de la `<img>` | fallback + volver a medir | **faltaba** |
+
+Consecuencias medidas en navegador: la galería **cambiaba de aspecto** en cuanto
+tocabas un filtro (o pasabas de la tarjeta 32), y sin `onerror` un cartel que
+fallase no volvía a llamar a la medición, así que se quedaba `.unsized` para
+siempre — `span 75` y 280px de hueco blanco en el masonry. Con el problema
+conocido de Safari + Drive, no es hipotético.
+
+**Por qué NO se unifica con un import**: el script de la home lleva
+`define:vars`, lo que en Astro implica script **inline**, y un script inline no
+pasa por Vite. Comprobado con una página de prueba: el `import` sobrevive
+**literal** en el HTML servido, o sea que revienta en el navegador. Unificarlas
+de verdad exige convertir ese script a módulo con los datos en una isla JSON, y
+eso mueve la inicialización por `astro:page-load` y el singleton
+`window._melState` — la maquinaria exacta de la regla 1, y de las que solo dan
+la cara en un teléfono real. **Decisión aplazada al propietario.**
+
+**Lo que sí se hizo**: las dos copias, idénticas y verificadas
+(`getComputedStyle` devuelve la misma `box-shadow` en las dos rutas), cada una
+apuntando a la otra por nombre. La sombra elegida es la del DS —
+`design-system.md` asigna `--mel-shadow-sm` explícitamente a la *tarjeta de
+galería*— y coincide con lo que el propietario ya daba por bueno.
+
+**Y se retiraron cuatro atributos que no leía nadie**: `data-year`,
+`data-category`, `data-title` y `data-location` estaban en `FlyerCard.astro` y no
+los consultaba ni una regla CSS ni un selector. Por eso su ausencia en la réplica
+JS nunca dio la cara. Con ellos se van tres props del componente.
+
+**Bug latente encontrado de paso, y arreglado**: `adelantarVecino()` en la ficha
+—la precarga de vecinos de D-090— llamaba a `extractDriveImage()` **dentro del
+script de cliente**, donde esa función no existe (vive en el frontmatter, que
+corre en el servidor). No reventaba por casualidad: `allEvents` tampoco llevaba
+`carruselItems`, así que su guarda `if (foto)` nunca se cumplía. Es decir: la
+mitad que precargaba **la foto** —según su propio comentario, *"lo único que se ve
+tardar"*— no ha funcionado nunca. Ahora la URL se resuelve en el servidor
+(`fotoUrl` en `allEvents`) y el cliente solo lee una cadena, sin necesitar copia
+alguna de la función.

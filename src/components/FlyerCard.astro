@@ -1,15 +1,35 @@
 ---
+/**
+ * Tarjeta de la galería, lado servidor: pinta las primeras 32.
+ *
+ * MANTENIMIENTO EN ESPEJO (regla 7 de AGENTS.md). A partir de la tarjeta 33, y
+ * en cada filtrado, búsqueda, reordenado o lote del scroll infinito, estas
+ * tarjetas las rehace `buildGalleryCard()` en el script de index.astro. Las dos
+ * TIENEN que decir lo mismo.
+ *
+ * Y no se puede arreglar con un import: el script de la home lleva
+ * `define:vars`, lo que en Astro implica que es un script INLINE, y un script
+ * inline no lo procesa Vite — un `import` ahí se queda como texto literal y
+ * revienta en el navegador (comprobado). Compartir este marcado de verdad exige
+ * cambiar cómo se declara ese script, que es la maquinaria de la que dependen la
+ * inicialización por `astro:page-load` y el singleton `window._melState`.
+ *
+ * Ya se habían separado una vez: aquí faltaba la sombra del DS
+ * (`--mel-shadow-sm`, que design-system.md asigna explícitamente a la tarjeta de
+ * galería) y allí faltaba el `onerror`.
+ *
+ * `data-year`, `data-category`, `data-title` y `data-location` estaban aquí y no
+ * los leía nadie — ni una regla CSS ni un selector. Por eso su ausencia en la
+ * réplica JS nunca dio la cara. Fuera, con sus props.
+ */
 interface Props {
   title: string;
-  category: string;
-  location: string;
-  year: number;
   date: string;
   image: string;
   id: string;
 }
 
-const { title, category, location, year, date, image, id } = Astro.props;
+const { title, date, image, id } = Astro.props;
 ---
 <!-- El `view-transition-name` va en LA TARJETA, no en la imagen de dentro.
      Estuvo en la `<img>` y eso hacía que al reordenar volase solo la foto: la
@@ -21,12 +41,8 @@ const { title, category, location, year, date, image, id } = Astro.props;
      etiqueta, como un solo objeto. -->
 <div
   style={`view-transition-name: flyer-img-${id};`}
-  class="gallery-item unsized relative overflow-hidden bg-white cursor-pointer transition-all duration-300 group hover:z-30"
+  class="gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30"
   data-id={id}
-  data-year={year}
-  data-category={category}
-  data-title={title.toLowerCase()}
-  data-location={location.toLowerCase()}
   data-node-id="Grid Image V2"
 >
   <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers.
