@@ -1825,3 +1825,235 @@ El propietario sospechó que la fuente del marcador de cluster no seguía el est
 - **Arreglo**: `padding: 10px 12px 10px 8px`. Los 10px verticales dejan la caja de contenido en 20px exactos, iguales a los pines. Los 8px de la izquierda son los 4 que pidió el propietario para equilibrar el peso visual ahora que la etiqueta empieza por `+` (el signo es más ligero y alto que las cifras). **Efecto colateral señalado**: el bocadillo queda 4px más estrecho, no solo el texto desplazado.
 - **Artefacto de medición que hay que conocer**: los marcadores tienen animación de entrada y en el entorno del agente los fotogramas están congelados, así que `getBoundingClientRect()` devuelve las medidas escaladas a ~0,6 (24 en vez de 40). Las de layout (`clientHeight`) no se ven afectadas y son las que valen.
 - **Sin verificar**: el cambio de tamaño con el zoom. La API de Maps no carga en el entorno del agente (el área sale gris). Si persiste tras esto, es otra causa.
+
+## D-151 · Buscador V1.2 — la pica delante del título
+
+Cambio único, y viene de feedback real de usuarios.
+
+- **Problema 1**: la gente no identifica el título como un buscador.
+- **Problema 2**, entre quienes sí lo entienden: pulsan **a la derecha de la pica** para empezar a escribir —donde iría el texto si el caret estuviera esperando— y ahí no hay nada. El botón termina en la pica, así que el toque cae al vacío y no pasa nada.
+- **Arreglo**: la pica pasa delante del título (`ml-1` → `mr-1`). Ese mismo gesto instintivo aterriza ahora sobre el texto, que sí es pulsable. **No se amplía la zona de click ni se toca el estado activo**: solo cambia de lado el caret.
+- **Verificado**: pica en x=188 y título en x=197 (delante), y un click real en x=200 —justo a la derecha del caret, el punto que antes fallaba— abre el buscador (`data-state="placeholder"`) y deja el foco en `#search-active-input`, listo para escribir.
+- **Artefacto de medición**: la pica sale con `opacity: 0` en las capturas del entorno del agente. No es un fallo: tiene animación de parpadeo (`mel-cursor-blink`) y aquí los fotogramas están congelados, así que se queda clavada en la fase apagada. Mide 5×24px y está en su sitio.
+- El problema 1 sigue abierto: es lo que persigue la V2.
+
+### Hallazgo colateral (no arreglado aquí)
+
+`index.astro` busca el campo por `getElementById('search-input')` y ese id **no existe en el proyecto** (el real es `search-active-input`). No es un fallo funcional —`HeaderTitle.astro` restaura la búsqueda leyendo `URLSearchParams` por su cuenta—, así que es código muerto que aparenta hacer algo. Queda apuntado como tarea aparte.
+
+## D-152 · Cabecera: contraste del título y colapso a siglas recalculado
+
+Ambos cambios salen de la primera ronda de feedback — ver [insights.md](insights.md).
+
+### El título a `text-secondary`
+
+La pica es lo único que insinúa que ahí se escribe, y desde la V1.2 está a la
+izquierda, donde su parpadeo se nota menos (antes cerraba la frase, justo donde
+la vista acaba de leer). Restarle peso al texto es lo que la deja destacar. El
+título pasa de `text-mel-text-primary` a `text-mel-text-secondary`. Verificado:
+`hsla(348, 24%, 30%)` frente al 6% de luminosidad del primary.
+
+### El colapso a siglas, de 1024px a 440px
+
+- **Regla del propietario**: el título nunca puede quedar a menos de 40px del
+  menú o de su botón.
+- **Medido**, no estimado: el título largo ocupa **300px** con Space Grotesk
+  cargada (270 con la de reserva, así que la medida es con la fuente buena) y la
+  pica suma 9px con su margen. La separación real hasta el menú es
+  `ventana − 2×padding − ancho del menú − 309`; el `gap` del flex no entra en la
+  cuenta porque el contenedor del título es `flex-1` y absorbe el sobrante.
+
+  | Rango | Padding | Menú | Ventana mínima |
+  |---|---|---|---|
+  | <640 | 24 | 40 (icono) | **437** |
+  | 640–767 | 48 | 40 (icono) | **485** |
+  | 768–1023 | 48 | 113 (Menú+icono) | **558** |
+  | ≥1024 | 108 | 113 | 678 |
+
+  Cada tramo necesita menos de lo que mide su propio suelo, así que **el título
+  entero cabe en cualquier ancho ≥437px**. A 1024 sobraban 215px de margen ya en
+  una pantalla de 700.
+- **Elegido 440px**: deja 43px de separación (3 de colchón sobre la regla) y
+  reutiliza el breakpoint que el proyecto ya usa para el botón de ordenación y
+  para la lista en tarjetas, en vez de introducir un número nuevo.
+- **Verificado en los bordes**: 439 → `M.E.L.`; 440 → título largo con 43px;
+  768 (el tramo más apretado, donde aparece el label "Menú") → 250px; 360 → siglas
+  y sin desbordamiento horizontal.
+- **Si cambia el texto del título, el del menú o el padding de la página, hay que
+  rehacer esta cuenta.** Queda anotada en el propio componente.
+
+## D-153 · `docs/insights.md` — registro de observaciones de usuarios
+
+**Petición del propietario**, y con un motivo que merece quedar escrito: el porqué
+se pierde antes que el qué. El código dice lo que hace y `decisions.md` dice cómo
+se implementó, pero ninguno de los dos recuerda **que alguien no encontró el
+buscador**. Sin eso, dentro de un año alguien "arregla" el orden de la pica y
+devuelve el problema.
+
+- Una entrada por observación, con fecha y fuente.
+- **Se distingue siempre lo que dijo un usuario de lo que prefiere el
+  propietario.** No es lo mismo un dato sobre el producto que una decisión de
+  diseño legítima, y mezclarlos hace que dentro de un año no se sepa cuál era
+  cuál.
+- **Las observaciones que no llevaron a ningún cambio también se apuntan**: saber
+  que algo se detectó y se decidió no tocarlo vale tanto como el cambio.
+- Enlazado desde el índice de AGENTS.md y añadido a la lista de mantenimiento de
+  documentación como paso obligatorio.
+- Incluye una sección permanente con lo que el entorno del agente NO puede
+  verificar (tacto, transiciones de vista, animaciones, el mapa, y cómo queda
+  algo), porque condiciona cómo se leen todas las entradas.
+
+## D-154 · Título de la cabecera a `tertiary` y peso 600
+
+- **`text-tertiary`** (petición del propietario): da al reposo aspecto de
+  placeholder y deja la pica como el elemento llamativo. Resulta que
+  `text-tertiary` resuelve a **`#ad858d`**, exactamente el color que el campo usa
+  para su propio placeholder: el reposo queda literalmente pintado con el color
+  del placeholder, coherencia que no había que construir.
+- **Contraste medido**: título 2,92 sobre fondo; pica 14,35 sobre fondo y 4,91
+  sobre el título. El umbral AA para texto grande (22px en negrita lo es) es 3,0,
+  así que queda 0,08 por debajo. **Aplazado a conciencia por el propietario**, con
+  condición de salida — ver [insights.md](insights.md). No es una regresión
+  introducida aquí: el placeholder del campo ya usaba ese color.
+- **`font-semibold` (600) en vez de `font-bold`**: en `tertiary` las letras de
+  "Memoria" se pegaban. La causa es el `tracking-[-0.44px]` (espaciado NEGATIVO)
+  con trazos gruesos; en oscuro el contraste ayudaba a separarlas y al aclarar se
+  pierde esa ayuda.
+- **Por qué el peso es el arreglo correcto aquí**: Space Grotesk mantiene los
+  mismos avances entre pesos — medido, el título largo mide **299,5px en 700 y en
+  600** (299,3 en 400). Los trazos se afinan sin que nada se mueva de sitio, así
+  que el hueco visible se abre. Y **el cálculo del breakpoint de 440px (D-152) no
+  se ve afectado**: el mínimo sigue en 437px y la separación al menú pasa de 43 a
+  44px. Verificado, no supuesto — un cambio de tipografía es exactamente lo que
+  ese cálculo advertía que había que rehacer.
+- 300, 400, 500, 600 y 700 están todos cargados desde Google Fonts, así que 600 es
+  un peso real y no una negrita sintética del navegador.
+- **Pendiente del ojo del propietario**: el label "Menú" sigue en `font-bold`
+  (700) y en `text-primary`, así que la fila de la cabecera lleva ahora dos pesos
+  y dos tonos distintos. Puede ser lo correcto —el título retrocede a campo, el
+  menú sigue siendo una acción— o puede leerse como incoherencia.
+- **Palanca de reserva** si hiciera falta abrir más las letras: relajar el
+  tracking negativo, que es la causa de fondo.
+
+## D-155 · `HeaderSimple.astro` — la cabecera sin buscador pasa a ser un componente
+
+- **Estaba copiada a mano y byte a byte idéntica** en `exposiciones.astro`, `info.astro` y `404.astro`. Y no por descuido: la **regla 10 de AGENTS.md decía literalmente "replica el header de `exposiciones.astro` en páginas nuevas"**, que es una invitación a que se desincronicen. Este cambio es la prueba: había que tocar el punto de colapso en tres sitios.
+- **Arreglo**: `<HeaderSimple />` en las tres. La regla 10 queda reescrita para mandar usar el componente en vez de copiar.
+- **NO sustituye a la cabecera de la home**: esa lleva el buscador (`HeaderTitle`) y su título es un campo, no un enlace. Lo que ambas comparten —y tiene que seguir coincidiendo— es la geometría de la fila y el punto de colapso; si divergen, el título salta de sitio al navegar entre páginas.
+- **El título de estas páginas se queda en `font-bold` y `text-primary`**, al contrario que en la home: aquí es un elemento de navegación, no el placeholder de un campo. No se extrapoló el cambio de tono sin pedirlo.
+
+### El colapso, recalculado para estas páginas
+
+Estas cabeceras **no tienen pica**, así que la cuenta es la de D-152 menos esos 9px:
+`ventana − 2×padding − ancho del menú − 300`, con el mínimo de 40px al menú.
+
+| Rango | Padding | Menú | Ventana mínima |
+|---|---|---|---|
+| <640 | 24 | 40 (icono) | **428** |
+| 640–767 | 48 | 40 | **476** |
+| 768–1023 | 48 | 113 (Menú+icono) | **549** |
+| ≥1024 | 108 | 113 | 669 |
+
+Las tres páginas usan el mismo `px-6 sm:px-12 lg:px-[108px]` que la home, comprobado, así que la tabla vale igual. Cada tramo necesita menos de lo que mide su suelo → el título entero cabe en cualquier ancho ≥428px. **Se usa 440 igualmente**, el mismo que la home, en vez de un número por página: deja 52px de separación (más holgado que los 44 de la home, precisamente por no tener pica) y evita que el título cambie de forma al navegar.
+
+**Verificado**: las tres páginas sirven el componente con un solo `#menu-btn` (sin duplicados del refactor); a 440 la de exposiciones muestra el título largo con 52px de separación y a 439 pasa a `M.E.L.`, sin desbordamiento horizontal.
+
+## D-156 · El placeholder del buscador, por token y no por hex
+
+`placeholder:text-[#ad858d]` → `placeholder:text-mel-text-tertiary`. **Es el mismo color** —`text-tertiary` resuelve exactamente a `#ad858d`—, pero escrito a mano se habría quedado atrás el día que se ajuste el token, que está pendiente por contraste (ver `insights.md`), y habrían aparecido dos grises distintos en la misma cabecera.
+
+Petición del propietario, que además abre una tarea mayor: **auditoría de estilos de color y texto en todos los componentes**, anotada en `roadmap.md`. Este hex era un caso, y lo que hay que buscar es cuántos más hay.
+
+### Trampa del compilador (segunda vez esta sesión)
+
+Un comentario HTML **dentro** de una etiqueta, entre atributos, rompe el build igual que dentro de una expresión `{…}`. Los comentarios van siempre ANTES de la etiqueta.
+
+## D-157 · Fuera el selector muerto `search-input`
+
+- En `initHomePage`, el bloque que lee los parámetros de la URL hacía
+  `document.getElementById('search-input')` y asignaba el valor al campo. **Ese id
+  no existe en ningún archivo del proyecto** (el real es `search-active-input`, en
+  `HeaderTitle.astro`), así que el guard `if (searchInput)` se lo tragaba en
+  silencio: aparentaba ocuparse de rellenar el campo sin ocuparse de nada.
+- **No era un fallo funcional**: quien restaura de verdad es `HeaderTitle`, que lee
+  `?search=` por su cuenta y llama a `setState('filled', …)` — y eso pone el valor
+  en el input Y dispara la búsqueda, las dos mitades del trabajo.
+- Se conservan las asignaciones a `searchQuery` y `_s.searchQuery`, que sí se usan.
+- **Verificado** con carga limpia de `/?search=ravers`: campo con "ravers", texto
+  visible "ravers", estado `filled` y galería con 16 tarjetas (sin filtro son 32).
+- Que el borrado no puede cambiar el comportamiento no es una suposición: el
+  `getElementById` devolvía `null`, luego la sentencia retirada **nunca se
+  ejecutó**, y la variable no se usaba en ninguna otra línea.
+
+### Hallazgo separado — RETIRADO, era un falso positivo
+
+Se registró aquí que "las cifras de la toolbar muestran el archivo completo sobre
+una galería filtrada a 16", y se abrió una tarea para arreglarlo. **No existía tal
+fallo.** Con los fotogramas corriendo las cifras dan Eventos 16 / Artistas 51 /
+Diseñadores 1 / Promotores 1 sobre 16 tarjetas: cuadra.
+
+Las tres lecturas que lo motivaron (50, luego 34, luego 31) eran muestras de la
+animación de 200ms de `animateValue` **en pleno vuelo**, y la primera se tomó antes
+de que arrancara. Tarea retirada.
+
+**La lección, que es la misma que ya costó tiempo dos veces en esta sesión**: un
+número leído de un contador animado no es un número, es un fotograma. Si tres
+lecturas del mismo estado dan tres valores distintos, el problema está en el
+método de medida, no en el código.
+
+**Nota de método, tercera vez en esta sesión**: al intentar diagnosticarlo disparé
+`mel-search` a mano y las lecturas se volvieron ruido (contador 34 y galería
+vacía, valores de un estado intermedio que no representa ningún flujo real).
+Perturbar el estado para medirlo es exactamente lo que invalida la medida. La
+lectura buena salió de recargar limpio y no tocar nada.
+
+## D-158 · Revertido el enmascarado de la vuelta al panel (D-144/D-146)
+
+El propietario reporta que **el panel del mapa no se abre**. Qué se descartó antes de tocar nada:
+
+- **Los cambios sin commitear no lo tocan**: son 10 líneas de borrado de código muerto en el bloque de parámetros de la URL (D-157), y el diff no roza mapa ni panel.
+- **El anidamiento de `#bloque-cabecera` es correcto**: comprobado en el HTML servido, `#content-views` va después del bloque y `#map-side-panel` sigue dentro. La envoltura no se tragó nada.
+- **No se puede reproducir aquí**: la API de Maps no carga en el entorno del agente.
+
+**Decisión**: retirar el enmascarado entero en vez de seguir adivinando. Es el sospechoso más razonable —lo más nuevo en ese flujo, y toca precisamente el arranque de la vista Mapa— y es el que menos aportaba: el propietario ya dijo que apenas mejoraba (D-146). Se quitan las cinco piezas: el cálculo del frontmatter, el atributo del SSR, las dos reglas CSS, la llamada y `revelarVistaPedida()` completa. 93 líneas fuera.
+
+**Lo que NO se ha revertido, y por qué**: las tres reglas de z-index resucitadas en D-137 (`html::view-transition-group(…)`). Son el otro cambio nuevo que toca el panel —el arreglo de D-116 llevaba muerto desde que se escribió y ahora sí se aplica—, así que si el panel sigue sin abrirse después de esto, ése es el siguiente sitio donde mirar. No se tocan a la vez porque revertir dos cosas juntas no dice cuál era.
+
+**Pendiente de saber**: qué gesto exactamente falla —pulsar un marcador, llegar por una tag de "Lugar", o volver de una ficha—. Cada uno pasa por un camino distinto y sin eso no se puede acotar más.
+
+## D-159 · El mapa suma 47 y el contador 50: son datos, no código
+
+Tres eventos traen `"coordenadas":"Desconocido"` desde la hoja. 50 − 3 = 47, y el mapa no puede colocar lo que no tiene coordenadas. **No es un fallo del sitio**: o se completan esas tres en el Sheet, o el mapa declara en algún sitio cuántos eventos no puede ubicar. Pendiente de decisión del propietario.
+
+## D-160 · El enmascarado rompía el panel del mapa: la regla 15 tenía razón
+
+Confirmado por el propietario: retirado el enmascarado (D-158), **los tres flujos del panel vuelven a funcionar** — pulsar un marcador, llegar por una tag de "Lugar" y volver de una ficha.
+
+Así que el culpable era el enmascarado de D-144, y eso es exactamente lo que la **regla 15 de AGENTS.md** advierte: *"Cambiar la vista SSR por defecto o el flujo de inicialización rompe los event listeners del panel lateral, dejándolo atascado."*
+
+**Se citó esa regla al proponer el enmascarado y se dio por hecho que no aplicaba** porque no se cambiaban las clases activas del SSR. Pero el enmascarado sí tocaba el flujo de inicialización: añadía una función al final de `initHomePage` que se quedaba sondeando con `requestAnimationFrame` hasta que el panel se abriera. La regla no dice "no cambies las clases", dice **el flujo de inicialización**, y eso incluye añadirle trabajo.
+
+Se buscó el mecanismo concreto en `switchView` y no se encontró —no tiene salida temprana—, y se registró en D-144 que "eso es motivo para más cuidado, no para menos". Lo era. La regla estaba escrita a partir de un bug real de producción y describía el síntoma con precisión.
+
+**Para la próxima**: la regla 15 no se satisface razonando que el cambio es inofensivo. Sin poder reproducir el mapa en el entorno del agente, cualquier cosa que toque el arranque de la vista Mapa hay que dársela al propietario a probar ANTES de encadenar más trabajo encima.
+
+## D-161 · Una sola fábrica de URLs de ficha (`eventUrl`)
+
+**Síntoma**: el propietario reporta que las filas del panel inferior tardan muchísimo en abrir el evento.
+
+**Causa**: `prefetchEventUrl` y `navigateToEvent` construían la URL cada una por su cuenta, y se habían separado. `navigateToEvent` añade `sort` y `dir` cuando hay un orden activo; la precarga no. Reproducido lado a lado:
+
+```
+precarga:    /event/X?view=mapa&location=Dickens+Tavern
+navegación:  /event/X?view=mapa&sort=fecha&dir=desc&location=Dickens+Tavern
+```
+
+El navegador indexa lo precargado por **URL exacta**, así que no había acierto y la ficha se cargaba en frío — la precarga estaba tirando una petición a la basura y encima daba la falsa sensación de estar cubierta.
+
+**No era un caso raro**: el botón de ordenación deja `currentSortCol` en `'fecha'`, así que **desde el primer uso del botón toda la precarga del sitio quedaba inútil** — galería, lista y panel. Que se notara ahora encaja con que el botón es reciente y muy usado estos días.
+
+**Arreglo**: `eventUrl(idMel, {search, location})` como única fábrica; las dos la llaman. Si hay que añadir otro parámetro, va ahí y las dos lo heredan.
+
+**Verificación**: estructural, no por muestreo — hay **una sola** función que produce la cadena y no queda ninguna otra plantilla `/event/${…}` en el archivo (comprobado por grep), así que los dos caminos no pueden divergir. Es más fuerte que cualquier medición puntual.
+
+**Lo que NO se pudo comprobar de extremo a extremo aquí**, y por qué: `pointerenter` no burbujea, así que un evento sintético no alcanza al manejador delegado de la tabla; los fotogramas están congelados, así que las filas quedan a medio FLIP; y sondear el estado a mano lo ensucia. Queda para el propietario confirmar la velocidad real en su teléfono.

@@ -8,17 +8,65 @@ import IconButton from './IconButton.astro';
 ---
 <div id="search-box-container" class="relative h-[48px] transition-all duration-300" data-state="default">
   
-  <!-- 1. Default / Header State (Title "Memoria Electrónica Leonesa|") -->
+  <!-- 1. Default / Header State (Title "|Memoria Electrónica Leonesa") -->
+  <!-- V1.2 — la pica va DELANTE del título, no detrás.
+       El primer problema del buscador es que no se identifica como tal. El
+       segundo, entre quienes sí lo entienden, es que pulsan A LA DERECHA de la
+       pica para empezar a escribir —donde iría el texto si el caret estuviera
+       esperando— y ahí no hay nada: el botón acaba en la pica y el toque cae al
+       vacío. Poniéndola delante, ese mismo gesto instintivo aterriza sobre el
+       título, que sí es pulsable.
+       No se amplía la zona de click ni se toca el estado activo: solo cambia de
+       lado el caret. Es el único cambio de la V1.2. -->
   <button
     id="search-state-default"
     class="flex items-center relative w-fit h-full text-left bg-transparent border-none cursor-pointer select-none outline-none group"
     data-node-id="762:69441"
   >
     <div class="flex items-center relative shrink-0">
-      <span class="font-sans font-bold text-[22px] leading-[28px] text-mel-text-primary tracking-[-0.44px] whitespace-nowrap select-none transition-colors duration-200">
-        <span class="lg:hidden">M.E.L.</span><span class="hidden lg:inline">Memoria Electrónica Leonesa</span>
+      <Pica class="mr-1 group-hover:bg-mel-action-primary transition-colors duration-200" />
+      <!-- El título va en `text-tertiary` y no en `primary` para que la pica
+           destaque sobre él y el conjunto se lea como un PLACEHOLDER y no como un
+           logotipo — que es exactamente el problema de fondo: la gente no
+           identifica esto como un buscador (ver insights.md). La pica es lo único
+           que insinúa que aquí se escribe, y su parpadeo se nota menos ahora que
+           está a la izquierda (antes cerraba la frase, donde la vista acaba de
+           leer); restarle peso al texto es lo que la deja llamar la atención.
+           Se probó primero `secondary` y el propietario pidió bajar otra talla.
+
+           El colapso a siglas está en 440px y NO en `lg` (1024), donde estaba.
+           Medido: el título largo ocupa 300px con Space Grotesk cargada (270 con
+           la de reserva, así que la medida es con la fuente buena) y la pica suma
+           9px con su margen. La separación real hasta el menú es
+           `ventana − 2×padding − ancho del menú − 309`, y con la regla del
+           propietario de no bajar nunca de 40px sale:
+             <640    padding 24 · menú 40 (icono)        → mínimo 437px
+             640–767 padding 48 · menú 40                → mínimo 485px
+             768–1023 padding 48 · menú 113 (Menú+icono) → mínimo 558px
+             ≥1024   padding 108 · menú 113              → mínimo 678px
+           Cada tramo necesita menos de lo que mide su propio suelo, así que el
+           título entero cabe en cualquier ancho ≥437px. A 1024 sobraban 215px de
+           margen ya en una pantalla de 700. 440 deja 43px de separación (3 de
+           colchón) y reutiliza el breakpoint que el proyecto ya usa para el botón
+           de ordenación y para la lista en tarjetas.
+           Si cambia el texto del título, el del menú o el padding de la página,
+           hay que rehacer esta cuenta. -->
+      <!-- `font-semibold` (600) y no `font-bold` (700): en `tertiary` las letras
+           de "Memoria" se pegaban entre sí. La causa es el `tracking-[-0.44px]`
+           —espaciado NEGATIVO— combinado con trazos gruesos: el hueco entre
+           letras casi desaparece, y al aclarar el color se pierde el contraste
+           que antes ayudaba a separarlas.
+           Bajar el peso lo arregla sin tocar el espaciado, y encaja fino porque
+           Space Grotesk mantiene los mismos avances entre pesos: medido, el
+           título largo mide 299,5px tanto en 700 como en 600 (y 299,3 en 400).
+           Trazos más finos en el mismo sitio = hueco visible más ancho.
+           Efecto secundario de eso: el cálculo del breakpoint de 440px NO se ve
+           afectado por este cambio, el mínimo sigue en 437px.
+           Si hiciera falta abrirlo más, la otra palanca es relajar el tracking
+           negativo, que es la causa de fondo. -->
+      <span class="font-sans font-semibold text-[22px] leading-[28px] text-mel-text-tertiary tracking-[-0.44px] whitespace-nowrap select-none transition-colors duration-200">
+        <span class="min-[440px]:hidden">M.E.L.</span><span class="hidden min-[440px]:inline">Memoria Electrónica Leonesa</span>
       </span>
-      <Pica class="ml-1 group-hover:bg-mel-action-primary transition-colors duration-200" />
     </div>
   </button>
 
@@ -48,11 +96,16 @@ import IconButton from './IconButton.astro';
            seguía a las flechas, ni a la selección. El precio de que sea real es
            que su grosor y su parpadeo los decide el navegador; el color sí se
            puede fijar. -->
+      <!-- El placeholder va por token (`placeholder:text-mel-text-tertiary`) y no
+           con el `#ad858d` a pelo que tenía: es el MISMO color, pero escrito a
+           mano se habría quedado atrás el día que se ajuste `text-tertiary` —está
+           pendiente por contraste, ver insights.md— y habrían aparecido dos grises
+           distintos en la misma cabecera. -->
       <input
         type="text"
         id="search-active-input"
         placeholder="Busca un evento, artista, diseñador discoteca..."
-        class="bg-transparent border-none font-sans font-bold text-[22px] leading-[28px] text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:text-[#ad858d] placeholder:font-normal placeholder:truncate tracking-[-0.44px] focus:outline-none w-full py-1 pl-[6px] transition-all duration-200"
+        class="bg-transparent border-none font-sans font-bold text-[22px] leading-[28px] text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:text-mel-text-tertiary placeholder:font-normal placeholder:truncate tracking-[-0.44px] focus:outline-none w-full py-1 pl-[6px] transition-all duration-200"
         autocomplete="off"
       />
     </div>

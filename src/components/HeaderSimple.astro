@@ -1,0 +1,49 @@
+---
+/**
+ * Cabecera de las páginas SIN buscador: exposiciones, info y 404.
+ *
+ * Existía copiada a mano en las tres, byte a byte idéntica. La regla 10 de
+ * AGENTS.md pedía "replicar el header de exposiciones.astro en páginas nuevas",
+ * que es una invitación a que se desincronicen: cualquier ajuste había que
+ * acordarse de hacerlo tres veces. Aquí hay UN sitio.
+ *
+ * NO sustituye a la cabecera de la home: esa lleva el buscador (HeaderTitle) y su
+ * título es un campo, no un enlace. Lo que ambas comparten es la geometría de la
+ * fila y el punto en que el título colapsa a siglas, y eso sí tiene que coincidir
+ * — si no, el título salta de sitio al navegar entre páginas (regla 10).
+ */
+import MenuItem from './MenuItem.astro';
+---
+
+<div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border/30 pb-4 pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)]">
+  <div class="flex items-center gap-4 lg:gap-6 w-full">
+    <div class="flex-1 min-w-0 w-full">
+      <!-- Enlace de vuelta al inicio. Aquí el título SÍ va en `text-primary` y en
+           negrita: es un elemento de navegación, no el placeholder de un campo
+           como en la home. -->
+      <a href="/" class="flex items-center h-[48px] no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
+        <span class="font-sans font-bold text-[22px] leading-[28px] tracking-[-0.44px] whitespace-nowrap select-none">
+          <!-- Colapso a siglas en 440px, no en `lg` (1024), donde estaba.
+               Mismo criterio y mismo breakpoint que la home (D-152), para que el
+               título no cambie de forma al navegar entre páginas.
+               La cuenta aquí es la de la home MENOS los 9px de la pica, que esta
+               cabecera no tiene: `ventana − 2×padding − ancho del menú − 300`, con
+               el mínimo de 40px al menú que pidió el propietario:
+                 <640    padding 24 · menú 40 (icono)        → mínimo 428px
+                 640–767 padding 48 · menú 40                → mínimo 476px
+                 768–1023 padding 48 · menú 113 (Menú+icono) → mínimo 549px
+                 ≥1024   padding 108 · menú 113              → mínimo 669px
+               Cada tramo necesita menos de lo que mide su suelo, así que el título
+               entero cabe en cualquier ancho ≥428px. A 440 quedan 52px de
+               separación: más holgado que en la home (44) porque no hay pica.
+               Si cambia el texto del título, el del menú o el padding de la
+               página, hay que rehacer esta cuenta. -->
+          <span class="min-[440px]:hidden">M.E.L.</span><span class="hidden min-[440px]:inline">Memoria Electrónica Leonesa</span>
+        </span>
+      </a>
+    </div>
+    <div class="shrink-0 flex justify-end">
+      <MenuItem id="menu-btn" />
+    </div>
+  </div>
+</div>

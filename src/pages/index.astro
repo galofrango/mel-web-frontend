@@ -208,27 +208,6 @@ const tags = [
 // —el del servidor para la primera carga y el que hacía falta en el cliente para
 // volver a barajar— y ahora hay uno solo, en el cliente.
 
-// ENMASCARADO TEMPORAL — se retira entero cuando el SSR respete `?view=`.
-//
-// El servidor sirve SIEMPRE la Galería como vista activa, y es el cliente quien
-// cambia a Mapa o Lista al arrancar. Con navegación suave no se nota, pero al
-// volver de una ficha a un panel del mapa la vuelta es una RECARGA DURA a
-// propósito (`data-astro-reload` en event/[id].astro: la transición suave dejaba
-// el panel llegando tarde, D-116 y cuatro intentos). En una recarga no hay
-// `astro:before-swap`, así que el enmascarado que arregló el parpadeo de la
-// galería no puede aplicarse aquí, y el visitante ve una home de Galería entera
-// —rejilla, pestaña encendida— antes de que JS lo voltee todo. Es una carrera
-// contra la velocidad del aparato: en un móvil rápido no se aprecia, en Safari o
-// con el inspector sí.
-//
-// Esto NO cambia ni una clase de las vistas ni del toggle (regla 15 de
-// AGENTS.md): solo tapa el área de contenido hasta que está montada.
-//
-// EL ARREGLO DE VERDAD es que el SSR honre `?view=`, que borraría este bloque Y
-// el de `astro:before-swap`. La regla 15 lo marca como terreno minado —rompía
-// los listeners del panel lateral— y por eso no se hace aquí.
-const vistaPedida = Astro.url.searchParams.get('view');
-const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
 
 ---
 
@@ -249,7 +228,7 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
   <!-- El `pt` superior ya no vive aquí sino en #bloque-cabecera, para que su
        fondo opaco llegue hasta el borde de arriba de la pantalla. La geometría
        resultante es idéntica: el bloque es el primer hijo. -->
-  <div id="pantalla-home" data-vista-pendiente={vistaPendiente ? '' : undefined} class="w-full max-w-[1440px] h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-[3vh] flex flex-col gap-mel-m md:gap-mel-l overflow-hidden" data-node-id="Screen / Desktop / Gallery">
+  <div id="pantalla-home" class="w-full max-w-[1440px] h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-[3vh] flex flex-col gap-mel-m md:gap-mel-l overflow-hidden" data-node-id="Screen / Desktop / Gallery">
     
     <!-- Page Header: Search (Typing Title prompt) and Menu. Single row on every
          breakpoint — on mobile the title collapses to "M.E.L." and the menu to
@@ -776,22 +755,6 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
     z-index: 101;
   }
 
-  /* ENMASCARADO TEMPORAL (ver el bloque del frontmatter). Mientras la marca
-     esté puesta, el área de contenido no se ve y el indicador del toggle no
-     desliza: aparece ya en su sitio en vez de recorrer los 300ms desde Galería.
-     La cabecera y la toolbar siguen visibles todo el rato, así que la espera se
-     lee como "cargando" y no como una página rota.
-     Se retira entero junto con el resto cuando el SSR respete `?view=`. */
-  #pantalla-home[data-vista-pendiente] #content-views {
-    opacity: 0;
-  }
-  /* `:global()` obligatorio: el indicador vive en ToggleSelector.astro y lleva
-     SU identificador de ámbito, no el de esta página. Sin esto Astro reescribe
-     el selector con el cid de index.astro y no alcanza nada — el mismo fallo
-     silencioso de D-137, cazado aquí midiendo la duración resultante. */
-  #pantalla-home[data-vista-pendiente] :global(#toggle-active-indicator) {
-    transition: none;
-  }
 
   /* El botón de ordenación también entra en la capa de transición, y por encima
      de los carteles. Las imágenes de la galería llevan `view-transition-name`
@@ -2125,57 +2088,6 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
     el.style.opacity = '0';
   }
 
-  // ENMASCARADO TEMPORAL — la contrapartida en cliente del bloque del
-  // frontmatter. Se borra entera cuando el SSR respete `?view=`.
-  //
-  // Espera a que esté montado lo que se está tapando y entonces destapa. No basta
-  // con destapar tras `switchView`: en el Mapa la vista ya está puesta pero el
-  // mapa aún no existe (Google Maps arranca de forma diferida) y el panel se
-  // puebla después, así que se vería llegar cada pieza — que es justo lo que se
-  // quiere evitar.
-  //
-  // Se comprueba fotograma a fotograma, como hace restoreScroll, porque no hay un
-  // evento al que engancharse: el alto y el contenido los deciden terceros.
-  function revelarVistaPedida(viewParam, locationParam) {
-    const pantalla = document.getElementById('pantalla-home');
-    if (!pantalla || !pantalla.hasAttribute('data-vista-pendiente')) return;
-
-    // Destapa EN SECO, sin fundido. Llevaba el de 250ms de revelarColocado() y
-    // era tiempo añadido a cambio de nada: el enmascarado no adelanta ni un
-    // milisegundo, solo cambia qué se ve durante la espera, así que cualquier
-    // coste propio lo empeora. Esta parte de la app ya se siente lenta.
-    const destapar = () => {
-      pantalla.removeAttribute('data-vista-pendiente');
-    };
-
-    // Red de seguridad OBLIGATORIA: si el mapa no llegara a cargar (sin red, la
-    // API caída, la clave rechazada), sin esto el contenido quedaría invisible
-    // para siempre. Una espera fea es mucho mejor que una página en blanco.
-    const limite = setTimeout(destapar, 2500);
-
-    const listo = () => {
-      const panel = document.getElementById('view-' + (viewParam === 'mapa' ? 'mapa' : 'lista'));
-      if (!panel || panel.classList.contains('hidden')) return false;
-      // Volviendo a un panel del mapa, lo que hay que esperar es al PANEL, no al
-      // mapa: es lo último en aparecer y es a lo que se vuelve.
-      if (viewParam === 'mapa' && locationParam) {
-        const lateral = document.getElementById('map-side-panel');
-        return !!lateral && lateral.classList.contains('side-panel-open');
-      }
-      return true;
-    };
-
-    (function mirar() {
-      if (!pantalla.hasAttribute('data-vista-pendiente')) return;   // ya destapó el límite
-      if (listo()) {
-        clearTimeout(limite);
-        destapar();
-        return;
-      }
-      requestAnimationFrame(mirar);
-    })();
-  }
-
   function revelarColocado(el) {
     // Solo revela lo que está oculto: así llamarlo dos veces no reinicia nada.
     if (!el || el.style.opacity !== '0') return;
@@ -2440,29 +2352,19 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
   // two /event/[id] URLs, which is exactly why the overlay was built in
   // the first place. /event/[id] already reads ?search=/?location=/?view=
   // to compute its own filtered Anterior/Siguiente and its own return link.
-  function prefetchEventUrl(idMel, { search = '', location = '' } = {}) {
-    if (!idMel) return;
-    const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
-    const params = new URLSearchParams();
-    params.set('view', activeViewName);
-    if (location) {
-      params.set('location', location);
-    } else if (search) {
-      params.set('search', search);
-    }
-    const url = `/event/${idMel}?${params.toString()}`;
-    if (!document.querySelector(`link[rel="prefetch"][href="${url}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = url;
-      document.head.appendChild(link);
-    }
-  }
-
-  function navigateToEvent(idMel, { search = '', location = '' } = {}) {
-    // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
-    recordarFlyerAbierto(idMel);
-    saveReturnState();
+  // ÚNICA fábrica de URLs de ficha. La usan la precarga y la navegación, y por eso
+  // existe: cada una construía la suya y se habían separado. `navigateToEvent`
+  // añadía `sort` y `dir` cuando había un orden activo y `prefetchEventUrl` no, así
+  // que salían dos cadenas distintas:
+  //   precarga:   /event/X?view=mapa&location=Dickens+Tavern
+  //   navegación: /event/X?view=mapa&sort=fecha&dir=desc&location=Dickens+Tavern
+  // El navegador indexa lo precargado por URL exacta, así que no había acierto y la
+  // ficha se cargaba en frío — el propietario lo notó como "tarda muchísimo en
+  // abrir". Y no era un caso raro: el botón de ordenación deja `currentSortCol` en
+  // 'fecha', así que desde el primer uso TODA la precarga del sitio quedaba
+  // inútil, en la galería, en la lista y en el panel.
+  // Si hay que añadir un parámetro más, va aquí y las dos lo heredan.
+  function eventUrl(idMel, { search = '', location = '' } = {}) {
     const activeViewName = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '') || 'galería';
     const params = new URLSearchParams();
     params.set('view', activeViewName);
@@ -2475,7 +2377,28 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
     } else if (search) {
       params.set('search', search);
     }
-    const url = `/event/${idMel}?${params.toString()}`;
+    return `/event/${idMel}?${params.toString()}`;
+  }
+
+  function prefetchEventUrl(idMel, { search = '', location = '' } = {}) {
+    if (!idMel) return;
+    const url = eventUrl(idMel, { search, location });
+    if (!document.querySelector(`link[rel="prefetch"][href="${url}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.href = url;
+      document.head.appendChild(link);
+    }
+  }
+
+  function navigateToEvent(idMel, { search = '', location = '' } = {}) {
+    // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
+    recordarFlyerAbierto(idMel);
+    saveReturnState();
+    // La MISMA fábrica que usa la precarga (eventUrl), no una copia: si las dos
+    // construyen la cadena por su cuenta acaban divergiendo, y basta un parámetro
+    // de diferencia para que lo precargado no se use.
+    const url = eventUrl(idMel, { search, location });
     if (typeof window.__melNavigate === 'function') {
       window.__melNavigate(url);
     } else {
@@ -4867,11 +4790,17 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
     const searchParam = loadParams.get('search');
     const locationParam = loadParams.get('location');
 
+    // Solo se sincroniza el ESTADO; el campo lo pinta su propio componente.
+    // Aquí había además un `getElementById('search-input')` con su guard, y ese id
+    // no existe en ningún archivo del proyecto (el real es `search-active-input`,
+    // en HeaderTitle.astro). Nunca hizo nada: el guard se lo tragaba en silencio,
+    // así que aparentaba ocuparse de rellenar el campo sin ocuparse de nada.
+    // Quien lo hace de verdad es HeaderTitle, que lee `?search=` por su cuenta y
+    // llama a setState('filled', …) — y eso pone el valor en el input Y dispara la
+    // búsqueda, o sea las dos mitades del trabajo.
     if (searchParam !== null && searchParam !== searchQuery) {
       searchQuery = searchParam;
       _s.searchQuery = searchParam;
-      const searchInput = document.getElementById('search-input');
-      if (searchInput) searchInput.value = searchParam;
     }
 
     // OJO: aquí NO se asigna activeSidePanelKey a partir de ?location=.
@@ -4892,8 +4821,6 @@ const vistaPendiente = vistaPedida === 'mapa' || vistaPedida === 'lista';
       switchView('galería');
     }
 
-    // Retira el enmascarado temporal en cuanto lo tapado ya está montado.
-    revelarVistaPedida(viewParam, locationParam);
 
     // Fase 2 de la vuelta: página, lotes cargados y scroll, ya con la vista
     // correcta montada.

@@ -11,6 +11,7 @@ Lee este documento primero; después, consulta según la tarea:
 - Estilos, componentes y reglas de UX → [docs/design-system.md](docs/design-system.md)
 - Convenciones y flujo de trabajo → [docs/development.md](docs/development.md)
 - Decisiones de diseño e ingeniería → [docs/decisions.md](docs/decisions.md)
+- **Insights de usuarios** → [docs/insights.md](docs/insights.md)
 - Estado del proyecto y roadmap → [docs/roadmap.md](docs/roadmap.md)
 - Diario de sesiones (**congelado**, solo histórico) → [docs/journal.md](docs/journal.md)
 
@@ -179,7 +180,7 @@ Si detectas discrepancias entre la documentación, el código o conversaciones p
 7. **Los componentes Astro no existen en cliente:** El HTML generado dinámicamente por JS (filas de tabla, tags del overlay, estados vacíos) debe replicar exactamente el marcado y clases de los componentes Astro. Si cambias un componente, actualiza sus réplicas JS (p. ej. `makeTagHtml()` o los renderers de la lista en `index.astro`).
 8. **URLs de Google Drive (`extractDriveImage`):** Un enlace `drive.google.com/file/d/ID/view` no carga en un `<img>`; conviértelo siempre al endpoint `https://drive.google.com/thumbnail?id=ID&sz=w1000`. Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
 9. **Espaciados verticales en `vh` y de intro en `%`:** Están calibrados a 1440px de ancho / ~1100px de alto para reproducir los píxeles aprobados por el propietario en pantalla 4K. No los reconviertas a píxeles fijos.
-10. **Geometría del Header unificada:** Mismo padding superior `pt-[10vh]` y misma fila en todas las páginas. En móvil el título colapsa a "M.E.L." y el menú a icono, con gap de 16px. Replica el header de `exposiciones.astro` en páginas nuevas.
+10. **Geometría del Header unificada:** Mismo padding superior `pt-[10vh]` y misma fila en todas las páginas. El título colapsa a "M.E.L." por debajo de **440px** (no en `lg`; la cuenta está en `HeaderSimple.astro` y en D-152) y el menú a icono, con gap de 16px. En páginas nuevas **usa `<HeaderSimple />`**, no copies el marcado: estuvo duplicado byte a byte en `exposiciones`, `info` y `404` porque esta misma regla decía "replica el header", y eso es una invitación a que se desincronicen. La home no lo usa —lleva el buscador (`HeaderTitle`) y su título es un campo, no un enlace—, pero la geometría de la fila y el punto de colapso SÍ tienen que coincidir entre ambas: si no, el título salta de sitio al navegar.
 11. **Estabilidad de la Galería:** El masonry de la galería usa CSS Grid + `row-span` medido por imagen (`sizeGalleryCard()` en index.astro). No uses CSS multicolumna con scroll infinito porque rebalancea todas las columnas al añadir un lote.
 12. **Contexto de Apilamiento para Blend Modes (`isolation: isolate`):** Las capas con `mix-blend-multiply` o `mix-blend-screen` requieren `isolation: isolate` en su contenedor padre directo para evitar desvanecimientos anómalos o comportamientos impredecibles con el fondo del navegador.
 13. **Sistema de Estados Vacíos (`EmptyState`):** Utiliza `<EmptyState variant="construction|no-results" />` o su réplica de marcado JS. Implementa el tinte fotográfico duotono (`bg-[var(--mel-primitive-le-900)]` + `mix-blend-screen` sobre imagen en blanco y negro).
@@ -234,6 +235,13 @@ Antes de dar cualquier tarea importante por finalizada, debes verificar internam
 
 Cualquier cambio de arquitectura, nuevo componente, regla o decisión de UX debe quedar documentado al finalizar la tarea:
 - Decisión técnica / alternativa descartada → [docs/decisions.md](docs/decisions.md)
+- **Observación de un usuario usando el sitio** → [docs/insights.md](docs/insights.md).
+  Obligatorio cuando el propietario cuente algo que ha visto hacer a alguien, y
+  aunque no lleve a ningún cambio. Es lo primero que se pierde: el código dice
+  qué hace y `decisions.md` cómo se implementó, pero ninguno recuerda que alguien
+  no encontró el buscador — y sin eso, dentro de un año alguien deshace el
+  arreglo sin saber que arreglaba algo. Separar siempre lo que dijo un usuario de
+  lo que prefiere el propietario.
 - Módulo / flujo de datos → [docs/architecture.md](docs/architecture.md)
 - Token / componente UI → [docs/design-system.md](docs/design-system.md)
 - Tareas completadas / pendientes → [docs/roadmap.md](docs/roadmap.md)
