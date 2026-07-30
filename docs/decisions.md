@@ -2194,3 +2194,73 @@ mitad que precargaba **la foto** —según su propio comentario, *"lo único que
 tardar"*— no ha funcionado nunca. Ahora la URL se resuelve en el servidor
 (`fotoUrl` en `allEvents`) y el cliente solo lee una cadena, sin necesitar copia
 alguna de la función.
+
+---
+
+### D-156 — Los dos faldones de la ficha de evento
+
+Reportado por el propietario desde su teléfono: "una especie de faldón que queda
+por encima del texto". Eran **dos** cosas distintas, y la primera hipótesis
+—que fuese el cajón de la foto— era la equivocada.
+
+#### Faldón 1: el `pb-[40px]` estaba en el lado malo del recorte
+
+El contenedor exterior de la ficha lleva `h-dvh overflow-hidden`, y los 40px de
+respiro inferior estaban en **su** padding. O sea: 40px de fondo por DEBAJO del
+área con scroll, donde no separan nada. Medido: la última línea acababa en 660
+con el scroller acabando en 660. **Holgura cero.** Como el color es el mismo que
+la página, se leía exactamente como una banda opaca tumbada sobre el texto.
+
+**Arreglo**: los 40px pasan a `padding-bottom` del propio scroller
+(`pb-[40px] lg:pb-0`). Ahora son contenido: la última línea siempre aterriza 40px
+por encima del recorte y no puede cortarse. El hueco a pie de pantalla se ve
+igual. A `lg+` siguen en el exterior (`lg:pb-[108px]`), donde no hay recorte.
+
+**Regalo**: el área con scroll llega ya al borde de la pantalla.
+
+#### Faldón 2: la decapitación queda SIN ARREGLAR, y es una decisión del propietario
+
+El síntoma: con la foto fijada, la banda que ocupan cabecera + foto + faldón es
+permanente, y lo que queda libre debajo es la única ventana de lectura. Al final
+del scroll no hay recorrido para sacar nada de debajo. Medido a 700px de alto
+visible (iPhone con la barra de Safari desplegada): ventana 204px, cola 246px,
+**déficit 42**. Resultado: al final del scroll queda una línea a caballo del canto
+opaco, cortada a media letra — el propietario lo vio como comas huérfanas
+flotando sin su frase.
+
+**Lo que NO lo arregla, y conviene saberlo antes de intentarlo**: padding abajo.
+Al final del scroll el contenido está empujado lo más arriba que llega, así que
+cada píxel de padding mete la cola un píxel MÁS debajo del cajón. Comprobado
+sobre coordenadas, no supuesto.
+
+**Se implementaron dos arreglos y el propietario los rechazó los dos:**
+
+1. **Máscara que desvanecía los últimos 24px del cajón** para que la línea
+   atrapada se apagara en vez de cortarse. Rechazado: *"no quiero degradados, no
+   lo hay en ningún otro sitio de la web"*. El canto duro es coherencia del
+   sistema, no un descuido.
+2. **Suelo del recorte calculado** en vez de fijo en 200px, para que la cola
+   cupiera. Rechazado: *"el mínimo de 200px está por respeto a los diseños. No
+   quiero nada más pequeño de eso en la web"*. **200px (Figma 369:32751) es un
+   suelo duro. No se baja.**
+
+Los dos se revirtieron. Y una nota sobre el proceso, porque el error fue de
+método: se propusieron sin señalar que uno introducía un patrón visual nuevo en
+el sitio y el otro se desviaba de una cota de Figma. El propietario dio el
+adelante sin esa información. **Un cambio que toca coherencia visual o una
+especificación de Figma se presenta como decisión suya, no como detalle de
+implementación.**
+
+**Dato que sí quedó medido, por si se retoma**: la cola depende del evento, y
+mucho — 246px en "Turrón del duro", **619px** en "FIV XIII" (4 imágenes y la lista
+de artistas más larga del archivo). Con una cola de 619px no cabe con ninguna
+foto: la cuenta pediría un recorte negativo. Cualquier intento futuro tiene que
+partir de ahí, no de un número tomado de un solo evento.
+
+**La vía que el propietario apunta**, sin encargarla: un ejercicio matemático con
+base 8 para que el canto nunca caiga a media línea. Lo dijo con reservas
+explícitas (*"no seré yo el que lo haga y no confío en que eso resulte como
+pienso"*). No es trabajo pendiente: es una idea anotada.
+
+**Verificado tras revertir**: build exit 0, máscara fuera (`maskImage: none`),
+recorte de vuelta a 200px en el tope del scroll, y el faldón 1 intacto.

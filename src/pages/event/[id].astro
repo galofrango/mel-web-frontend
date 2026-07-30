@@ -157,12 +157,13 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        additional top padding here would just stack on top of that and push
        content down by an unwanted extra gap below the header. lg:pt-[10vh]
        matches every other page header's top offset (unaffected — desktop's
-       header isn't fixed, it's back in normal flow via lg:static). Bottom
-       padding is 40px on mobile/tablet (<lg) — the nav block ends up right
-       around there from the screen's bottom edge once fully scrolled, per
-       spec — and 108px at `lg+`, unchanged from before (desktop doesn't have
-       this scroll behavior). -->
-  <div class="w-full max-w-[1440px] mx-auto h-dvh overflow-hidden lg:h-auto lg:min-h-dvh lg:overflow-visible bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] pb-[40px] lg:pb-[108px] lg:px-[108px]">
+       header isn't fixed, it's back in normal flow via lg:static).
+       Los 40px de abajo en móvil/tablet (<lg) NO van aquí: viven en el
+       `pb-[40px]` del propio scroller, unas líneas más abajo. Estuvieron aquí y
+       eso los dejaba FUERA del área con scroll, o sea que no separaban la última
+       línea de nada — la recortaban. Ver el comentario del scroller. A `lg+` sí
+       van aquí (`lg:pb-[108px]`), porque allí no hay recorte ni scroll interno. -->
+  <div class="w-full max-w-[1440px] mx-auto h-dvh overflow-hidden lg:h-auto lg:min-h-dvh lg:overflow-visible bg-mel-bg-primary text-mel-text-primary flex flex-col items-center justify-start pt-0 lg:pt-[var(--mel-header-pt-desktop)] lg:pb-[108px] lg:px-[108px]">
     <!-- Main Box Container (Figma 1224px wide).
          data-event-id / data-image-urls: la identidad del evento viaja en el
          DOM, no solo en las variables de `define:vars`. Esas quedan congeladas
@@ -173,9 +174,21 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          navegación pertenecía a otro (con "Siguiente" apuntándose a sí misma,
          de ahí que se quedara pillada). Leyéndolo del DOM en cada
          `astro:page-load`, la identidad siempre es la de la página visible. -->
+    <!-- `pb-[40px]` AQUÍ, y no en el contenedor de arriba, que es donde estaba.
+         Allí era padding de un padre con `overflow: hidden`, o sea 40px de fondo
+         por DEBAJO del área con scroll: no separaban la última línea del borde
+         de recorte, la dejaban muriendo exactamente en él (medido: la última
+         línea acababa en 660 con el scroller acabando en 660, holgura CERO).
+         Como es del mismo color que la página, se veía como un faldón opaco
+         tumbado sobre el texto — y el propietario lo describió tal cual.
+         Dentro del scroller los 40px son contenido: la última línea siempre
+         aterriza 40px por encima del recorte y no puede cortarse. El hueco a
+         pie de pantalla se ve igual que antes. Efecto secundario bienvenido: el
+         área con scroll llega ahora hasta el borde de la pantalla, así que la
+         rendija legible bajo la foto fijada gana esos 40px. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 flex-1 min-h-0 overflow-y-auto lg:flex-1 lg:min-h-auto lg:overflow-visible"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 pb-[40px] lg:pb-0 flex-1 min-h-0 overflow-y-auto lg:flex-1 lg:min-h-auto lg:overflow-visible"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
@@ -664,6 +677,10 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     const raizPagina = document.getElementById('detail-page-container');
     const imageCrop = document.getElementById('detail-image-crop');
     const IMAGE_MAX_H = 360;
+    // 200px es la especificación de Figma para la foto fijada (369:32751) y es un
+    // SUELO DURO: el propietario no quiere nada más pequeño en el sitio, por
+    // respeto a los diseños. Se probó calcularlo para que la cola del contenido
+    // cupiera bajo el cajón y se descartó por eso (D-156). No lo bajes.
     const IMAGE_MIN_H = 200;
 
     // Distancia, en el documento, desde el origen hasta el punto en que la
@@ -1399,6 +1416,10 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       right: 0;
       margin: 0;
       width: 100%;
+      /* NO se desvanece el canto de abajo. Se probó una máscara de 24px para que
+         una línea atrapada se apagara en vez de quedar cortada, y el propietario
+         lo rechazó: no hay ni un degradado en todo el sitio y no va a haber uno
+         aquí (D-156). El canto es duro a propósito. */
     }
   }
 

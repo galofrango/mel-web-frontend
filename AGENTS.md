@@ -12,6 +12,7 @@ Lee este documento primero; después, consulta según la tarea:
 - Convenciones y flujo de trabajo → [docs/development.md](docs/development.md)
 - Decisiones de diseño e ingeniería → [docs/decisions.md](docs/decisions.md)
 - **Insights de usuarios** → [docs/insights.md](docs/insights.md)
+- Preparación de los carteles (dimensiones, formato, color) → [docs/imagenes.md](docs/imagenes.md)
 - Estado del proyecto y roadmap → [docs/roadmap.md](docs/roadmap.md)
 - Diario de sesiones (**congelado**, solo histórico) → [docs/journal.md](docs/journal.md)
 
