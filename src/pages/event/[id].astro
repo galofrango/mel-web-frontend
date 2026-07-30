@@ -247,7 +247,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
          `astro:page-load`, la identidad siempre es la de la página visible. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 flex-1 min-h-0 overflow-y-auto lg:flex-none lg:overflow-visible"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 flex-1 min-h-0 overflow-y-auto lg:flex-1 lg:min-h-auto lg:overflow-visible"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
@@ -432,17 +432,30 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              explicit here — the default `order: 0` on an unstyled item would
              otherwise rank it ABOVE the image/tags columns, which both carry
              an explicit order. -->
-        <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 lg:gap-10 w-full lg:pl-6" data-name="Info">
+        <!-- Ritmo de la columna: 32px (L) entre todo, con dos excepciones que el
+             propietario pidió expresamente — 40px del contenido al botón y 56px
+             del botón a la navegación. Las tres tallas van de menos a más según
+             se baja, así que el bloque se lee como una unidad que se despide.
+             El `gap` de aquí no puede dar los dos valores a la vez (título→texto
+             y texto→botón cuelgan del mismo), así que vale 32 para ambos y el
+             bloque del botón añade los 8 que le faltan. -->
+        <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 w-full lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
           <h2 class="hidden lg:block font-sans font-bold text-[31px] leading-[32px] tracking-[-0.62px] text-mel-text-primary">
             {eventData.title}
           </h2>
 
-          <!-- Description + Artists block -->
-          <div class="flex flex-col gap-8 lg:gap-10">
+          <!-- Description + Artists block. 32px también aquí dentro: texto→divisor
+               y divisor→Artistas. Antes eran 24 y 40, y ese cambio de talla justo
+               a los lados de la línea es lo que rompía el ritmo.
+               OJO: este comentario tiene que quedarse FUERA del
+               `{eventData.description && (…)}` de abajo — ahí dentro se compila
+               como expresión y un comentario HTML revienta el build con
+               `[CompilerError] Unexpected token`. -->
+          <div class="flex flex-col gap-8">
             {eventData.description && (
-              <div class="flex flex-col gap-8 lg:gap-6">
+              <div class="flex flex-col gap-8">
                 <p class="typo-body-sans text-mel-text-primary">
                   {eventData.description}
                 </p>
@@ -464,8 +477,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
             </div>
           </div>
 
-          <!-- Actions: Componetized "Me presta" button -->
-          <div class="flex gap-6 items-start">
+          <!-- Actions: Componetized "Me presta" button.
+               `lg:mt-2` son los 8px que suman 40 sobre el `gap-8` del padre: el
+               botón se separa del contenido una talla más que el contenido de sí
+               mismo. En móvil se queda en los 32 del gap, que ahí no se pidió. -->
+          <div class="flex gap-6 items-start lg:mt-2">
             <LikeButton
               id="btn-me-presta"
               class="w-fit"
@@ -477,7 +493,28 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       </div>
 
 
-      <div id="detail-nav-block" class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-24 pt-8 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <!-- En escritorio el margen superior es AUTOMÁTICO, no fijo.
+           Así la navegación tiene sitio de serie —el fondo de la página— y se
+           queda ahí mientras el contenido no llegue. Solo cuando el contenido
+           crece y empieza a empujarla, el margen automático se agota y manda el
+           `lg:pt-14`: 56px, el hueco más ancho de la columna a propósito — es la
+           despedida del bloque. Antes era `lg:mt-24` + `pt-8`, o sea 128px fijos
+           que ni anclaban la navegación ni seguían el ritmo del resto.
+
+           `lg:pb-14` decide LA ALTURA del punto fijo, y hace falta porque antes no
+           había ninguno: con el contenedor a `lg:flex-none` la navegación colgaba
+           del final del contenido, así que cada ficha la dejaba a una altura
+           distinta (medido: 165px del borde inferior en FIV XI y 278px en Trip
+           With Us, 113px de diferencia). Al anclarla quedó a ras del
+           `padding-bottom` de 108px de la página, que el propietario vio
+           demasiado abajo. Estos 56px la levantan hasta ~164, la altura que tenía
+           en las fichas que él miraba, y son la misma talla que el hueco de
+           arriba: la navegación queda enmarcada por el mismo valor por los dos
+           lados. Es EL número a mover si hay que reajustar la altura.
+
+           El `pt-8` de móvil se conserva: ahí el pseudoelemento del divisor se
+           dibuja en el borde de la caja y esos 32px son su separación. -->
+      <div id="detail-nav-block" class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto pt-8 lg:pt-14 lg:pb-14 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>

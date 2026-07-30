@@ -263,6 +263,13 @@ html {
   [class*="active:bg-"]:active,
   [class*="active:text-"]:active {
     opacity: 1;
+    /* …pero SÍ heredan la inmediatez, que es lo que se les olvidó al excluirlos.
+       Estos elementos suelen llevar además `transition-colors duration-200` para
+       su `hover`, y esa duración se aplicaba también al pulsado: el color tardaba
+       200ms en aparecer y en un toque breve no llegaba nunca. Quedaba así que
+       justo los componentes CON pulsado diseñado eran los que peor respondían al
+       dedo, que es lo contrario de lo que se pretendía. */
+    transition-duration: 0s;
   }
 }
 

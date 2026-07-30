@@ -1696,3 +1696,132 @@ Es viable (`clip-path` sobre `::view-transition-group()`), pero sale peor en las
 A favor del recorte: se ajustaría al borde de la galería pase lo que pase por encima, mientras que el bloque opaco depende de que la interfaz siga estando justo encima. Hoy lo está, y el resultado es idéntico.
 
 Y una razón de fondo: `#bloque-cabecera` no es andamiaje de animación. El bloque fijo de cabecera ES una pieza con fondo propio; darle elemento y fondo es describir la página como es. El recorte habría tapado el síntoma dejando vivo el fallo real —las tres reglas de z-index muertas de D-137—, y con él el panel del mapa y el botón seguirían rotos.
+
+## D-142 · El pulsado tardaba 200ms justo donde estaba diseñado
+
+- **Síntoma**: en móvil, pulsar brevemente una fila de la lista "no hace nada".
+- **Causa**: en `global.css`, la realimentación instantánea (`transition-duration: 0s`) se aplicaba solo a `a`, `button`, `summary` y `[role=button]`. Los elementos con pulsado propio (`[class*="active:bg-"]`) están excluidos de ese bloque para que no se les sume el atenuado genérico — pero al excluirlos se les quitó también la inmediatez. Como además llevan `transition-colors duration-200` para su `hover`, esa duración se aplicaba al pulsado: el color tardaba 200ms en llegar y en un toque breve no llegaba nunca.
+- **Quedaba al revés de lo pretendido**: los componentes CON estado pulsado diseñado eran los que peor respondían al dedo.
+- **Arreglo**: `transition-duration: 0s` también en ese segundo bloque. Verificado en la hoja compilada (el `@media (hover:none)` no se puede comprobar desde un navegador de escritorio).
+- **Lo que este arreglo NO cubre, y está sin confirmar**: si además de no verse, la navegación tampoco ocurre. No se puede reproducir aquí — el entorno del agente no genera entrada táctil real, y los eventos táctiles sintéticos no producen el `click` que sí genera un dedo. Si sigue sin navegar, el sospechoso es el navegador y no este código: un toque que se desplaza unos pocos píxeles dentro de un contenedor con scroll inicia el desplazamiento y el navegador cancela el `click`. Eso solo se arregla atendiendo `touchend` a mano, con el riesgo de doble navegación.
+
+## D-143 · Lista de móvil: 16px menos de hueco con el selector de vista
+
+- **Medido antes**: la toolbar acaba en 284, el contenedor de la lista empieza en 300 y la primera fila añade sus 16px de `py-[16px]` → el texto arrancaba en 316. **Hueco visual real: 32px**, el doble del que separa cualquier otro par de bloques.
+- **Arreglo**: `-mt-4` en `#list-mobile-cards-items`. El relleno de la primera fila queda por encima del origen del scroll —donde no se puede llegar— y el texto arranca justo en el borde del contenedor.
+- **Margen negativo y NO mover la caja, a propósito** (criterio del propietario): el contenedor conserva su posición y su alto, así que dónde se corta el contenido por abajo no cambia. Es restar scroll de partida, no acercar el componente.
+- **Verificado**: contenedor intacto en 300→840, hueco visual 32 → 16.
+
+## D-144 · Enmascarado de la vuelta al panel del mapa (temporal, con fecha de caducidad)
+
+### El diagnóstico, eslabón a eslabón
+
+1. **La recarga dura es deliberada.** El botón de cerrar de la ficha lleva `data-astro-reload` cuando se vuelve a un panel (`event/[id].astro`): la transición suave dejaba el panel llegando tarde (D-116, cuatro intentos).
+2. **Y esa decisión desactiva el enmascarado existente.** El que arregló el parpadeo de la galería vive en `astro:before-swap`, y **en una recarga dura ese evento no existe**. Por eso el problema solo se da en esta ruta.
+3. **El SSR ignora `?view=`.** Verificado sobre el HTML servido para `?view=mapa&location=Dickens Tavern`: `#view-galería` sale con `active`, `#view-mapa` con `hidden`, y el toggle con Galería encendida.
+4. Resultado: la recarga pinta una home de Galería **completa y coherente** y solo después JS voltea las vistas, desliza el indicador del toggle 300ms y abre el panel. Es una carrera contra la velocidad del aparato — de ahí que en Chrome móvil no se aprecie y en Safari o con el inspector sí.
+
+### Lo aplicado
+
+Enmascarar, **sin tocar ni una clase de las vistas ni del toggle** (regla 15):
+- El SSR marca `#pantalla-home[data-vista-pendiente]` cuando `?view=` no es galería.
+- Mientras la marca esté: `#content-views` invisible y el indicador del toggle sin transición (aparece en su sitio en vez de recorrer 300ms desde Galería). Cabecera y toolbar quedan visibles, así que la espera se lee como "cargando".
+- `revelarVistaPedida()` destapa cuando lo tapado está montado, comprobando fotograma a fotograma porque no hay evento al que engancharse. Volviendo a un panel del mapa espera al PANEL, no al mapa: es lo último en aparecer y es a lo que se vuelve.
+- **Red de seguridad de 2500ms obligatoria**: si el mapa no cargara (sin red, API caída, clave rechazada), sin ella el contenido quedaría invisible para siempre.
+
+### El fallo de ámbito, otra vez
+
+`#toggle-active-indicator` vive en `ToggleSelector.astro` y lleva SU identificador de ámbito. La regla escrita en `index.astro` se reescribía con el cid de index y no alcanzaba nada — **el mismo fallo silencioso de D-137**. Cazado midiendo la duración resultante (seguía en 0.3s), resuelto con `:global()`. Confirmado en la hoja compilada.
+
+### Deuda reconocida, y su salida
+
+Es el **segundo** remiendo del mismo tipo: el servidor pinta una cosa y el cliente la corrige después de pintarla. El propietario lo señaló al aprobarlo y tiene razón.
+
+**El arreglo de verdad es que el SSR honre `?view=`**, y borraría los dos de golpe: éste y el de `astro:before-swap`. La regla 15 lo marca como terreno minado (rompía los listeners del panel lateral), y al revisar `switchView` NO se encontró salida temprana ni mecanismo evidente que lo explique — lo que significa que la trampa sigue sin localizarse, y eso es motivo para más cuidado, no para menos. Ambos bloques quedan rotulados como temporales y son borrables de una pieza el día que se ataque.
+
+### Sin verificar aquí
+
+Si el parpadeo desaparece **percibido** en sus aparatos. El fallo es dependiente de la velocidad del dispositivo y este entorno no reproduce la ruta lenta con fidelidad. Lo comprobable sí está: la marca aparece solo con `?view=mapa|lista`, tapa (`opacity: 0`, indicador a `0s`) y se retira dejando mapa visible y panel abierto.
+
+## D-145 · Ritmo de 40px en la columna de la ficha, y navegación con sitio propio
+
+### Medido antes de tocar
+
+| Hueco (escritorio) | Antes | Ahora |
+|---|---|---|
+| título → párrafo | 40 | 40 |
+| párrafo → divisor | **24** | **40** |
+| divisor → ARTISTAS | 40 | 40 |
+| ARTISTAS → lista | 8 | 8 *(sin tocar: es etiqueta→contenido, no uno de los huecos marcados)* |
+| lista → botón | 40 | 40 |
+| botón → navegación | **128** (96 de margen + 32 de relleno) | **40 cuando el contenido empuja** |
+
+Tres de los cinco ya eran 40. A ojo parecían distintos por las cajas de línea de cada tipografía, no por el CSS — de ahí que mereciera la pena medir antes de repartir cambios.
+
+### La navegación ahora tiene sitio de serie
+
+- **Antes**: `lg:mt-24` + `pt-8`, 128px fijos que ni anclaban la navegación ni seguían el ritmo del resto. Con la ventana a 1000px acababa en 843 — flotando, ni pegada al contenido ni al fondo.
+- **Ahora**: margen superior AUTOMÁTICO en escritorio (`lg:mt-auto`) y el contenedor pasa de `lg:flex-none` a `lg:flex-1 lg:min-h-auto` para que llene. Así la navegación se queda al fondo mientras el contenido no llegue, y cuando el contenido crece el margen automático se agota y manda `lg:pt-10`: 40px exactos.
+- `lg:min-h-auto` (y no dejar el `min-h-0`) es lo que impide que el contenedor se encoja por debajo de su contenido cuando la ficha es larga.
+- **Verificado en los tres regímenes**: ventana de 1400 → navegación a 108px del borde inferior, margen automático de 501px; ventana de 1000 → los mismos 108px del borde; ventana de 620 (el contenido desborda) → margen automático a 0 y **40px exactos** del botón al texto de la navegación.
+- **Móvil sin cambios**: conserva `flex-1 min-h-0 overflow-y-auto`, su scroll propio y sus `mt-10` + `pt-8` — ahí el `pt-8` es la separación del divisor, que en móvil se dibuja con un pseudoelemento en el borde de la caja.
+
+### Trampa del compilador
+
+Un comentario HTML dentro de `{eventData.description && (…)}` rompe el build con `[CompilerError] Unexpected token`: ahí dentro se compila como expresión. Los comentarios de esa zona van FUERA de la expresión. Anotado en el propio marcado.
+
+## D-146 · El enmascarado de la vuelta destapa en seco
+
+El propietario probó D-144 y apenas notó mejora, con la condición de no añadir retraso —esa parte de la app ya se siente lenta—. El revelado llevaba el fundido de 250ms de `revelarColocado()`, y era tiempo añadido a cambio de nada: el enmascarado **no adelanta ni un milisegundo**, solo cambia qué se ve durante una espera que dura lo mismo. Ahora destapa en seco y su coste propio es cero. Refuerza lo dicho en D-144: la ganancia real está en que el SSR honre `?view=`, no en tapar mejor.
+
+## D-147 · Revisión de D-145: el ritmo no es plano, son tres tallas
+
+D-145 igualó la columna a 40px en todo. Con los huecos ya iguales delante, el propietario vio que quedaba monótono y pidió otro reparto. **Sustituye la tabla de D-145.**
+
+| Hueco (escritorio) | D-145 | Ahora |
+|---|---|---|
+| título → párrafo | 40 | **32** |
+| párrafo → divisor | 40 | **32** |
+| divisor → ARTISTAS | 40 | **32** |
+| contenido → botón | 40 | **40** |
+| botón → navegación | 40 | **56** |
+
+Las tres tallas van de menos a más según se baja (32 · 40 · 56): el bloque se lee como una unidad que se despide, en vez de una lista de cosas separadas por igual. Es lo que la escala del DS llama L, XL y una talla por encima.
+
+### El detalle de implementación que no es obvio
+
+`título→texto` y `texto→botón` cuelgan **del mismo `gap`** de `#detail-scroll`, y ahora tienen que valer distinto (32 y 40). El `gap` se queda en 32 para los dos y el bloque del botón añade los 8 que le faltan con `lg:mt-2` — en flexbox el margen SUMA al gap. Si algún día se cambia el `gap` del padre, hay que rehacer ese 8.
+
+### Sin cambios
+
+- **Móvil**: sigue en 32 en todo, con sus `mt-10` + `pt-8` en la navegación. El propietario habló de la captura de escritorio y no se ha extrapolado.
+- **ARTISTAS → su lista**: 8px. Es relación etiqueta-contenido y no era uno de los huecos marcados.
+- **El anclaje de la navegación** (D-145) intacto: a 1400 de alto queda a 108px del borde inferior con 509px de margen automático; a 620, donde el contenido empuja, el margen cae a 0 y mandan los 56.
+
+### Verificado
+
+Los cinco huecos medidos en el navegador tras el cambio: 32 · 32 · 32 · 40 · 56.
+
+## D-148 · La navegación de la ficha no tenía punto fijo, y ahora sí
+
+- El propietario la vio demasiado abajo tras D-145 y pidió comprobar a qué altura fija estaba antes. **No estaba a ninguna**: con el contenedor a `lg:flex-none` colgaba del final del contenido, así que cada ficha la dejaba a una altura distinta. Medido restaurando las clases originales en vivo: **165px del borde inferior en FIV XI y 278px en Trip With Us** — 113px de diferencia. Lo que se recordaba como fijo era dónde caía en las fichas que se miraban.
+- Al anclarla (D-145) quedó a ras del `padding-bottom` de 108px de la página, 57px más abajo que en FIV XI.
+- **Arreglo**: `lg:pb-14` (56px) levanta el contenido de la navegación hasta ~164px del borde, la altura que tenía en las fichas de referencia, y usa la misma talla que el hueco de arriba: queda enmarcada por el mismo valor por los dos lados. **Es EL número a mover** si hay que reajustar la altura.
+- **Verificado**: FIV XI y Trip With Us, las dos ahora a 164px del borde inferior con ventana de 1000. Antes discrepaban 113px.
+
+## D-149 · `+` en la etiqueta de los clusters del mapa
+
+- Un `12` a secas se lee como "aquí hay doce eventos" cuando lo que dice es "aquí y alrededor". El `+` distingue de un golpe un grupo de un pin suelto.
+- **Se escribe en DOS sitios y hay que tocar los dos**: `clusterRenderer` (al crear la burbuja) y la pasada de refresco de `updateMapMarkers`, que reescribe la etiqueta cada vez que un grupo gana o pierde un miembro. Con el `+` solo en el renderer **desaparecía al reagrupar** — un fallo intermitente. Queda advertido en ambos.
+- Los pines individuales no se ven afectados: escriben otro formato (`Nombre (n)`), comprobado.
+- **Sin verificar visualmente**: la API de Maps no carga en el entorno del agente (el área del mapa sale gris), así que el `+` hay que verlo en un navegador real.
+
+## D-150 · La tipografía del cluster nunca fue distinta; su caja sí
+
+El propietario sospechó que la fuente del marcador de cluster no seguía el estilo del resto y que cambiaba de tamaño con el zoom. **La sospecha de la fuente era falsa y la de que algo iba mal, cierta.**
+
+- **Medido** inyectando el marcado de ambos tipos y leyendo el estilo resuelto: familia (`Space Grotesk`), tamaño (16px), peso (500) e interlineado (20px) son **idénticos** en cluster y pin suelto. Comparten la clase `.mel-marker-label`, así que no podían diferir.
+- **Lo que sí difería**: el cluster es el único marcador sin `.text-marker`, así que usaba `height: 40px` con `box-sizing: border-box` y `padding: 12px` → caja de contenido de **16px para una `line-height` de 20px**. La caja de línea desbordaba 2px por arriba y 2 por abajo. Los pines (`8px 12px`, alto automático) la encajan justa. El texto del cluster era el único renderizado a presión.
+- **Arreglo**: `padding: 10px 12px 10px 8px`. Los 10px verticales dejan la caja de contenido en 20px exactos, iguales a los pines. Los 8px de la izquierda son los 4 que pidió el propietario para equilibrar el peso visual ahora que la etiqueta empieza por `+` (el signo es más ligero y alto que las cifras). **Efecto colateral señalado**: el bocadillo queda 4px más estrecho, no solo el texto desplazado.
+- **Artefacto de medición que hay que conocer**: los marcadores tienen animación de entrada y en el entorno del agente los fotogramas están congelados, así que `getBoundingClientRect()` devuelve las medidas escaladas a ~0,6 (24 en vez de 40). Las de layout (`clientHeight`) no se ven afectadas y son las que valen.
+- **Sin verificar**: el cambio de tamaño con el zoom. La API de Maps no carga en el entorno del agente (el área sale gris). Si persiste tras esto, es otra causa.
