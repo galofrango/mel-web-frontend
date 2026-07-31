@@ -506,7 +506,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
            El `pt-8` de móvil se conserva: ahí el pseudoelemento del divisor se
            dibuja en el borde de la caja y esos 32px son su separación. -->
-      <div id="detail-nav-block" class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto pt-8 lg:pt-14 lg:pb-14 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div
+        id="detail-nav-block"
+        class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto pt-8 lg:pt-14 lg:pb-14 lg:border-t-0 shrink-0 items-center"
+        data-name="Navigation Block"
+        style={!prevEvent && !nextEvent ? 'display:none' : undefined}
+      >
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
@@ -1033,6 +1038,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (deadLink) deadLink.href = '#';
       }
     }
+
+    // El bloque entero (divisor + espacio reservado) corrige aquí el cálculo
+    // de partida hecho en el servidor con el orden cronológico: la secuencia
+    // real (búsqueda, local del mapa...) puede no tener vecinos aunque SÍ los
+    // haya cronológicamente, o al revés. Sin esto quedaba una línea y un hueco
+    // sin nada que navegar cuando el contexto activo era de un solo evento.
+    const navBlock = document.getElementById('detail-nav-block');
+    if (navBlock) navBlock.style.display = (prevEventItem || nextEventItem) ? '' : 'none';
 
     // Interactive like state persistent via localStorage using componetized LikeButton
     const likeKey = `mel-like-${eventId}`;
