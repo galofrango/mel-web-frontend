@@ -8,9 +8,10 @@ interface Props {
   hideChevron?: boolean;
   reload?: boolean;
   ariaLabel?: string;
+  expandHitArea?: boolean;
 }
 
-const { href = "#", class: className = "", alignment = "Left", state = "Default", id, hideChevron = false, reload = false, ariaLabel } = Astro.props;
+const { href = "#", class: className = "", alignment = "Left", state = "Default", id, hideChevron = false, reload = false, ariaLabel, expandHitArea = false } = Astro.props;
 
 const isRight = alignment === "Right";
 const isCenter = alignment === "Center";
@@ -27,7 +28,7 @@ const isDisabled = state === "Disabled";
   <a
     href={href}
     aria-label={ariaLabel}
-    class={`group relative inline-flex items-center gap-1 no-underline mel-link-active typo-body-roman ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
+    class={`group relative inline-flex items-center gap-1 no-underline mel-link-active typo-body-roman ${expandHitArea ? "mel-link-hit-expand" : ""} ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
     id={id}
     data-astro-reload={reload}
   >
@@ -92,6 +93,17 @@ const isDisabled = state === "Disabled";
   .mel-link-active:hover {
     /* Action Primary color in Hover state for ALL nested elements (inheriting bg/color) */
     color: var(--mel-action-primary);
+  }
+
+  /* Invisible halo that enlarges the tap/click target well past the visible
+     text (D-1xx: tags in the map side panel were hard to hit accurately).
+     A ::before generated INSIDE the <a> is still part of its own hit-test
+     region, so hovering the halo triggers :hover/chevron exactly like
+     hovering the text — no separate overlay stealing the event. */
+  .mel-link-hit-expand::before {
+    content: '';
+    position: absolute;
+    inset: -12px;
   }
 
   .mel-link-disabled {

@@ -125,10 +125,10 @@ import IconButton from './IconButton.astro';
     id="search-state-filled"
     class="hidden h-full flex items-center justify-between w-full transition-colors cursor-pointer"
   >
-    <div class="flex items-center relative shrink-0 truncate mr-2">
+    <div class="flex items-center relative min-w-0 truncate mr-2">
       <span
         id="search-filled-text"
-        class="typo-h3 text-mel-action-primary"
+        class="typo-h3 text-mel-action-primary truncate"
       >
         Query
       </span>
@@ -405,6 +405,24 @@ import IconButton from './IconButton.astro';
        drives width transitions between real px values (see applyContainerWidth). */
     width: fit-content;
     max-width: 100%;
+  }
+
+  /* Zona de toque ampliada del título/buscador en reposo (D-1xx: costaba
+     acertarlo, sobre todo en el modo "M.E.L." de móvil, donde el título
+     colapsado deja mucho hueco muerto a su derecha antes del menú). Un
+     ::before absoluto no cambia el tamaño natural del botón (fit-content en
+     compactWidth se mide ANTES de que JS aplique nada, y un pseudo-elemento
+     posicionado no participa en esa medida), así que es seguro ampliar sin
+     tocar el cálculo de anchura del buscador. Sesgado hacia la derecha, no
+     simétrico, porque ahí es donde sobra sitio; a la izquierda ya está el
+     borde de la página. */
+  #search-state-default::before {
+    content: '';
+    position: absolute;
+    top: -12px;
+    bottom: -12px;
+    left: -8px;
+    right: -64px;
   }
 
   #search-box-container::after {

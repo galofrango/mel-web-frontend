@@ -61,7 +61,7 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
 
   <div class={`flex h-[24px] items-center relative shrink-0 w-full min-w-0 ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
     {href ? (
-      <Link alignment={alignment} href={href} state={state} reload={reload} ariaLabel={ariaLabel} class="min-w-0 max-w-full">
+      <Link alignment={alignment} href={href} state={state} reload={reload} ariaLabel={ariaLabel} expandHitArea={true} class="min-w-0 max-w-full">
         <span class="tag-count-val">{count}</span>
       </Link>
     ) : (

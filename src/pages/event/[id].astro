@@ -1354,12 +1354,35 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // quedamos el horizontal.
       zona.style.touchAction = 'pan-y';
 
+      // Confirma el gesto sin mover de foto: un pellizco breve hacia el lado
+      // contrario al que se arrastraba, con rebote elástico de vuelta a 0. Así
+      // se nota que el dedo "llegó" en vez de que el sitio no respondiera.
+      function rebotar(dxIntentado) {
+        const tope = Math.max(-20, Math.min(20, dxIntentado / 3));
+        zona.animate(
+          [
+            { transform: 'translateX(0)' },
+            { transform: `translateX(${tope}px)` },
+            { transform: 'translateX(0)' },
+          ],
+          { duration: 260, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
+        );
+      }
+
       const resolver = () => {
         if (x0 === null) return;
         x0 = null; y0 = null;
         if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
+        // En los extremos NO se da la vuelta: seguir arrastrando más allá de la
+        // última foto volvía a la primera de golpe, y eso mareaba más que
+        // simplemente no moverse (el autoplay sigue dando la vuelta él solo).
+        const siguiente = indiceActual() + (dxUltimo < 0 ? 1 : -1);
+        if (siguiente < 0 || siguiente >= imageUrls.length) {
+          rebotar(dxUltimo);
+          return;
+        }
         huboDeslizamiento = true;
-        irA(indiceActual() + (dxUltimo < 0 ? 1 : -1));   // arrastrar a la izquierda = siguiente
+        irA(siguiente);   // arrastrar a la izquierda = siguiente
       };
 
       zona.addEventListener('pointerdown', (e) => {

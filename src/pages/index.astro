@@ -4650,11 +4650,12 @@ const tags = [
     }[siguiente]);
     // Solo donde no hay tabla que ordenar. El Mapa queda fuera: allí el orden
     // no se ve por ningún lado. Y con el estado vacío tampoco: no hay nada que
-    // ordenar, así que ofrecerlo sería prometer una acción sin efecto.
+    // ordenar, así que ofrecerlo sería prometer una acción sin efecto. Con un
+    // único resultado tampoco hay nada que reordenar entre sí.
     const vista = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '');
     const vacio = document.getElementById('views-empty-state');
     const hayVacio = vacio && !vacio.classList.contains('hidden');
-    boton.dataset.visible = ((vista === 'galería' || vista === 'lista') && !hayVacio) ? 'true' : 'false';
+    boton.dataset.visible = ((vista === 'galería' || vista === 'lista') && !hayVacio && filtered.length > 1) ? 'true' : 'false';
     // Y si el estado vacío aparece con un whisper todavía en pantalla, se retira:
     // anunciar un orden sobre "Sin resultados" no dice nada. Pasa buscando
     // deprisa, antes de que el de contexto haya terminado sus 3 segundos.
