@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { leerCabecera } from '../src/lib/imagen.ts';
 import { fetchSheetRows, mapSheetRow } from '../src/lib/mel.ts';
+import { hayQueAbortar } from './lib/validar-archivo.mjs';
 
 const SALIDA = 'src/data/flyer_tecnico.json';
 const LOTE = 8;   // subirlo hace que Drive corte
@@ -47,17 +48,19 @@ for (const f of filas) {
 }
 
 const cache = !rehacerTodo && existsSync(SALIDA) ? JSON.parse(readFileSync(SALIDA, 'utf8')) : {};
-const pendientes = [...porId.keys()].filter(id => rehacerTodo || soloEstos.length || !cache[id]);
-console.log(`${porId.size} imágenes · ${Object.keys(cache).length} ya medidas · ${pendientes.length} por medir`);
 
-// Proteger contra caída silenciosa de la hoja: si porId está vacío y la caché tiene
-// contenido, abortar sin escribir (una hoja vacía legítima vs. una caída se ven iguales).
-if (porId.size === 0 && Object.keys(cache).length > 0 && !soloEstos.length) {
+// Proteger contra caída silenciosa de la hoja: consulta el disco directamente
+// (no depende de la variable cache, que está vacía en modo --todo).
+const entradasEnDisco = existsSync(SALIDA) ? Object.keys(JSON.parse(readFileSync(SALIDA, 'utf8'))).length : 0;
+if (hayQueAbortar({ imagenesEnHoja: porId.size, entradasEnDisco, soloEstos })) {
   console.error('ERROR: La hoja no devolvió ninguna imagen pero hay caché en disco.');
   console.error('Abortando sin modificar ' + SALIDA + ' (protección contra caída de la hoja).');
   process.exitCode = 1;
   process.exit(1);
 }
+
+const pendientes = [...porId.keys()].filter(id => rehacerTodo || soloEstos.length || !cache[id]);
+console.log(`${porId.size} imágenes · ${Object.keys(cache).length} ya medidas · ${pendientes.length} por medir`);
 
 let hechas = 0;
 const fallos = [];
