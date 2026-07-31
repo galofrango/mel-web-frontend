@@ -23,3 +23,6 @@ pnpm-debug.log*
 # jetbrains setting folder
 .idea/
 .vercel
+
+# Andamiaje del proceso de subagentes (no es código del proyecto)
+.superpowers/
