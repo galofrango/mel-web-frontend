@@ -441,8 +441,12 @@ y se encienden al marcar una casilla — desactivadas y no ocultas, para que se 
 que existen sin que la fila salte. **«Abrir en la hoja» nunca es acción en bloque**:
 no se pueden abrir tres celdas a la vez.
 
-**Tabla**, rejilla de Figma que suma 1224: `42 · 326 · 160 · 120 · 120 · 220 · 220`
-(casilla · miniatura+nombre · MEL · dimensiones · peso · ocultar · acción).
+**Tabla**, rejilla de Figma: **16px de sangrado izquierdo** más siete columnas de
+`42 · 326 · 160 · 120 · 120 · 220 · 220` (casilla · miniatura+nombre · MEL ·
+dimensiones · peso · ocultar · acción). **16 + 1208 = 1224.** Los 16px van
+delante, como en Figma (`Columns` empieza en x=0 y la primera columna en x=16);
+si se omiten y se fuerza el ancho total a 1224, aparecen como un hueco de 16px
+**al final** de cada fila, que es un defecto real medido en la tarea 5.
 Filas de 64px, **divisiones verticales** entre columnas, ninguna horizontal, y
 24px de aire al pie de la lista. El MEL enlaza a su celda real (`…#gid=0&range=K{fila}`).
 Celdas de dato en `typo-lead` sobre `text-secondary`; el MEL en Lora, que es lo
