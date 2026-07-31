@@ -1497,6 +1497,33 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     #detail-nav-block::before { left: 48px; right: 48px; }
   }
 
+  /* Con un solo lado navegable, ese enlace se centra a todo el ancho en vez
+     de quedarse pegado a su mitad de la rejilla — solo en móvil, donde la
+     rejilla es de 2 columnas; en escritorio (12 columnas) el hueco de la
+     columna que falta ya se lee como intencionado y no hace falta. Reactivo
+     al mismo `invisible` que ya alterna el JS (D-090): sin JS nuevo, se
+     resuelve solo con `:has()` cuando cambia el estado o cruza el breakpoint. */
+  @media (max-width: 1023px) {
+    #detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container,
+    #detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container {
+      grid-column: 1 / -1;
+      justify-content: center;
+    }
+    /* :global() porque `.filter-tag` lo pinta TagWithLink.astro, un componente
+       distinto — el scoping de Astro no le añade el atributo de este archivo,
+       así que sin esto la regla no llega a coincidir con nada (ver el mismo
+       comentario en TagWithLink.astro sobre por qué hace falta ahí también). */
+    :global(#detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container .filter-tag),
+    :global(#detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container .filter-tag) {
+      align-items: center;
+      text-align: center;
+    }
+    :global(#detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container .filter-tag > div:last-child),
+    :global(#detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container .filter-tag > div:last-child) {
+      justify-content: center;
+    }
+  }
+
   @media (max-width: 1023px) {
     /* La cabecera se ancla con la fila de la X por encima del borde: lo que
        queda pegado arriba es solo el título y los tags. */
