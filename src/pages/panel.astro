@@ -55,9 +55,13 @@ const grupos = auditar(filas, flyerTecnico as any);
 // La cifra grande es de IDS ÚNICOS, no la suma de los tamaños de sección: un
 // mismo cartel puede estar en varias reglas del mismo nivel (p.ej. un PNG que
 // además pesa más de 2MB), y sumar lo contaría dos veces. El desglose muestra
-// las 3 secciones más grandes de ese nivel y, si sobra alguna, una cuarta
-// línea con el total de lo que no cupo — igual que hará la tarea 6 tras cada
-// recálculo (mismo cómputo, aquí solo en el primer pintado del servidor).
+// las 3 PRIMERAS secciones de ese nivel EN EL ORDEN DE auditar() — que es
+// orden de trabajo, no un ranking por tamaño (auditoria.ts:5-9): reordenar
+// por cantidad pondría "Sin perfil"/"+2MB" (efectos) por delante de "PNG"/
+// "CMYK" (causas que arrastran a los demás), invirtiendo justo el consejo que
+// la cascada existe para dar. Si sobra alguna cuarta y siguientes, se resumen
+// en una línea con el total de lo que no cupo — igual que hará la tarea 6 tras
+// cada recálculo (mismo cómputo, aquí solo en el primer pintado del servidor).
 type Linea = { titulo: string; cifra: number };
 
 function resumenNivel(nivel: 1 | 2 | 3) {
@@ -66,13 +70,12 @@ function resumenNivel(nivel: 1 | 2 | 3) {
   const idsUnicos = new Set<string>();
   gruposNivel.forEach((g) => g.items.forEach((it) => idsUnicos.add(it.idMel)));
 
-  const ordenados = [...gruposNivel].sort((a, b) => b.items.length - a.items.length);
-  const top3 = ordenados.slice(0, 3);
+  const top3 = gruposNivel.slice(0, 3);
   const lineas = [0, 1, 2].map((i): Linea | null =>
     top3[i] ? { titulo: top3[i].titulo, cifra: top3[i].items.length } : null
   ) as [Linea | null, Linea | null, Linea | null];
 
-  const restantes = ordenados.slice(3);
+  const restantes = gruposNivel.slice(3);
   const desbordamiento = restantes.length > 0
     ? restantes.reduce((suma, g) => suma + g.items.length, 0)
     : null;

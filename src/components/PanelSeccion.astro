@@ -15,7 +15,7 @@
  * en la cabecera, `.nn` en el contador entre corchetes, `.fila[data-id]` en
  * cada fila de la tabla.
  */
-import { SHEET_ID, extractDriveImage, escHtml } from '../lib/mel';
+import { SHEET_ID, extractDriveImage } from '../lib/mel';
 import type { Grupo } from '../lib/auditoria';
 
 interface Props {
@@ -132,7 +132,11 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
     </div>
 
     <div class="overflow-x-auto pb-6">
-      <div class={`tabla grid ${columnasTabla} min-w-[1224px]`} role="table" aria-label={grupo.titulo}>
+      {/* pl-4: en Figma el bloque de columnas arranca en x=16, no en x=0 — sin
+          este padding sobraban 16px de hueco vacío al final de cada fila
+          (min-w-[1224px] forzaba la caja a 1224 pero las 7 columnas solo
+          suman 1208; con el padding delante, 16 + 1208 = 1224 exactos). */}
+      <div class={`tabla grid ${columnasTabla} min-w-[1224px] pl-4`} role="table" aria-label={grupo.titulo}>
         {grupo.items.map((item) => {
           const urlDrive = urlPorId[item.idMel];
           const thumb = extractDriveImage(urlDrive, 200);
@@ -143,7 +147,7 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
           return (
             <div class="fila contents" data-id={item.idMel}>
               <div class="flex items-center justify-center h-16 border-r border-mel-border">
-                <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${escHtml(item.evento)}`} />
+                <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${item.evento}`} />
               </div>
               <div class="flex items-center gap-3 min-w-0 h-16 px-4 border-r border-mel-border">
                 {thumb ? (
