@@ -92,3 +92,34 @@ test('bytes es siempre el tamaño real del buffer', () => {
   const buf = png(10, 10, 2);
   assert.equal(leerCabecera(buf).bytes, buf.length);
 });
+
+test('ficheros truncados no revienta: buffer vacío', () => {
+  const d = leerCabecera(Buffer.alloc(0));
+  assert.equal(d.tipo, 'desconocido');
+  assert.equal(d.px, null);
+  assert.equal(d.comp, null);
+  assert.equal(d.perfil, false);
+  assert.equal(d.bytes, 0);
+});
+
+test('ficheros truncados no revienta: PNG firma sin IHDR', () => {
+  const pngIncompleto = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  const d = leerCabecera(pngIncompleto);
+  assert.equal(d.tipo, 'desconocido');
+  assert.equal(d.px, null);
+});
+
+test('ficheros truncados no revienta: JPEG solo SOI', () => {
+  const jpegIncompleto = Buffer.from([0xFF, 0xD8]);
+  const d = leerCabecera(jpegIncompleto);
+  assert.equal(d.tipo, 'desconocido');
+  assert.equal(d.px, null);
+  assert.equal(d.comp, null);
+});
+
+test('ficheros truncados no revienta: GIF muy corto', () => {
+  const gifIncompleto = Buffer.from('GIF');
+  const d = leerCabecera(gifIncompleto);
+  assert.equal(d.tipo, 'desconocido');
+  assert.equal(d.px, null);
+});

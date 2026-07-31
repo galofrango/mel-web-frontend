@@ -10,7 +10,7 @@
 export type DatosImagen = {
   tipo: 'jpeg' | 'png' | 'gif' | 'desconocido';
   px: [number, number] | null;
-  /** Componentes de color del JPEG: 1 = gris, 3 = YCbCr, 4 = CMYK. `null` si no es JPEG. */
+  /** Componentes de color del JPEG: 1 = gris, 3 = YCbCr, 4 = CMYK. `null` si no es JPEG o si es JPEG truncado antes del SOF. */
   comp: number | null;
   /** Si el fichero lleva perfil de color incrustado. */
   perfil: boolean;
@@ -56,6 +56,7 @@ export function leerCabecera(buf: Buffer): DatosImagen {
       if (marcador >= 0xC0 && marcador <= 0xC3) {
         d.px = [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
         d.comp = buf[i + 9];
+        break;
       }
       i += 2 + largo;
     }
