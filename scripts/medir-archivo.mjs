@@ -49,17 +49,23 @@ for (const f of filas) {
 
 // Leer el fichero una sola vez y pasar a estadoInicial.
 const textoEnDisco = existsSync(SALIDA) ? readFileSync(SALIDA, 'utf8') : null;
-const { cache, abortar, entradasEnDisco } = estadoInicial({
+const { cache, abortar, entradasEnDisco, discoCorrupto } = estadoInicial({
   rehacerTodo,
   textoEnDisco,
   imagenesEnHoja: porId.size,
   soloEstos
 });
 
-// Proteger contra caída silenciosa de la hoja.
+// Proteger contra caída silenciosa de la hoja, o contra un caché en disco que
+// no se puede leer: ninguno de los dos prueba que no hubiera nada que
+// perder, así que ante la duda no se escribe.
 if (abortar) {
-  console.error('ERROR: La hoja no devolvió ninguna imagen pero hay caché en disco.');
-  console.error('Abortando sin modificar ' + SALIDA + ' (protección contra caída de la hoja).');
+  if (discoCorrupto) {
+    console.error(`ERROR: ${SALIDA} existe pero no se puede leer (JSON corrupto), y la hoja tampoco devolvió ninguna imagen.`);
+  } else {
+    console.error(`ERROR: La hoja no devolvió ninguna imagen pero hay caché en disco (${entradasEnDisco} entradas).`);
+  }
+  console.error(`Abortando sin modificar ${SALIDA}: no se puede saber si había algo que perder.`);
   process.exitCode = 1;
   process.exit(1);
 }

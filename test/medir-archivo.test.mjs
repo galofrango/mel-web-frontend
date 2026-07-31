@@ -64,14 +64,49 @@ test('estadoInicial: hoja normal + disco vacío', (t) => {
   assert.equal(resultado.entradasEnDisco, 0);
 });
 
-test('estadoInicial: JSON corrupto en disco', (t) => {
+test('estadoInicial: disco corrupto + hoja caída → abortar true (CRÍTICO)', (t) => {
+  // Un disco ilegible no es prueba de que no hubiera nada que perder, es
+  // prueba de que no se puede saber. Antes de este arreglo, un JSON corrupto
+  // se colapsaba a "0 entradas" y quedaba indistinguible de un disco vacío,
+  // así que con la hoja caída a la vez `abortar` daba false y se escribía
+  // {} encima del fichero corrupto con código de salida 0.
   const resultado = estadoInicial({
     rehacerTodo: false,
     textoEnDisco: 'esto no es JSON válido {]',
     imagenesEnHoja: 0,
     soloEstos: []
   });
-  assert.equal(resultado.abortar, false, 'no debe abortar: JSON corrupto se trata como "no hay disco"');
-  assert.equal(resultado.entradasEnDisco, 0);
+  assert.equal(resultado.abortar, true, 'debe abortar: no se puede saber si había algo en el disco');
+  assert.equal(resultado.discoCorrupto, true);
   assert.deepEqual(resultado.cache, {});
+});
+
+test('estadoInicial: modo --todo + disco corrupto + hoja caída → abortar true', (t) => {
+  // Paralelo al caso crítico de más arriba ("modo --todo + disco con
+  // entradas"): la detección de disco corrupto tampoco puede depender de
+  // rehacerTodo, o el mismo agujero reaparece solo en modo --todo.
+  const resultado = estadoInicial({
+    rehacerTodo: true,
+    textoEnDisco: 'esto no es JSON válido {]',
+    imagenesEnHoja: 0,
+    soloEstos: []
+  });
+  assert.equal(resultado.abortar, true, 'debe abortar incluso en --todo');
+  assert.equal(resultado.discoCorrupto, true);
+  assert.deepEqual(resultado.cache, {});
+});
+
+test('estadoInicial: disco corrupto + hoja sana → NO aborta, se regenera solo', (t) => {
+  // El caso que no debe romperse: si la hoja sí responde con imágenes, hay
+  // de dónde volver a descargar y sobrescribir el fichero corrupto es lo
+  // correcto. Solo la combinación corrupto + hoja caída aborta.
+  const resultado = estadoInicial({
+    rehacerTodo: false,
+    textoEnDisco: 'esto no es JSON válido {]',
+    imagenesEnHoja: 84,
+    soloEstos: []
+  });
+  assert.equal(resultado.abortar, false, 'no debe abortar: la hoja tiene de dónde descargar');
+  assert.equal(resultado.discoCorrupto, true, 'el disco sigue siendo ilegible');
+  assert.deepEqual(resultado.cache, {}, 'no hay nada recuperable que precargar en cache');
 });

@@ -1,28 +1,34 @@
 /**
  * Lógica de validación y cálculo del estado inicial del caché de archivo.
  *
- * La función estadoInicial captura dos aspectos que estaban dispersos:
- * - Construir el caché, que depende del modo (rehacerTodo o no)
- * - Decidir si abortar, que no debe depender del modo pero sí del disco
+ * La función estadoInicial distingue tres estados del disco, no dos:
+ *   - no hay fichero (textoEnDisco === null)
+ *   - hay fichero y se lee (N entradas)
+ *   - hay fichero y NO se puede leer (JSON corrupto)
  *
- * Esto previene regresiones donde futuros cambios en la lógica de `cache`
- * afecten silenciosamente a la decisión de abortar.
+ * El tercer estado se trata como el segundo a efectos de "abortar": un disco
+ * ilegible no es prueba de que no hubiera nada que perder, es prueba de que
+ * no se puede saber. Ante la duda, esta guarda no toca nada — salvo que la
+ * hoja sí responda con imágenes, en cuyo caso hay de dónde volver a
+ * descargar y sobrescribir es lo correcto (por eso `abortar` solo se activa
+ * cuando la hoja también está caída).
  */
 
 export interface DatosArchivo {
   abortar: boolean;
   cache: Record<string, unknown>;
   entradasEnDisco: number;
+  discoCorrupto: boolean;
 }
 
 /**
  * Calcula el estado inicial: qué hay en el caché y si hay que abortar.
  *
- * @param rehacerTodo - si true, ignora el caché existente
+ * @param rehacerTodo - si true, ignora el caché existente (no se carga en `cache`)
  * @param textoEnDisco - contenido del fichero JSON, o null si no existe
  * @param imagenesEnHoja - cuántas imágenes devolvió la hoja
- * @param soloEstos - lista de ids a medir (modo protegido)
- * @returns { abortar, cache, entradasEnDisco }
+ * @param soloEstos - lista de ids a medir (modo protegido, nunca aborta)
+ * @returns { abortar, cache, entradasEnDisco, discoCorrupto }
  */
 export function estadoInicial({
   rehacerTodo,
@@ -35,31 +41,27 @@ export function estadoInicial({
   imagenesEnHoja: number;
   soloEstos: string[];
 }): DatosArchivo {
-  // Construir el caché: si no rehacerTodo y hay disco, parsear; si no, vacío.
   let cache: Record<string, unknown> = {};
   let entradasEnDisco = 0;
+  let discoCorrupto = false;
 
-  if (!rehacerTodo && textoEnDisco) {
-    try {
-      cache = JSON.parse(textoEnDisco);
-      entradasEnDisco = Object.keys(cache).length;
-    } catch {
-      // Si el JSON está corrupto, tratar como "no hay disco".
-      cache = {};
-      entradasEnDisco = 0;
-    }
-  } else if (rehacerTodo && textoEnDisco) {
-    // Modo --todo: aunque no usemos el caché, contar lo que hay en disco.
+  if (textoEnDisco !== null) {
     try {
       const contenido = JSON.parse(textoEnDisco);
       entradasEnDisco = Object.keys(contenido).length;
+      if (!rehacerTodo) cache = contenido;
     } catch {
-      entradasEnDisco = 0;
+      // Fichero presente pero ilegible: no es "disco vacío", es "no se puede saber".
+      discoCorrupto = true;
     }
   }
 
-  // Decidir si hay que abortar: hoja vacía + disco con contenido + no modo ids sueltos.
-  const abortar = soloEstos.length === 0 && imagenesEnHoja === 0 && entradasEnDisco > 0;
+  // Abortar si la hoja no trajo nada Y el disco no se puede dar por vacío con
+  // seguridad: o tenía entradas de verdad, o directamente no se pudo leer.
+  const abortar =
+    soloEstos.length === 0 &&
+    imagenesEnHoja === 0 &&
+    (entradasEnDisco > 0 || discoCorrupto);
 
-  return { abortar, cache, entradasEnDisco };
+  return { abortar, cache, entradasEnDisco, discoCorrupto };
 }
