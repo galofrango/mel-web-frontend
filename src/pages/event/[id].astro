@@ -7,7 +7,7 @@ import LikeButton from '../../components/LikeButton.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 import { fetchEvents, extractDriveImage } from '../../lib/mel';
-import flyerRatios from '../../data/flyer_ratios.json';
+import flyerTecnico from '../../data/flyer_tecnico.json';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
 // sheet fresh on every visit instead of baking it in at build time, so new
@@ -73,7 +73,7 @@ const allEvents = eventsList.map((e: any) => ({
 const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
 
 // Dimensiones reales de cada cartel, medidas offline por
-// `scripts/medir-carteles.mjs`. Sirven para dar a la caja de imagen el alto que
+// `scripts/medir-archivo.mjs`. Sirven para dar a la caja de imagen el alto que
 // de verdad necesita en vez de 360px fijos, y para no ampliar nunca una imagen
 // por encima de su tamaño real.
 //
@@ -91,7 +91,7 @@ const idDeDrive = (url?: string) => {
   return '';
 };
 const medidas = eventData.carruselItems
-  .map((i: any) => flyerRatios[idDeDrive(i.urlDrive)])
+  .map((i: any) => flyerTecnico[idDeDrive(i.urlDrive)]?.px)
   .filter((d: any): d is [number, number] => Array.isArray(d) && d[0] > 0 && d[1] > 0);
 
 // La MÁS ALTA manda, y ese es el punto: si la caja se ajustara a cada imagen,
@@ -355,7 +355,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                     // y no estirado. `object-contain` por sí solo NO basta —
                     // también agranda para llenar la caja. El tope va en la caja
                     // de la propia imagen; el centrado ya lo pone el padre.
-                    const d = flyerRatios[idDeDrive(eventData.carruselItems[idx]?.urlDrive)];
+                    const d = flyerTecnico[idDeDrive(eventData.carruselItems[idx]?.urlDrive)]?.px;
                     const tope = Array.isArray(d) && d[0] > 0
                       ? `max-width: ${d[0]}px; max-height: ${d[1]}px;` : '';
                     const nombre = idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : '';
