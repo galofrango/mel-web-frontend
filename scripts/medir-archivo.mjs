@@ -50,6 +50,15 @@ const cache = !rehacerTodo && existsSync(SALIDA) ? JSON.parse(readFileSync(SALID
 const pendientes = [...porId.keys()].filter(id => rehacerTodo || soloEstos.length || !cache[id]);
 console.log(`${porId.size} imágenes · ${Object.keys(cache).length} ya medidas · ${pendientes.length} por medir`);
 
+// Proteger contra caída silenciosa de la hoja: si porId está vacío y la caché tiene
+// contenido, abortar sin escribir (una hoja vacía legítima vs. una caída se ven iguales).
+if (porId.size === 0 && Object.keys(cache).length > 0 && !soloEstos.length) {
+  console.error('ERROR: La hoja no devolvió ninguna imagen pero hay caché en disco.');
+  console.error('Abortando sin modificar ' + SALIDA + ' (protección contra caída de la hoja).');
+  process.exitCode = 1;
+  process.exit(1);
+}
+
 let hechas = 0;
 const fallos = [];
 for (let i = 0; i < pendientes.length; i += LOTE) {
@@ -57,7 +66,12 @@ for (let i = 0; i < pendientes.length; i += LOTE) {
     try {
       const r = await fetch(`https://drive.google.com/uc?export=download&id=${id}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      cache[id] = leerCabecera(Buffer.from(await r.arrayBuffer()));
+      const datos = leerCabecera(Buffer.from(await r.arrayBuffer()));
+      // Proteger contra respuestas 200 que no sean imágenes válidas.
+      if (datos.tipo === 'desconocido' || !datos.px) {
+        throw new Error('no es una imagen válida (tipo desconocido)');
+      }
+      cache[id] = datos;
     } catch (e) {
       fallos.push(`${porId.get(id)} (${id}): ${e.message}`);
     }
