@@ -532,10 +532,25 @@ test('detecta los huecos de datos', () => {
   assert.ok(claves([{ ...filaBase, artistas: '' }], { AAA: tecBase }).includes('sin-artistas'));
 });
 
+// Hacen falta DOS filas: "enorme" (>3000px) y "pequeno" (<1200px) se excluyen
+// mutuamente, así que una sola fila no puede disparar los dos grupos y la última
+// aserción sería insatisfacible.
 test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => {
-  const tec = { ...tecBase, tipo: 'png', perfil: false, bytes: 3 * 1024 * 1024, px: [4961, 9674], comp: 4 };
-  const orden = claves([{ ...filaBase, lugar: '', coordenadas: '' }], { AAA: tec });
+  const filas = [
+    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '' },
+    { ...filaBase, idMel: 'MEL-B', urlDrive: '.../d/B/view' },
+  ];
+  const tec = {
+    A: { ...tecBase, tipo: 'png', perfil: false, bytes: 3 * 1024 * 1024, px: [4961, 9674], comp: 4 },
+    B: { ...tecBase, px: [600, 289] },
+  };
+  const orden = claves(filas, tec);
   const pos = c => orden.indexOf(c);
+  // Si el fixture deja de disparar alguno de los dos extremos, las comparaciones
+  // de abajo pasarían por comparar contra -1 en vez de por ser correctas.
+  for (const c of ['sin-lugar', 'sin-coordenadas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno']) {
+    assert.ok(orden.includes(c), `el fixture debe disparar "${c}"`);
+  }
   assert.ok(pos('sin-lugar') < pos('sin-coordenadas'), 'sin lugar no se puede geocodificar');
   assert.ok(pos('png') < pos('sin-perfil'), 'convertir el PNG ya incrusta el perfil');
   assert.ok(pos('png') < pos('pesado'), 'convertir el PNG ya baja el peso');

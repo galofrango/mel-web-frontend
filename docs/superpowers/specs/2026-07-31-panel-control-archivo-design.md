@@ -153,6 +153,84 @@ Centinelas de «sin dato», los mismos del DS: vacío, `desconocido`, `sin fecha
 
 ---
 
+## El texto de cada aviso
+
+Texto de producto, revisado por el propietario en el prototipo. **Se copia literal**;
+si algo parece mal redactado, se discute, no se reescribe sobre la marcha.
+
+Cada aviso tiene dos piezas: la **descripción** (primera frase en negrita, «El
+problema es que…», y después «La forma de corregirlo es…») y el **banner**, el
+dato concreto que hay que decidir o saber. `[hoja→X]` es un enlace a la columna X
+de la hoja.
+
+**Sin lugar** · desc: «**El problema es que la ficha no tiene nombre de local**, así
+que no hay nada que enseñar en la etiqueta «Lugar» ni por lo que agrupar el evento
+en el mapa. / La forma de corregirlo es escribir el nombre del local en la columna
+E de la [hoja→E1].» · banner: «Si de verdad no se sabe, deja la celda vacía en vez
+de escribir «Desconocido»: el sitio ya sabe convertir un hueco en la invitación
+«¿Nos ayudas?».»
+
+**Sin coordenadas** · desc: «**El problema es que sin el enlace de Google Maps el
+evento no sale en el mapa.** / La forma de corregirlo es buscar el local en Google
+Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1].
+El sitio saca el punto exacto del propio enlace.» · banner: «Las tres filas ponen
+«Desconocido» en esa celda, y eso es peor que dejarla vacía: el respaldo por
+localidad solo entra si la celda está vacía, así que «Desconocido» apaga el único
+plan B que había.»
+
+**Archivo PNG** · desc: «**El problema es el peso**: en tamaño de miniatura un PNG
+puede pesar diez veces más que el mismo cartel en JPEG, y la galería carga 32 de
+golpe. / La forma de corregirlo es convertir a JPEG calidad 85 **e incrustar sRGB
+en la misma pasada** — por separado, la conversión deja el fichero etiquetado como
+Adobe RGB y arreglas el peso creando un problema de color.» · banner: «20 de estos
+33 llevan transparencia y JPEG no la admite, así que hay que decidir una vez sobre
+qué fondo se aplanan.»
+
+**En CMYK** · desc: «**El problema es que CMYK es un espacio de imprenta, no de
+pantalla**, y los navegadores lo tratan de forma irregular. / La forma de
+corregirlo es pasarlo a sRGB.» · banner: «Medido en este fichero: de 798 KB a
+225 KB, y el color queda en el espacio que el navegador espera.»
+
+**Por encima de 3000 px** · desc: «**El problema es que nada del sitio muestra un
+cartel a ese tamaño**, así que esos píxeles de más solo suman peso. / La forma de
+corregirlo es reducir a 2400 px de lado mayor, que es el techo que fija vuestro
+*imagenes.md*.» · banner: «Medido en el más grande del archivo: de 4961×9674 a
+1230×2400, y de 2,1 MB a 263 KB.»
+
+**Sin perfil de color** · desc: «**El problema es que el fichero no dice en qué
+espacio de color están sus números**, así que el navegador asume sRGB. Si no lo
+era, el cartel sale apagado — y como avisa vuestro *imagenes.md*, el peligro no es
+tener Adobe RGB, es no tener nada. / La forma de corregirlo es convertir a sRGB e
+incrustar el perfil. No cambia lo que se ve si ya era sRGB: solo lo hace
+explícito.» · banner: «Tres de estos son en escala de grises (MEL-00002, MEL-00004
+y MEL-00007) y la conversión los pasaría a RGB. Decidid si se excluyen.»
+
+**Por encima de 2 MB** · desc: «**El problema es que ese peso se paga en cada
+visita**: Drive responde *no-store*, así que no hay caché posible y el original
+viaja entero cada vez. / La forma de corregirlo es bajar la calidad hasta entrar en
+2 MB.» · banner: «Este aviso va el último: casi todos estos son los PNG y el CMYK
+de las otras secciones, y al convertirlos bajan solos. Recomprimir dos veces la
+misma imagen pierde calidad para nada.»
+
+**Baja resolución** · desc: «**El problema es que el original no da más de sí.** El
+sitio nunca amplía una imagen por encima de su tamaño real, así que no se ve
+borrosa: se ve pequeña. / La única forma de corregirlo es conseguir un escaneo
+mejor de la pieza.» · banner: «Ampliar con IA está descartado: reinventa las letras
+del cartel, y en un archivo de diseño gráfico eso es falsificar la pieza.»
+
+**GIF animado** · desc: «**El problema es que son 177 fotogramas y 14,4 MB que Drive
+no redimensiona**: el visitante se los descarga enteros, pida el tamaño que pida. /
+La decisión es vuestra: dejarlo como está, o guardar el GIF aparte y elegir un
+fotograma como cara de la pieza en el archivo.» · banner: «No lleva botón a
+propósito: convertirlo a JPEG destruiría la animación, que es parte de la pieza.»
+
+**Sin artistas** · desc: «**El problema es que el archivo no sabe quién pinchó en
+ese evento**, y en un archivo la laguna es información, no un error. / La forma de
+corregirlo es escribir los nombres en la columna H de la [hoja→H1]. Suelen estar
+impresos en el propio cartel.» · **sin banner.**
+
+---
+
 ## El orden es un orden de trabajo, no un ranking
 
 Las secciones van ordenadas para que **arreglar las de arriba resuelva las de
