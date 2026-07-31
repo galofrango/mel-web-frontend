@@ -1,0 +1,224 @@
+---
+/**
+ * PanelSeccion — una de las diez comprobaciones del archivo en /panel (Figma
+ * 1197:65133 / 1197:65134). Recibe un `Grupo` entero (tarea 4, auditoria.ts) y
+ * lo pinta: cabecera plegable, descripción, nota de automatización, banner (o
+ * divisor si no hay), fila de acciones en bloque y la tabla de filas.
+ *
+ * Todo lo que pinta esta tarea está EXPANDIDO y en su estado inicial: sin JS
+ * de cliente todavía (tarea 6), `aria-expanded` nace en "true" y las acciones
+ * en bloque nacen `disabled` (así lo pide el plan, paso 1 de la tarea 5 —
+ * "acciones en bloque con el atributo disabled puesto desde el servidor").
+ *
+ * Ganchos que deja para la tarea 6 (no tocar su forma, solo escribir sobre
+ * ella): `[data-nivel]`/`[data-clave]` en la raíz, `.sec-cab[aria-expanded]`
+ * en la cabecera, `.nn` en el contador entre corchetes, `.fila[data-id]` en
+ * cada fila de la tabla.
+ */
+import { SHEET_ID, extractDriveImage, escHtml } from '../lib/mel';
+import type { Grupo } from '../lib/auditoria';
+
+interface Props {
+  grupo: Grupo;
+  /** urlDrive de cada idMel, para las miniaturas — auditoria.ts no lo lleva
+   *  en `Item` (no lo necesita para auditar), así que panel.astro lo pasa
+   *  aparte en vez de forzar ese campo dentro del modelo ya aprobado. */
+  urlPorId: Record<string, string>;
+}
+
+const { grupo, urlPorId } = Astro.props;
+
+const sheetBase = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=0#gid=0`;
+
+// Columna real de la hoja que corrige cada acción manual (AGENTS.md, columnas
+// de Flyers). Solo las tres reglas con accion === 'Abrir en la hoja' la usan.
+const COLUMNA_MANUAL: Record<string, string> = {
+  'sin-lugar': 'E',
+  'sin-coordenadas': 'G',
+  'sin-artistas': 'H',
+};
+
+/** Sustituye el marcador `[hoja→X]` (p.ej. `[hoja→E1]`) por un enlace real a
+ *  esa celda. auditoria.ts lo deja sin resolver a propósito (módulo puro, sin
+ *  SHEET_ID) — ver comentario de cabecera de auditoria.ts. El resto del texto
+ *  ya viene escapado/seguro: son las cadenas literales del spec con `<b>`,
+ *  `<i>`, `<br>` puestos a mano, no HTML que llegue de la hoja.
+ *
+ *  El estilo del enlace (Lora subrayada, text-secondary → action-primary en
+ *  hover) reproduce a mano el patrón de `linkify()` en info.astro: son clases
+ *  Tailwind puras (sin las custom de Link.astro), necesario porque este HTML
+ *  se inyecta con `set:html` y el scoping de Astro no llega a marcado que no
+ *  pasa por su compilador. */
+function resolverEnlaces(texto: string): string {
+  return texto.replace(/\[([^\]→]+)→([A-Z]\d+)\]/g, (_m, etiqueta, celda) => {
+    const href = `${sheetBase}&range=${celda}`;
+    return `<a href="${href}" target="_blank" rel="noopener" class="group relative inline typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 no-underline"><span class="relative">${etiqueta}<span class="absolute bottom-0 left-0 right-0 h-px bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
+  });
+}
+
+const descripcionHtml = resolverEnlaces(grupo.descripcion);
+const avisoHtml = grupo.aviso ? resolverEnlaces(grupo.aviso) : null;
+
+// Botones: misma pareja de estilos para la fila en bloque y para cada fila de
+// la tabla (confirmado contra el boceto de Figma 1199:93312 — el sólido usa
+// action-secondary de fondo, igual que IconButton tipo "primary"; el de
+// contorno es su mismo color en borde y texto, sin relleno).
+const BTN_SOLIDO = 'bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 typo-button px-6 h-10 inline-flex items-center justify-center whitespace-nowrap text-center';
+const BTN_CONTORNO = 'bg-transparent border border-mel-action-secondary text-mel-action-secondary hover:border-mel-action-primary hover:text-mel-action-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 typo-button px-6 h-10 inline-flex items-center justify-center whitespace-nowrap text-center';
+
+// "Abrir en la hoja" nunca es acción en bloque (spec): no se pueden abrir tres
+// celdas a la vez. El resto de acciones automáticas sí tienen su botón en
+// bloque, a la espera de la ruta de la tarea 7.
+const accionEsAbrirHoja = grupo.accion === 'Abrir en la hoja';
+const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
+
+const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
+---
+
+<section class="border border-mel-border bg-mel-bg-primary" data-nivel={grupo.nivel} data-clave={grupo.clave}>
+  <button
+    type="button"
+    class="sec-cab w-full flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 text-left"
+    aria-expanded="true"
+    aria-controls={`sec-cuerpo-${grupo.clave}`}
+  >
+    <span class="typo-h4 text-mel-text-primary">
+      {grupo.titulo} <span class="nn text-mel-text-secondary">[{grupo.items.length}]</span>
+    </span>
+    <span class="chevron shrink-0 w-10 h-10 flex items-center justify-center text-mel-text-primary">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+    </span>
+  </button>
+
+  <div id={`sec-cuerpo-${grupo.clave}`} class="sec-cuerpo">
+    <p class="typo-lead text-mel-text-primary px-6 pt-6" set:html={descripcionHtml} />
+
+    {grupo.auto && (
+      <p class="typo-caption text-mel-text-secondary px-6 pt-3">
+        Arreglo automático: se aplica desde aquí, sin tocar la hoja.
+      </p>
+    )}
+
+    {avisoHtml ? (
+      <div class="mx-6 mt-5 bg-mel-le-200 flex items-start gap-3 py-5 px-6">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-mel-action-secondary shrink-0 mt-0.5">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <path d="M12 9v4"></path>
+          <path d="M12 17h.01"></path>
+        </svg>
+        <p class="typo-body-sans text-mel-action-secondary" set:html={avisoHtml} />
+      </div>
+    ) : (
+      <div class="mx-6 mt-5 border-t border-mel-border"></div>
+    )}
+
+    <div class="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+      <div class="flex items-center gap-6">
+        <button type="button" class="seleccionar-todos typo-body-roman text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent">
+          Seleccionar todos
+        </button>
+        <button type="button" class="ver-ocultos typo-body-roman text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent">
+          Ver avisos ocultos
+        </button>
+      </div>
+      <div class="flex items-center gap-3">
+        <button type="button" class={`${BTN_CONTORNO} ocultar-seleccionados`} disabled>Ocultar seleccionados</button>
+        {mostrarAccionEnBloque && (
+          <button type="button" class={`${BTN_SOLIDO} accion-seleccionados`} disabled>{grupo.accion} seleccionados</button>
+        )}
+      </div>
+    </div>
+
+    <div class="overflow-x-auto pb-6">
+      <div class={`tabla grid ${columnasTabla} min-w-[1224px]`} role="table" aria-label={grupo.titulo}>
+        {grupo.items.map((item) => {
+          const urlDrive = urlPorId[item.idMel];
+          const thumb = extractDriveImage(urlDrive, 200);
+          const hrefManual = accionEsAbrirHoja
+            ? `${sheetBase}&range=${COLUMNA_MANUAL[grupo.clave]}${item.fila}`
+            : '';
+          const hrefMel = `${sheetBase}&range=K${item.fila}`;
+          return (
+            <div class="fila contents" data-id={item.idMel}>
+              <div class="flex items-center justify-center h-16 border-r border-mel-border">
+                <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${escHtml(item.evento)}`} />
+              </div>
+              <div class="flex items-center gap-3 min-w-0 h-16 px-4 border-r border-mel-border">
+                {thumb ? (
+                  <img src={thumb} alt="" referrerpolicy="no-referrer" class="w-10 h-12 object-contain shrink-0 select-none" />
+                ) : (
+                  <span class="w-10 h-12 bg-mel-bg-secondary shrink-0"></span>
+                )}
+                <span class="typo-lead text-mel-text-primary truncate min-w-0">{item.evento}</span>
+              </div>
+              <div class="flex items-center h-16 px-4 border-r border-mel-border min-w-0">
+                <a href={hrefMel} target="_blank" rel="noopener" class="typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 truncate">
+                  {item.idMel}
+                </a>
+              </div>
+              <div class="flex items-center h-16 px-4 border-r border-mel-border">
+                <span class="typo-lead text-mel-text-secondary truncate">{item.px}</span>
+              </div>
+              <div class="flex items-center h-16 px-4 border-r border-mel-border">
+                <span class="typo-lead text-mel-text-secondary truncate">{item.peso}</span>
+              </div>
+              <div class="flex items-center justify-center h-16 px-4 border-r border-mel-border">
+                <button type="button" class={`ocultar-aviso ${BTN_CONTORNO}`} disabled>Ocultar aviso</button>
+              </div>
+              <div class="flex items-center justify-center h-16">
+                {accionEsAbrirHoja ? (
+                  <a href={hrefManual} target="_blank" rel="noopener" class={BTN_SOLIDO}>Abrir en la hoja</a>
+                ) : grupo.accion ? (
+                  <button type="button" class={`fila-accion ${BTN_SOLIDO}`} disabled>{grupo.accion}</button>
+                ) : (
+                  <span class="typo-lead text-mel-text-tertiary">—</span>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  /* Casilla cuadrada a mano: un checkbox nativo en macOS/Chrome lleva esquina
+     redondeada de fábrica, y la regla 5 del DS ("nada redondeado, en ningún
+     sitio") no admite excepción por ser un control nativo. */
+  .chk-fila {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--mel-action-secondary);
+    background-color: var(--mel-bg-primary);
+    cursor: pointer;
+    flex-shrink: 0;
+    display: inline-block;
+  }
+  .chk-fila:checked {
+    background-color: var(--mel-action-secondary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px 14px;
+  }
+
+  /* `.fila` reparte sus hijos directamente en la rejilla de `.tabla` (7
+     columnas fijas) sin abrir un nivel de anidamiento propio: así la rejilla
+     se mide en conjunto sobre las 84 filas reales, columna a columna, en vez
+     de que cada `<div class="fila">` abra su propio grid de 7 e ignore el de
+     al lado. El spec pide divisiones VERTICALES entre columnas y NINGUNA
+     horizontal entre filas — por eso el borde va en `border-r` de cada celda
+     (ver abajo) y nunca en `border-b`. */
+  .fila {
+    display: contents;
+  }
+  /* La última columna de cada fila no lleva borde derecho (no hay columna
+     siguiente con la que dividir). */
+  .fila > :last-child {
+    border-right: none;
+  }
+</style>

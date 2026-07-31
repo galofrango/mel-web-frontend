@@ -1,0 +1,72 @@
+---
+/**
+ * PanelTarjeta — una de las tres tarjetas "Highlight XL" de /panel (Figma
+ * 1200:116096). Puramente presentacional: recibe ya calculados la cifra total
+ * (IDs únicos del nivel) y el desglose de hasta tres secciones + una cuarta
+ * línea de desbordamiento; no conoce `Grupo` ni hace ningún cálculo propio.
+ *
+ * Slots fijos a propósito: SIEMPRE tres líneas de desglose (con placeholder
+ * "…"/"–" si el nivel tiene menos de tres secciones) y una cuarta línea de
+ * desbordamiento que solo se pinta si sobra algo. La tarea 6 solo puede
+ * ESCRIBIR VALORES sobre este marcado (regla 7 de AGENTS.md: el cliente no
+ * construye marcado), así que el número de nodos tiene que ser estable de
+ * antemano — de ahí los slots fijos en vez de generar N líneas dinámicas.
+ *
+ * `activa` decide el estado visual (bg-tertiary + borde action-primary +
+ * sombra vs. bg-secondary + borde border). Hoy siempre llega en `false`: sin
+ * JS todavía no hay ningún filtro aplicado, así que ninguna tarjeta filtra
+ * nada — pero la prop existe porque el propio componente define los dos
+ * estados (spec, sección Interfaz), y la tarea 6 conmutará la misma clase.
+ */
+interface Linea {
+  titulo: string;
+  cifra: number;
+}
+
+interface Props {
+  nivel: 1 | 2 | 3;
+  overline: string;
+  cifra: number;
+  /** Hasta 3 líneas reales; `null` en un hueco sin sección que mostrar. */
+  lineas: [Linea | null, Linea | null, Linea | null];
+  /** Suma de las secciones que no caben en las 3 líneas. `null` = sin sobrante. */
+  desbordamiento: number | null;
+  activa?: boolean;
+}
+
+const { nivel, overline, cifra, lineas, desbordamiento, activa = false } = Astro.props;
+
+const estadoClase = activa
+  ? 'bg-mel-bg-tertiary border-mel-action-primary shadow-[var(--mel-shadow-button)]'
+  : 'bg-mel-bg-secondary border-mel-border';
+---
+
+<button
+  type="button"
+  class={`tarj group flex flex-col items-start gap-4 text-left border p-6 transition-colors duration-200 w-full ${estadoClase}`}
+  data-nivel={nivel}
+  data-activa={activa ? 'true' : 'false'}
+>
+  <span class="typo-overline text-mel-text-secondary">{overline}</span>
+
+  <span class="cifra typo-h1 text-mel-text-primary">{cifra}</span>
+
+  <span class="lins flex flex-col w-full gap-1">
+    {lineas.map((linea) => (
+      <span class="flex items-baseline justify-between gap-4 w-full">
+        <span class={`typo-caption truncate ${linea ? 'text-mel-text-secondary' : 'text-mel-text-tertiary'}`}>
+          {linea ? linea.titulo : '…'}
+        </span>
+        <span class={`typo-caption shrink-0 ${linea ? 'text-mel-text-primary' : 'text-mel-text-tertiary'}`}>
+          {linea ? linea.cifra : '–'}
+        </span>
+      </span>
+    ))}
+    {desbordamiento !== null && (
+      <span class="flex items-baseline justify-between gap-4 w-full">
+        <span class="typo-caption text-mel-text-tertiary">…</span>
+        <span class="typo-caption text-mel-text-tertiary shrink-0">+{desbordamiento}</span>
+      </span>
+    )}
+  </span>
+</button>

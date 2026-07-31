@@ -1,0 +1,150 @@
+---
+/**
+ * /panel — pestaña Control. Diagnóstico de los 84 carteles del archivo: qué
+ * falla, por qué y cómo se corrige. SOLO LECTURA en esta tarea (tarea 5 del
+ * plan): todo lo que se ve está pintado por el servidor, y ningún control
+ * hace nada todavía al pulsarlo — eso es la tarea 6 (el cliente) y la 7 (los
+ * arreglos con `sips`). La única excepción son los enlaces reales a la hoja
+ * de cálculo (MEL de cada fila, "Abrir en la hoja" de las tres reglas
+ * manuales): son navegación pura, sin backend propio, y el propio encargo los
+ * pide verificados en este mismo paso.
+ *
+ * El guarda va ANTES que cualquier otra cosa del frontmatter — punto 1 de la
+ * sección "Seguridad" del spec: si esta ruta llegara a existir en producción,
+ * ahí sí habría algo escuchando en internet capaz de lanzar `sips` o escribir
+ * en Drive más adelante (tareas 6/7). `npm run build` + grep sobre `dist/`
+ * comprueba que este guarda deja la ruta fuera del build de producción.
+ */
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+
+import Layout from '../layouts/Layout.astro';
+import PanelTarjeta from '../components/PanelTarjeta.astro';
+import PanelSeccion from '../components/PanelSeccion.astro';
+import { auditar, LIMPIO, type FilaHoja } from '../lib/auditoria';
+import { fetchSheetRows, mapSheetRow } from '../lib/mel';
+import flyerTecnico from '../data/flyer_tecnico.json';
+
+// Misma hoja que el resto del sitio, leída en vivo (mel.ts, sin caché propia).
+// Los datos técnicos (dimensiones, formato, peso, perfil) SÍ están cacheados
+// en flyer_tecnico.json — medirlos exige descargar los 84 originales de Drive,
+// ~125 MB, y no se puede hacer en cada carga de página (ver spec, "De dónde
+// salen los datos").
+const rawRows = await fetchSheetRows();
+
+// mapSheetRow no numera filas (no es su trabajo: mel.ts es la capa de datos
+// compartida con la home y la ficha, que no necesitan ese número). El +2 es
+// el desfase entre índice de array (0-based, ya sin cabecera) y número de
+// fila real de la hoja (1-based, CON cabecera en la fila 1) — el propio plan
+// lo señala así por si el enlace de un MEL cae en la fila de al lado.
+const filas: FilaHoja[] = rawRows
+  .map((row: any, i: number) => {
+    const mapeada = mapSheetRow(row.c);
+    return mapeada ? { ...mapeada, n: i + 2 } : null;
+  })
+  .filter((f: FilaHoja | null): f is FilaHoja => !!f && f.idMel.startsWith('MEL-'));
+
+// urlDrive por idMel: auditoria.ts no lo lleva en `Item` (no lo necesita para
+// auditar, y ese tipo ya está aprobado/testeado en la tarea 4) — las
+// miniaturas de la tabla lo piden aparte.
+const urlPorId: Record<string, string> = {};
+filas.forEach((f) => { urlPorId[f.idMel] = f.urlDrive; });
+
+const grupos = auditar(filas, flyerTecnico as any);
+
+// --- Resumen de cada tarjeta (nivel 1/2/3) ---------------------------------
+// La cifra grande es de IDS ÚNICOS, no la suma de los tamaños de sección: un
+// mismo cartel puede estar en varias reglas del mismo nivel (p.ej. un PNG que
+// además pesa más de 2MB), y sumar lo contaría dos veces. El desglose muestra
+// las 3 secciones más grandes de ese nivel y, si sobra alguna, una cuarta
+// línea con el total de lo que no cupo — igual que hará la tarea 6 tras cada
+// recálculo (mismo cómputo, aquí solo en el primer pintado del servidor).
+type Linea = { titulo: string; cifra: number };
+
+function resumenNivel(nivel: 1 | 2 | 3) {
+  const gruposNivel = grupos.filter((g) => g.nivel === nivel);
+
+  const idsUnicos = new Set<string>();
+  gruposNivel.forEach((g) => g.items.forEach((it) => idsUnicos.add(it.idMel)));
+
+  const ordenados = [...gruposNivel].sort((a, b) => b.items.length - a.items.length);
+  const top3 = ordenados.slice(0, 3);
+  const lineas = [0, 1, 2].map((i): Linea | null =>
+    top3[i] ? { titulo: top3[i].titulo, cifra: top3[i].items.length } : null
+  ) as [Linea | null, Linea | null, Linea | null];
+
+  const restantes = ordenados.slice(3);
+  const desbordamiento = restantes.length > 0
+    ? restantes.reduce((suma, g) => suma + g.items.length, 0)
+    : null;
+
+  return { cifra: idsUnicos.size, lineas, desbordamiento };
+}
+
+const tarjetas = [
+  { nivel: 1 as const, overline: 'Fallos críticos', ...resumenNivel(1) },
+  { nivel: 2 as const, overline: 'Bajo rendimiento', ...resumenNivel(2) },
+  { nivel: 3 as const, overline: 'Falta información', ...resumenNivel(3) },
+];
+---
+
+<Layout title="Panel de archivos">
+  <div class="w-full max-w-[1440px] min-h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-16">
+
+    <header class="pt-10 pb-6">
+      <div class="flex items-center justify-between gap-4 pb-6 border-b border-mel-border">
+        <h1 class="typo-h3 text-mel-text-primary">Panel de archivos M.E.L.</h1>
+        <nav class="flex items-center gap-6" aria-label="Secciones del panel">
+          <span class="typo-button text-mel-text-primary" aria-current="page">Control</span>
+          <span class="typo-button text-mel-text-tertiary" title="Todavía no existe: ingesta de material nuevo">Preparación</span>
+        </nav>
+      </div>
+
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-6">
+        <p class="typo-lead text-mel-text-secondary max-w-[720px]">
+          Una página interna que dice, en un vistazo, qué le pasa hoy al archivo y deja arreglar en el sitio lo que se puede arreglar solo.
+        </p>
+        <!-- Sin JS todavía (tarea 6): "releer" no puede distinguir la lectura
+             barata de la hoja del remedido caro de las 84 imágenes, así que
+             se queda desactivado en vez de fingir que hace la mitad. -->
+        <button type="button" class="shrink-0 h-14 px-6 inline-flex items-center gap-3 bg-mel-action-primary text-mel-text-on-action-primary typo-button whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+          Releer el archivo
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path>
+            <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path>
+            <path d="M3 21v-5h5"></path>
+            <path d="M21 3v5h-5"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-10">
+      {tarjetas.map((t) => (
+        <PanelTarjeta
+          nivel={t.nivel}
+          overline={t.overline}
+          cifra={t.cifra}
+          lineas={t.lineas}
+          desbordamiento={t.desbordamiento}
+        />
+      ))}
+    </div>
+
+    <div class="flex flex-col gap-6 pb-16">
+      {grupos.map((grupo) => (
+        <PanelSeccion grupo={grupo} urlPorId={urlPorId} />
+      ))}
+    </div>
+
+    <!-- Comprobaciones que hoy dan cero (tarea 4, LIMPIO). Se enseñan igual:
+         si el panel no dice lo que miró y pasó, no se sabe si llegó a
+         mirarlo. Sin ganchos de la tarea 6 a propósito: no hay nada que
+         recalcular aquí (no hay filas, ni ocultar, ni acción). -->
+    <div class="border-t border-mel-border pt-6">
+      <p class="typo-caption text-mel-text-tertiary">
+        Comprobaciones sin hallazgos hoy: {LIMPIO.join(' · ')}.
+      </p>
+    </div>
+
+  </div>
+</Layout>
