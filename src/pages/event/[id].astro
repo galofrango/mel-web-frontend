@@ -1509,6 +1509,16 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       grid-column: 1 / -1;
       justify-content: center;
     }
+    /* El lado sin vecino sigue siendo `invisible` (visibility:hidden), no
+       `hidden`: sigue existiendo en la rejilla y reservando su propia celda.
+       Con el otro lado ocupando ya las dos columnas, esa celda no cabe en la
+       misma fila y salta a una fila nueva — vacía pero con su alto de 48px,
+       el hueco que se veía arriba o abajo según qué lado sobraba. Aquí sí lo
+       sacamos del todo del grid: ya no hace falta que reserve nada. */
+    #detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-prev-container,
+    #detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-next-container {
+      display: none;
+    }
     /* :global() porque `.filter-tag` lo pinta TagWithLink.astro, un componente
        distinto — el scoping de Astro no le añade el atributo de este archivo,
        así que sin esto la regla no llega a coincidir con nada (ver el mismo
