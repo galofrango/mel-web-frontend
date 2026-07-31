@@ -4265,22 +4265,27 @@ const tags = [
     // actúa bajo el breakpoint md (ver media query de #map-side-panel);
     // en escritorio el tirador ni siquiera es visible.
     // Se agarra desde CUALQUIER punto del panel, no solo desde la cabecera.
-    // La única zona que puede entrar en conflicto es la lista de eventos, que
-    // tiene scroll propio, y ahí se aplica la regla habitual de las hojas
-    // móviles: el panel solo se lleva el gesto si la lista ya está arriba del
-    // todo y se tira hacia abajo; en cualquier otro caso manda la lista.
+    // Dos zonas pueden entrar en conflicto porque tienen scroll propio: la
+    // lista de eventos (vertical) y la fila de tags (horizontal). Cada una
+    // se exime con la regla que le toca según su eje.
     const sidePanelHandle = document.getElementById('map-side-panel');
     if (sidePanelHandle && sidePanel) {
+      let dragStartX = 0;
+      let dragCurrentX = 0;
       let dragStartY = 0;
       let dragCurrentY = 0;
       let isDragging = false;
 
       const listaEventos = document.getElementById('side-panel-event-list');
+      const tagsFila = document.getElementById('side-panel-tags-container');
       let desdeLista = false;
+      let desdeTags = false;
 
       const dragMove = (e) => {
         if (!isDragging) return;
-        const y = e.touches ? e.touches[0].clientY : e.clientY;
+        const punto = e.touches ? e.touches[0] : e;
+        const x = punto.clientX;
+        const y = punto.clientY;
         // Empezando sobre la lista, el panel espera su turno: solo se lleva el
         // gesto cuando la lista no tiene ya nada que desplazar hacia arriba y
         // se está tirando hacia abajo. Así no se cierra el panel al querer
@@ -4288,6 +4293,22 @@ const tags = [
         if (desdeLista && (listaEventos.scrollTop > 0 || y <= dragStartY)) {
           dragStartY = y;   // el arrastre útil empieza donde la lista se queda sin recorrido
           dragCurrentY = y;
+          dragStartX = x;
+          dragCurrentX = x;
+          return;
+        }
+        // Empezando sobre las tags, el panel también espera: mientras el
+        // gesto siga siendo más horizontal que vertical es SU scroll propio
+        // (overflow-x-auto), no un intento de cerrar el sheet. Sin esto,
+        // cualquier arrastre con un mínimo componente vertical —casi todos,
+        // un dedo real no traza una recta— movía el panel entero a la vez
+        // que se intentaban desplazar las tags, y por eso costaba tanto: la
+        // fila competía con el propio gesto que la movía.
+        if (desdeTags && Math.abs(x - dragStartX) >= Math.abs(y - dragStartY)) {
+          dragStartY = y;
+          dragCurrentY = y;
+          dragStartX = x;
+          dragCurrentX = x;
           return;
         }
         dragCurrentY = y;
@@ -4305,14 +4326,25 @@ const tags = [
         const delta = Math.max(0, dragCurrentY - dragStartY);
         // Umbral de cierre: una cuarta parte del tirón habitual de un sheet.
         if (delta > 120 && window._melClosePanelHandler) window._melClosePanelHandler();
+        dragStartX = 0;
+        dragCurrentX = 0;
         dragStartY = 0;
         dragCurrentY = 0;
       };
       const dragStart = (e) => {
         if (window.innerWidth >= 1024) return; // Bottom sheet solo bajo lg
+        // Un gesto NUEVO no hereda la sospecha del anterior: si el de antes
+        // puso el flag a true y el navegador no llegó a mandar el click
+        // fantasma que lo consume (típico al hacer scroll dentro de la
+        // lista), se quedaba pegado y se comía el primer toque limpio de la
+        // siguiente vez — en cualquier sitio del panel, no solo en la lista.
+        window._melArrastroSheet = false;
         desdeLista = !!(listaEventos && e.target && listaEventos.contains(e.target));
+        desdeTags = !!(tagsFila && e.target && tagsFila.contains(e.target));
         isDragging = true;
-        dragCurrentY = dragStartY = e.touches ? e.touches[0].clientY : e.clientY;
+        const punto = e.touches ? e.touches[0] : e;
+        dragCurrentX = dragStartX = punto.clientX;
+        dragCurrentY = dragStartY = punto.clientY;
         sidePanel.classList.add('side-panel-dragging');
       };
 

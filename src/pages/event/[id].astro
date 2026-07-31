@@ -506,7 +506,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
            El `pt-8` de móvil se conserva: ahí el pseudoelemento del divisor se
            dibuja en el borde de la caja y esos 32px son su separación. -->
-      <div id="detail-nav-block" class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto pt-8 lg:pt-14 lg:pb-14 lg:border-t-0 shrink-0 items-center" data-name="Navigation Block">
+      <div
+        id="detail-nav-block"
+        class="relative px-6 sm:px-12 lg:px-0 grid grid-cols-2 lg:grid-cols-12 gap-8 lg:gap-6 w-full mt-10 lg:mt-auto pt-8 lg:pt-14 lg:pb-14 lg:border-t-0 shrink-0 items-center"
+        data-name="Navigation Block"
+        style={!prevEvent && !nextEvent ? 'display:none' : undefined}
+      >
         
         <!-- Empty cell for Left Column alignment -->
         <div class="hidden lg:block lg:col-span-2"></div>
@@ -1034,6 +1039,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }
     }
 
+    // El bloque entero (divisor + espacio reservado) corrige aquí el cálculo
+    // de partida hecho en el servidor con el orden cronológico: la secuencia
+    // real (búsqueda, local del mapa...) puede no tener vecinos aunque SÍ los
+    // haya cronológicamente, o al revés. Sin esto quedaba una línea y un hueco
+    // sin nada que navegar cuando el contexto activo era de un solo evento.
+    const navBlock = document.getElementById('detail-nav-block');
+    if (navBlock) navBlock.style.display = (prevEventItem || nextEventItem) ? '' : 'none';
+
     // Interactive like state persistent via localStorage using componetized LikeButton
     const likeKey = `mel-like-${eventId}`;
     const likeBtn = document.getElementById('btn-me-presta');
@@ -1482,6 +1495,43 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
   @media (min-width: 640px) and (max-width: 1023px) {
     #detail-nav-block::before { left: 48px; right: 48px; }
+  }
+
+  /* Con un solo lado navegable, ese enlace se centra a todo el ancho en vez
+     de quedarse pegado a su mitad de la rejilla — solo en móvil, donde la
+     rejilla es de 2 columnas; en escritorio (12 columnas) el hueco de la
+     columna que falta ya se lee como intencionado y no hace falta. Reactivo
+     al mismo `invisible` que ya alterna el JS (D-090): sin JS nuevo, se
+     resuelve solo con `:has()` cuando cambia el estado o cruza el breakpoint. */
+  @media (max-width: 1023px) {
+    #detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container,
+    #detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container {
+      grid-column: 1 / -1;
+      justify-content: center;
+    }
+    /* El lado sin vecino sigue siendo `invisible` (visibility:hidden), no
+       `hidden`: sigue existiendo en la rejilla y reservando su propia celda.
+       Con el otro lado ocupando ya las dos columnas, esa celda no cabe en la
+       misma fila y salta a una fila nueva — vacía pero con su alto de 48px,
+       el hueco que se veía arriba o abajo según qué lado sobraba. Aquí sí lo
+       sacamos del todo del grid: ya no hace falta que reserve nada. */
+    #detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-prev-container,
+    #detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-next-container {
+      display: none;
+    }
+    /* :global() porque `.filter-tag` lo pinta TagWithLink.astro, un componente
+       distinto — el scoping de Astro no le añade el atributo de este archivo,
+       así que sin esto la regla no llega a coincidir con nada (ver el mismo
+       comentario en TagWithLink.astro sobre por qué hace falta ahí también). */
+    :global(#detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container .filter-tag),
+    :global(#detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container .filter-tag) {
+      align-items: center;
+      text-align: center;
+    }
+    :global(#detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container .filter-tag > div:last-child),
+    :global(#detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container .filter-tag > div:last-child) {
+      justify-content: center;
+    }
   }
 
   @media (max-width: 1023px) {
