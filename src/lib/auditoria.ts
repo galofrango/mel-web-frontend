@@ -159,6 +159,17 @@ function idDeDrive(url: string): string {
   return '';
 }
 
+/** Si `notas` lleva la marca `#acepta:<clave>`. El `(?![a-z0-9-])` ancla el
+ *  final de la clave: sin él, un `includes()` a secas confundiría la marca
+ *  con el prefijo de otra. Hoy no colisiona —ninguna de las diez claves es
+ *  prefijo de otra—, pero si el día de mañana una clave nueva extiende a una
+ *  vieja sin separador (p.ej. "pesado2" junto a "pesado"), aceptar la nueva
+ *  silenciaría la vieja sin que nadie lo pidiera. No lo simplifiques de
+ *  vuelta a `includes()`: es justo el caso que este límite existe para evitar. */
+function estaSilenciado(notas: unknown, clave: string): boolean {
+  return new RegExp('#acepta:' + clave + '(?![a-z0-9-])').test(String(notas).toLowerCase());
+}
+
 export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>): Grupo[] {
   const grupos: Grupo[] = [];
 
@@ -167,7 +178,7 @@ export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>)
 
     for (const fila of filas) {
       // La marca en notasArchivo silencia solo esta regla, en esta fila.
-      if (String(fila.notasArchivo).toLowerCase().includes('#acepta:' + clave)) continue;
+      if (estaSilenciado(fila.notasArchivo, clave)) continue;
 
       const t = tecnico[idDeDrive(fila.urlDrive)] || VACIO;
       if (!prueba(fila, t)) continue;
