@@ -545,18 +545,22 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
     B: { ...tecBase, px: [600, 289] },
   };
   const orden = claves(filas, tec);
-  const pos = c => orden.indexOf(c);
-  // Si el fixture deja de disparar alguno de los dos extremos, las comparaciones
-  // de abajo pasarían por comparar contra -1 en vez de por ser correctas.
+  // Si el fixture deja de disparar alguno de los ocho, el deepEqual de abajo
+  // fallaría igual, pero por la razón equivocada (fixture roto, no orden roto).
   for (const c of ['sin-lugar', 'sin-coordenadas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno']) {
     assert.ok(orden.includes(c), `el fixture debe disparar "${c}"`);
   }
-  assert.ok(pos('sin-lugar') < pos('sin-coordenadas'), 'sin lugar no se puede geocodificar');
-  assert.ok(pos('png') < pos('sin-perfil'), 'convertir el PNG ya incrusta el perfil');
-  assert.ok(pos('png') < pos('pesado'), 'convertir el PNG ya baja el peso');
-  assert.ok(pos('cmyk') < pos('pesado'));
-  assert.ok(pos('enorme') < pos('pesado'));
-  assert.ok(pos('pesado') < pos('pequeno'), '+2MB va después de todo lo que lo resuelve');
+  // La secuencia ENTERA, no comparaciones por pares: con pares sueltos se pueden
+  // intercambiar dos reglas contiguas sin que salte nada (comprobado por mutación).
+  assert.deepEqual(orden, [
+    'sin-lugar', 'sin-coordenadas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno',
+  ], 'el orden es de TRABAJO, no un ranking: arreglar los de arriba resuelve los de abajo');
+});
+
+test('el orden es el de trabajo: gif (nivel 2) antes que sin-artistas (nivel 3)', () => {
+  const fila = { ...filaBase, artistas: '' };
+  const orden = claves([fila], { AAA: { ...tecBase, tipo: 'gif' } });
+  assert.deepEqual(orden, ['gif', 'sin-artistas']);
 });
 
 test('dentro de cada grupo, lo peor primero', () => {
