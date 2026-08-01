@@ -552,6 +552,53 @@ Hallazgos que no estaban documentados:
 
 ---
 
+## El perfil que se incrusta es el que el fichero ES, no siempre sRGB
+
+Medido sobre los tres carteles en escala de grises del archivo. Convertirlos a
+sRGB los pasaría a RGB sin necesidad; **incrustarles un perfil de gris los deja
+como son y además pesan menos**:
+
+| | Original | Perfil de gris | Si fuese a sRGB |
+|---|---|---|---|
+| `MEL-00002` | 692 KB | **665 KB**, sigue en gris | 676 KB, pasa a RGB |
+| `MEL-00004` | 541 KB | **514 KB**, sigue en gris | 525 KB, pasa a RGB |
+| `MEL-00007` | 595 KB | **322 KB**, sigue en gris | 332 KB, pasa a RGB |
+
+**Decisión: no se excluyen, se arreglan bien.** El aviso sigue siendo «Sin perfil
+de color» —el diagnóstico es correcto, el fichero no lleva perfil— y lo que se
+adapta es la **acción**: `sips --matchTo` con el perfil de gris del sistema si el
+fichero es gris (`comp === 1` en JPEG), y con sRGB si es color o CMYK. Un cartel
+en blanco y negro se queda en blanco y negro.
+
+Requiere una adición pequeña a `imagen.ts`: para PNG hay que registrar también si
+es gris (tipo de color 0 o 4 del IHDR), porque hoy solo se registra el alfa, y un
+PNG gris convertido a JPEG debería seguir siendo gris.
+
+**Aviso que sale de aquí y vale para todos los arreglos**: `MEL-00007` baja un 46%
+al reprocesarlo. Eso no es el color, es que `sips` reescribe con su calidad por
+defecto y el original venía con más. **Hay que fijar la calidad explícitamente en
+todas las operaciones**, no dejar la de por defecto, o cada arreglo cobra un peaje
+invisible.
+
+---
+
+## La pieza y lo que se muestra pueden ser cosas distintas
+
+Decisión del propietario a propósito del GIF animado (`MEL-00077`, 177 fotogramas,
+14,4 MB que Drive no redimensiona y el visitante se descarga enteros): **el GIF se
+conserva como la pieza del archivo, y la galería muestra un fotograma suyo.**
+
+Es la primera vez que este archivo separa **la pieza** de **su representación**, y
+por eso queda escrito aquí y no como una nota suelta: es un principio, no un
+apaño para un fichero. El propietario ya ha señalado que **habrá vídeo** más
+adelante, y ahí se aplicará lo mismo.
+
+No se pierde nada: la animación sigue en Drive. Lo que cambia es qué se descarga
+al abrir la galería. El fotograma se extrae con `scripts/extraer-fotogramas.swift`,
+que ya existe en el proyecto; **cuál** es decisión del propietario.
+
+---
+
 ## Decisiones pendientes del propietario
 
 1. **Los tres carteles en escala de grises**: ¿se excluyen de «incrustar sRGB»?
