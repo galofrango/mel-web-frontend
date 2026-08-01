@@ -17,6 +17,13 @@
  */
 if (!import.meta.env.DEV) return new Response(null, { status: 404 });
 
+// El panel es de escritorio y del propio ordenador, no de "todo el que esté en
+// dev": `npm run dev --host` publicaría esta ruta a todo el wifi, y la tarea 7
+// le pone botones que ejecutan `sips`. Basta la cabecera Host — sin ella (o
+// con cualquier otra cosa) 404, igual que fuera de DEV.
+const host = Astro.request.headers.get('host') || '';
+if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new Response(null, { status: 404 });
+
 import Layout from '../layouts/Layout.astro';
 import PanelTarjeta from '../components/PanelTarjeta.astro';
 import PanelSeccion from '../components/PanelSeccion.astro';
@@ -43,11 +50,27 @@ const filas: FilaHoja[] = rawRows
   })
   .filter((f: FilaHoja | null): f is FilaHoja => !!f && f.idMel.startsWith('MEL-'));
 
-// urlDrive por idMel: auditoria.ts no lo lleva en `Item` (no lo necesita para
-// auditar, y ese tipo ya está aprobado/testeado en la tarea 4) — las
-// miniaturas de la tabla lo piden aparte.
+// urlDrive y formato por idMel: auditoria.ts no los lleva en `Item` (no los
+// necesita para auditar, y ese tipo ya está aprobado/testeado en la tarea 4)
+// — la miniatura y la columna nueva de formato de la tabla los piden aparte.
+// Mismo parseo de id que auditoria.ts (que a su vez lo repite de mel.ts): se
+// duplica aquí en vez de importarse porque no está exportado — es la práctica
+// ya asentada en el proyecto (ver comentario de idDeDrive en auditoria.ts).
+function idDeDrive(url: string): string {
+  if (!url) return '';
+  if (url.includes('id=')) return url.split('id=')[1].split('&')[0];
+  if (url.includes('/d/')) return url.split('/d/')[1].split('/')[0];
+  return '';
+}
+const ROTULO_FORMATO: Record<string, string> = { jpeg: 'JPG', png: 'PNG', gif: 'GIF' };
+
 const urlPorId: Record<string, string> = {};
-filas.forEach((f) => { urlPorId[f.idMel] = f.urlDrive; });
+const formatoPorId: Record<string, string> = {};
+filas.forEach((f) => {
+  urlPorId[f.idMel] = f.urlDrive;
+  const tipo = (flyerTecnico as any)[idDeDrive(f.urlDrive)]?.tipo;
+  formatoPorId[f.idMel] = ROTULO_FORMATO[tipo] || '—';
+});
 
 const grupos = auditar(filas, flyerTecnico as any);
 
@@ -70,10 +93,12 @@ function resumenNivel(nivel: 1 | 2 | 3) {
   const idsUnicos = new Set<string>();
   gruposNivel.forEach((g) => g.items.forEach((it) => idsUnicos.add(it.idMel)));
 
+  // Solo las líneas que existen — nada de relleno cuando el nivel tiene menos
+  // de 3 secciones (corrección del propietario: "una tarjeta con menos de tres
+  // avisos no pinta guiones"). PanelTarjeta alinea `.lins` abajo para que las
+  // tres tarjetas compartan línea de base pese a tener listas de alto distinto.
   const top3 = gruposNivel.slice(0, 3);
-  const lineas = [0, 1, 2].map((i): Linea | null =>
-    top3[i] ? { titulo: top3[i].titulo, cifra: top3[i].items.length } : null
-  ) as [Linea | null, Linea | null, Linea | null];
+  const lineas: Linea[] = top3.map((g) => ({ titulo: g.titulo, cifra: g.items.length }));
 
   const restantes = gruposNivel.slice(3);
   const desbordamiento = restantes.length > 0
@@ -135,7 +160,7 @@ const tarjetas = [
 
     <div class="flex flex-col gap-6 pb-16">
       {grupos.map((grupo) => (
-        <PanelSeccion grupo={grupo} urlPorId={urlPorId} />
+        <PanelSeccion grupo={grupo} urlPorId={urlPorId} formatoPorId={formatoPorId} />
       ))}
     </div>
 

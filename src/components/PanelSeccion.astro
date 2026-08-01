@@ -24,9 +24,11 @@ interface Props {
    *  en `Item` (no lo necesita para auditar), así que panel.astro lo pasa
    *  aparte en vez de forzar ese campo dentro del modelo ya aprobado. */
   urlPorId: Record<string, string>;
+  /** Rótulo de formato ya resuelto (JPG/PNG/GIF/—) por la misma razón. */
+  formatoPorId: Record<string, string>;
 }
 
-const { grupo, urlPorId } = Astro.props;
+const { grupo, urlPorId, formatoPorId } = Astro.props;
 
 const sheetBase = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=0#gid=0`;
 
@@ -38,22 +40,37 @@ const COLUMNA_MANUAL: Record<string, string> = {
   'sin-artistas': 'H',
 };
 
-/** Sustituye el marcador `[hoja→X]` (p.ej. `[hoja→E1]`) por un enlace real a
- *  esa celda. auditoria.ts lo deja sin resolver a propósito (módulo puro, sin
- *  SHEET_ID) — ver comentario de cabecera de auditoria.ts. El resto del texto
- *  ya viene escapado/seguro: son las cadenas literales del spec con `<b>`,
- *  `<i>`, `<br>` puestos a mano, no HTML que llegue de la hoja.
- *
- *  El estilo del enlace (Lora subrayada, text-secondary → action-primary en
- *  hover) reproduce a mano el patrón de `linkify()` en info.astro: son clases
+/** Construye el enlace Lora subrayado (text-secondary → action-primary en
+ *  hover) que usan tanto la frase completa a la hoja como el resto del texto.
+ *  Reproduce a mano el patrón de `linkify()` en info.astro: son clases
  *  Tailwind puras (sin las custom de Link.astro), necesario porque este HTML
  *  se inyecta con `set:html` y el scoping de Astro no llega a marcado que no
  *  pasa por su compilador. */
+function enlaceHoja(etiqueta: string, celda: string): string {
+  const href = `${sheetBase}&range=${celda}`;
+  return `<a href="${href}" target="_blank" rel="noopener" class="group relative inline typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 no-underline"><span class="relative">${etiqueta}<span class="absolute bottom-0 left-0 right-0 h-px bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
+}
+
+/** Resuelve el marcador `[hoja→X]` (p.ej. `[hoja→E1]`) a un enlace real, y
+ *  aprieta el separador entre el problema y la corrección. auditoria.ts deja
+ *  el marcador sin resolver a propósito (módulo puro, sin SHEET_ID) — ver su
+ *  comentario de cabecera. El resto del texto ya viene escapado/seguro: son
+ *  las cadenas literales del spec con `<b>`, `<i>`, `<br>` puestos a mano, no
+ *  HTML que llegue de la hoja. */
 function resolverEnlaces(texto: string): string {
-  return texto.replace(/\[([^\]→]+)→([A-Z]\d+)\]/g, (_m, etiqueta, celda) => {
-    const href = `${sheetBase}&range=${celda}`;
-    return `<a href="${href}" target="_blank" rel="noopener" class="group relative inline typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 no-underline"><span class="relative">${etiqueta}<span class="absolute bottom-0 left-0 right-0 h-px bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
-  });
+  return texto
+    // Las dos frases (el problema / la corrección) son un solo pensamiento:
+    // un salto de línea sencillo, no el párrafo aparte que dejaba <br><br>.
+    .replace(/<br><br>/g, '<br>')
+    // El enlace abarca la frase entera ("la columna X de la hoja"), no solo
+    // la palabra "hoja": el marcador del spec solo envuelve esa palabra
+    // ("…de la [hoja→E1]."), así que hay que extender hacia atrás.
+    .replace(/la columna ([A-Z]) de la \[([^\]→]+)→([A-Z]\d+)\]/g, (_m, letra, etiqueta, celda) =>
+      enlaceHoja(`la columna ${letra} de la ${etiqueta}`, celda))
+    // Red de seguridad: un [hoja→X] que no siguiera ese patrón exacto (no
+    // ocurre hoy en los diez avisos, pero el marcador en sí es genérico)
+    // enlaza al menos la palabra, en vez de quedarse como texto sin resolver.
+    .replace(/\[([^\]→]+)→([A-Z]\d+)\]/g, (_m, etiqueta, celda) => enlaceHoja(etiqueta, celda));
 }
 
 const descripcionHtml = resolverEnlaces(grupo.descripcion);
@@ -72,7 +89,8 @@ const BTN_CONTORNO = 'bg-transparent border border-mel-action-secondary text-mel
 const accionEsAbrirHoja = grupo.accion === 'Abrir en la hoja';
 const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
 
-const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
+// casilla · miniatura+nombre · MEL · dimensiones · formato · peso · ocultar · acción
+const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]';
 ---
 
 <section class="border border-mel-border bg-mel-bg-primary" data-nivel={grupo.nivel} data-clave={grupo.clave}>
@@ -96,8 +114,12 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
     <p class="typo-lead text-mel-text-primary px-6 pt-6" set:html={descripcionHtml} />
 
     {grupo.auto && (
-      <p class="typo-caption text-mel-text-secondary px-6 pt-3">
-        Arreglo automático: se aplica desde aquí, sin tocar la hoja.
+      <p class="typo-caption text-mel-text-secondary px-6 pt-3 max-w-[720px]">
+        Arreglo automático: <b>sips</b> es la herramienta de imagen que ya trae
+        macOS, nada que instalar. Corre en este Mac, sin subir nada a ningún
+        servicio. Un script del proyecto descarga el original de Drive, lo
+        procesa y lo devuelve como nueva versión del mismo fichero — conserva
+        su ID, así que la hoja sigue enlazada y no toca ninguna celda.
       </p>
     )}
 
@@ -134,7 +156,7 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
     <div class="overflow-x-auto pb-6">
       {/* pl-4: en Figma el bloque de columnas arranca en x=16, no en x=0 — sin
           este padding sobraban 16px de hueco vacío al final de cada fila
-          (min-w-[1224px] forzaba la caja a 1224 pero las 7 columnas solo
+          (min-w-[1224px] forzaba la caja a 1224 pero las 8 columnas solo
           suman 1208; con el padding delante, 16 + 1208 = 1224 exactos). */}
       <div class={`tabla grid ${columnasTabla} min-w-[1224px] pl-4`} role="table" aria-label={grupo.titulo}>
         {grupo.items.map((item) => {
@@ -146,7 +168,7 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
           const hrefMel = `${sheetBase}&range=K${item.fila}`;
           return (
             <div class="fila contents" data-id={item.idMel}>
-              <div class="flex items-center justify-center h-16 border-r border-mel-border">
+              <div class="flex items-center justify-center h-16">
                 <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${item.evento}`} />
               </div>
               <div class="flex items-center gap-3 min-w-0 h-16 px-4 border-r border-mel-border">
@@ -164,6 +186,9 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
               </div>
               <div class="flex items-center h-16 px-4 border-r border-mel-border">
                 <span class="typo-lead text-mel-text-secondary truncate">{item.px}</span>
+              </div>
+              <div class="flex items-center h-16 px-4 border-r border-mel-border">
+                <span class="typo-lead text-mel-text-secondary truncate">{formatoPorId[item.idMel]}</span>
               </div>
               <div class="flex items-center h-16 px-4 border-r border-mel-border">
                 <span class="typo-lead text-mel-text-secondary truncate">{item.peso}</span>
@@ -210,13 +235,15 @@ const columnasTabla = 'grid-cols-[42px_326px_160px_120px_120px_220px_220px]';
     background-size: 14px 14px;
   }
 
-  /* `.fila` reparte sus hijos directamente en la rejilla de `.tabla` (7
+  /* `.fila` reparte sus hijos directamente en la rejilla de `.tabla` (8
      columnas fijas) sin abrir un nivel de anidamiento propio: así la rejilla
      se mide en conjunto sobre las 84 filas reales, columna a columna, en vez
-     de que cada `<div class="fila">` abra su propio grid de 7 e ignore el de
+     de que cada `<div class="fila">` abra su propio grid de 8 e ignore el de
      al lado. El spec pide divisiones VERTICALES entre columnas y NINGUNA
      horizontal entre filas — por eso el borde va en `border-r` de cada celda
-     (ver abajo) y nunca en `border-b`. */
+     (ver abajo) y nunca en `border-b`. Excepción: la casilla no lleva `border-r`
+     (corrección del propietario) porque casilla y miniatura son la misma
+     cosa —identificar la fila— y la raya entre las dos separaba sin motivo. */
   .fila {
     display: contents;
   }

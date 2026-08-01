@@ -5,12 +5,13 @@
  * (IDs únicos del nivel) y el desglose de hasta tres secciones + una cuarta
  * línea de desbordamiento; no conoce `Grupo` ni hace ningún cálculo propio.
  *
- * Slots fijos a propósito: SIEMPRE tres líneas de desglose (con placeholder
- * "…"/"–" si el nivel tiene menos de tres secciones) y una cuarta línea de
- * desbordamiento que solo se pinta si sobra algo. La tarea 6 solo puede
- * ESCRIBIR VALORES sobre este marcado (regla 7 de AGENTS.md: el cliente no
- * construye marcado), así que el número de nodos tiene que ser estable de
- * antemano — de ahí los slots fijos en vez de generar N líneas dinámicas.
+ * Sin líneas de relleno (corrección tras la revisión visual del propietario):
+ * `lineas` trae solo las que existen, 0 a 3, nunca rellena con placeholder.
+ * Para que las tres tarjetas compartan línea de base aunque tengan distinto
+ * número de avisos, `.lins` se empuja al fondo con `mt-auto` — el `<button>`
+ * ya estira a la altura de la fila por ser un item de grid (panel.astro no le
+ * pone alto fijo), así que el hueco que sobra en una tarjeta con menos avisos
+ * queda arriba del desglose, no como huecos sueltos entre líneas.
  *
  * `activa` decide el estado visual (bg-tertiary + borde action-primary +
  * sombra vs. bg-secondary + borde border). Hoy siempre llega en `false`: sin
@@ -27,8 +28,8 @@ interface Props {
   nivel: 1 | 2 | 3;
   overline: string;
   cifra: number;
-  /** Hasta 3 líneas reales; `null` en un hueco sin sección que mostrar. */
-  lineas: [Linea | null, Linea | null, Linea | null];
+  /** Solo las líneas reales que hay, 0 a 3 — sin relleno. */
+  lineas: Linea[];
   /** Suma de las secciones que no caben en las 3 líneas. `null` = sin sobrante. */
   desbordamiento: number | null;
   activa?: boolean;
@@ -51,20 +52,16 @@ const estadoClase = activa
 
   <span class="cifra typo-h1 text-mel-text-primary">{cifra}</span>
 
-  <span class="lins flex flex-col w-full gap-1">
+  <span class="lins flex flex-col w-full gap-1 mt-auto">
     {lineas.map((linea) => (
       <span class="flex items-baseline justify-between gap-4 w-full">
-        <span class={`typo-caption truncate ${linea ? 'text-mel-text-secondary' : 'text-mel-text-tertiary'}`}>
-          {linea ? linea.titulo : '…'}
-        </span>
-        <span class={`typo-caption shrink-0 ${linea ? 'text-mel-text-primary' : 'text-mel-text-tertiary'}`}>
-          {linea ? linea.cifra : '–'}
-        </span>
+        <span class="typo-caption text-mel-text-secondary truncate">{linea.titulo}</span>
+        <span class="typo-caption text-mel-text-primary shrink-0">{linea.cifra}</span>
       </span>
     ))}
     {desbordamiento !== null && (
       <span class="flex items-baseline justify-between gap-4 w-full">
-        <span class="typo-caption text-mel-text-tertiary">…</span>
+        <span class="typo-caption text-mel-text-tertiary truncate">Otras incidencias</span>
         <span class="typo-caption text-mel-text-tertiary shrink-0">+{desbordamiento}</span>
       </span>
     )}
