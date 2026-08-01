@@ -456,7 +456,7 @@ que existen sin que la fila salte. **«Abrir en la hoja» nunca es acción en bl
 no se pueden abrir tres celdas a la vez.
 
 **Tabla**: **16px de sangrado izquierdo** más ocho columnas de
-`42 · 278 · 160 · 120 · 88 · 120 · 200 · 200` (casilla · miniatura+nombre · MEL ·
+`42 · 246 · 160 · 136 · 104 · 120 · 200 · 200` (casilla · miniatura+nombre · MEL ·
 dimensiones · formato · peso · ocultar · acción). **16 + 1208 = 1224.**
 
 > Formato empezó en 72px y no cabía: el rótulo «FORMATO» mide 64px y con su
@@ -464,7 +464,11 @@ dimensiones · formato · peso · ocultar · acción). **16 + 1208 = 1224.**
 > y su propio dato alineado a la izquierda **dentro de la misma columna** — peor
 > que el problema. Ahora son 88px, robados al nombre, y todas las cabeceras
 > alinean con su dato. Al añadir la flecha de ordenación tampoco cabían
-> «Formato» ni «Dimensiones» con 16px de padding: las dos usan 8px. Los 16px
+> «Formato» ni «Dimensiones» con 16px de padding, así que se probó con 8px — y
+> medido en vivo eso dejaba **1px** de margen, no los 7,2 que decía el comentario
+> del código. Un margen de 1px se lo come cualquier diferencia de métricas de
+> fuente entre navegadores. Ancho definitivo: dimensiones 136 y formato 104,
+> robados al nombre, para que las cinco cabeceras vuelvan a 16px de padding. Los 16px
 van delante, como en Figma (`Columns` empieza en x=0 y la primera columna en
 x=16); si se omiten y se fuerza el ancho total a 1224, aparecen como un hueco de
 16px **al final** de cada fila, que es un defecto real medido en la tarea 5.
