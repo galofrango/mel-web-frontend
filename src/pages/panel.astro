@@ -131,10 +131,15 @@ const tarjetas = [
         <p class="typo-lead text-mel-text-secondary max-w-[720px]">
           Una página interna que dice, en un vistazo, qué le pasa hoy al archivo y deja arreglar en el sitio lo que se puede arreglar solo.
         </p>
-        <!-- Sin JS todavía (tarea 6): "releer" no puede distinguir la lectura
-             barata de la hoja del remedido caro de las 84 imágenes, así que
-             se queda desactivado en vez de fingir que hace la mitad. -->
-        <button type="button" class="shrink-0 h-14 px-6 inline-flex items-center gap-3 bg-mel-action-primary text-mel-text-on-action-primary typo-button whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+        <!-- "Releer" no puede distinguir hoy la lectura barata de la hoja del
+             remedido caro de las 84 imágenes (eso pide la ruta de la tarea
+             7), así que el cliente (tarea 6) lo resuelve con lo único honesto
+             que puede hacer: una recarga dura, que relee la hoja en el mismo
+             golpe. Nace `disabled` porque sin JS no hay nada que hacer al
+             pulsarlo; el propio script lo habilita. `id` propio (no una
+             clase) porque es el único control de la cabecera que el cliente
+             necesita seleccionar. -->
+        <button type="button" id="panel-releer" class="shrink-0 h-14 px-6 inline-flex items-center gap-3 bg-mel-action-primary text-mel-text-on-action-primary typo-button whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
           Releer el archivo
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path>
@@ -179,27 +184,18 @@ const tarjetas = [
 
 <script>
   // Comportamiento de cliente del panel de control del archivo (tarea 6 del
-  // plan). El marcado entero lo pinta el servidor (tarea 5): este script SOLO
-  // escribe valores dentro de él y alterna clases o atributos — nunca
-  // construye nodos nuevos (regla 7 de AGENTS.md). Ganchos que consume, todos
-  // dejados por la tarea 5: `[data-nivel]`/`[data-clave]` en cada `<section>`,
-  // `.fila[data-id]` en cada fila, `.tarj` en cada tarjeta,
-  // `.sec-cab[aria-expanded]` en la cabecera plegable, `.nn` en el contador
-  // entre corchetes, `.cifra`/`.lins` en la tarjeta, `.seleccionar-todos`,
-  // `.ver-ocultos`, `.ocultar-seleccionados`, `.accion-seleccionados` (estas
-  // tres nacen `hidden`) y `.ocultar-aviso` (nace `disabled`).
-  //
-  // NO implementado — punto 7 del encargo (cabecera de columnas que ordena):
-  // pide una fila de rótulos nueva (Evento · MEL · Dimensiones · Formato ·
-  // Peso) dentro de la tabla de cada sección, y esa fila no existe en el
-  // marcado de `PanelSeccion.astro` (confirmado leyendo el fichero entero y
-  // el historial de `progress.md`: el propietario la pidió DESPUÉS de que la
-  // tarea 5 se diera por completa y revisada). El propio encargo de esta
-  // tarea es explícito: si esa fila falta, hay que pararse a decirlo en vez
-  // de construirla por JS (regla 7) o de ampliar el alcance a un fichero que
-  // el encargo no lista (`PanelSeccion.astro`; esta tarea solo declara
-  // `src/pages/panel.astro`, bloque `<script>`). Detalle y propuesta en el
-  // informe de la tarea 6.
+  // plan). El marcado entero lo pinta el servidor (tareas 5 y, para la
+  // cabecera de columnas, 6-bis sobre PanelSeccion.astro — ver su propio
+  // comentario de cabecera): este script SOLO escribe valores dentro de él y
+  // alterna clases o atributos, o reordena nodos ya existentes — nunca
+  // construye nodos nuevos (regla 7 de AGENTS.md). Ganchos que consume:
+  // `[data-nivel]`/`[data-clave]` en cada `<section>`, `.fila[data-id]` (con
+  // `data-mayor`/`data-bytes` para ordenar sin reinterpretar texto) en cada
+  // fila, `.tarj` en cada tarjeta, `.sec-cab[aria-expanded]` en la cabecera
+  // plegable, `.nn` en el contador entre corchetes, `.cifra`/`.lins` en la
+  // tarjeta, `.seleccionar-todos`, `.ver-ocultos`, `.ocultar-seleccionados`,
+  // `.accion-seleccionados` (estas tres nacen `hidden`), `.ocultar-aviso`
+  // (nace `disabled`) y `.cab-col[data-col]` en cada rótulo ordenable.
 
   const NIVELES = [1, 2, 3] as const;
 
@@ -225,6 +221,92 @@ const tarjetas = [
   }
   function filasDe(sec: Element): HTMLElement[] {
     return Array.from(sec.querySelectorAll('.fila[data-id]')) as HTMLElement[];
+  }
+
+  // --- Cabecera de columnas: ordenar cada sección por separado --------------
+  // Mismo patrón que la vista Lista de index.astro (aplicarOrden/
+  // handleSortClick/updateSortHeaderIcons): un comparador por columna, estado
+  // guardado como par columna+dirección, y Array.prototype.sort (estable
+  // desde ES2019). index.astro no usa `aria-sort` ni roles de tabla en sus
+  // cabeceras — solo clase + icono —, así que no hay nada de eso que traer.
+  // Dos diferencias deliberadas con ese patrón, por instrucción del
+  // coordinador: el estado es POR SECCIÓN (un `data-orden-col`/`-dir` en cada
+  // `<section>`, no una variable global), y el ciclo tiene un tercer estado
+  // — asc → desc → orden de partida — en vez de solo asc/desc, porque aquí SÍ
+  // existe un orden de partida con valor propio (la gravedad de la tarea 4)
+  // que hay que poder recuperar exacto, y no una tabla que nace neutra.
+  //
+  // "Dimensiones" y "Peso" ordenan por `data-mayor`/`data-bytes` (el mismo
+  // número que ya usa auditoria.ts, no el texto formateado "1230×2400" o
+  // "2,1 MB": reinterpretar el texto perdería precisión en el peso, que se
+  // redondea a un decimal de MB al formatearse). "Evento" y "Formato" ordenan
+  // por el texto de su propio gancho (`.nombre-evento`/`.formato-valor`).
+  // "MEL" usa `data-id`, que ya existe — no hace falta leer el texto del
+  // enlace.
+  function valorDeOrden(fila: HTMLElement, col: string): string | number {
+    switch (col) {
+      case 'evento':
+        return (fila.querySelector('.nombre-evento')?.textContent || '').trim().toLowerCase();
+      case 'mel':
+        return fila.dataset.id || '';
+      case 'dimensiones':
+        return Number(fila.dataset.mayor) || 0;
+      case 'formato':
+        return (fila.querySelector('.formato-valor')?.textContent || '').trim().toLowerCase();
+      case 'peso':
+        return Number(fila.dataset.bytes) || 0;
+      default:
+        return '';
+    }
+  }
+
+  function comparadorColumna(col: string, dir: 'asc' | 'desc') {
+    return (a: HTMLElement, b: HTMLElement) => {
+      const va = valorDeOrden(a, col);
+      const vb = valorDeOrden(b, col);
+      const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
+      return dir === 'asc' ? cmp : -cmp;
+    };
+  }
+
+  // Restaura el orden de partida (gravedad, tarea 4): el índice que cada fila
+  // tenía en el DOM al inicializar, escrito por `initPanel` en
+  // `data-orden-original` ANTES de que se pulse ningún rótulo.
+  function comparadorOriginal(a: HTMLElement, b: HTMLElement) {
+    return Number(a.dataset.ordenOriginal) - Number(b.dataset.ordenOriginal);
+  }
+
+  // Ciclo por columna: 1er toque → ascendente, 2º → descendente, 3er toque
+  // (o tocar otra columna) → vuelve al orden de partida / salta a esa otra
+  // columna en ascendente. Reordena los propios nodos `.fila` con
+  // `append(...)` (mover nodos existentes, no reconstruirlos) — `.tabla`
+  // conserva la fila de cabecera de columnas donde está (nunca se toca) y
+  // las filas de datos pasan al final EN EL ORDEN dado.
+  function pulsarCabeceraColumna(btn: HTMLElement) {
+    const sec = btn.closest('section[data-clave]') as HTMLElement | null;
+    const tabla = sec?.querySelector('.tabla');
+    if (!sec || !tabla) return;
+    const col = btn.dataset.col || '';
+
+    let colNueva: string | null = col;
+    let dirNueva: 'asc' | 'desc' | null = 'asc';
+    if (sec.dataset.ordenCol === col) {
+      if (sec.dataset.ordenDir === 'asc') { dirNueva = 'desc'; }
+      else { colNueva = null; dirNueva = null; }
+    }
+
+    const filas = filasDe(sec);
+    filas.sort(colNueva && dirNueva ? comparadorColumna(colNueva, dirNueva) : comparadorOriginal);
+    tabla.append(...filas);
+
+    if (colNueva) sec.dataset.ordenCol = colNueva; else delete sec.dataset.ordenCol;
+    if (dirNueva) sec.dataset.ordenDir = dirNueva; else delete sec.dataset.ordenDir;
+
+    sec.querySelectorAll('.cab-col').forEach((b) => {
+      const activa = (b as HTMLElement).dataset.col === colNueva;
+      b.classList.toggle('text-mel-action-primary', activa);
+      b.classList.toggle('text-mel-text-secondary', !activa);
+    });
   }
 
   // --- Tarjetas: filtran las secciones de su nivel --------------------------
@@ -375,10 +457,10 @@ const tarjetas = [
     const cab = target.closest('.sec-cab') as HTMLElement | null;
     if (cab) { pulsarCabeceraSeccion(cab); return; }
 
-    // El botón "Releer el archivo" no lleva clase ni id propios; es el único
-    // <button> de la cabecera (las pestañas Control/Preparación son <span>,
-    // inertes: Preparación no existe todavía — fuera de alcance, ver spec).
-    if (target.closest('header button')) { window.location.reload(); return; }
+    const btnCol = target.closest('.cab-col') as HTMLElement | null;
+    if (btnCol) { pulsarCabeceraColumna(btnCol); return; }
+
+    if (target.closest('#panel-releer')) { window.location.reload(); return; }
 
     const btnTodos = target.closest('.seleccionar-todos') as HTMLElement | null;
     if (btnTodos) {
@@ -428,8 +510,18 @@ const tarjetas = [
     // tarea 5 (sin JS no había nada honesto que hacer al pulsarlos). Se
     // habilitan aquí; no se reconstruyen.
     document.querySelectorAll('.ocultar-aviso').forEach((btn) => { (btn as HTMLButtonElement).disabled = false; });
-    const btnReleer = document.querySelector('header button') as HTMLButtonElement | null;
+    const btnReleer = document.getElementById('panel-releer') as HTMLButtonElement | null;
     if (btnReleer) btnReleer.disabled = false;
+
+    // Numera cada fila con su posición de partida (gravedad, tarea 4) ANTES
+    // de que se pulse ningún rótulo de columna: es a lo que vuelve el tercer
+    // toque de `pulsarCabeceraColumna`. Se escribe aquí y no en el servidor
+    // porque en cada `astro:page-load` el DOM es fresco (SSR en cada
+    // petición) y ya está en gravedad — no hace falta que el servidor lo
+    // numere para que el cliente lo capture.
+    document.querySelectorAll('section[data-clave]').forEach((el) => {
+      filasDe(el).forEach((fila, i) => { fila.dataset.ordenOriginal = String(i); });
+    });
 
     // Cancela los oyentes de una inicialización anterior (vuelta a /panel con
     // el ClientRouter) antes de poner los nuevos: si no, se acumula un

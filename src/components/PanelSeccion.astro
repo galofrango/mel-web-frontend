@@ -15,7 +15,24 @@
  * Ganchos que deja para la tarea 6 (no tocar su forma, solo escribir sobre
  * ella): `[data-nivel]`/`[data-clave]` en la raíz, `.sec-cab[aria-expanded]`
  * en la cabecera, `.nn` en el contador entre corchetes, `.fila[data-id]` en
- * cada fila de la tabla.
+ * cada fila de la tabla (con `data-mayor`/`data-bytes`, el mismo valor
+ * numérico que ya usa `auditoria.ts` para ordenar cada sección, para que el
+ * cliente pueda ordenar «Dimensiones»/«Peso» sin reinterpretar el texto
+ * formateado — `.nombre-evento`/`.formato-valor` cumplen el mismo papel para
+ * las dos columnas de texto). `.cab-col[data-col]` en cada rótulo de la fila
+ * de cabecera de columnas (ver abajo).
+ *
+ * Fila de cabecera de columnas (Evento · MEL · Dimensiones · Formato · Peso):
+ * pedida por el propietario DESPUÉS de que esta tarea se diera por completa y
+ * revisada — no estaba en el alcance original, así que se añade aparte y
+ * documentada en vez de mezclarse con el resto sin más. Vive en la MISMA
+ * rejilla de `.tabla` (mismo truco `display:contents` que `.fila`, para que
+ * sus 8 celdas caigan en las columnas de siempre en vez de abrir su propio
+ * grid) y sus tres celdas de casilla/ocultar/acción van vacías: no hay nada
+ * que rotular ahí. El pintado es SOLO presentación — orden de partida
+ * (gravedad, tarea 4), ordenar al pulsar y volver a él son toda tarea del
+ * cliente (tarea 6), que reordena los propios nodos `.fila` en vez de
+ * reconstruir nada.
  */
 import { SHEET_ID, extractDriveImage } from '../lib/mel';
 import type { Grupo } from '../lib/auditoria';
@@ -93,6 +110,33 @@ const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
 
 // casilla · miniatura+nombre · MEL · dimensiones · formato · peso · ocultar · acción
 const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]';
+
+// Los cinco rótulos de la fila de cabecera de columnas, en el mismo orden que
+// las columnas correspondientes de `.tabla`. `col` es el valor de `data-col`
+// que lee la tarea 6 para saber por qué campo ordenar cada `.fila`.
+const COLUMNAS_ORDENABLES: { col: string; etiqueta: string }[] = [
+  { col: 'evento', etiqueta: 'Evento' },
+  { col: 'mel', etiqueta: 'MEL' },
+  { col: 'dimensiones', etiqueta: 'Dimensiones' },
+  { col: 'formato', etiqueta: 'Formato' },
+  { col: 'peso', etiqueta: 'Peso' },
+];
+// Mismo tratamiento de bordes que las celdas de datos: divisor a la derecha
+// en todas menos la primera (casilla) y la última (acción) columna. Sin
+// padding ni alineación fijos aquí — los pone `CAB_COL_ALINEACION` por
+// columna, porque "Formato" no entra en el molde común (ver abajo).
+const CAB_COL = 'cab-col h-10 flex items-center border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
+// "Formato" (7 letras, con el +12% de tracking de typo-overline) mide 64px de
+// texto — medido con Range.getBoundingClientRect() en el navegador, no
+// estimado. Ni siquiera con el padding a cero cabe alineado a la izquierda
+// con el dato de abajo (columna de 72px − 16px del `pl-4` del dato = 56px,
+// menos de lo que pide el texto): no hay padding que lo arregle sin recortar
+// la palabra o encogerle la letra a `typo-overline`, y ninguna de las dos es
+// aceptable (el rótulo lo fijó el coordinador, y el tamaño lo fija el DS).
+// Centrado y sin padding es lo único que cabe entero (72−1px de borde−64 ≈
+// 3,5px de margen por lado) — las otras cuatro sí caben alineadas a la
+// izquierda como su dato, así que solo esta es distinta.
+const CAB_COL_ALINEACION: Record<string, string> = { formato: 'justify-center text-center' };
 ---
 
 <section class="border border-mel-border bg-mel-bg-primary" data-nivel={grupo.nivel} data-clave={grupo.clave}>
@@ -171,6 +215,14 @@ const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]
           (min-w-[1224px] forzaba la caja a 1224 pero las 8 columnas solo
           suman 1208; con el padding delante, 16 + 1208 = 1224 exactos). */}
       <div class={`tabla grid ${columnasTabla} min-w-[1224px] pl-4`} role="table" aria-label={grupo.titulo}>
+        <div class="cab-columnas contents">
+          <div class="h-10 bg-mel-bg-secondary"></div>
+          {COLUMNAS_ORDENABLES.map((c) => (
+            <button type="button" class={`${CAB_COL} ${CAB_COL_ALINEACION[c.col] || 'justify-start text-left pl-4'}`} data-col={c.col}>{c.etiqueta}</button>
+          ))}
+          <div class="h-10 border-r border-mel-border bg-mel-bg-secondary"></div>
+          <div class="h-10 bg-mel-bg-secondary"></div>
+        </div>
         {grupo.items.map((item) => {
           const urlDrive = urlPorId[item.idMel];
           const thumb = extractDriveImage(urlDrive, 200);
@@ -179,7 +231,7 @@ const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]
             : '';
           const hrefMel = `${sheetBase}&range=K${item.fila}`;
           return (
-            <div class="fila contents" data-id={item.idMel}>
+            <div class="fila contents" data-id={item.idMel} data-mayor={item.mayor} data-bytes={item.bytes}>
               <div class="flex items-center justify-center h-16">
                 <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${item.evento}`} />
               </div>
@@ -189,7 +241,7 @@ const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]
                 ) : (
                   <span class="w-10 h-12 bg-mel-bg-secondary shrink-0"></span>
                 )}
-                <span class="typo-lead text-mel-text-primary truncate min-w-0">{item.evento}</span>
+                <span class="nombre-evento typo-lead text-mel-text-primary truncate min-w-0">{item.evento}</span>
               </div>
               <div class="flex items-center h-16 px-4 border-r border-mel-border min-w-0">
                 <a href={hrefMel} target="_blank" rel="noopener" class="typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 truncate">
@@ -200,7 +252,7 @@ const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]
                 <span class="typo-lead text-mel-text-secondary truncate">{item.px}</span>
               </div>
               <div class="flex items-center h-16 px-4 border-r border-mel-border">
-                <span class="typo-lead text-mel-text-secondary truncate">{formatoPorId[item.idMel]}</span>
+                <span class="formato-valor typo-lead text-mel-text-secondary truncate">{formatoPorId[item.idMel]}</span>
               </div>
               <div class="flex items-center h-16 px-4 border-r border-mel-border">
                 <span class="typo-lead text-mel-text-secondary truncate">{item.peso}</span>
