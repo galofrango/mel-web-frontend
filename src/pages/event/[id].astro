@@ -1584,6 +1584,16 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
        queda pegado arriba es solo el título y los tags. */
     #detail-cabecera {
       top: calc(-1 * var(--mel-cab-x, 48px) + var(--mel-revelado, 0px));
+      /* Confirmado con grabación de pantalla (2026-08-01): el contenido de
+         las tags no se desplazaba de sitio (dos hipótesis previas, ambas
+         descartadas) — desaparecía del todo un instante y volvía a aparecer
+         EXACTAMENTE en el mismo sitio. Eso es un glitch de repintado de
+         WebKit, no un problema de posición: un `position: sticky` con un
+         hijo que hace scroll propio (la fila de tags, horizontal) a veces
+         deja de repintar su contenido hasta que algo lo fuerza. El arreglo
+         documentado es forzar esta caja a su propia capa de composición GPU;
+         no cambia ni layout ni posición, solo cómo la pinta el navegador. */
+      transform: translateZ(0);
     }
     /* La foto va FIJA, no pegajosa: `sticky` se suelta cuando acaba su
        contenedor, y por ahí la foto se escapaba hacia arriba por detrás de la
