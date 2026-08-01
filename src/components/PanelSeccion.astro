@@ -149,21 +149,26 @@ const COLUMNAS_ORDENABLES: { col: string; etiqueta: string }[] = [
 const CAB_COL = 'cab-col h-10 flex items-center justify-between pl-4 pr-2 border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
 
 // Franja de color a la izquierda de la cabecera de sección — ajuste pedido
-// por el propietario tras usar el panel, dibujado por él: 8px del primitivo
-// `le-400`. EXCEPCIÓN autorizada a "solo tokens semánticos", la segunda
-// después del `le-200` del banner de aviso (ver `avisoHtml` más abajo): no
-// es `action-primary` aunque hoy se le parezca en claro — `action-primary`
-// cambia con el tema (le-500 en claro, le-400 en oscuro, ver global.css) y
-// esta franja no debe. El propietario está valorando un color por nivel de
-// gravedad más adelante: esta ÚNICA constante es el sitio que tocar ese día,
-// no las diez cabeceras.
-const FRANJA_CABECERA = 'border-l-8 border-mel-le-400';
+// por el propietario tras usar el panel, dibujado por él: 8px por NIVEL DE
+// GRAVEDAD (el color por nivel que este comentario ya anticipaba). EXCEPCIÓN
+// autorizada a "solo tokens semánticos", la segunda después del `le-200` del
+// banner de aviso (ver `avisoHtml` más abajo): nivel 1 usa el primitivo
+// `le-400` directamente — no es `action-primary` aunque hoy se le parezca en
+// claro, porque `action-primary` cambia con el tema (le-500 en claro, le-400
+// en oscuro, ver global.css) y esta franja no debe. Nivel 2 usa el token
+// `--mel-gravedad-2` (global.css), el ámbar de Figma que no existía en el DS.
+// Mismo mapa que `FRANJA_GRAVEDAD` en PanelTarjeta.astro: añadir un nivel 3
+// es tocar esos dos mapas, nunca las diez cabeceras ni las tarjetas.
+const FRANJA_CABECERA: Record<1 | 2, string> = {
+  1: 'border-l-8 border-mel-le-400',
+  2: 'border-l-8 border-mel-gravedad-2',
+};
 ---
 
 <section class="border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)]" data-nivel={grupo.nivel} data-clave={grupo.clave}>
   <button
     type="button"
-    class={`sec-cab w-full flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 text-left ${FRANJA_CABECERA}`}
+    class={`sec-cab w-full flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 text-left ${FRANJA_CABECERA[grupo.nivel]}`}
     aria-expanded="true"
     aria-controls={`sec-cuerpo-${grupo.clave}`}
   >

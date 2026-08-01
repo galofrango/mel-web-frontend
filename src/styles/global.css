@@ -116,6 +116,20 @@
   /* Border */
   --mel-border: var(--mel-primitive-tinted-200);          /* TINTED 200 */
 
+  /* Gravedad — código de color por nivel de aviso en /panel (franja de 8px
+     de las tarjetas y de las cabeceras de sección). No es paleta de marca:
+     nivel 1 ("Falta información") reutiliza el primitivo `le-400` ya
+     autorizado directamente en el marcado — es fijo, no cambia con el tema,
+     así que no necesita entrada aquí (ver FRANJA_GRAVEDAD en
+     PanelTarjeta.astro y FRANJA_CABECERA en PanelSeccion.astro). Nivel 2
+     ("Bajo rendimiento") no tenía color propio en el DS: este es su único
+     token, para el ámbar suelto de Figma que la regla de "solo tokens
+     semánticos" prohíbe escribir a mano en el marcado. Añadir un nivel 3 el
+     día de mañana es añadir `--mel-gravedad-3` aquí (+ su override en
+     `.dark` si necesita otro tono) y una línea en esos dos mapas — nunca
+     tocar una tarjeta o cabecera ya pintada. */
+  --mel-gravedad-2: #ce9538;
+
   /* Primaries CMYK */
   --mel-cyan: var(--mel-primitive-cian);
   --mel-magenta: var(--mel-primitive-magenta);
@@ -155,6 +169,12 @@
 
   /* Border override */
   --mel-border: var(--mel-primitive-tinted-700);
+
+  /* Gravedad override — ver razonamiento junto a la definición en :root.
+     Mismo hex que en claro por ahora; pendiente de comprobación visual
+     sobre `bg-mel-bg-secondary`/`-tertiary` oscuros antes de decidir si
+     necesita un tono propio. */
+  --mel-gravedad-2: #ce9538;
 }
 
 
@@ -190,7 +210,8 @@
   --color-mel-bg-secondary: var(--mel-bg-secondary);
   --color-mel-bg-tertiary: var(--mel-bg-tertiary);
   --color-mel-border: var(--mel-border);
-  
+  --color-mel-gravedad-2: var(--mel-gravedad-2);
+
   --color-mel-text-primary: var(--mel-text-primary);
   --color-mel-text-secondary: var(--mel-text-secondary);
   --color-mel-text-tertiary: var(--mel-text-tertiary);

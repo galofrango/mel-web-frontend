@@ -1,9 +1,29 @@
 ---
 /**
- * PanelTarjeta — una de las tres tarjetas "Highlight XL" de /panel (Figma
+ * PanelTarjeta — una de las dos tarjetas "Highlight XL" de /panel (Figma
  * 1200:116096). Puramente presentacional: recibe ya calculados la cifra total
  * (IDs únicos del nivel) y el desglose de hasta tres secciones + una cuarta
  * línea de desbordamiento; no conoce `Grupo` ni hace ningún cálculo propio.
+ *
+ * Franja de color de 8px a la izquierda, a toda su altura — código de color
+ * por gravedad (ajuste del propietario tras rediseñar el panel en Figma),
+ * mismo idioma que `FRANJA_CABECERA` en PanelSeccion.astro: un `border-l-8`
+ * hace de barra sin necesitar un elemento aparte (siempre cubre el alto
+ * entero de la caja, sea cual sea). `FRANJA_GRAVEDAD` mapea nivel → clase;
+ * nivel 1 reutiliza el primitivo `le-400` ya autorizado (fijo, no cambia con
+ * el tema), nivel 2 el token `--mel-gravedad-2` nuevo en global.css (el
+ * ámbar de Figma no existía en el DS). Añadir un nivel 3 es añadir su color
+ * en global.css y una línea en este mapa Y en el de PanelSeccion.astro — los
+ * dos únicos sitios que lo necesitan, nunca las tarjetas u cabeceras ya
+ * pintadas.
+ *
+ * `min-h-[206px]` (no `h-`): 206px es el alto de la tarjeta en Figma, pero
+ * es el de la MÁS CORTA de las dos (3 líneas, sin desbordamiento) — «Bajo
+ * rendimiento» tiene más de tres secciones y añade la cuarta línea de "Otras
+ * incidencias", así que su contenido real mide más que eso. Un alto fijo
+ * recortaría esa cuarta línea o desbordaría la caja; `min-h` da el suelo de
+ * 206px a la tarjeta corta (deja hueco debajo, ver el porqué más abajo) sin
+ * arriesgar la larga.
  *
  * Sin líneas de relleno (corrección tras la revisión visual del propietario):
  * `lineas` trae solo las que existen, 0 a 3, nunca rellena con placeholder.
@@ -30,7 +50,7 @@ interface Linea {
 }
 
 interface Props {
-  nivel: 1 | 2 | 3;
+  nivel: 1 | 2;
   overline: string;
   cifra: number;
   /** Solo las líneas reales que hay, 0 a 3 — sin relleno. */
@@ -45,11 +65,18 @@ const { nivel, overline, cifra, lineas, desbordamiento, activa = false } = Astro
 const estadoClase = activa
   ? 'bg-mel-bg-tertiary border-mel-action-primary shadow-[var(--mel-shadow-button)]'
   : 'bg-mel-bg-secondary border-mel-border';
+
+// Ver comentario de cabecera: barra de 8px por nivel, independiente de si la
+// tarjeta está activa o no (el color de gravedad no es un estado, es un dato).
+const FRANJA_GRAVEDAD: Record<1 | 2, string> = {
+  1: 'border-l-mel-le-400',
+  2: 'border-l-mel-gravedad-2',
+};
 ---
 
 <button
   type="button"
-  class={`tarj group flex flex-col items-start gap-4 text-left border p-6 transition-colors duration-200 w-full ${estadoClase}`}
+  class={`tarj group flex flex-col items-start gap-4 text-left border border-l-8 p-6 min-h-[206px] transition-colors duration-200 w-full ${estadoClase} ${FRANJA_GRAVEDAD[nivel]}`}
   data-nivel={nivel}
   data-activa={activa ? 'true' : 'false'}
   aria-pressed={activa ? 'true' : 'false'}

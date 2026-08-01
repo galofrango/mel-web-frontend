@@ -105,7 +105,7 @@ const REGLAS: Regla[] = [
    '<b>El problema es que sin el enlace de Google Maps el evento no sale en el mapa.</b><br><br>La forma de corregirlo es buscar el local en Google Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1]. El sitio saca el punto exacto del propio enlace.',
    'Las tres filas ponen «Desconocido» en esa celda, y eso es peor que dejarla vacía: el respaldo por localidad solo entra si la celda está vacía, así que «Desconocido» apaga el único plan B que había.', 'id',
    (f, t) => estaVacio(f.coordenadas)],
-  // Dentro de "Fallos críticos" (nivel 1: sin-lugar, sin-coordenadas,
+  // Dentro de "Falta información" (nivel 1: sin-lugar, sin-coordenadas,
   // sin-artistas), el orden interno responde a otro criterio, no a la
   // cascada de arriba: lo que ROMPE va antes que lo que FALTA. Sin lugar y
   // sin coordenadas impiden que el evento salga en el mapa; sin artistas es
