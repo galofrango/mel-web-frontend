@@ -28,6 +28,14 @@
   class="fixed bottom-[32px] z-[119] flex items-center px-mel-s py-mel-xs min-h-[48px] bg-mel-action-primary backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] pointer-events-none select-none"
   data-node-id="1163:67466"
 >
+  <!-- `text-on-action-primary` (LE-50 fijo) y NO `text-on-action` (el que
+       cambia de tono según el modo): decisión explícita del propietario
+       (D-173), no una corrección de un token mal puesto — el original ya
+       era el que el design-system documenta para este fondo. Está probando
+       si LE-50 fijo resuelve el mal contraste que ve en `action-primary` en
+       modo oscuro, posible síntoma del mismo problema que espera la
+       auditoría de color pendiente (roadmap.md). Revisar cuando esa
+       auditoría llegue, no dar por cerrado antes. -->
   <p id="whisper-texto" class="typo-caption text-mel-text-on-action-primary"></p>
 </div>
 

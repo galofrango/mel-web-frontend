@@ -2668,3 +2668,13 @@ El hueco de más se resolverá el día que esta franja pase a ser parte de la ca
 
 - **`theme-color` NO está implementado.** Se creía que sí. No hay ni `theme-color`, ni manifest, ni metas de Apple en `Layout.astro` ni en `public/`. Lo que se ve en Safari es el navegador tiñendo su barra con el color de fondo de la página por su cuenta: funciona por defecto, no por diseño, y en modo oscuro no hay nada que lo gobierne.
 - **Los ~27px bajo el mapa en escritorio son PROPORCIONALES**, no fijos: `pb-[3vh]`, un 3% del alto de la ventana. Criterio del propietario: si es proporcional, se queda.
+
+## D-173 · Whisper: LE-50 fijo en vez del token que cambia con el modo (experimento del propietario)
+
+**Contexto**: al revisar el contraste sobre `bg-mel-action-primary` en modo oscuro, un agente encontró que `Whisper.astro` usaba `text-mel-text-on-action` (el token que cambia de tono según el modo: `tinted-50` en claro, `tinted-900` en oscuro) y, asumiendo que era un descuido, lo cambió a `text-mel-text-on-action-primary` (LE-50, fijo en los dos modos — el que el design-system documenta para texto sobre `action-primary`).
+
+**Corrección del propietario**: el token original NO era un error — es el que corresponde según la tabla de `design-system.md`. El cambio a LE-50 fijo es un **experimento suyo**, porque en la práctica `action-primary` en modo oscuro no está dando buen contraste con el token que le toca, y sospecha que puede ser sintoma del mismo problema que espera la auditoría de color pendiente (ver "Auditoría de estilos de color y texto en TODOS los componentes" en `roadmap.md`, 30-07-2026).
+
+**Decisión**: se queda con LE-50 fijo en el Whisper *de momento*, porque funciona bien a la vista. No se ha tocado ningún otro sitio que use `text-mel-text-on-action` (IconButton, EmptyState, SideMenu, LikeButton, marcadores del mapa, tabla de Lista…) — este cambio es local al Whisper y no una nueva regla general.
+
+**Pendiente**: cuando llegue la auditoría de color, revisar si el problema de fondo es el propio valor de `action-primary` en modo oscuro (quizás demasiado próximo en luminosidad al texto `tinted-900`) y decidir ahí si el Whisper vuelve al token original, se queda en LE-50 fijo, o si la corrección real va en la primitiva de color y no en qué token elige cada componente.
