@@ -846,10 +846,33 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // que pinta el SSR, sin repartirse el ancho disponible aunque cupiera.
     const ANCHO_MAXIMO_TAG = 176;   // tope por unidad (D-061 / global.css)
     const HUECO_ENTRE_TAGS = 32;
+    // Visto en grabación de pantalla (2026-08-01): la fila de tags "saltaba"
+    // al arrastrarla en horizontal, en cualquier punto del scroll — no tenía
+    // que ver con la cabecera sticky (se descartó esa hipótesis, ver
+    // decisions.md). La causa real: esta función desmontaba la fila entera
+    // (volvía a "modo contenido", quitando el ancho-igual si estaba puesto) y
+    // la volvía a montar EN CADA LLAMADA, aunque el ancho disponible no
+    // hubiera cambiado nada — y se llama en cada `resize` de ventana. Un
+    // gesto táctil, aunque sea horizontal, puede disparar la animación de la
+    // barra de Safari y con ella un resize de verdad sin que el ancho del
+    // contenedor cambie ni un píxel. Guardar el último ancho y no tocar nada
+    // si no ha cambiado quita el desmontaje innecesario y con él el salto.
+    let ultimoAnchoTags = null;
     function ajustarFilaTags() {
       const fila = document.getElementById('detail-tags-fixed-row');
       const contenedor = fila && fila.parentElement;
       if (!contenedor) return;
+
+      // Ancho de CONTENIDO, no el de caja: este contenedor sí lleva padding
+      // lateral propio (px-6 / sm:px-12), a diferencia del de la home. Medirlo
+      // con getBoundingClientRect() regalaba 96px que la fila no tiene. Se
+      // mide ANTES de tocar ninguna clase: no depende del modo actual de la
+      // fila (el padding vive en el contenedor, no en ella).
+      const relleno = getComputedStyle(contenedor);
+      const anchoContenedor = contenedor.clientWidth
+        - parseFloat(relleno.paddingLeft) - parseFloat(relleno.paddingRight);
+      if (anchoContenedor === ultimoAnchoTags) return;
+      ultimoAnchoTags = anchoContenedor;
 
       // Modo contenido primero: es el único estado en el que cada unidad mide
       // su ancho natural sin arrastrar el reparto que dejó una pasada previa.
@@ -858,12 +881,6 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       fila.style.width = '';
 
       const unidades = [...fila.querySelectorAll('.highlight-unit')];
-      // Ancho de CONTENIDO, no el de caja: este contenedor sí lleva padding
-      // lateral propio (px-6 / sm:px-12), a diferencia del de la home. Medirlo
-      // con getBoundingClientRect() regalaba 96px que la fila no tiene.
-      const relleno = getComputedStyle(contenedor);
-      const anchoContenedor = contenedor.clientWidth
-        - parseFloat(relleno.paddingLeft) - parseFloat(relleno.paddingRight);
       // Por encima de `lg` la fila está oculta (mide 0): sin esto el reparto
       // saldría negativo y quedaría fijado un modo que allí no se ve.
       if (!unidades.length || anchoContenedor <= 0) return;
