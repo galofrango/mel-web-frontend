@@ -464,19 +464,25 @@ motivo. Divisores entre las demás columnas, sí.
   suelta obliga a apuntar, y el destino es la frase.
 - **Menos aire entre el problema y la corrección.** Las dos frases son un solo
   pensamiento; el hueco actual las lee como dos bloques sin relación.
-- **La nota de automatización se desarrolla.** No basta con «esto se arregla
-  solo»: tiene que decir **qué es `sips`** (la herramienta de imagen que ya trae
-  macOS), **dónde corre** (en tu Mac, no en ningún servicio), y **cómo** (un
-  script del propio proyecto que descarga el original, lo procesa y lo devuelve a
-  Drive conservando su ID). Es la única parte del panel que ejecuta algo, y quien
-  la lea tiene derecho a saber qué va a pasar antes de pulsar.
+- **La nota de automatización, con las palabras del propietario.** Texto literal,
+  no se reescribe:
+
+  > **Arreglo automático:** Un script descarga el original de Drive en tu
+  > ordenador, Sips –la herramienta de imagen nativa de macOS– lo procesa y lo
+  > devuelve a Drive como nueva versión del mismo fichero conservando su ID y toda
+  > la información del spreadsheet intacta.
+
 - **La cuarta línea de las tarjetas se rotula «Otras incidencias»**, no `…`.
 - **Sin líneas de relleno**: una tarjeta con menos de tres avisos no pinta
-  guiones para rellenar. El desglose se **alinea abajo**, para que las tres
-  tarjetas mantengan la misma línea de base aunque tengan distinto número de
-  avisos.
+  guiones para rellenar. El desglose va **pegado arriba**, justo bajo la cifra —
+  el propietario probó la alineación inferior y prefirió esta, que es como se ven
+  las tarjetas cuando llegan a cuatro líneas.
 - **Las acciones en bloque no se ven hasta que hay selección** (antes: visibles y
   desactivadas). Igual que «Ver avisos ocultos», que solo aparece si hay alguno.
+  **Ojo al reparto**: el servidor no sabe si hay selección, así que las pinta
+  **ocultas de partida** y es el cliente (tarea 6) quien las revela. Dejarlas
+  visibles en SSR «porque ya las ocultará el JS» es justo lo que se vio en la
+  primera revisión.
 
 ### Solo escritorio, y solo desde el propio ordenador
 

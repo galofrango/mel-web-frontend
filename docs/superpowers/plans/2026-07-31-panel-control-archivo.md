@@ -816,7 +816,9 @@ Enganchado con `document.addEventListener('astro:page-load', init)` y con guarda
 3. **Chevron** que pliega la sección (`aria-expanded` en la cabecera).
 4. **Selección**: casilla por fila, «Seleccionar todos» sobre las visibles. Las acciones en bloque **no se ven hasta que hay selección** — decisión del propietario tras la primera revisión visual, corrige el «visibles pero desactivadas» que decía antes esta línea. Igual que «Ver avisos ocultos», que solo aparece si hay alguno.
 5. **Ocultar aviso** por fila y en bloque; «Ver avisos ocultos» los recupera.
-6. **Recalcular** tras cualquier cambio: cifra de cada tarjeta (**IDs únicos**, no suma de secciones — un cartel puede estar en varias), su desglose de tres líneas más `… +N`, el contador entre corchetes de cada sección, y atenuar la sección que se queda vacía.
+6. **Recalcular** tras cualquier cambio: cifra de cada tarjeta (**IDs únicos**, no suma de secciones — un cartel puede estar en varias), su desglose de tres líneas más `Otras incidencias +N`, el contador entre corchetes de cada sección, y atenuar la sección que se queda vacía.
+
+7. **Cabecera de columnas que ordena**, pedida por el propietario tras la primera revisión visual: una fila de rótulos (Evento · MEL · Dimensiones · Formato · Peso) donde pulsar cada uno ordena la tabla por ese concepto, como ya hace la vista Lista del sitio en escritorio. Reutiliza el patrón que ya existe allí en vez de inventar otro. **Con una regla propia de este panel**: el orden por defecto de cada sección **no** es alfabético, es el de gravedad que fija la tarea 4 (peso descendente, píxeles ascendente en baja resolución…). Ordenar por una columna es una acción del usuario; el estado de partida se conserva y debe poder recuperarse.
 
 - [ ] **Paso 2: probar los seis comportamientos en el navegador**
 
