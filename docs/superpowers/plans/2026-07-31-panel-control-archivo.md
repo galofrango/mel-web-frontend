@@ -885,6 +885,54 @@ export const POST: APIRoute = async ({ request }) => {
 
 **Qué NO hace esta ruta:** no acepta `png` con `alfa: true` (hay que decidir el fondo, decisión pendiente del propietario) ni `gif` (destruiría los 177 fotogramas). Devuelve esos ids en `fallos` con el motivo.
 
+### El modal de confirmación (Figma `1215:219163`)
+
+Diseñado por el propietario **después** de escribirse este plan, y resuelve la
+pregunta de si conviene aplicar varias mejoras de una pasada: sí, pero **sin
+cambiar el paradigma**. Las secciones siguen siendo el diagnóstico y el punto de
+entrada; el modal es donde se decide el conjunto.
+
+Al pulsar la acción de una fila se abre un modal de 1240×648: a la izquierda el
+cartel (visor 400×400), a la derecha el título («¿Seguro que quieres reducir el
+peso de MEL-001?»), el aviso de irreversibilidad, y **«Otras mejoras
+recomendadas»** con la lista de lo demás que le hace falta a ese fichero, cada una
+con su casilla marcada y un ⓘ que despliega la explicación. Abajo, «Dejar el
+archivo como está» y «Aplicar todas las mejoras».
+
+**Por qué importa técnicamente**: una pasada de `sips` en vez de cuatro. Cada
+arreglo recomprime el JPEG, y JPEG pierde calidad en cada recompresión. De los 64
+carteles con alguna incidencia, **39 tienen más de una**.
+
+**Cómo se construye sin romper la regla 7.** La lista de mejoras cambia según el
+cartel, y el cliente no puede construir marcado. Pero en todo el panel solo hay
+**cuatro** operaciones automáticas posibles —convertir a JPG, pasar a sRGB
+(cubre «sin perfil» y CMYK, es la misma operación), reducir a 2400 px y
+recomprimir—, así que el modal se renderiza **una sola vez en SSR con las cuatro
+filas ocultas**, y el cliente revela las que apliquen y rellena título e imagen.
+Un modal para toda la página, no uno por fila.
+
+Los textos del ⓘ **ya existen**: son las descripciones de `auditoria.ts`.
+
+**Componente `Recommended Action`** (Figma `1215:216182`): fila de 48px con borde
+inferior `border`; barra indicadora de 8px a la izquierda; casilla en celda de
+16px de padding; rótulo en `typo-lead` como `<button>` que despliega el detalle;
+icono ⓘ de 24px **trazado estilo Lucide**, nunca un símbolo de Apple (el boceto
+lo usa como marcador). El detalle desplegado va sobre `bg-secondary` con bordes
+izquierdo, derecho e inferior, 24px de padding horizontal y 16 vertical, texto en
+`typo-caption` sobre `text-secondary`.
+
+**Pendiente de decisión del propietario**: si la barra de 8px usa el primitivo
+`le-400` del boceto (segunda excepción autorizada, como el banner) o
+`action-primary`; y qué forma toma la confirmación de las **acciones en bloque**,
+donde no hay un cartel ni un ID único que enseñar.
+
+**El texto tiene que decir lo que de verdad pasa.** El aviso del boceto —«esta
+acción no se puede deshacer automáticamente»— es cierto en la fase 2, cuando el
+panel sustituye el fichero en Drive. En la **fase 1** el panel no toca Drive:
+deja los ficheros procesados en una carpeta. Un modal que avisa de un peligro que
+no existe enseña a ignorar los avisos, así que el texto se escribe para la fase
+que se implemente.
+
 **Los mensajes de confirmación, pedidos por el propietario.** Un arreglo sustituye
 el fichero original en Drive: es irreversible en la práctica, porque las versiones
 anteriores de Drive caducan. Así que **antes** de ejecutar, el panel dice en
