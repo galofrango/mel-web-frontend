@@ -166,9 +166,15 @@ de la hoja.
 **Sin lugar** · desc: «**El problema es que la ficha no tiene nombre de local**, así
 que no hay nada que enseñar en la etiqueta «Lugar» ni por lo que agrupar el evento
 en el mapa. / La forma de corregirlo es escribir el nombre del local en la columna
-E de la [hoja→E1].» · banner: «Si de verdad no se sabe, deja la celda vacía en vez
-de escribir «Desconocido»: el sitio ya sabe convertir un hueco en la invitación
-«¿Nos ayudas?».»
+E de la [hoja→E1].» · banner: «Aquí «Desconocido» vale exactamente igual que dejar
+la celda vacía: el sitio trata las dos cosas como un hueco y ofrece «¿Nos
+ayudas?». Escríbelo si prefieres que se vea que no se ha olvidado. Ojo, en
+Coordenadas no es así.»
+
+> **Corregido el 01/08/2026.** La primera versión decía lo contrario —«deja la
+> celda vacía en vez de escribir Desconocido»— generalizando a las dos columnas
+> una regla que solo vale para Coordenadas. Lo cazó el propietario preguntando si
+> había un problema real, y el código le dio la razón.
 
 **Sin coordenadas** · desc: «**El problema es que sin el enlace de Google Maps el
 evento no sale en el mapa.** / La forma de corregirlo es buscar el local en Google
