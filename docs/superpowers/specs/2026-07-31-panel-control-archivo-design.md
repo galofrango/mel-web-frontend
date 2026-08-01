@@ -342,6 +342,20 @@ El guarda (`if (!import.meta.env.DEV) return new Response(null, {status:404})`) 
 en `panel.astro` **y en cada ruta de API**, y el DoD comprueba en el build que no
 existen.
 
+**Y una matización medida en la tarea 6, porque «la ruta no existe en el build» no
+es toda la verdad.** La página sí desaparece: leyendo el paquete compilado, el
+cuerpo entero queda reducido por eliminación de código muerto a `return new
+Response(null, {status:404})` — no sobreviven ni `auditar()`, ni la lectura de la
+hoja, ni el guarda de `localhost`. Pero **el script de cliente sí se publica**
+como estático en `_astro/panel.astro_…js`, servido directamente por la CDN sin
+pasar por ninguna función ni guarda, y es descargable por quien conozca la URL.
+
+Hoy no expone nada: son selectores, comparadores y nombres de clase, y el código
+fuente ya es público en GitHub. Pero **es la superficie a vigilar cuando la tarea
+7 añada lógica de cliente**: nada que vaya en ese script puede considerarse
+privado. Las credenciales y las rutas de acción viven en el servidor, y ahí se
+quedan.
+
 ### 2. El servidor de desarrollo, solo en `localhost`
 
 Astro escucha por defecto solo en la máquina, pero `npm run dev --host` lo abre a
