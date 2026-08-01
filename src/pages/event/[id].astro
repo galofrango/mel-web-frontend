@@ -1461,35 +1461,6 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // la paginación y el faldón también son zona muerta si no.
     habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
 
-    // Bloqueo activo del scroll vertical de la página mientras se arrastran
-    // las tags de la cabecera fija. Esta es la ÚNICA página con una cabecera
-    // `sticky` cuya posición depende en vivo del scroll (`--mel-revelado`,
-    // ver alDesplazar()): cualquier residuo vertical que se cuele durante el
-    // scroll horizontal de las tags —por poco fiable que sea el soporte de
-    // `touch-action: pan-x` en el navegador de turno— reactiva ese revelado y
-    // se ve como si el bloque entero (título+tags) saltara arriba/abajo al
-    // desplazarlas. No pasa en la home ni en el panel del mapa porque ninguno
-    // de los dos tiene una cabecera cuya posición dependa del scroll así. En
-    // vez de fiarse solo del touch-action, se fija el scroll de la página al
-    // valor de partida durante todo el gesto, sin tocar el scroll propio
-    // (horizontal) de la fila, que sigue funcionando igual.
-    const filaTagsFijas = document.getElementById('detail-tags-fixed-row');
-    if (filaTagsFijas && raizPagina) {
-      let scrollFijo = null;
-      filaTagsFijas.addEventListener('pointerdown', (e) => {
-        if (e.pointerType === 'mouse') return;
-        scrollFijo = raizPagina.scrollTop;
-      }, { signal: wSig });
-      filaTagsFijas.addEventListener('pointermove', () => {
-        if (scrollFijo !== null && raizPagina.scrollTop !== scrollFijo) {
-          raizPagina.scrollTop = scrollFijo;
-        }
-      }, { signal: wSig });
-      const liberarScrollFijo = () => { scrollFijo = null; };
-      filaTagsFijas.addEventListener('pointerup', liberarScrollFijo, { signal: wSig });
-      filaTagsFijas.addEventListener('pointercancel', liberarScrollFijo, { signal: wSig });
-    }
-
     // Initialize carousel and autoplay
     if (imageUrls && imageUrls.length > 0) {
       updateCarousel(0);
