@@ -39,6 +39,11 @@
  * ordenar, restaurar la gravedad y la selección son toda tarea del cliente
  * (tarea 6), que reordena/marca los propios nodos existentes en vez de
  * reconstruir nada.
+ *
+ * Franja de color en la cabecera y sombra en la caja: ajustes pedidos por el
+ * propietario tras usar el panel ya construido, no defectos de esta tarea.
+ * Ver el porqué de cada uno junto a `FRANJA_CABECERA` y en la propia clase
+ * `shadow-[var(--mel-shadow-md)]` de la `<section>`.
  */
 import { SHEET_ID, extractDriveImage } from '../lib/mel';
 import type { Grupo } from '../lib/auditoria';
@@ -142,12 +147,23 @@ const COLUMNAS_ORDENABLES: { col: string; etiqueta: string }[] = [
 // mismo padding que las celdas de datos — ya no hace falta un espaciado
 // distinto por columna (ver informe de la tarea para el margen medido).
 const CAB_COL = 'cab-col h-10 flex items-center justify-between pl-4 pr-2 border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
+
+// Franja de color a la izquierda de la cabecera de sección — ajuste pedido
+// por el propietario tras usar el panel, dibujado por él: 8px del primitivo
+// `le-400`. EXCEPCIÓN autorizada a "solo tokens semánticos", la segunda
+// después del `le-200` del banner de aviso (ver `avisoHtml` más abajo): no
+// es `action-primary` aunque hoy se le parezca en claro — `action-primary`
+// cambia con el tema (le-500 en claro, le-400 en oscuro, ver global.css) y
+// esta franja no debe. El propietario está valorando un color por nivel de
+// gravedad más adelante: esta ÚNICA constante es el sitio que tocar ese día,
+// no las diez cabeceras.
+const FRANJA_CABECERA = 'border-l-8 border-mel-le-400';
 ---
 
-<section class="border border-mel-border bg-mel-bg-primary" data-nivel={grupo.nivel} data-clave={grupo.clave}>
+<section class="border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)]" data-nivel={grupo.nivel} data-clave={grupo.clave}>
   <button
     type="button"
-    class="sec-cab w-full flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 text-left"
+    class={`sec-cab w-full flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 text-left ${FRANJA_CABECERA}`}
     aria-expanded="true"
     aria-controls={`sec-cuerpo-${grupo.clave}`}
   >

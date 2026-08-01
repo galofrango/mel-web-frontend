@@ -342,20 +342,26 @@ const tarjetas = [
 
   function marcarTarjeta(tarj: HTMLElement, activa: boolean) {
     tarj.dataset.activa = activa ? 'true' : 'false';
+    tarj.setAttribute('aria-pressed', activa ? 'true' : 'false');
     CLASES_TARJ_ACTIVA.forEach((c) => tarj.classList.toggle(c, activa));
     CLASES_TARJ_INACTIVA.forEach((c) => tarj.classList.toggle(c, !activa));
   }
 
-  // Pulsar la tarjeta ya activa la apaga (vuelven a verse las diez
-  // secciones); pulsar otra la activa a ella sola en exclusiva.
+  // Pulsar la tarjeta ya activa NO HACE NADA (corrección del propietario tras
+  // usar el panel): una tarjeta activa representa el filtro en curso, no un
+  // interruptor — antes esta misma pulsación volvía a "sin filtro" y
+  // reaparecían las diez secciones, y eso se leía como un error, no como la
+  // forma de apagar el filtro. Pulsar otra la activa a ella sola en
+  // exclusiva, apagando las demás; `aria-pressed` (marcarTarjeta) sigue el
+  // mismo criterio para quien usa lector de pantalla.
   function pulsarTarjeta(tarj: HTMLElement) {
-    const yaActiva = tarj.dataset.activa === 'true';
+    if (tarj.dataset.activa === 'true') return;
     document.querySelectorAll('.tarj').forEach((t) => marcarTarjeta(t as HTMLElement, false));
-    const nivelFiltro = yaActiva ? null : tarj.dataset.nivel || null;
-    if (nivelFiltro) marcarTarjeta(tarj, true);
+    marcarTarjeta(tarj, true);
+    const nivel = tarj.dataset.nivel;
     document.querySelectorAll('section[data-nivel]').forEach((el) => {
       const sec = el as HTMLElement;
-      sec.hidden = !!nivelFiltro && sec.dataset.nivel !== nivelFiltro;
+      sec.hidden = sec.dataset.nivel !== nivel;
     });
   }
 

@@ -17,6 +17,12 @@
  * JS todavía no hay ningún filtro aplicado, así que ninguna tarjeta filtra
  * nada — pero la prop existe porque el propio componente define los dos
  * estados (spec, sección Interfaz), y la tarea 6 conmutará la misma clase.
+ *
+ * `aria-pressed` viaja con la misma prop. Ajuste del propietario tras usar el
+ * panel: la tarjeta activa representa el filtro EN CURSO, no un interruptor
+ * — pulsarla de nuevo no hace nada (ver `pulsarTarjeta` en panel.astro), así
+ * que el atributo tiene que anunciar "es la actual", no "conmutador que se
+ * apaga pulsándolo otra vez".
  */
 interface Linea {
   titulo: string;
@@ -46,6 +52,7 @@ const estadoClase = activa
   class={`tarj group flex flex-col items-start gap-4 text-left border p-6 transition-colors duration-200 w-full ${estadoClase}`}
   data-nivel={nivel}
   data-activa={activa ? 'true' : 'false'}
+  aria-pressed={activa ? 'true' : 'false'}
 >
   <span class="typo-overline text-mel-text-secondary">{overline}</span>
 
