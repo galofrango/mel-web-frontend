@@ -505,6 +505,18 @@ body {
    los dos ejes. */
 .adaptive-tags-row {
   touch-action: pan-x;
+  /* Confirmado con diferencia de píxeles entre fotogramas consecutivos
+     (2026-08-01, ficha de evento): al arrastrar esta fila en horizontal, el
+     TEXTO desaparece un instante y reaparece igual — pero los separadores
+     verticales entre tags (que no son texto) siguen ahí todo el tiempo. Eso
+     es un glitch de repintado de texto conocido de WebKit dentro de un
+     contenedor con scroll propio, no un problema de posición ni de layout.
+     Forzar esta fila (la que de verdad hace scroll) a su propia capa de
+     composición GPU es el sitio correcto — antes se probó en la cabecera
+     `sticky` que la envuelve en la ficha, sin efecto, porque el contenedor
+     que falla en repintar es este, no aquel. */
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
 }
 .adaptive-tags-row.highlights-grid-equal {
   display: grid;
