@@ -1352,11 +1352,19 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       zona.addEventListener('pointercancel', soltar, { signal: wSig });
     }
 
-    function habilitarDeslizamiento(zona, irA, indiceActual) {
-      if (!zona || !imageUrls || imageUrls.length <= 1) return;
+    // Antes el dedo no movía nada: se acumulaba el arrastre en silencio y solo
+    // al soltar saltaba de golpe a la foto siguiente con una transición de
+    // 500ms — de ahí que se notara "del tirón" en vez de fino. Ahora la pista
+    // sigue el dedo en vivo (sin transición CSS mientras se arrastra, para que
+    // el seguimiento sea 1:1) y solo al soltar se reactiva la transición para
+    // el asentado, ya sea completando el cambio de foto o volviendo a la
+    // actual. `track` es el elemento que de verdad se desplaza (el propio
+    // `zona` solo delimita la zona táctil).
+    function habilitarDeslizamiento(zona, track, irA, indiceActual) {
+      if (!zona || !track || !imageUrls || imageUrls.length <= 1) return;
 
       const MINIMO = 45;
-      let x0 = null, y0 = null, dxUltimo = 0, dyUltimo = 0, huboDeslizamiento = false;
+      let x0 = null, y0 = null, dxUltimo = 0, dyUltimo = 0, huboDeslizamiento = false, arrastrando = false;
 
       // `pan-y` es imprescindible, no un adorno: sin él el navegador se queda
       // TODO el gesto: en cuanto el dedo se mueve en horizontal decide que es un
@@ -1367,31 +1375,36 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // quedamos el horizontal.
       zona.style.touchAction = 'pan-y';
 
-      // Confirma el gesto sin mover de foto: un pellizco breve hacia el lado
-      // contrario al que se arrastraba, con rebote elástico de vuelta a 0. Así
-      // se nota que el dedo "llegó" en vez de que el sitio no respondiera.
-      function rebotar(dxIntentado) {
-        const tope = Math.max(-20, Math.min(20, dxIntentado / 3));
-        zona.animate(
-          [
-            { transform: 'translateX(0)' },
-            { transform: `translateX(${tope}px)` },
-            { transform: 'translateX(0)' },
-          ],
-          { duration: 260, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
-        );
+      // Resistencia elástica: arrastrar hacia un lado sin fotos deja hueco de
+      // sobra (un tercio del recorrido real) para notar que el gesto SÍ se ha
+      // recibido, sin dar la vuelta ni desplazarse como si hubiera algo detrás.
+      function amortiguar(dx, puedeAvanzar, puedeRetroceder) {
+        const saliendoPorDerecha = dx > 0 && !puedeRetroceder;
+        const saliendoPorIzquierda = dx < 0 && !puedeAvanzar;
+        return (saliendoPorDerecha || saliendoPorIzquierda) ? dx / 3 : dx;
       }
 
       const resolver = () => {
         if (x0 === null) return;
         x0 = null; y0 = null;
-        if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
+        const fueArrastre = arrastrando;
+        arrastrando = false;
+        // Reactiva la transición del CSS para el asentado — completar el
+        // cambio o volver a la foto actual, ambos animados, ninguno un salto.
+        track.style.transition = '';
+        if (!fueArrastre) return;
+
+        const base = -indiceActual() * 100;
+        if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) {
+          track.style.transform = `translate3d(${base}%, 0, 0)`;
+          return;
+        }
         // En los extremos NO se da la vuelta: seguir arrastrando más allá de la
         // última foto volvía a la primera de golpe, y eso mareaba más que
         // simplemente no moverse (el autoplay sigue dando la vuelta él solo).
         const siguiente = indiceActual() + (dxUltimo < 0 ? 1 : -1);
         if (siguiente < 0 || siguiente >= imageUrls.length) {
-          rebotar(dxUltimo);
+          track.style.transform = `translate3d(${base}%, 0, 0)`;
           return;
         }
         huboDeslizamiento = true;
@@ -1401,7 +1414,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       zona.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
         x0 = e.clientX; y0 = e.clientY;
-        dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false;
+        dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false; arrastrando = false;
       }, { signal: wSig });
 
       // El recorrido se acumula aquí y no se lee del evento final: si el
@@ -1410,6 +1423,21 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (x0 === null) return;
         dxUltimo = e.clientX - x0;
         dyUltimo = e.clientY - y0;
+
+        if (!arrastrando) {
+          // Sin decidir el eje todavía: un temblor mínimo no cuenta como
+          // gesto, y si domina el vertical es scroll de página, no nuestro.
+          if (Math.max(Math.abs(dxUltimo), Math.abs(dyUltimo)) < 6) return;
+          if (Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
+          arrastrando = true;
+          track.style.transition = 'none';
+        }
+
+        const puedeRetroceder = indiceActual() > 0;
+        const puedeAvanzar = indiceActual() < imageUrls.length - 1;
+        const dx = amortiguar(dxUltimo, puedeAvanzar, puedeRetroceder);
+        const base = -indiceActual() * 100;
+        track.style.transform = `translate3d(calc(${base}% + ${dx}px), 0, 0)`;
       }, { signal: wSig });
 
       zona.addEventListener('pointerup', resolver, { signal: wSig });
@@ -1427,8 +1455,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }, { capture: true, signal: wSig });
     }
 
-    habilitarDeslizamiento(mainImageContainer, (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
-    habilitarDeslizamiento(document.getElementById('overlay-image-box'), showOverlayImage, () => overlayIndex);
+    habilitarDeslizamiento(mainImageContainer, document.getElementById('carousel-track'), (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
+    habilitarDeslizamiento(document.getElementById('overlay-image-box'), overlayTrack, showOverlayImage, () => overlayIndex);
     // El arrastre vertical se engancha a TODA la caja fija, no solo a la foto:
     // la paginación y el faldón también son zona muerta si no.
     habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
