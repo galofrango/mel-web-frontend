@@ -441,12 +441,55 @@ y se encienden al marcar una casilla — desactivadas y no ocultas, para que se 
 que existen sin que la fila salte. **«Abrir en la hoja» nunca es acción en bloque**:
 no se pueden abrir tres celdas a la vez.
 
-**Tabla**, rejilla de Figma: **16px de sangrado izquierdo** más siete columnas de
-`42 · 326 · 160 · 120 · 120 · 220 · 220` (casilla · miniatura+nombre · MEL ·
-dimensiones · peso · ocultar · acción). **16 + 1208 = 1224.** Los 16px van
-delante, como en Figma (`Columns` empieza en x=0 y la primera columna en x=16);
-si se omiten y se fuerza el ancho total a 1224, aparecen como un hueco de 16px
-**al final** de cada fila, que es un defecto real medido en la tarea 5.
+**Tabla**: **16px de sangrado izquierdo** más ocho columnas de
+`42 · 294 · 160 · 120 · 72 · 120 · 200 · 200` (casilla · miniatura+nombre · MEL ·
+dimensiones · formato · peso · ocultar · acción). **16 + 1208 = 1224.** Los 16px
+van delante, como en Figma (`Columns` empieza en x=0 y la primera columna en
+x=16); si se omiten y se fuerza el ancho total a 1224, aparecen como un hueco de
+16px **al final** de cada fila, que es un defecto real medido en la tarea 5.
+
+La columna **formato** (JPG / PNG / GIF) la pidió el propietario tras ver la
+tabla: el formato es el dato que más rápido explica por qué un cartel está en una
+sección. Entra comprimiendo nombre y acciones, sin que ningún botón ni ningún
+dato pase a dos líneas.
+
+**El divisor vertical de la casilla no se pinta.** La casilla y la miniatura son
+la misma cosa —identificar la fila—, y la raya entre las dos las separa sin
+motivo. Divisores entre las demás columnas, sí.
+
+### Correcciones tras la primera revisión visual del propietario
+
+- **Los enlaces a la hoja abarcan la expresión entera**, no solo la palabra
+  «hoja»: se enlaza «la columna E de la hoja» completa. Un enlace de una palabra
+  suelta obliga a apuntar, y el destino es la frase.
+- **Menos aire entre el problema y la corrección.** Las dos frases son un solo
+  pensamiento; el hueco actual las lee como dos bloques sin relación.
+- **La nota de automatización se desarrolla.** No basta con «esto se arregla
+  solo»: tiene que decir **qué es `sips`** (la herramienta de imagen que ya trae
+  macOS), **dónde corre** (en tu Mac, no en ningún servicio), y **cómo** (un
+  script del propio proyecto que descarga el original, lo procesa y lo devuelve a
+  Drive conservando su ID). Es la única parte del panel que ejecuta algo, y quien
+  la lea tiene derecho a saber qué va a pasar antes de pulsar.
+- **La cuarta línea de las tarjetas se rotula «Otras incidencias»**, no `…`.
+- **Sin líneas de relleno**: una tarjeta con menos de tres avisos no pinta
+  guiones para rellenar. El desglose se **alinea abajo**, para que las tres
+  tarjetas mantengan la misma línea de base aunque tengan distinto número de
+  avisos.
+- **Las acciones en bloque no se ven hasta que hay selección** (antes: visibles y
+  desactivadas). Igual que «Ver avisos ocultos», que solo aparece si hay alguno.
+
+### Solo escritorio, y solo desde el propio ordenador
+
+`sips` no existe fuera de macOS, pero un teléfono **sí** podría accionar el panel:
+con `npm run dev --host`, el móvil abre una página servida por el Mac y es el Mac
+quien ejecuta. El problema es que `--host` no distingue el teléfono del
+propietario del resto del wifi.
+
+Decisión del propietario: **el panel es de escritorio.** La ruta comprueba, además
+del guarda de desarrollo, que la petición viene de `localhost`; a cualquier otra
+cosa responde 404. Así la configuración `mel-dev-movil` de `.claude/launch.json`
+sigue sirviendo para probar el sitio público en el teléfono, sin publicar el panel
+en la red.
 Filas de 64px, **divisiones verticales** entre columnas, ninguna horizontal, y
 24px de aire al pie de la lista. El MEL enlaza a su celda real (`…#gid=0&range=K{fila}`).
 Celdas de dato en `typo-lead` sobre `text-secondary`; el MEL en Lora, que es lo

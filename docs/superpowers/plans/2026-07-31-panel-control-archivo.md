@@ -814,7 +814,7 @@ Enganchado con `document.addEventListener('astro:page-load', init)` y con guarda
 1. **Pestañas** Control / Preparación.
 2. **Tarjetas** que filtran: al pulsar una, solo se ven sus secciones.
 3. **Chevron** que pliega la sección (`aria-expanded` en la cabecera).
-4. **Selección**: casilla por fila, «Seleccionar todos» sobre las visibles. Las acciones en bloque se **activan solo si hay selección**.
+4. **Selección**: casilla por fila, «Seleccionar todos» sobre las visibles. Las acciones en bloque **no se ven hasta que hay selección** — decisión del propietario tras la primera revisión visual, corrige el «visibles pero desactivadas» que decía antes esta línea. Igual que «Ver avisos ocultos», que solo aparece si hay alguno.
 5. **Ocultar aviso** por fila y en bloque; «Ver avisos ocultos» los recupera.
 6. **Recalcular** tras cualquier cambio: cifra de cada tarjeta (**IDs únicos**, no suma de secciones — un cartel puede estar en varias), su desglose de tres líneas más `… +N`, el contador entre corchetes de cada sección, y atenuar la sección que se queda vacía.
 
@@ -882,6 +882,14 @@ export const POST: APIRoute = async ({ request }) => {
 **`--matchTo` va SIEMPRE con la conversión de formato.** Medido: `sips -s format jpeg` a secas deja el resultado etiquetado como **Adobe RGB**. Arreglas el peso y creas un problema de color.
 
 **Qué NO hace esta ruta:** no acepta `png` con `alfa: true` (hay que decidir el fondo, decisión pendiente del propietario) ni `gif` (destruiría los 177 fotogramas). Devuelve esos ids en `fallos` con el motivo.
+
+**Los mensajes de confirmación, pedidos por el propietario.** Un arreglo sustituye
+el fichero original en Drive: es irreversible en la práctica, porque las versiones
+anteriores de Drive caducan. Así que **antes** de ejecutar, el panel dice en
+concreto qué va a pasar —cuántos ficheros, qué operación, y que el original se
+sustituye— y espera confirmación; **después**, dice qué pasó de verdad: cuántos se
+procesaron, cuántos fallaron y por qué. Nada de «hecho» a secas. Los textos se
+escriben en el registro del proyecto: qué ocurre, no qué botón se pulsó.
 
 - [ ] **Paso 1: escribir la ruta**
 
