@@ -195,7 +195,9 @@ const tarjetas = [
   // plegable, `.nn` en el contador entre corchetes, `.cifra`/`.lins` en la
   // tarjeta, `.seleccionar-todos`, `.ver-ocultos`, `.ocultar-seleccionados`,
   // `.accion-seleccionados` (estas tres nacen `hidden`), `.ocultar-aviso`
-  // (nace `disabled`) y `.cab-col[data-col]` en cada rótulo ordenable.
+  // (nace `disabled`), `.cab-col[data-col]` en cada rótulo ordenable (con
+  // `role="columnheader"`/`aria-sort="none"` de fábrica y `.cab-col-icono`,
+  // vacío, dentro) y `.chk-cab` en la casilla de cabecera de la sección.
 
   const NIVELES = [1, 2, 3] as const;
 
@@ -226,15 +228,22 @@ const tarjetas = [
   // --- Cabecera de columnas: ordenar cada sección por separado --------------
   // Mismo patrón que la vista Lista de index.astro (aplicarOrden/
   // handleSortClick/updateSortHeaderIcons): un comparador por columna, estado
-  // guardado como par columna+dirección, y Array.prototype.sort (estable
-  // desde ES2019). index.astro no usa `aria-sort` ni roles de tabla en sus
-  // cabeceras — solo clase + icono —, así que no hay nada de eso que traer.
-  // Dos diferencias deliberadas con ese patrón, por instrucción del
-  // coordinador: el estado es POR SECCIÓN (un `data-orden-col`/`-dir` en cada
-  // `<section>`, no una variable global), y el ciclo tiene un tercer estado
-  // — asc → desc → orden de partida — en vez de solo asc/desc, porque aquí SÍ
-  // existe un orden de partida con valor propio (la gravedad de la tarea 4)
-  // que hay que poder recuperar exacto, y no una tabla que nace neutra.
+  // guardado como par columna+dirección, Array.prototype.sort (estable desde
+  // ES2019) y la flecha arriba/abajo de `updateSortHeaderIcons()` — la parte
+  // del patrón que faltaba en la primera pasada (con solo el color, asc y
+  // desc se veían idénticos). Tres diferencias deliberadas con ese patrón,
+  // por instrucción del coordinador: el estado es POR SECCIÓN (un
+  // `data-orden-col`/`-dir` en cada `<section>`, no una variable global); el
+  // ciclo tiene un tercer estado —asc → desc → orden de partida— en vez de
+  // solo asc/desc, porque aquí SÍ existe un orden de partida con valor propio
+  // (la gravedad de la tarea 4) que hay que poder recuperar exacto; y ese
+  // tercer estado se pinta SIN FLECHA (ni siquiera la doble flecha neutra que
+  // index.astro pone en las columnas no activas) — "sin ordenar por columna"
+  // tiene que distinguirse de "ordenado, pero por otra columna", y ambas de
+  // "ordenado por esta". `aria-sort` (ascending/descending/none) en la propia
+  // celda va con el mismo criterio; index.astro no lo tiene (no hace falta
+  // en una `<table>` de verdad con una sola columna activa siempre), pero
+  // aquí los rótulos SÍ son botones reales, así que es correcto añadirlo.
   //
   // "Dimensiones" y "Peso" ordenan por `data-mayor`/`data-bytes` (el mismo
   // número que ya usa auditoria.ts, no el texto formateado "1230×2400" o
@@ -276,6 +285,26 @@ const tarjetas = [
     return Number(a.dataset.ordenOriginal) - Number(b.dataset.ordenOriginal);
   }
 
+  // Mismos dos SVG que `updateSortHeaderIcons()` en index.astro (línea +
+  // punta de flecha), literal — es la pieza del patrón que faltaba traer.
+  const ICONO_ASC = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>';
+  const ICONO_DESC = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>';
+
+  // Repinta las 5 cabeceras de una sección a partir de `data-orden-col`/`-dir`:
+  // color + flecha + `aria-sort` en la activa; las otras cuatro, ni flecha ni
+  // color (el estado de gravedad es exactamente "las cinco así").
+  function actualizarIconosCabecera(sec: HTMLElement) {
+    sec.querySelectorAll('.cab-col').forEach((el) => {
+      const b = el as HTMLElement;
+      const activa = b.dataset.col === sec.dataset.ordenCol;
+      b.classList.toggle('text-mel-action-primary', activa);
+      b.classList.toggle('text-mel-text-secondary', !activa);
+      const icono = b.querySelector('.cab-col-icono');
+      if (icono) icono.innerHTML = activa ? (sec.dataset.ordenDir === 'asc' ? ICONO_ASC : ICONO_DESC) : '';
+      b.setAttribute('aria-sort', activa ? (sec.dataset.ordenDir === 'asc' ? 'ascending' : 'descending') : 'none');
+    });
+  }
+
   // Ciclo por columna: 1er toque → ascendente, 2º → descendente, 3er toque
   // (o tocar otra columna) → vuelve al orden de partida / salta a esa otra
   // columna en ascendente. Reordena los propios nodos `.fila` con
@@ -302,11 +331,7 @@ const tarjetas = [
     if (colNueva) sec.dataset.ordenCol = colNueva; else delete sec.dataset.ordenCol;
     if (dirNueva) sec.dataset.ordenDir = dirNueva; else delete sec.dataset.ordenDir;
 
-    sec.querySelectorAll('.cab-col').forEach((b) => {
-      const activa = (b as HTMLElement).dataset.col === colNueva;
-      b.classList.toggle('text-mel-action-primary', activa);
-      b.classList.toggle('text-mel-text-secondary', !activa);
-    });
+    actualizarIconosCabecera(sec);
   }
 
   // --- Tarjetas: filtran las secciones de su nivel --------------------------
@@ -347,20 +372,38 @@ const tarjetas = [
 
   // --- Selección y acciones en bloque ----------------------------------------
   // "No se ven hasta que hay selección" (corrección tras la revisión visual):
-  // se revela quitando `hidden`, nunca reconstruyendo el botón.
+  // se revela quitando `hidden`, nunca reconstruyendo el botón. De paso deja
+  // el check de cabecera (`.chk-cab`) en todo/nada/indeterminado — se
+  // recalcula desde los checks de fila reales cada vez, nunca se parchea,
+  // igual que el resto del panel (mismo criterio que `recalcularTodo`).
   function actualizarAccionesBloque(sec: HTMLElement) {
-    const haySeleccion = !!sec.querySelector('.chk-fila:checked');
+    const chks = filasDe(sec)
+      .filter((f) => !filaOculta(f))
+      .map((f) => f.querySelector('.chk-fila') as HTMLInputElement | null)
+      .filter((c): c is HTMLInputElement => !!c);
+    const marcados = chks.filter((c) => c.checked).length;
+    const haySeleccion = marcados > 0;
+
     const btnOcultar = sec.querySelector('.ocultar-seleccionados') as HTMLElement | null;
     const btnAccion = sec.querySelector('.accion-seleccionados') as HTMLElement | null;
     if (btnOcultar) btnOcultar.hidden = !haySeleccion;
     if (btnAccion) btnAccion.hidden = !haySeleccion;
+
+    const chkCab = sec.querySelector('.chk-cab') as HTMLInputElement | null;
+    if (chkCab) {
+      chkCab.checked = chks.length > 0 && marcados === chks.length;
+      chkCab.indeterminate = marcados > 0 && marcados < chks.length;
+    }
   }
 
-  function seleccionarTodos(sec: HTMLElement) {
+  // Marca o desmarca las filas VISIBLES de una sección — comparte lógica
+  // entre el enlace "Seleccionar todos" (siempre marca) y el check de
+  // cabecera (marca o desmarca según su propio estado tras el clic nativo).
+  function marcarVisibles(sec: HTMLElement, marcar: boolean) {
     filasDe(sec).forEach((fila) => {
       if (filaOculta(fila)) return; // "sobre las visibles" (encargo, punto 4)
       const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
-      if (chk) chk.checked = true;
+      if (chk) chk.checked = marcar;
     });
     actualizarAccionesBloque(sec);
   }
@@ -465,7 +508,7 @@ const tarjetas = [
     const btnTodos = target.closest('.seleccionar-todos') as HTMLElement | null;
     if (btnTodos) {
       const sec = btnTodos.closest('section[data-clave]') as HTMLElement | null;
-      if (sec) seleccionarTodos(sec);
+      if (sec) marcarVisibles(sec, true);
       return;
     }
 
@@ -494,7 +537,21 @@ const tarjetas = [
 
   function alCambiar(e: Event) {
     const target = e.target as HTMLElement | null;
-    if (!target || !target.classList.contains('chk-fila')) return;
+    if (!target) return;
+
+    // El check de cabecera ya trae, al llegar aquí, el `checked` que el
+    // navegador le resolvió con el propio clic (indeterminado + clic siempre
+    // resuelve a marcado, por especificación) — se usa tal cual para decidir
+    // si esto marca o desmarca, y `marcarVisibles` deja el propio check en su
+    // estado final real (todo/nada/indeterminado) a través de
+    // `actualizarAccionesBloque`, no lo que el navegador puso a ciegas.
+    if (target.classList.contains('chk-cab')) {
+      const sec = target.closest('section[data-clave]') as HTMLElement | null;
+      if (sec) marcarVisibles(sec, (target as HTMLInputElement).checked);
+      return;
+    }
+
+    if (!target.classList.contains('chk-fila')) return;
     const sec = target.closest('section[data-clave]') as HTMLElement | null;
     if (sec) actualizarAccionesBloque(sec);
   }

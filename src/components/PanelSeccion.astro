@@ -20,7 +20,13 @@
  * cliente pueda ordenar «Dimensiones»/«Peso» sin reinterpretar el texto
  * formateado — `.nombre-evento`/`.formato-valor` cumplen el mismo papel para
  * las dos columnas de texto). `.cab-col[data-col]` en cada rótulo de la fila
- * de cabecera de columnas (ver abajo).
+ * de cabecera de columnas, con `.cab-col-icono` (vacío: sin flecha es el
+ * estado de partida, «sin ordenar por columna») dentro de cada uno para la
+ * flecha de dirección, y `role="columnheader"`/`aria-sort="none"` de fábrica
+ * para que el cliente solo tenga que cambiar el valor, nunca añadir el
+ * atributo. `.chk-cab` en la casilla de cabecera (selecciona/deselecciona
+ * todo; `input.indeterminate` lo pone el cliente, no hay atributo HTML para
+ * eso).
  *
  * Fila de cabecera de columnas (Evento · MEL · Dimensiones · Formato · Peso):
  * pedida por el propietario DESPUÉS de que esta tarea se diera por completa y
@@ -28,10 +34,10 @@
  * documentada en vez de mezclarse con el resto sin más. Vive en la MISMA
  * rejilla de `.tabla` (mismo truco `display:contents` que `.fila`, para que
  * sus 8 celdas caigan en las columnas de siempre en vez de abrir su propio
- * grid) y sus tres celdas de casilla/ocultar/acción van vacías: no hay nada
- * que rotular ahí. El pintado es SOLO presentación — orden de partida
- * (gravedad, tarea 4), ordenar al pulsar y volver a él son toda tarea del
- * cliente (tarea 6), que reordena los propios nodos `.fila` en vez de
+ * grid); sus celdas de ocultar/acción van vacías (no hay nada que rotular
+ * ahí) y la de casilla lleva `.chk-cab`. El pintado es SOLO presentación —
+ * ordenar, restaurar la gravedad y la selección son toda tarea del cliente
+ * (tarea 6), que reordena/marca los propios nodos existentes en vez de
  * reconstruir nada.
  */
 import { SHEET_ID, extractDriveImage } from '../lib/mel';
@@ -109,7 +115,12 @@ const accionEsAbrirHoja = grupo.accion === 'Abrir en la hoja';
 const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
 
 // casilla · miniatura+nombre · MEL · dimensiones · formato · peso · ocultar · acción
-const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]';
+// 278 (antes 294) y 88 (antes 72): el propietario le roba 16px al nombre del
+// evento para dárselos a formato, que con el ancho viejo no le entraba el
+// rótulo "Formato" alineado a la izquierda (ronda anterior, centrado como
+// arreglo de urgencia — esta rejilla lo hace innecesario). Sigue sumando
+// 1208 + 16 de sangrado = 1224.
+const columnasTabla = 'grid-cols-[42px_278px_160px_120px_88px_120px_200px_200px]';
 
 // Los cinco rótulos de la fila de cabecera de columnas, en el mismo orden que
 // las columnas correspondientes de `.tabla`. `col` es el valor de `data-col`
@@ -122,21 +133,26 @@ const COLUMNAS_ORDENABLES: { col: string; etiqueta: string }[] = [
   { col: 'peso', etiqueta: 'Peso' },
 ];
 // Mismo tratamiento de bordes que las celdas de datos: divisor a la derecha
-// en todas menos la primera (casilla) y la última (acción) columna. Sin
-// padding ni alineación fijos aquí — los pone `CAB_COL_ALINEACION` por
-// columna, porque "Formato" no entra en el molde común (ver abajo).
-const CAB_COL = 'cab-col h-10 flex items-center border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
-// "Formato" (7 letras, con el +12% de tracking de typo-overline) mide 64px de
-// texto — medido con Range.getBoundingClientRect() en el navegador, no
-// estimado. Ni siquiera con el padding a cero cabe alineado a la izquierda
-// con el dato de abajo (columna de 72px − 16px del `pl-4` del dato = 56px,
-// menos de lo que pide el texto): no hay padding que lo arregle sin recortar
-// la palabra o encogerle la letra a `typo-overline`, y ninguna de las dos es
-// aceptable (el rótulo lo fijó el coordinador, y el tamaño lo fija el DS).
-// Centrado y sin padding es lo único que cabe entero (72−1px de borde−64 ≈
-// 3,5px de margen por lado) — las otras cuatro sí caben alineadas a la
-// izquierda como su dato, así que solo esta es distinta.
-const CAB_COL_ALINEACION: Record<string, string> = { formato: 'justify-center text-center' };
+// en todas menos la primera (casilla) y la última (acción) columna. Rótulo +
+// icono de dirección en los extremos (`justify-between`, como el patrón de
+// index.astro): el hueco lo pone `justify-between` solo, sin `gap` fijo, que
+// en las columnas justas se suma al ancho igual que un padding.
+const CAB_COL = 'cab-col h-10 flex items-center justify-between border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
+// pl/pr por columna, no un único valor para las cinco: "Dimensiones" y
+// "Formato" no sobran píxeles con el icono de dirección sumado (medido en el
+// navegador con las cinco columnas ordenadas y el icono real puesto, no
+// estimado — ver informe de la tarea; con `pl-4 pr-0` "Dimensiones" seguía
+// desbordando 0,79px). Las dos pasan a `pl-2` (8px): son las únicas dos de
+// las cinco no alineadas al mismo margen que su dato de abajo, con margen
+// real de sobra medido (7,2px y 3,6px) — no un ajuste al límite como el que
+// falló en la primera pasada de esta misma ronda. La alternativa para
+// "Formato" (centrarlo, como en la ronda anterior) es justo lo que esta
+// ronda pidió deshacer.
+const CAB_COL_ESPACIADO: Record<string, string> = {
+  dimensiones: 'pl-2 pr-0',
+  formato: 'pl-2 pr-0',
+};
+const CAB_COL_ESPACIADO_DEFECTO = 'pl-4 pr-2';
 ---
 
 <section class="border border-mel-border bg-mel-bg-primary" data-nivel={grupo.nivel} data-clave={grupo.clave}>
@@ -216,9 +232,14 @@ const CAB_COL_ALINEACION: Record<string, string> = { formato: 'justify-center te
           suman 1208; con el padding delante, 16 + 1208 = 1224 exactos). */}
       <div class={`tabla grid ${columnasTabla} min-w-[1224px] pl-4`} role="table" aria-label={grupo.titulo}>
         <div class="cab-columnas contents">
-          <div class="h-10 bg-mel-bg-secondary"></div>
+          <div class="h-10 bg-mel-bg-secondary flex items-center justify-center">
+            <input type="checkbox" class="chk-cab" aria-label="Seleccionar todos" />
+          </div>
           {COLUMNAS_ORDENABLES.map((c) => (
-            <button type="button" class={`${CAB_COL} ${CAB_COL_ALINEACION[c.col] || 'justify-start text-left pl-4'}`} data-col={c.col}>{c.etiqueta}</button>
+            <button type="button" class={`${CAB_COL} ${CAB_COL_ESPACIADO[c.col] || CAB_COL_ESPACIADO_DEFECTO}`} data-col={c.col} role="columnheader" aria-sort="none">
+              <span>{c.etiqueta}</span>
+              <span class="cab-col-icono w-3 h-3 shrink-0"></span>
+            </button>
           ))}
           <div class="h-10 border-r border-mel-border bg-mel-bg-secondary"></div>
           <div class="h-10 bg-mel-bg-secondary"></div>
@@ -280,8 +301,11 @@ const CAB_COL_ALINEACION: Record<string, string> = { formato: 'justify-center te
 <style>
   /* Casilla cuadrada a mano: un checkbox nativo en macOS/Chrome lleva esquina
      redondeada de fábrica, y la regla 5 del DS ("nada redondeado, en ningún
-     sitio") no admite excepción por ser un control nativo. */
-  .chk-fila {
+     sitio") no admite excepción por ser un control nativo. Compartida con
+     `.chk-cab` (la casilla de cabecera, "Seleccionar/deseleccionar todo")
+     para no duplicar la regla — misma pieza, dos sitios. */
+  .chk-fila,
+  .chk-cab {
     appearance: none;
     width: 20px;
     height: 20px;
@@ -291,9 +315,21 @@ const CAB_COL_ALINEACION: Record<string, string> = { formato: 'justify-center te
     flex-shrink: 0;
     display: inline-block;
   }
-  .chk-fila:checked {
+  .chk-fila:checked,
+  .chk-cab:checked {
     background-color: var(--mel-action-secondary);
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 14px 14px;
+  }
+  /* Selección parcial de la sección (`chkCab.indeterminate = true`, JS — no
+     hay atributo HTML para esto, solo propiedad del DOM): un guion en vez
+     del check, mismo lenguaje visual. Solo `.chk-cab` lo necesita — una fila
+     suelta no tiene un "algo entre marcado y no marcado" que representar. */
+  .chk-cab:indeterminate {
+    background-color: var(--mel-action-secondary);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: center;
     background-size: 14px 14px;
