@@ -179,10 +179,16 @@ Coordenadas no es así.»
 **Sin coordenadas** · desc: «**El problema es que sin el enlace de Google Maps el
 evento no sale en el mapa.** / La forma de corregirlo es buscar el local en Google
 Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1].
-El sitio saca el punto exacto del propio enlace.» · banner: «Las tres filas ponen
-«Desconocido» en esa celda, y eso es peor que dejarla vacía: el respaldo por
-localidad solo entra si la celda está vacía, así que «Desconocido» apaga el único
-plan B que había.»
+El sitio saca el punto exacto del propio enlace.» · banner: «Si esta celda se deja
+**vacía** hay un plan B: el sitio busca la localidad en una tabla de 18 municipios
+y direcciones ya geocodificados, y coloca el evento en el centro de su municipio —
+aproximado, pero en el mapa. Ese respaldo **solo entra si la celda está vacía**, así
+que escribir «Desconocido» lo apaga y el evento desaparece del mapa del todo. Es al
+revés que en la columna Lugar, donde «Desconocido» da igual.»
+
+> El propietario preguntó qué era ese «respaldo por localidad» porque el banner lo
+> nombraba sin explicarlo. Un aviso que menciona un mecanismo que el lector no
+> conoce no es un aviso, es un acertijo.
 
 **Archivo PNG** · desc: «**El problema es el peso**: en tamaño de miniatura un PNG
 puede pesar diez veces más que el mismo cartel en JPEG, y la galería carga 32 de
