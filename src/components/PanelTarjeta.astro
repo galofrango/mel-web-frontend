@@ -7,11 +7,10 @@
  *
  * Sin líneas de relleno (corrección tras la revisión visual del propietario):
  * `lineas` trae solo las que existen, 0 a 3, nunca rellena con placeholder.
- * Para que las tres tarjetas compartan línea de base aunque tengan distinto
- * número de avisos, `.lins` se empuja al fondo con `mt-auto` — el `<button>`
- * ya estira a la altura de la fila por ser un item de grid (panel.astro no le
- * pone alto fijo), así que el hueco que sobra en una tarjeta con menos avisos
- * queda arriba del desglose, no como huecos sueltos entre líneas.
+ * El desglose va PEGADO ARRIBA, justo bajo la cifra — se probó alineado abajo
+ * (`mt-auto`) en una ronda anterior y el propietario prefirió esta: es como se
+ * ven las tarjetas cuando llegan a las cuatro líneas, así que una tarjeta con
+ * menos avisos deja el hueco debajo del desglose, no encima. Es a propósito.
  *
  * `activa` decide el estado visual (bg-tertiary + borde action-primary +
  * sombra vs. bg-secondary + borde border). Hoy siempre llega en `false`: sin
@@ -52,7 +51,7 @@ const estadoClase = activa
 
   <span class="cifra typo-h1 text-mel-text-primary">{cifra}</span>
 
-  <span class="lins flex flex-col w-full gap-1 mt-auto">
+  <span class="lins flex flex-col w-full gap-1">
     {lineas.map((linea) => (
       <span class="flex items-baseline justify-between gap-4 w-full">
         <span class="typo-caption text-mel-text-secondary truncate">{linea.titulo}</span>

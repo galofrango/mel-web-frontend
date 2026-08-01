@@ -6,9 +6,11 @@
  * divisor si no hay), fila de acciones en bloque y la tabla de filas.
  *
  * Todo lo que pinta esta tarea está EXPANDIDO y en su estado inicial: sin JS
- * de cliente todavía (tarea 6), `aria-expanded` nace en "true" y las acciones
- * en bloque nacen `disabled` (así lo pide el plan, paso 1 de la tarea 5 —
- * "acciones en bloque con el atributo disabled puesto desde el servidor").
+ * de cliente todavía (tarea 6), `aria-expanded` nace en "true". Las acciones
+ * en bloque y «Ver avisos ocultos» nacen `hidden` (corrección tras la revisión
+ * visual: el servidor no sabe si hay selección ni cuántos avisos hay ocultos,
+ * así que se ocultan de partida en vez de mostrarse desactivadas — la tarea 6
+ * las revela).
  *
  * Ganchos que deja para la tarea 6 (no tocar su forma, solo escribir sobre
  * ella): `[data-nivel]`/`[data-clave]` en la raíz, `.sec-cab[aria-expanded]`
@@ -113,13 +115,16 @@ const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]
   <div id={`sec-cuerpo-${grupo.clave}`} class="sec-cuerpo">
     <p class="typo-lead text-mel-text-primary px-6 pt-6" set:html={descripcionHtml} />
 
+    {/* Texto literal del propietario (spec, "Correcciones tras la primera
+        revisión visual" — "con las palabras del propietario. Texto literal,
+        no se reescribe"): ni la tipografía de los guiones (en dash –, no
+        guion ni raya) ni la mayúscula de "Sips" son errores a corregir. */}
     {grupo.auto && (
       <p class="typo-caption text-mel-text-secondary px-6 pt-3 max-w-[720px]">
-        Arreglo automático: <b>sips</b> es la herramienta de imagen que ya trae
-        macOS, nada que instalar. Corre en este Mac, sin subir nada a ningún
-        servicio. Un script del proyecto descarga el original de Drive, lo
-        procesa y lo devuelve como nueva versión del mismo fichero — conserva
-        su ID, así que la hoja sigue enlazada y no toca ninguna celda.
+        <b>Arreglo automático:</b> Un script descarga el original de Drive en tu
+        ordenador, Sips –la herramienta de imagen nativa de macOS– lo procesa y lo
+        devuelve a Drive como nueva versión del mismo fichero conservando su ID y toda
+        la información del spreadsheet intacta.
       </p>
     )}
 
@@ -136,19 +141,26 @@ const columnasTabla = 'grid-cols-[42px_294px_160px_120px_72px_120px_200px_200px]
       <div class="mx-6 mt-5 border-t border-mel-border"></div>
     )}
 
+    {/* El servidor no sabe si hay selección (ni, sin remedir, cuántos avisos
+        hay ocultos hoy — auditar() ya los excluye), así que estos tres nacen
+        OCULTOS con el atributo `hidden`, no visibles-y-desactivados: dejarlos
+        visibles "porque ya los oculta el JS" deja un instante en cada carga
+        en que se ven sin poder usarse — es justo lo que vio el propietario.
+        La tarea 6 los revela (quita `hidden`) al marcar una casilla o al
+        encontrar avisos ocultos que enseñar. */}
     <div class="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
       <div class="flex items-center gap-6">
         <button type="button" class="seleccionar-todos typo-body-roman text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent">
           Seleccionar todos
         </button>
-        <button type="button" class="ver-ocultos typo-body-roman text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent">
+        <button type="button" class="ver-ocultos typo-body-roman text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent" hidden>
           Ver avisos ocultos
         </button>
       </div>
       <div class="flex items-center gap-3">
-        <button type="button" class={`${BTN_CONTORNO} ocultar-seleccionados`} disabled>Ocultar seleccionados</button>
+        <button type="button" class={`${BTN_CONTORNO} ocultar-seleccionados`} hidden>Ocultar seleccionados</button>
         {mostrarAccionEnBloque && (
-          <button type="button" class={`${BTN_SOLIDO} accion-seleccionados`} disabled>{grupo.accion} seleccionados</button>
+          <button type="button" class={`${BTN_SOLIDO} accion-seleccionados`} hidden>{grupo.accion} seleccionados</button>
         )}
       </div>
     </div>
