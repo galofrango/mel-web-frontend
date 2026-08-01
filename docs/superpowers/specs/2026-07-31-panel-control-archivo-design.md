@@ -456,8 +456,15 @@ que existen sin que la fila salte. **«Abrir en la hoja» nunca es acción en bl
 no se pueden abrir tres celdas a la vez.
 
 **Tabla**: **16px de sangrado izquierdo** más ocho columnas de
-`42 · 294 · 160 · 120 · 72 · 120 · 200 · 200` (casilla · miniatura+nombre · MEL ·
-dimensiones · formato · peso · ocultar · acción). **16 + 1208 = 1224.** Los 16px
+`42 · 278 · 160 · 120 · 88 · 120 · 200 · 200` (casilla · miniatura+nombre · MEL ·
+dimensiones · formato · peso · ocultar · acción). **16 + 1208 = 1224.**
+
+> Formato empezó en 72px y no cabía: el rótulo «FORMATO» mide 64px y con su
+> padding se desbordaba. Se centró como parche, lo que dejó la cabecera centrada
+> y su propio dato alineado a la izquierda **dentro de la misma columna** — peor
+> que el problema. Ahora son 88px, robados al nombre, y todas las cabeceras
+> alinean con su dato. Al añadir la flecha de ordenación tampoco cabían
+> «Formato» ni «Dimensiones» con 16px de padding: las dos usan 8px. Los 16px
 van delante, como en Figma (`Columns` empieza en x=0 y la primera columna en
 x=16); si se omiten y se fuerza el ancho total a 1224, aparecen como un hueco de
 16px **al final** de cada fila, que es un defecto real medido en la tarea 5.
