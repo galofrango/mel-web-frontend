@@ -115,12 +115,15 @@ const accionEsAbrirHoja = grupo.accion === 'Abrir en la hoja';
 const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
 
 // casilla · miniatura+nombre · MEL · dimensiones · formato · peso · ocultar · acción
-// 278 (antes 294) y 88 (antes 72): el propietario le roba 16px al nombre del
-// evento para dárselos a formato, que con el ancho viejo no le entraba el
-// rótulo "Formato" alineado a la izquierda (ronda anterior, centrado como
-// arreglo de urgencia — esta rejilla lo hace innecesario). Sigue sumando
-// 1208 + 16 de sangrado = 1224.
-const columnasTabla = 'grid-cols-[42px_278px_160px_120px_88px_120px_200px_200px]';
+// Ronda de arreglos 2: "Dimensiones" y "Formato" con el icono de dirección
+// (ronda 1) sumado y `pl-2` cabían con solo 1px de margen real — medido con
+// `Range.getBoundingClientRect()` en 4 secciones × 2 direcciones, las 8
+// muestras dieron el mismo número. 1px no es margen, es un empate a punto de
+// perderse con el redondeo de subpíxel de cada motor de render. En vez de
+// vivir con eso, se les da ancho de sobra y las cinco vuelven a `pl-4`, el
+// mismo margen que su dato de abajo: nombre 278→246 (se lo cede), dimensiones
+// 120→136, formato 88→104. Sigue sumando 1208 + 16 de sangrado = 1224.
+const columnasTabla = 'grid-cols-[42px_246px_160px_136px_104px_120px_200px_200px]';
 
 // Los cinco rótulos de la fila de cabecera de columnas, en el mismo orden que
 // las columnas correspondientes de `.tabla`. `col` es el valor de `data-col`
@@ -135,24 +138,10 @@ const COLUMNAS_ORDENABLES: { col: string; etiqueta: string }[] = [
 // Mismo tratamiento de bordes que las celdas de datos: divisor a la derecha
 // en todas menos la primera (casilla) y la última (acción) columna. Rótulo +
 // icono de dirección en los extremos (`justify-between`, como el patrón de
-// index.astro): el hueco lo pone `justify-between` solo, sin `gap` fijo, que
-// en las columnas justas se suma al ancho igual que un padding.
-const CAB_COL = 'cab-col h-10 flex items-center justify-between border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
-// pl/pr por columna, no un único valor para las cinco: "Dimensiones" y
-// "Formato" no sobran píxeles con el icono de dirección sumado (medido en el
-// navegador con las cinco columnas ordenadas y el icono real puesto, no
-// estimado — ver informe de la tarea; con `pl-4 pr-0` "Dimensiones" seguía
-// desbordando 0,79px). Las dos pasan a `pl-2` (8px): son las únicas dos de
-// las cinco no alineadas al mismo margen que su dato de abajo, con margen
-// real de sobra medido (7,2px y 3,6px) — no un ajuste al límite como el que
-// falló en la primera pasada de esta misma ronda. La alternativa para
-// "Formato" (centrarlo, como en la ronda anterior) es justo lo que esta
-// ronda pidió deshacer.
-const CAB_COL_ESPACIADO: Record<string, string> = {
-  dimensiones: 'pl-2 pr-0',
-  formato: 'pl-2 pr-0',
-};
-const CAB_COL_ESPACIADO_DEFECTO = 'pl-4 pr-2';
+// index.astro). Con la rejilla de arriba las cinco caben con `pl-4 pr-2`, el
+// mismo padding que las celdas de datos — ya no hace falta un espaciado
+// distinto por columna (ver informe de la tarea para el margen medido).
+const CAB_COL = 'cab-col h-10 flex items-center justify-between pl-4 pr-2 border-r border-mel-border bg-mel-bg-secondary typo-overline text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 select-none';
 ---
 
 <section class="border border-mel-border bg-mel-bg-primary" data-nivel={grupo.nivel} data-clave={grupo.clave}>
@@ -236,7 +225,7 @@ const CAB_COL_ESPACIADO_DEFECTO = 'pl-4 pr-2';
             <input type="checkbox" class="chk-cab" aria-label="Seleccionar todos" />
           </div>
           {COLUMNAS_ORDENABLES.map((c) => (
-            <button type="button" class={`${CAB_COL} ${CAB_COL_ESPACIADO[c.col] || CAB_COL_ESPACIADO_DEFECTO}`} data-col={c.col} role="columnheader" aria-sort="none">
+            <button type="button" class={CAB_COL} data-col={c.col} role="columnheader" aria-sort="none">
               <span>{c.etiqueta}</span>
               <span class="cab-col-icono w-3 h-3 shrink-0"></span>
             </button>
