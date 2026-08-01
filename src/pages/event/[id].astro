@@ -1409,6 +1409,13 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         // Reactiva la transición del CSS para el asentado — completar el
         // cambio o volver a la foto actual, ambos animados, ninguno un salto.
         track.style.transition = '';
+        // Fuerza un reflow ANTES de tocar el transform: reactivar la
+        // transición y cambiar el valor en el mismo instante puede hacer que
+        // el navegador aplique el cambio de golpe, sin animar, como si nunca
+        // hubiera pasado por 'none' — el "a veces salta sin transición" que
+        // se veía. Leer una propiedad de layout aquí obliga al navegador a
+        // asentar el 'none' antes de que el siguiente transform cuente.
+        void track.offsetWidth;
         if (!fueArrastre) return;
 
         const base = -indiceActual() * 100;
@@ -1428,10 +1435,19 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         irA(siguiente);   // arrastrar a la izquierda = siguiente
       };
 
+      // Ancho de una foto, en píxeles — medido UNA vez al empezar el gesto,
+      // no en cada movimiento. Con el transform en `calc(-100% + Npx)` el
+      // navegador tenía que resolver el porcentaje contra el layout en cada
+      // fotograma del arrastre (no puede quedar todo en la GPU), y eso es
+      // justo lo que se notaba "a trompicones" en el móvil real. En píxeles
+      // puros el compositor lo lleva sin tocar el hilo principal.
+      let anchoFoto = 0;
+
       zona.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
         x0 = e.clientX; y0 = e.clientY;
         dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false; arrastrando = false;
+        anchoFoto = zona.getBoundingClientRect().width;
       }, { signal: wSig });
 
       // El recorrido se acumula aquí y no se lee del evento final: si el
@@ -1453,8 +1469,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         const puedeRetroceder = indiceActual() > 0;
         const puedeAvanzar = indiceActual() < imageUrls.length - 1;
         const dx = amortiguar(dxUltimo, puedeAvanzar, puedeRetroceder);
-        const base = -indiceActual() * 100;
-        track.style.transform = `translate3d(calc(${base}% + ${dx}px), 0, 0)`;
+        const basePx = -indiceActual() * anchoFoto;
+        track.style.transform = `translate3d(${basePx + dx}px, 0, 0)`;
       }, { signal: wSig });
 
       zona.addEventListener('pointerup', resolver, { signal: wSig });
