@@ -583,6 +583,18 @@ const tarjetas = [
       filasDe(el).forEach((fila, i) => { fila.dataset.ordenOriginal = String(i); });
     });
 
+    // Las tarjetas son un conmutador OBLIGATORIO (decisión del propietario:
+    // "unas cosas no se mezclan con otras" — escribir en la hoja y procesar
+    // imágenes son dos clases de trabajo distintas): siempre hay EXACTAMENTE
+    // una activa, nunca las diez secciones a la vez. El servidor pinta las
+    // dos tarjetas con `activa=false` (PanelTarjeta.astro no sabe cuál va a
+    // activar el cliente), así que aquí se activa la de nivel 1 una sola vez
+    // por carga, reutilizando `pulsarTarjeta` en vez de duplicar su filtrado.
+    // No reintroduce el conmutador de apagarla al repulsarla: esa guarda
+    // (`if (tarj.dataset.activa === 'true') return;`) sigue intacta arriba.
+    const tarjNivel1 = document.querySelector('.tarj[data-nivel="1"]') as HTMLElement | null;
+    if (tarjNivel1) pulsarTarjeta(tarjNivel1);
+
     // Cancela los oyentes de una inicialización anterior (vuelta a /panel con
     // el ClientRouter) antes de poner los nuevos: si no, se acumula un
     // delegado más por cada visita y una sola acción dispara tantas veces

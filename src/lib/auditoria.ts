@@ -99,11 +99,11 @@ type Regla = [
 const REGLAS: Regla[] = [
   ['sin-lugar', 1, 'Sin lugar', 'No hay local que situar en el mapa', 'Abrir en la hoja', false,
    '<b>El problema es que la ficha no tiene nombre de local</b>, así que no hay nada que enseñar en la etiqueta «Lugar» ni por lo que agrupar el evento en el mapa.<br><br>La forma de corregirlo es escribir el nombre del local en la columna E de la [hoja→E1].',
-   'Si de verdad no se sabe, deja la celda vacía en vez de escribir «Desconocido»: el sitio ya sabe convertir un hueco en la invitación «¿Nos ayudas?».', 'id',
+   'Aquí «Desconocido» vale exactamente igual que dejar la celda vacía: el sitio trata las dos cosas como un hueco y ofrece «¿Nos ayudas?». Escríbelo si prefieres que se vea que no se ha olvidado. Ojo, en Coordenadas no es así.', 'id',
    (f, t) => estaVacio(f.lugar)],
   ['sin-coordenadas', 1, 'Sin coordenadas', 'El evento no aparece en el mapa', 'Abrir en la hoja', false,
    '<b>El problema es que sin el enlace de Google Maps el evento no sale en el mapa.</b><br><br>La forma de corregirlo es buscar el local en Google Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1]. El sitio saca el punto exacto del propio enlace.',
-   'Las tres filas ponen «Desconocido» en esa celda, y eso es peor que dejarla vacía: el respaldo por localidad solo entra si la celda está vacía, así que «Desconocido» apaga el único plan B que había.', 'id',
+   'Si esta celda se deja <b>vacía</b> hay un plan B: el sitio busca la localidad en una tabla de 18 municipios y direcciones ya geocodificados, y coloca el evento en el centro de su municipio — aproximado, pero en el mapa. Ese respaldo <b>solo entra si la celda está vacía</b>, así que escribir «Desconocido» lo apaga y el evento desaparece del mapa del todo. Es al revés que en la columna Lugar, donde «Desconocido» da igual.', 'id',
    (f, t) => estaVacio(f.coordenadas)],
   // Dentro de "Falta información" (nivel 1: sin-lugar, sin-coordenadas,
   // sin-artistas), el orden interno responde a otro criterio, no a la
