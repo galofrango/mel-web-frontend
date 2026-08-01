@@ -176,3 +176,284 @@ const tarjetas = [
 
   </div>
 </Layout>
+
+<script>
+  // Comportamiento de cliente del panel de control del archivo (tarea 6 del
+  // plan). El marcado entero lo pinta el servidor (tarea 5): este script SOLO
+  // escribe valores dentro de él y alterna clases o atributos — nunca
+  // construye nodos nuevos (regla 7 de AGENTS.md). Ganchos que consume, todos
+  // dejados por la tarea 5: `[data-nivel]`/`[data-clave]` en cada `<section>`,
+  // `.fila[data-id]` en cada fila, `.tarj` en cada tarjeta,
+  // `.sec-cab[aria-expanded]` en la cabecera plegable, `.nn` en el contador
+  // entre corchetes, `.cifra`/`.lins` en la tarjeta, `.seleccionar-todos`,
+  // `.ver-ocultos`, `.ocultar-seleccionados`, `.accion-seleccionados` (estas
+  // tres nacen `hidden`) y `.ocultar-aviso` (nace `disabled`).
+  //
+  // NO implementado — punto 7 del encargo (cabecera de columnas que ordena):
+  // pide una fila de rótulos nueva (Evento · MEL · Dimensiones · Formato ·
+  // Peso) dentro de la tabla de cada sección, y esa fila no existe en el
+  // marcado de `PanelSeccion.astro` (confirmado leyendo el fichero entero y
+  // el historial de `progress.md`: el propietario la pidió DESPUÉS de que la
+  // tarea 5 se diera por completa y revisada). El propio encargo de esta
+  // tarea es explícito: si esa fila falta, hay que pararse a decirlo en vez
+  // de construirla por JS (regla 7) o de ampliar el alcance a un fichero que
+  // el encargo no lista (`PanelSeccion.astro`; esta tarea solo declara
+  // `src/pages/panel.astro`, bloque `<script>`). Detalle y propuesta en el
+  // informe de la tarea 6.
+
+  const NIVELES = [1, 2, 3] as const;
+
+  // --- Filas: ocultar / mostrar ---------------------------------------------
+  // `.fila` es `display:contents` (clase propia de PanelSeccion.astro, más la
+  // utilidad `contents` de Tailwind) para que sus 8 hijos caigan en la rejilla
+  // de `.tabla` en vez de abrir su propio grid anidado. El atributo `hidden`
+  // NO basta para ocultarla: `[hidden]` vive en la hoja de estilos del USER
+  // AGENT, y una regla de autor (la de `.fila`) le gana SIEMPRE a una de UA,
+  // gane o no en especificidad — el atributo se pondría pero la fila seguiría
+  // maquetada. El estilo en línea sí gana siempre (especificidad máxima), así
+  // que es lo que se usa aquí.
+  function filaOculta(fila: HTMLElement): boolean {
+    return fila.style.display === 'none';
+  }
+  function ocultarFila(fila: HTMLElement) {
+    fila.style.display = 'none';
+    const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
+    if (chk) chk.checked = false;
+  }
+  function mostrarFila(fila: HTMLElement) {
+    fila.style.display = '';
+  }
+  function filasDe(sec: Element): HTMLElement[] {
+    return Array.from(sec.querySelectorAll('.fila[data-id]')) as HTMLElement[];
+  }
+
+  // --- Tarjetas: filtran las secciones de su nivel --------------------------
+  // Mismas clases que pintaría el servidor con `activa=true` en
+  // PanelTarjeta.astro — no se inventa ningún estado visual nuevo.
+  const CLASES_TARJ_ACTIVA = ['bg-mel-bg-tertiary', 'border-mel-action-primary', 'shadow-[var(--mel-shadow-button)]'];
+  const CLASES_TARJ_INACTIVA = ['bg-mel-bg-secondary', 'border-mel-border'];
+
+  function marcarTarjeta(tarj: HTMLElement, activa: boolean) {
+    tarj.dataset.activa = activa ? 'true' : 'false';
+    CLASES_TARJ_ACTIVA.forEach((c) => tarj.classList.toggle(c, activa));
+    CLASES_TARJ_INACTIVA.forEach((c) => tarj.classList.toggle(c, !activa));
+  }
+
+  // Pulsar la tarjeta ya activa la apaga (vuelven a verse las diez
+  // secciones); pulsar otra la activa a ella sola en exclusiva.
+  function pulsarTarjeta(tarj: HTMLElement) {
+    const yaActiva = tarj.dataset.activa === 'true';
+    document.querySelectorAll('.tarj').forEach((t) => marcarTarjeta(t as HTMLElement, false));
+    const nivelFiltro = yaActiva ? null : tarj.dataset.nivel || null;
+    if (nivelFiltro) marcarTarjeta(tarj, true);
+    document.querySelectorAll('section[data-nivel]').forEach((el) => {
+      const sec = el as HTMLElement;
+      sec.hidden = !!nivelFiltro && sec.dataset.nivel !== nivelFiltro;
+    });
+  }
+
+  // --- Cabecera de sección: plegar / desplegar ------------------------------
+  function pulsarCabeceraSeccion(cab: HTMLElement) {
+    const expandido = cab.getAttribute('aria-expanded') === 'true';
+    cab.setAttribute('aria-expanded', expandido ? 'false' : 'true');
+    const cuerpoId = cab.getAttribute('aria-controls');
+    const cuerpo = cuerpoId ? document.getElementById(cuerpoId) : null;
+    if (cuerpo) cuerpo.hidden = expandido;
+    const chevronSvg = cab.querySelector('.chevron svg');
+    if (chevronSvg) chevronSvg.classList.toggle('rotate-180', expandido);
+  }
+
+  // --- Selección y acciones en bloque ----------------------------------------
+  // "No se ven hasta que hay selección" (corrección tras la revisión visual):
+  // se revela quitando `hidden`, nunca reconstruyendo el botón.
+  function actualizarAccionesBloque(sec: HTMLElement) {
+    const haySeleccion = !!sec.querySelector('.chk-fila:checked');
+    const btnOcultar = sec.querySelector('.ocultar-seleccionados') as HTMLElement | null;
+    const btnAccion = sec.querySelector('.accion-seleccionados') as HTMLElement | null;
+    if (btnOcultar) btnOcultar.hidden = !haySeleccion;
+    if (btnAccion) btnAccion.hidden = !haySeleccion;
+  }
+
+  function seleccionarTodos(sec: HTMLElement) {
+    filasDe(sec).forEach((fila) => {
+      if (filaOculta(fila)) return; // "sobre las visibles" (encargo, punto 4)
+      const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
+      if (chk) chk.checked = true;
+    });
+    actualizarAccionesBloque(sec);
+  }
+
+  function verAvisosOcultos(sec: HTMLElement) {
+    filasDe(sec).forEach((fila) => { if (filaOculta(fila)) mostrarFila(fila); });
+    recalcularTodo();
+  }
+
+  function ocultarSeleccionados(sec: HTMLElement) {
+    filasDe(sec).forEach((fila) => {
+      const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
+      if (chk && chk.checked) ocultarFila(fila);
+    });
+    recalcularTodo();
+  }
+
+  // --- Recalcular desde cero ---------------------------------------------------
+  // Regla del spec ("Después de cada acción: recalcular desde cero"): nunca
+  // parchear un contador con +1/-1. La cifra de cada tarjeta es un Set de IDs
+  // VISIBLES reconstruido entero en cada pasada — así, ocultar un cartel que
+  // está en dos secciones de un mismo nivel (p.ej. un PNG de más de 2MB, en
+  // "Archivo PNG" y en "Por encima de 2 MB") solo baja la cifra cuando
+  // desaparece de LA ÚLTIMA sección donde seguía visible, nunca dos veces.
+  function recalcularTodo() {
+    document.querySelectorAll('section[data-clave]').forEach((el) => {
+      const sec = el as HTMLElement;
+      const filas = filasDe(sec);
+      const ocultas = filas.filter(filaOculta);
+      const visibles = filas.length - ocultas.length;
+
+      const nn = sec.querySelector('.nn');
+      if (nn) nn.textContent = `[${visibles}]`;
+
+      sec.classList.toggle('opacity-40', visibles === 0); // atenuar sección vacía
+
+      const btnVerOcultos = sec.querySelector('.ver-ocultos') as HTMLElement | null;
+      if (btnVerOcultos) btnVerOcultos.hidden = ocultas.length === 0;
+
+      actualizarAccionesBloque(sec); // ocultar una fila puede llevarse la única marca
+    });
+
+    // El desglose de cada tarjeta mantiene el orden de trabajo que ya trae el
+    // servidor (gravedad, tarea 4): la línea N-ésima de `.lins` corresponde
+    // SIEMPRE a la sección N-ésima de ese nivel en el DOM — mismo criterio con
+    // el que `resumenNivel()` (frontmatter de esta página) construyó `lineas`
+    // a partir de `gruposNivel.slice(0,3)`. Solo se reescribe el NÚMERO de
+    // cada línea; nunca qué sección ocupa cada una (no se reordena por
+    // cantidad).
+    NIVELES.forEach((nivel) => {
+      const secciones = Array.from(document.querySelectorAll(`section[data-nivel="${nivel}"]`)) as HTMLElement[];
+      const idsUnicos = new Set<string>();
+      const cuentaPorSeccion = secciones.map((sec) => {
+        const visibles = filasDe(sec).filter((f) => !filaOculta(f));
+        visibles.forEach((f) => { if (f.dataset.id) idsUnicos.add(f.dataset.id); });
+        return visibles.length;
+      });
+
+      const tarj = document.querySelector(`.tarj[data-nivel="${nivel}"]`);
+      if (!tarj) return;
+
+      const cifraEl = tarj.querySelector('.cifra');
+      if (cifraEl) cifraEl.textContent = String(idsUnicos.size);
+
+      const lineas = Array.from(tarj.querySelectorAll('.lins > span'));
+      const numLineas = Math.min(3, cuentaPorSeccion.length);
+      lineas.forEach((linea, i) => {
+        const valor = linea.lastElementChild;
+        if (!valor) return;
+        if (i < numLineas) {
+          valor.textContent = String(cuentaPorSeccion[i]);
+        } else {
+          // La única línea posible más allá de las tres primeras es la de
+          // desbordamiento ("Otras incidencias +N"): suma de las secciones 4ª
+          // en adelante de este nivel.
+          const resto = cuentaPorSeccion.slice(3).reduce((a, b) => a + b, 0);
+          valor.textContent = `+${resto}`;
+        }
+      });
+    });
+  }
+
+  // --- Delegación de eventos ---------------------------------------------------
+  // Un solo oyente de click y uno de change para todo el panel, en vez de uno
+  // por fila/botón (84 filas × varios controles): más simple, y no hay que
+  // reenganchar nada al revelar u ocultar elementos.
+  function alPulsar(e: MouseEvent) {
+    const target = e.target as HTMLElement | null;
+    if (!target) return;
+
+    const tarj = target.closest('.tarj') as HTMLElement | null;
+    if (tarj) { pulsarTarjeta(tarj); return; }
+
+    const cab = target.closest('.sec-cab') as HTMLElement | null;
+    if (cab) { pulsarCabeceraSeccion(cab); return; }
+
+    // El botón "Releer el archivo" no lleva clase ni id propios; es el único
+    // <button> de la cabecera (las pestañas Control/Preparación son <span>,
+    // inertes: Preparación no existe todavía — fuera de alcance, ver spec).
+    if (target.closest('header button')) { window.location.reload(); return; }
+
+    const btnTodos = target.closest('.seleccionar-todos') as HTMLElement | null;
+    if (btnTodos) {
+      const sec = btnTodos.closest('section[data-clave]') as HTMLElement | null;
+      if (sec) seleccionarTodos(sec);
+      return;
+    }
+
+    const btnVerOcultos = target.closest('.ver-ocultos') as HTMLElement | null;
+    if (btnVerOcultos) {
+      const sec = btnVerOcultos.closest('section[data-clave]') as HTMLElement | null;
+      if (sec) verAvisosOcultos(sec);
+      return;
+    }
+
+    const btnOcultarSel = target.closest('.ocultar-seleccionados') as HTMLElement | null;
+    if (btnOcultarSel) {
+      const sec = btnOcultarSel.closest('section[data-clave]') as HTMLElement | null;
+      if (sec) ocultarSeleccionados(sec);
+      return;
+    }
+
+    const btnOcultarAviso = target.closest('.ocultar-aviso') as HTMLElement | null;
+    if (btnOcultarAviso) {
+      const fila = btnOcultarAviso.closest('.fila[data-id]') as HTMLElement | null;
+      if (fila) ocultarFila(fila);
+      recalcularTodo();
+      return;
+    }
+  }
+
+  function alCambiar(e: Event) {
+    const target = e.target as HTMLElement | null;
+    if (!target || !target.classList.contains('chk-fila')) return;
+    const sec = target.closest('section[data-clave]') as HTMLElement | null;
+    if (sec) actualizarAccionesBloque(sec);
+  }
+
+  // --- Arranque ------------------------------------------------------------
+  function initPanel() {
+    // Si no hay tarjetas, este page-load es de otra página: una vez
+    // registrado, el oyente de astro:page-load se dispara en TODAS las
+    // navegaciones, no solo en las que vuelven a /panel.
+    if (!document.querySelector('.tarj')) return;
+
+    // `.ocultar-aviso` y "Releer el archivo" nacen `disabled` en el SSR de la
+    // tarea 5 (sin JS no había nada honesto que hacer al pulsarlos). Se
+    // habilitan aquí; no se reconstruyen.
+    document.querySelectorAll('.ocultar-aviso').forEach((btn) => { (btn as HTMLButtonElement).disabled = false; });
+    const btnReleer = document.querySelector('header button') as HTMLButtonElement | null;
+    if (btnReleer) btnReleer.disabled = false;
+
+    // Cancela los oyentes de una inicialización anterior (vuelta a /panel con
+    // el ClientRouter) antes de poner los nuevos: si no, se acumula un
+    // delegado más por cada visita y una sola acción dispara tantas veces
+    // como visitas se hayan hecho (mismo mecanismo que TimeSlider.astro).
+    if ((window as any)._melPanelAbortCtrl) (window as any)._melPanelAbortCtrl.abort();
+    const abortCtrl = new AbortController();
+    (window as any)._melPanelAbortCtrl = abortCtrl;
+    const sig = abortCtrl.signal;
+
+    document.addEventListener('click', alPulsar, { signal: sig });
+    document.addEventListener('change', alCambiar, { signal: sig });
+  }
+
+  // Registro del oyente de astro:page-load, IDEMPOTENTE (regla 1 de
+  // AGENTS.md). Sin esta guarda: cada vuelta a /panel con el ClientRouter
+  // reevalúa este script (medido en index.astro — 2 copias tras 2 idas y
+  // vueltas, 3 tras 3) y registraría OTRO oyente de astro:page-load, así que
+  // un solo evento llamaría a `initPanel()` N veces. El AbortController de
+  // arriba ya evita que eso duplique los oyentes delegados (cada llamada
+  // cancela los de la anterior), pero esta guarda ataja el trabajo de sobra
+  // en el origen, igual que `window._melHomeInitBound` en index.astro.
+  if (!(window as any)._melPanelInitBound) {
+    (window as any)._melPanelInitBound = true;
+    document.addEventListener('astro:page-load', initPanel);
+  }
+</script>
