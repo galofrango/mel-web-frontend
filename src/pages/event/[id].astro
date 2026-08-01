@@ -1490,6 +1490,29 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
     habilitarDeslizamiento(mainImageContainer, document.getElementById('carousel-track'), (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
     habilitarDeslizamiento(document.getElementById('overlay-image-box'), overlayTrack, showOverlayImage, () => overlayIndex);
+
+    // El autoplay (cada 5s) no debe competir con un arrastre en curso: si el
+    // temporizador caía a mitad de un gesto, cambiaba currentIndex y el
+    // transform por debajo del propio arrastre en vivo (sin transición, de
+    // golpe) — eso es lo que se notaba a trompicones después de varias
+    // pasadas seguidas, cuanto más se repetía el gesto más probable era que
+    // coincidiera con el tic de los 5s. Se para nada más tocar la foto y se
+    // reinicia al soltar, haya cambiado de foto o no.
+    if (mainImageContainer) {
+      mainImageContainer.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        if (window.melAutoplayInterval) {
+          clearInterval(window.melAutoplayInterval);
+          window.melAutoplayInterval = null;
+        }
+      }, { signal: wSig });
+      const reanudarAutoplay = (e) => {
+        if (e.pointerType === 'mouse') return;
+        startAutoplay();
+      };
+      mainImageContainer.addEventListener('pointerup', reanudarAutoplay, { signal: wSig });
+      mainImageContainer.addEventListener('pointercancel', reanudarAutoplay, { signal: wSig });
+    }
     // El arrastre vertical se engancha a TODA la caja fija, no solo a la foto:
     // la paginación y el faldón también son zona muerta si no.
     habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
