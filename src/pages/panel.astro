@@ -74,7 +74,7 @@ filas.forEach((f) => {
 
 const grupos = auditar(filas, flyerTecnico as any);
 
-// --- Resumen de cada tarjeta (nivel 1/2/3) ---------------------------------
+// --- Resumen de cada tarjeta (nivel 1/2) -----------------------------------
 // La cifra grande es de IDS ÚNICOS, no la suma de los tamaños de sección: un
 // mismo cartel puede estar en varias reglas del mismo nivel (p.ej. un PNG que
 // además pesa más de 2MB), y sumar lo contaría dos veces. El desglose muestra
@@ -87,7 +87,7 @@ const grupos = auditar(filas, flyerTecnico as any);
 // cada recálculo (mismo cómputo, aquí solo en el primer pintado del servidor).
 type Linea = { titulo: string; cifra: number };
 
-function resumenNivel(nivel: 1 | 2 | 3) {
+function resumenNivel(nivel: 1 | 2) {
   const gruposNivel = grupos.filter((g) => g.nivel === nivel);
 
   const idsUnicos = new Set<string>();
@@ -95,8 +95,9 @@ function resumenNivel(nivel: 1 | 2 | 3) {
 
   // Solo las líneas que existen — nada de relleno cuando el nivel tiene menos
   // de 3 secciones (corrección del propietario: "una tarjeta con menos de tres
-  // avisos no pinta guiones"). PanelTarjeta alinea `.lins` abajo para que las
-  // tres tarjetas compartan línea de base pese a tener listas de alto distinto.
+  // avisos no pinta guiones"). PanelTarjeta alinea `.lins` arriba, pegado a la
+  // cifra, para que las tarjetas compartan línea de base pese a tener listas
+  // de alto distinto.
   const top3 = gruposNivel.slice(0, 3);
   const lineas: Linea[] = top3.map((g) => ({ titulo: g.titulo, cifra: g.items.length }));
 
@@ -111,7 +112,6 @@ function resumenNivel(nivel: 1 | 2 | 3) {
 const tarjetas = [
   { nivel: 1 as const, overline: 'Fallos críticos', ...resumenNivel(1) },
   { nivel: 2 as const, overline: 'Bajo rendimiento', ...resumenNivel(2) },
-  { nivel: 3 as const, overline: 'Falta información', ...resumenNivel(3) },
 ];
 ---
 
@@ -151,7 +151,7 @@ const tarjetas = [
       </div>
     </header>
 
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pb-10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-10">
       {tarjetas.map((t) => (
         <PanelTarjeta
           nivel={t.nivel}
@@ -193,13 +193,13 @@ const tarjetas = [
   // `data-mayor`/`data-bytes` para ordenar sin reinterpretar texto) en cada
   // fila, `.tarj` en cada tarjeta, `.sec-cab[aria-expanded]` en la cabecera
   // plegable, `.nn` en el contador entre corchetes, `.cifra`/`.lins` en la
-  // tarjeta, `.seleccionar-todos`, `.ver-ocultos`, `.ocultar-seleccionados`,
+  // tarjeta, `.ver-ocultos`, `.ocultar-seleccionados`,
   // `.accion-seleccionados` (estas tres nacen `hidden`), `.ocultar-aviso`
   // (nace `disabled`), `.cab-col[data-col]` en cada rótulo ordenable (con
   // `role="columnheader"`/`aria-sort="none"` de fábrica y `.cab-col-icono`,
   // vacío, dentro) y `.chk-cab` en la casilla de cabecera de la sección.
 
-  const NIVELES = [1, 2, 3] as const;
+  const NIVELES = [1, 2] as const;
 
   // --- Filas: ocultar / mostrar ---------------------------------------------
   // `.fila` es `display:contents` (clase propia de PanelSeccion.astro, más la
@@ -402,9 +402,9 @@ const tarjetas = [
     }
   }
 
-  // Marca o desmarca las filas VISIBLES de una sección — comparte lógica
-  // entre el enlace "Seleccionar todos" (siempre marca) y el check de
-  // cabecera (marca o desmarca según su propio estado tras el clic nativo).
+  // Marca o desmarca las filas VISIBLES de una sección, según el estado que
+  // trae el check de cabecera tras el clic nativo (indeterminado + clic
+  // siempre resuelve a marcado — ver el comentario de `chk-cab` en `alCambiar`).
   function marcarVisibles(sec: HTMLElement, marcar: boolean) {
     filasDe(sec).forEach((fila) => {
       if (filaOculta(fila)) return; // "sobre las visibles" (encargo, punto 4)
@@ -510,13 +510,6 @@ const tarjetas = [
     if (btnCol) { pulsarCabeceraColumna(btnCol); return; }
 
     if (target.closest('#panel-releer')) { window.location.reload(); return; }
-
-    const btnTodos = target.closest('.seleccionar-todos') as HTMLElement | null;
-    if (btnTodos) {
-      const sec = btnTodos.closest('section[data-clave]') as HTMLElement | null;
-      if (sec) marcarVisibles(sec, true);
-      return;
-    }
 
     const btnVerOcultos = target.closest('.ver-ocultos') as HTMLElement | null;
     if (btnVerOcultos) {

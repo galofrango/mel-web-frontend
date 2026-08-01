@@ -62,10 +62,13 @@ test('detecta los huecos de datos', () => {
 // solas al convertirse. "pequeno" no comparte ni un cartel con las de arriba
 // (es independiente, sin arreglo por software) y por eso cierra los técnicos.
 // "sin-lugar" antes que "sin-coordenadas": no se puede buscar en Google Maps
-// un local cuyo nombre no se sabe.
+// un local cuyo nombre no se sabe. "sin-coordenadas" antes que "sin-artistas":
+// dentro de "Fallos críticos" (nivel 1, tras la fusión con la antigua tarjeta
+// "Falta información"), lo que ROMPE el mapa va antes que la laguna de
+// catalogación que no rompe nada — ver el comentario de REGLAS en auditoria.ts.
 test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => {
   const filas = [
-    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '' },
+    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '', artistas: '' },
     { ...filaBase, idMel: 'MEL-B', urlDrive: '.../d/B/view' },
   ];
   const tec = {
@@ -73,25 +76,33 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
     B: { ...tecBase, px: [600, 289] },
   };
   const orden = claves(filas, tec);
-  // Si el fixture deja de disparar alguno de los ocho, el deepEqual de abajo
+  // Si el fixture deja de disparar alguno de los nueve, el deepEqual de abajo
   // fallaría igual, pero por la razón equivocada (fixture roto, no orden roto).
-  for (const c of ['sin-lugar', 'sin-coordenadas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno']) {
+  for (const c of ['sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno']) {
     assert.ok(orden.includes(c), `el fixture debe disparar "${c}"`);
   }
   assert.deepEqual(orden, [
-    'sin-lugar', 'sin-coordenadas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno',
+    'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno',
   ], 'el orden es de TRABAJO, no un ranking: arreglar los de arriba resuelve los de abajo');
 });
 
-// "gif" y "sin-artistas" no comparten fila con el fixture de arriba, así que su
-// posición relativa no queda atada por ningún test hasta este: nivel 2 (bajo
-// rendimiento) va antes que nivel 3 (falta información), aunque haya menos
-// avisos "gif" que "sin-artistas" en el archivo real — el orden es de grupo,
-// no de recuento.
-test('el orden es el de trabajo: gif (nivel 2) antes que sin-artistas (nivel 3)', () => {
-  const fila = { ...filaBase, artistas: '' };
-  const orden = claves([fila], { AAA: { ...tecBase, tipo: 'gif' } });
-  assert.deepEqual(orden, ['gif', 'sin-artistas']);
+// Protege específicamente el borde que dejó la fusión de niveles: "sin-artistas"
+// pasó de nivel 3 (última) a nivel 1, justo detrás de "sin-coordenadas" y antes
+// del primer grupo de nivel 2 ("png"). El test de la cascada completa de arriba
+// ya lo cubre de paso, pero aquí queda aislado en un fixture mínimo — sin
+// arrastrar cmyk/enorme/sin-perfil/pesado — para que si este borde concreto se
+// rompe algún día, falle un test que lo señale por su nombre, no solo el de la
+// secuencia larga.
+test('el orden es el de trabajo: sin-artistas va después de sin-coordenadas y antes de png', () => {
+  const filas = [
+    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', coordenadas: '', artistas: '' },
+    { ...filaBase, idMel: 'MEL-B', urlDrive: '.../d/B/view' },
+  ];
+  const tec = {
+    A: tecBase,
+    B: { ...tecBase, tipo: 'png' },
+  };
+  assert.deepEqual(claves(filas, tec), ['sin-coordenadas', 'sin-artistas', 'png']);
 });
 
 test('dentro de cada grupo, lo peor primero', () => {

@@ -44,7 +44,7 @@ export type Item = {
 
 export type Grupo = {
   clave: string;
-  nivel: 1 | 2 | 3;
+  nivel: 1 | 2;
   titulo: string;
   consecuencia: string;
   accion: string | null;
@@ -72,7 +72,7 @@ type Criterio = 'bytes' | 'px-desc' | 'px-asc' | 'id';
 
 type Regla = [
   clave: string,
-  nivel: 1 | 2 | 3,
+  nivel: 1 | 2,
   titulo: string,
   consecuencia: string,
   accion: string | null,
@@ -105,6 +105,18 @@ const REGLAS: Regla[] = [
    '<b>El problema es que sin el enlace de Google Maps el evento no sale en el mapa.</b><br><br>La forma de corregirlo es buscar el local en Google Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1]. El sitio saca el punto exacto del propio enlace.',
    'Las tres filas ponen «Desconocido» en esa celda, y eso es peor que dejarla vacía: el respaldo por localidad solo entra si la celda está vacía, así que «Desconocido» apaga el único plan B que había.', 'id',
    (f, t) => estaVacio(f.coordenadas)],
+  // Dentro de "Fallos críticos" (nivel 1: sin-lugar, sin-coordenadas,
+  // sin-artistas), el orden interno responde a otro criterio, no a la
+  // cascada de arriba: lo que ROMPE va antes que lo que FALTA. Sin lugar y
+  // sin coordenadas impiden que el evento salga en el mapa; sin artistas es
+  // una laguna de catalogación que no rompe nada. Antes eran dos tarjetas
+  // distintas (nivel 1 y nivel 3) y el rótulo ya separaba una cosa de otra;
+  // al fundirse en una sola, el rótulo dejó de distinguirlas — así que ahora
+  // es el orden quien lo dice.
+  ['sin-artistas', 1, 'Sin artistas', 'El archivo no sabe quién pinchó', 'Abrir en la hoja', false,
+   '<b>El problema es que el archivo no sabe quién pinchó en ese evento</b>, y en un archivo la laguna es información, no un error.<br><br>La forma de corregirlo es escribir los nombres en la columna H de la [hoja→H1]. Suelen estar impresos en el propio cartel.',
+   null, 'id',
+   (f, t) => estaVacio(f.artistas)],
   ['png', 2, 'Archivo PNG', 'Hasta 10× de peso en miniatura, y la galería carga 32 de golpe', 'Convertir a JPG', true,
    '<b>El problema es el peso</b>: en tamaño de miniatura un PNG puede pesar diez veces más que el mismo cartel en JPEG, y la galería carga 32 de golpe.<br><br>La forma de corregirlo es convertir a JPEG calidad 85 <b>e incrustar sRGB en la misma pasada</b> — por separado, la conversión deja el fichero etiquetado como Adobe RGB y arreglas el peso creando un problema de color.',
    '20 de estos 33 llevan transparencia y JPEG no la admite, así que hay que decidir una vez sobre qué fondo se aplanan.', 'bytes',
@@ -133,10 +145,6 @@ const REGLAS: Regla[] = [
    '<b>El problema es que son 177 fotogramas y 14,4 MB que Drive no redimensiona</b>: el visitante se los descarga enteros, pida el tamaño que pida.<br><br>La decisión es vuestra: dejarlo como está, o guardar el GIF aparte y elegir un fotograma como cara de la pieza en el archivo.',
    'No lleva botón a propósito: convertirlo a JPEG destruiría la animación, que es parte de la pieza.', 'bytes',
    (f, t) => t.tipo === 'gif'],
-  ['sin-artistas', 3, 'Sin artistas', 'El archivo no sabe quién pinchó', 'Abrir en la hoja', false,
-   '<b>El problema es que el archivo no sabe quién pinchó en ese evento</b>, y en un archivo la laguna es información, no un error.<br><br>La forma de corregirlo es escribir los nombres en la columna H de la [hoja→H1]. Suelen estar impresos en el propio cartel.',
-   null, 'id',
-   (f, t) => estaVacio(f.artistas)],
 ];
 
 const VACIO: DatosImagen = { tipo: 'desconocido', px: null, comp: null, perfil: false, alfa: false, bytes: 0 };
