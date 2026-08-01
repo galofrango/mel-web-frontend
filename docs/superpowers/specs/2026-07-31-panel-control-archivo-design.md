@@ -502,12 +502,36 @@ motivo. Divisores entre las demás columnas, sí.
   guiones para rellenar. El desglose va **pegado arriba**, justo bajo la cifra —
   el propietario probó la alineación inferior y prefirió esta, que es como se ven
   las tarjetas cuando llegan a cuatro líneas.
+- **Las tarjetas son un conmutador obligatorio**: siempre hay una activa y no
+  existe el estado «verlo todo a la vez». Decisión del propietario: *«unas cosas
+  no se mezclan con otras»* — y es coherente con lo que las dos tarjetas separan,
+  que son dos clases de trabajo distintas (escribir en la hoja / procesar
+  imágenes). Pulsar la tarjeta activa no hace nada.
 - **Las acciones en bloque no se ven hasta que hay selección** (antes: visibles y
   desactivadas). Igual que «Ver avisos ocultos», que solo aparece si hay alguno.
   **Ojo al reparto**: el servidor no sabe si hay selección, así que las pinta
   **ocultas de partida** y es el cliente (tarea 6) quien las revela. Dejarlas
   visibles en SSR «porque ya las ocultará el JS» es justo lo que se vio en la
   primera revisión.
+
+### Los dos centinelas NO son equivalentes, y esto costó un texto mal escrito
+
+Verificado en el código, no supuesto:
+
+- **Columna E (Lugar)**: `getTagDisplay()` de la ficha trata el hueco y **cualquier
+  centinela** (`desconocido`, `sin fecha`, `no detallados`, `varios`) exactamente
+  igual — los dos se convierten en «¿Nos ayudas?». Así que escribir «Desconocido»
+  **no tiene ningún coste** y evita que parezca un olvido.
+- **Columna G (Coordenadas)**: `parseCoords()` lleva un respaldo con 18 direcciones
+  y municipios conocidos, y su propio comentario dice *«Only fall back to locality
+  if coordStr is empty»*. Escribir «Desconocido» hace que esa celda deje de estar
+  vacía, **apaga el respaldo**, y el evento desaparece del mapa en vez de caer al
+  menos en el centro de su municipio.
+
+O sea: en Lugar da igual, en Coordenadas es peor. La primera versión del banner de
+«Sin lugar» decía lo contrario por generalizar la regla de Coordenadas a las dos.
+
+---
 
 ### Solo escritorio, y solo desde el propio ordenador
 
