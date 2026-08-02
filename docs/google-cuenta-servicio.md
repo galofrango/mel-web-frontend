@@ -134,7 +134,15 @@ excepción.
 **No lo hagas si el dominio es de un trabajo o de terceros.** Esa política está
 puesta por algo, y saltársela para un proyecto personal no compensa.
 
-### Salida C — Sin clave descargable, entrando como tú
+### Salida C — Sin clave descargable, entrando como tú ← **ELEGIDA (01/08/2026)**
+
+> **Esta es la vía que se está siguiendo.** Los pasos 3, 4, 5 y 6 de arriba **no
+> hacen falta**: no hay cuenta de servicio que crear, ni clave que descargar, ni
+> nada que compartir. Los pasos 1 y 2 (crear proyecto y habilitar las dos APIs) **sí**
+> siguen haciendo falta, y pueden hacerse con la cuenta del dominio: la política que
+> te bloqueó solo prohíbe crear **claves**, no habilitar APIs.
+>
+> **Los tres pasos que quedan** están al final de este documento, en «Entrar como tú».
 
 En vez de una cuenta de servicio, el panel usa **tus propias credenciales**: te
 identificas una vez en el navegador y queda un permiso guardado en tu Mac que se
@@ -256,3 +264,78 @@ exactamente cuál de los seis pasos se quedó a medias.
 Y ante cualquier duda, **para y pregunta con lo que ves en pantalla**. Este es el
 único punto del proyecto donde una equivocación tiene consecuencias fuera de tu
 ordenador.
+
+---
+
+## Entrar como tú (la vía elegida)
+
+Sustituye a los pasos 3 a 6. Antes de esto tienen que estar hechos el **paso 1**
+(un proyecto) y el **paso 2** (las APIs de Drive y de Sheets habilitadas en él).
+Sirve el proyecto de la cuenta del dominio: la política que te bloqueó prohíbe
+crear claves, no habilitar APIs.
+
+Necesitas el **ID del proyecto** — no el nombre. Está en la portada de la consola,
+junto al número de proyecto, y tiene esta pinta: `mel-panel-472913`.
+
+### C.1 — Instalar la herramienta
+
+```bash
+brew install --cask google-cloud-sdk
+```
+
+Tarda un rato: son unos cuantos cientos de megas. Al terminar, **abre una terminal
+nueva** y comprueba que responde:
+
+```bash
+gcloud --version
+```
+
+Si dice «command not found», cierra y abre la terminal otra vez: el instalador
+añade `gcloud` al arranque y las terminales ya abiertas no se enteran.
+
+### C.2 — Identificarte
+
+```bash
+gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/cloud-platform
+```
+
+Se abre el navegador. Entra con **la cuenta que es dueña del archivo y de la hoja**
+—esa es la que importa, no la que creó el proyecto— y acepta.
+
+Puede salir un aviso de que la aplicación no está verificada: es normal, la
+«aplicación» es la propia herramienta de Google que acabas de instalar. Continúa.
+
+Al terminar, guarda un fichero de credenciales en tu carpeta personal, dentro de
+`~/.config/gcloud/`. **Eso no se toca ni se mueve**: las librerías lo encuentran
+solas.
+
+### C.3 — Decirle a qué proyecto cargar el uso
+
+```bash
+gcloud auth application-default set-quota-project TU_ID_DE_PROYECTO
+```
+
+Con el ID real. Sin esto, las llamadas a Drive y Sheets pueden rechazarse por no
+saber a qué proyecto atribuirlas.
+
+### Cuando termines
+
+Dime **solo** que los tres pasos están hechos y el **ID del proyecto** (eso no es
+secreto). Con eso escribo la comprobación: un script que lea un fichero de la
+carpeta y escriba en una celda de prueba, y diga si funciona o exactamente qué
+falta.
+
+### Lo que estás concediendo, dicho claro
+
+El permiso `auth/drive` es **acceso completo a tu Drive**, no solo a la carpeta de
+los carteles. Google no ofrece un permiso intermedio que sirva aquí: el que existe
+—`drive.file`— solo alcanza a ficheros que la propia aplicación haya creado, y
+nosotros necesitamos modificar 84 que ya existían.
+
+Tres cosas que lo ponen en su sitio: el permiso vive **solo en tu Mac**, no viaja a
+ningún servidor; el panel **solo corre cuando tú lo arrancas** con `npm run dev`; y
+puedes retirarlo cuando quieras desde
+[myaccount.google.com/permissions](https://myaccount.google.com/permissions).
+
+Aun así conviene saberlo, porque es más de lo que la cuenta de servicio habría
+tenido: aquella solo podía tocar lo que le compartieras.
