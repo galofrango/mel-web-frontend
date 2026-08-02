@@ -3068,3 +3068,34 @@ para el sitio.
 ciudad («Calle Cervantes, 9» → «Calle Cervantes, 9, 24003 León»), porque es lo
 que trae la URL.
 
+
+## D-185 · Un objeto construido a mano no hereda los campos nuevos
+
+La ficha de evento reventó **en producción, en todas las fichas**, con
+`Cannot read properties of undefined (reading 'map')`, justo después de
+desplegar `carruselVisibles` (D-182).
+
+**Causa.** `event/[id].astro` no pasa el evento tal cual: lo re-mapea a un objeto
+con una **lista explícita de campos** (`evento()`), porque la ficha los quiere en
+inglés y la home en español. Un campo nuevo de `fetchEvents()` no llega solo:
+hay que añadirlo ahí. `carruselVisibles` no se añadió, y los dos sitios que ya lo
+consumían recibieron `undefined`.
+
+**Por qué no se cazó.** El build no falla —es un acceso en tiempo de ejecución,
+sin tipos que lo vigilen— y la verificación se quedó corta: tras el merge se
+comprobaron la home, los tests y el build, pero **no se abrió ni una ficha**.
+Un `curl` a una sola URL lo habría enseñado.
+
+**La regla que sale de aquí:** cuando se toca la capa de datos, la verificación
+tiene que recorrer **una página de cada tipo**, no solo la que se estaba mirando.
+Ahora se comprueban las 51 fichas de una pasada:
+
+```bash
+node -e 'const {fetchEvents}=await import("./src/lib/mel.ts");
+  console.log((await fetchEvents()).map(e=>e.idMel).join("\n"))' \
+  | while read id; do curl -s -o /dev/null -w "%{http_code} $id\n" \
+      "http://localhost:4321/event/$id"; done | grep -v ^200
+```
+
+Y ojo con ese id: la ruta busca por el `idMel` **del grupo**, no por el de cada
+imagen del carrusel. Pedir `/event/<id de una imagen>` da 404 y no es un fallo.
