@@ -94,6 +94,73 @@ dos en la lista.
 
 ---
 
+## Si el paso 4 te dice que la creación de claves está inhabilitada
+
+Mensaje: *«Se aplicó una política de la organización que impide la creación de
+claves para cuentas de servicio en tu empresa»*, con el id
+`iam.disableServiceAccountKeyCreation`.
+
+**No es un error tuyo.** Tu cuenta de Google pertenece a una **organización** (un
+dominio de Workspace), y esa organización tiene puesta una política que prohíbe
+crear claves descargables. Es una restricción de seguridad razonable —una clave en
+un fichero es lo más fácil de perder— y aquí te la has encontrado de frente.
+
+Tres salidas, de la más corta a la más larga.
+
+### Salida A — Crear el proyecto con una cuenta personal *(recomendada)*
+
+Las políticas de organización solo se aplican a los proyectos **dentro** de esa
+organización. Un proyecto creado desde una cuenta personal de Gmail no tiene
+organización, así que la política no existe ahí.
+
+1. Sal de la sesión de Google Cloud, o abre una **ventana privada**.
+2. Entra en [console.cloud.google.com](https://console.cloud.google.com) con una
+   **cuenta personal de Gmail** (la tuya de siempre, no la del dominio).
+3. Repite los pasos 1 a 4 tal cual. Al crear el proyecto, donde pone
+   «Organización» tiene que decir **«Sin organización»**.
+4. **El paso 5 no cambia nada**: compartir la carpeta y la hoja con el correo de la
+   cuenta de servicio funciona igual aunque el propietario del archivo sea otra
+   cuenta. Compartir cruza cuentas sin problema.
+
+Es la salida más corta y no depende de que nadie te dé permiso.
+
+### Salida B — Si el administrador de ese dominio eres tú
+
+Con el rol «Administrador de políticas de la organización» puedes desactivar esa
+restricción **solo para este proyecto**: `IAM y administración → Políticas de la
+organización`, buscar `iam.disableServiceAccountKeyCreation`, y añadir una
+excepción.
+
+**No lo hagas si el dominio es de un trabajo o de terceros.** Esa política está
+puesta por algo, y saltársela para un proyecto personal no compensa.
+
+### Salida C — Sin clave descargable, entrando como tú
+
+En vez de una cuenta de servicio, el panel usa **tus propias credenciales**: te
+identificas una vez en el navegador y queda un permiso guardado en tu Mac que se
+puede revocar desde tu cuenta de Google cuando quieras. No hay fichero de clave que
+perder, y es lo que el propio aviso de Google llama «una alternativa más segura».
+
+Necesita instalar la herramienta de línea de comandos de Google:
+
+```bash
+brew install --cask google-cloud-sdk
+```
+
+Y después, una sola orden que abre el navegador para que te identifiques.
+
+**Ventaja:** desaparecen los pasos 3, 4, 5 y 6 enteros — nada que crear, nada que
+compartir, nada que guardar. El panel entra como tú y ya tiene acceso a lo tuyo.
+
+**Inconveniente:** para un panel de una sola persona, ninguno relevante. Si algún
+día lo usara otra gente, la cuenta de servicio vuelve a ser lo correcto.
+
+**No lo instales todavía.** Si la salida A te funciona, no hace falta. Y si tiras
+por aquí, dímelo y te escribo la orden exacta con los permisos que necesita, que
+tiene su detalle.
+
+---
+
 ## Paso 4 — Descargar su clave
 
 1. Pulsa sobre la cuenta que acabas de crear.
