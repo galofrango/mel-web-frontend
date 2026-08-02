@@ -42,6 +42,13 @@ const evento = (e: any) => ({
   organizer: e.organiza,
   designer: e.disenador,
   carruselItems: e.carruselItems,
+  // OJO: este objeto se construye con una lista EXPLÍCITA de campos, así que un
+  // campo nuevo de `fetchEvents()` no llega solo — hay que añadirlo aquí. Se
+  // olvidó al estrenar `carruselVisibles` y la ficha reventó en producción con
+  // un `Cannot read properties of undefined (reading 'map')`. El respaldo a
+  // `carruselItems` es el mismo criterio que `visiblesDelCarrusel`: ante un dato
+  // que falta, degradar a lo de siempre y no a una página en blanco.
+  carruselVisibles: e.carruselVisibles ?? e.carruselItems,
 });
 
 const eventData = evento(eventsList[eventIndex]);
