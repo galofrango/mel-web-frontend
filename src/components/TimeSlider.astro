@@ -1,5 +1,21 @@
 ---
 import SliderHandler from './SliderHandler.astro';
+
+/**
+ * El rango lo manda quien tiene los datos (index.astro, vía `rangoDeAnios` de
+ * mel.ts). Antes eran 2004 y 2019 escritos a mano aquí, y el script de este
+ * mismo componente ya avisaba de que era «silently wrong the moment it
+ * doesn't» (D-086 ronda 6). Pasó: un cartel de 2003 quedaba fuera del rango de
+ * partida, así que el servidor lo pintaba y el cliente lo borraba. D-183.
+ *
+ * Los valores por defecto se quedan por si alguien monta el componente suelto,
+ * pero ninguna página del sitio debería depender de ellos.
+ */
+interface Props {
+  min?: number;
+  max?: number;
+}
+const { min = 2004, max = 2019 } = Astro.props;
 ---
 {/* touch-none (D-068): without an explicit touch-action, a touch-drag that
     starts on a handle and moves across the track can ALSO be interpreted by
@@ -29,23 +45,23 @@ import SliderHandler from './SliderHandler.astro';
   <input 
     type="range" 
     id="slider-min" 
-    min="2004" 
-    max="2019" 
-    value="2004" 
+    min={min} 
+    max={max} 
+    value={min} 
     class="absolute opacity-0 pointer-events-none w-full h-2 top-1/2 -translate-y-1/2 z-0 outline-none"
   />
   <input 
     type="range" 
     id="slider-max" 
-    min="2004" 
-    max="2019" 
-    value="2019" 
+    min={min} 
+    max={max} 
+    value={max} 
     class="absolute opacity-0 pointer-events-none w-full h-2 top-1/2 -translate-y-1/2 z-0 outline-none"
   />
 
   <!-- Interactive Slider handlers positioned relative to their tips -->
-  <SliderHandler id="min-handle" year={2004} direction="left" class="top-1/2 -translate-y-1/2" style="left: 24px;" />
-  <SliderHandler id="max-handle" year={2019} direction="right" class="top-1/2 -translate-y-1/2" style="right: 24px; left: auto;" />
+  <SliderHandler id="min-handle" year={min} direction="left" class="top-1/2 -translate-y-1/2" style="left: 24px;" />
+  <SliderHandler id="max-handle" year={max} direction="right" class="top-1/2 -translate-y-1/2" style="right: 24px; left: auto;" />
 </div>
 
 <script>

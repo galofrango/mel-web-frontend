@@ -14,7 +14,7 @@ import IconButton from '../components/IconButton.astro';
 import IntroAnimation from '../components/IntroAnimation.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
 import EmptyState from '../components/EmptyState.astro';
-import { fetchEvents, extractDriveImage, formatFechaDMY } from '../lib/mel';
+import { fetchEvents, rangoDeAnios, extractDriveImage, formatFechaDMY } from '../lib/mel';
 
 // Anchos por contexto, medidos en navegador: la tarjeta de galería se pinta a
 // 342px (684 con densidad 2) y la miniatura de la lista en una caja de 40px.
@@ -25,6 +25,11 @@ const ANCHO_MINIATURA = 200;
 // El fetch, el parseo del JSON-P, el mapa de columnas y el agrupado viven en
 // src/lib/mel.ts porque la ficha de evento necesita exactamente lo mismo.
 const initialArchives = await fetchEvents();
+
+// El rango del deslizador de tiempo sale de los datos, no de un literal. Se
+// calcula AQUÍ, en el servidor, y cruza al cliente por `define:vars` (regla 7):
+// el script de esta página es inline y no puede importar de mel.ts. D-183.
+const rangoAnios = rangoDeAnios(initialArchives);
 
 const initialArtists = new Set();
 const initialDesigners = new Set();
@@ -150,7 +155,7 @@ const tags = [
            slider runs full-bleed to the screen edges (negative margins cancel the
            page's px-6), per the mobile toolbar design (Figma 315:17658). -->
       <div class="flex flex-col gap-2 -mx-6 sm:mx-0">
-        <TimeSlider />
+        <TimeSlider min={rangoAnios.min} max={rangoAnios.max} />
       </div>
 
       <!-- Filter Tags and View Switcher (Figma node 341:26425). True
@@ -1079,7 +1084,7 @@ const tags = [
 </style>
 
 <!-- Client Side Scripting for complete interactivity -->
-<script define:vars={{ initialArchives }}>
+<script define:vars={{ initialArchives, rangoAnios }}>
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
@@ -1097,15 +1102,18 @@ const tags = [
     window._melState = {
       archives: [...initialArchives],
       filtered: [...initialArchives],
-      minYear: 2004,
-      maxYear: 2019,
+      // Del rango real de los datos, no de 2004/2019 escritos a mano: con un
+      // literal, cualquier cartel fuera de esa horquilla lo pintaba el servidor
+      // y lo borraba el cliente, sin un solo error. D-183.
+      minYear: rangoAnios.min,
+      maxYear: rangoAnios.max,
       searchQuery: "",
       activeSidePanelKey: null,
       currentPage: 1,
       currentSortCol: __melSavedSort ? __melSavedSort.col : null,
       currentSortDir: __melSavedSort ? __melSavedSort.dir : 'asc',
-      ABSOLUTE_MIN_YEAR: 2004,
-      ABSOLUTE_MAX_YEAR: 2019,
+      ABSOLUTE_MIN_YEAR: rangoAnios.min,
+      ABSOLUTE_MAX_YEAR: rangoAnios.max,
       googleMap: null,
       mapMarkers: [],
       // locKey -> { marker, group, inClusterer } — lets updateMapMarkers() update
@@ -1519,8 +1527,8 @@ const tags = [
         if (yr > max) max = yr;
       }
     });
-    if (min === Infinity) min = 2004;
-    if (max === -Infinity) max = 2019;
+    if (min === Infinity) min = rangoAnios.min;
+    if (max === -Infinity) max = rangoAnios.max;
     ABSOLUTE_MIN_YEAR = min;
     ABSOLUTE_MAX_YEAR = max;
 
@@ -2997,33 +3005,20 @@ const tags = [
     }
     const cleanLoc = locality ? locality.trim().toLowerCase() : '';
     
-    // Verified against the actual street address by geocoding it (OpenStreetMap
-    // Nominatim), not hand-guessed — the previous values here were off by
-    // 100-700m from the real address on almost every entry, and three venues
-    // (Dickens Tavern, Sala Place, Tirol Rock Bar) had no entry at all for
-    // their real address text, so they never got plotted on the map.
+    // Respaldo por LOCALIDAD, y nada más. Las direcciones concretas de cada
+    // garito vivían aquí —14 entradas geocodificadas a mano— y eran la única
+    // forma de colocar 31 de los 51 eventos. Se borraron el 02/08/2026, cuando
+    // la columna G de la hoja pasó a llevar la URL larga de Google Maps, que ya
+    // trae la dirección Y las coordenadas (D-184).
+    //
+    // No se conserva "por si acaso": un respaldo que rescata en silencio es
+    // exactamente lo que tuvo escondido durante meses que la mitad del mapa
+    // dependiera del código. Que falle a la vista, y que el panel lo diga.
     const dict = {
-      // Generic locality fallbacks, used only when a row has no address text
       'león': [42.5987, -5.5671],
       'leon': [42.5987, -5.5671],
       'san andrés del rabanedo': [42.6105, -5.6147],
       'santa olaja de porma': [42.6322, -5.4055],
-
-      // Real street addresses from the "Dirección / Coordenadas" column
-      'plaza caño de sta. ana, 1': [42.5954405, -5.5665437], // Caño Santana
-      'c. arco de ánimas, 2': [42.5971331, -5.5712475], // Confussion
-      'c. de pablo flórez, 2': [42.6000294, -5.5674657], // Dickens Tavern
-      'calle cervantes, 9': [42.5990618, -5.5692838], // El Gran Café
-      'c. de juan de arfe, 15': [42.5961847, -5.5676066], // Graffiti Pub
-      'av. la estación, 23': [42.7886268, -5.5060121], // La Xana del Torío
-      'calle villa benavente, 3': [42.5963345, -5.5723652], // LeClub
-      'calle las varillas, 2': [42.5982118, -5.5679074], // MOMA
-      'av. lancia, 9': [42.5935856, -5.5735919], // Moravia
-      'calle sta. ana, 15': [42.5945004, -5.5658876], // Plástico
-      'pl. don gutierre': [42.5961017, -5.5684446], // Sala Place
-      'calle villa benavente, 9': [42.5954228, -5.5730187], // Sala Retrovisor
-      'calle caño badillo, 19': [42.5976998, -5.5656898], // Tempo Club
-      'calle conde guillén, 9': [42.5946594, -5.5745765], // Tirol Rock Bar
     };
     
     if (cleanCoord && dict[cleanCoord]) return dict[cleanCoord];

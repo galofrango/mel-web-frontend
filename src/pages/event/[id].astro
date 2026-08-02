@@ -70,7 +70,11 @@ const allEvents = eventsList.map((e: any) => ({
   fotoUrl: extractDriveImage(e.carruselItems?.[0]?.urlDrive) || '',
 }));
 
-const imageUrls = eventData.carruselItems.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
+// `carruselVisibles`, no `carruselItems`: deja fuera lo que está en el archivo
+// pero no es una pieza que enseñar (hoy, el fotograma extraído de un GIF, que
+// hace de portada ligera — ver `visiblesDelCarrusel` en mel.ts). La PORTADA
+// sigue saliendo de `carruselItems[0]`, unas líneas más arriba.
+const imageUrls = eventData.carruselVisibles.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
 
 // Dimensiones reales de cada cartel, medidas offline por
 // `scripts/medir-archivo.mjs`. Sirven para dar a la caja de imagen el alto que
@@ -90,7 +94,10 @@ const idDeDrive = (url?: string) => {
   if (url.includes('/d/')) return url.split('/d/')[1].split('/')[0];
   return '';
 };
-const medidas = eventData.carruselItems
+// La misma lista que `imageUrls`, y no `carruselItems`: si la caja se midiera
+// con una imagen que no se llega a enseñar, se dimensionaría para algo que no
+// está ahí.
+const medidas = eventData.carruselVisibles
   .map((i: any) => flyerTecnico[idDeDrive(i.urlDrive)]?.px)
   .filter((d: any): d is [number, number] => Array.isArray(d) && d[0] > 0 && d[1] > 0);
 

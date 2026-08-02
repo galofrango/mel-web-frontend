@@ -152,6 +152,49 @@ export function mapSheetRow(c: any[]) {
  * (D-131: barajar es una acción del visitante, con el botón de ordenación, no el
  * estado de partida).
  */
+/**
+ * Las imágenes de un evento que son PIEZAS que enseñar, separadas de las que
+ * solo existen para otra cosa.
+ *
+ * `carruselOrder === 0` significa «está en el archivo pero no es una pieza».
+ * Hoy lo usa una sola cosa: el fotograma que se extrae de un GIF animado, que
+ * hace de portada ligera para que la galería no descargue 14 MB, pero que no es
+ * una imagen más de la pieza — la pieza es el GIF, y es lo que se ve en la
+ * ficha (D-182).
+ *
+ * Ojo con lo que NO hace falta cambiar: como el 0 ordena primero,
+ * `carruselItems[0]` sigue siendo la portada en galería, lista, mapa y
+ * metadatos sin tocar ni una línea de esas páginas.
+ *
+ * El respaldo no es paranoia: si un evento acabara con TODAS sus imágenes a 0
+ * se quedaría sin carrusel y la ficha saldría vacía. En ese caso se enseñan
+ * igual — un dato raro degrada a lo de siempre, no a una página rota.
+ */
+export function visiblesDelCarrusel<T extends { carruselOrder: number }>(items: T[]): T[] {
+  const piezas = items.filter((i) => i.carruselOrder > 0);
+  return piezas.length ? piezas : items;
+}
+
+/**
+ * El primer y el último año que hay EN LOS DATOS.
+ *
+ * Existe porque el rango del deslizador de tiempo estaba escrito a mano como
+ * 2004–2019 en tres sitios, y el archivo dejó de empezar en 2004 en cuanto se
+ * subió un cartel de 2003 (`MEL-00085`): el servidor lo pintaba, el cliente lo
+ * filtraba por estar «fuera de rango», y el cartel parpadeaba y desaparecía sin
+ * un solo error por ninguna parte. D-183.
+ *
+ * Las fechas ilegibles («SIN FECHA», celdas vacías) NO cuentan: si valieran 0,
+ * el deslizador abarcaría dos milenios y quedaría inservible. Y si no hay ni
+ * una fecha legible se devuelve el rango histórico del archivo, que es un
+ * respaldo honesto: un archivo sin fechas no tiene rango que calcular.
+ */
+export function rangoDeAnios(items: Array<{ fecha?: unknown }>): { min: number; max: number } {
+  const anios = items.map((i) => getYear(i.fecha)).filter((a): a is number => a !== null);
+  if (anios.length === 0) return { min: 2004, max: 2019 };
+  return { min: Math.min(...anios), max: Math.max(...anios) };
+}
+
 export async function fetchEvents() {
   const rows = await fetchSheetRows();
   const rawItems = rows
@@ -181,15 +224,20 @@ export async function fetchEvents() {
         idMel: item.idMel,
       };
     }
+    // `|| 1` no vale aquí: convertía el 0 en 1 y se comía el único valor que
+    // significa algo distinto (ver `visiblesDelCarrusel`). Lo que hay que
+    // sustituir es lo ilegible —celda vacía o texto—, no el cero.
+    const orden = parseInt(item.carruselOrder, 10);
     groups[key].carruselItems.push({
       urlDrive: item.urlDrive,
-      carruselOrder: parseInt(item.carruselOrder, 10) || 1,
+      carruselOrder: Number.isFinite(orden) ? orden : 1,
       idMel: item.idMel,
     });
   });
 
   const events = Object.values(groups).map((g: any) => {
     g.carruselItems.sort((a: any, b: any) => a.carruselOrder - b.carruselOrder);
+    g.carruselVisibles = visiblesDelCarrusel(g.carruselItems);
     return g;
   });
   events.sort((a: any, b: any) => parseDateToNumber(a.fecha) - parseDateToNumber(b.fecha));
