@@ -9,49 +9,22 @@
  *
  * Uso:  node scripts/probar-google.mjs
  *
- * El JWT se firma con el `crypto` de Node: cero dependencias. Ver
- * docs/google-acceso.md para cómo está montado y por qué.
+ * El JWT se firma con el `crypto` de Node: cero dependencias. La lógica de
+ * autenticación vive en `src/lib/google.ts` — el motor de arreglos del panel
+ * la reutiliza, así que este script y la ruta de API comparten un solo sitio
+ * donde poder romperse. Ver docs/google-acceso.md para cómo está montado.
  */
 import { readFileSync } from 'node:fs';
-import { createSign } from 'node:crypto';
+import { leerCredencial, obtenerToken } from '../src/lib/google.ts';
 
 const RUTA = process.env.GOOGLE_CUENTA_SERVICIO || `${process.env.HOME}/.config/mel/panel-google.json`;
 const HOJA = '1buzisIlDkCo2Rj5BYZh5-JKrAYSo3RSuBXYmJVGYT0E';
-const SCOPES = 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/spreadsheets';
 
-const b64 = o => Buffer.from(typeof o === 'string' ? o : JSON.stringify(o))
-  .toString('base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-/** Un token de acceso a partir de la clave. JWT firmado con RS256, sin librerías. */
-async function token(cred) {
-  const ahora = Math.floor(Date.now() / 1000);
-  const cabecera = b64({ alg: 'RS256', typ: 'JWT' });
-  const cuerpo = b64({
-    iss: cred.client_email, scope: SCOPES,
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: ahora + 3600, iat: ahora,
-  });
-  const firma = createSign('RSA-SHA256').update(`${cabecera}.${cuerpo}`).end()
-    .sign(cred.private_key, 'base64').replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-
-  const r = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: `${cabecera}.${cuerpo}.${firma}`,
-    }),
-  });
-  const j = await r.json();
-  if (!j.access_token) throw new Error(`sin token: ${JSON.stringify(j)}`);
-  return j.access_token;
-}
-
-const cred = JSON.parse(readFileSync(RUTA, 'utf8'));
+const cred = leerCredencial(RUTA);
 console.log(`clave: ${RUTA}`);
 console.log(`cuenta: ${cred.client_email}\n`);
 
-const tk = await token(cred);
+const tk = await obtenerToken(cred);
 console.log('1. Token de acceso ......... OK\n');
 
 // --- Drive: leer metadatos de un cartel real, y ver si podemos editarlo ---

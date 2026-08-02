@@ -16,11 +16,17 @@ export type DatosImagen = {
   perfil: boolean;
   /** Si el PNG lleva canal alfa (tipos de color 4 y 6). JPEG nunca lo lleva. */
   alfa: boolean;
+  /**
+   * Si el fichero ES en escala de grises: JPEG con `comp === 1`, o PNG con
+   * tipo de color 0 o 4 (IHDR). El motor de arreglos lo usa para decidir qué
+   * perfil incrustar — uno gris se queda gris, no se pasa a RGB por el camino.
+   */
+  gris: boolean;
   bytes: number;
 };
 
 export function leerCabecera(buf: Buffer): DatosImagen {
-  const d: DatosImagen = { tipo: 'desconocido', px: null, comp: null, perfil: false, alfa: false, bytes: buf.length };
+  const d: DatosImagen = { tipo: 'desconocido', px: null, comp: null, perfil: false, alfa: false, gris: false, bytes: buf.length };
 
   // GIF: ancho y alto en los bytes 6-9, little-endian.
   if (buf.length >= 10 && buf.slice(0, 3).toString('latin1') === 'GIF') {
@@ -34,6 +40,7 @@ export function leerCabecera(buf: Buffer): DatosImagen {
     d.tipo = 'png';
     d.px = [buf.readUInt32BE(16), buf.readUInt32BE(20)];
     d.alfa = buf[25] === 4 || buf[25] === 6;
+    d.gris = buf[25] === 0 || buf[25] === 4;
     for (let i = 8; i < buf.length - 8;) {
       const largo = buf.readUInt32BE(i);
       const bloque = buf.slice(i + 4, i + 8).toString('latin1');
@@ -56,6 +63,7 @@ export function leerCabecera(buf: Buffer): DatosImagen {
       if (marcador >= 0xC0 && marcador <= 0xC3) {
         d.px = [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
         d.comp = buf[i + 9];
+        d.gris = d.comp === 1;
         break;
       }
       i += 2 + largo;

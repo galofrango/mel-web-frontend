@@ -60,16 +60,30 @@ test('PNG: detecta el perfil por el bloque iCCP', () => {
   assert.equal(leerCabecera(png(100, 100, 2, true)).perfil, true);
 });
 
+test('PNG: gris por el tipo de color del IHDR (0 y 4), no confundir con alfa', () => {
+  assert.equal(leerCabecera(png(100, 100, 0)).gris, true, 'tipo 0 = gris sin alfa');
+  assert.equal(leerCabecera(png(100, 100, 4)).gris, true, 'tipo 4 = gris CON alfa');
+  assert.equal(leerCabecera(png(100, 100, 4)).alfa, true, 'tipo 4 también lleva alfa');
+  assert.equal(leerCabecera(png(100, 100, 2)).gris, false, 'tipo 2 = RGB, no es gris');
+  assert.equal(leerCabecera(png(100, 100, 6)).gris, false, 'tipo 6 = RGBA, no es gris');
+});
+
 test('JPEG: dimensiones, componentes y perfil', () => {
   const color = leerCabecera(jpeg(1613, 2235, 3, true));
   assert.equal(color.tipo, 'jpeg');
   assert.deepEqual(color.px, [1613, 2235]);
   assert.equal(color.comp, 3);
   assert.equal(color.perfil, true);
+  assert.equal(color.gris, false);
 
   const cmyk = leerCabecera(jpeg(800, 600, 4, false));
   assert.equal(cmyk.comp, 4);
   assert.equal(cmyk.perfil, false);
+  assert.equal(cmyk.gris, false);
+
+  const gris = leerCabecera(jpeg(800, 600, 1, false));
+  assert.equal(gris.comp, 1);
+  assert.equal(gris.gris, true, 'comp === 1 es la señal de gris en JPEG');
 });
 
 test('GIF: dimensiones en little-endian', () => {
