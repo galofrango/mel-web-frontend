@@ -6,16 +6,20 @@
  * línea de desbordamiento; no conoce `Grupo` ni hace ningún cálculo propio.
  *
  * Franja de color de 8px a la izquierda, a toda su altura — código de color
- * por gravedad (ajuste del propietario tras rediseñar el panel en Figma),
- * mismo idioma que `FRANJA_CABECERA` en PanelSeccion.astro: un `border-l-8`
- * hace de barra sin necesitar un elemento aparte (siempre cubre el alto
- * entero de la caja, sea cual sea). `FRANJA_GRAVEDAD` mapea nivel → clase;
- * nivel 1 reutiliza el primitivo `le-400` ya autorizado (fijo, no cambia con
- * el tema), nivel 2 el token `--mel-gravedad-2` nuevo en global.css (el
- * ámbar de Figma no existía en el DS). Añadir un nivel 3 es añadir su color
- * en global.css y una línea en este mapa Y en el de PanelSeccion.astro — los
- * dos únicos sitios que lo necesitan, nunca las tarjetas u cabeceras ya
- * pintadas.
+ * por gravedad (ajuste del propietario tras rediseñar el panel en Figma).
+ * Va en `position: absolute` (`top:-1px bottom:-1px left:-1px`, 8px de
+ * ancho) CUBRIENDO el borde de la tarjeta, no como `border-l-8`: así lo
+ * construye el propio nodo 1220:228148 (un rectángulo "Color indicator"
+ * aparte, hermano del contenido, no un borde) — confirmado contra Figma en
+ * vivo. Ya no es "mismo idioma que `FRANJA_CABECERA`" en PanelSeccion.astro:
+ * esa cabecera sigue con `border-l-8` porque no se ha tocado en esta tarea,
+ * y es un nodo de Figma distinto. `FRANJA_GRAVEDAD` mapea nivel → clase de
+ * fondo para esa franja; nivel 1 reutiliza el primitivo `le-400` ya
+ * autorizado (fijo, no cambia con el tema), nivel 2 el token
+ * `--mel-gravedad-2` nuevo en global.css (el ámbar de Figma no existía en el
+ * DS). Añadir un nivel 3 es añadir su color en global.css y una línea en
+ * este mapa Y en el de PanelSeccion.astro — los dos únicos sitios que lo
+ * necesitan, nunca las tarjetas u cabeceras ya pintadas.
  *
  * `min-h-[206px]` (no `h-`): 206px es el alto de la tarjeta en Figma, pero
  * es el de la MÁS CORTA de las dos (3 líneas, sin desbordamiento) — «Bajo
@@ -66,29 +70,30 @@ const estadoClase = activa
   ? 'bg-mel-bg-tertiary border-mel-action-primary shadow-[var(--mel-shadow-button)]'
   : 'bg-mel-bg-secondary border-mel-border';
 
-// Ver comentario de cabecera: barra de 8px por nivel, independiente de si la
-// tarjeta está activa o no (el color de gravedad no es un estado, es un dato).
+// Ver comentario de cabecera: barra absoluta de 8px por nivel, independiente
+// de si la tarjeta está activa o no (el color de gravedad no es un estado,
+// es un dato). Ahora es clase de FONDO (`bg-`), no de borde.
 const FRANJA_GRAVEDAD: Record<1 | 2, string> = {
-  1: 'border-l-mel-le-400',
-  2: 'border-l-mel-gravedad-2',
+  1: 'bg-mel-le-400',
+  2: 'bg-mel-gravedad-2',
 };
 ---
 
 <button
   type="button"
-  class={`tarj group flex flex-col items-start gap-4 text-left border border-l-8 p-6 min-h-[206px] transition-colors duration-200 w-full ${estadoClase} ${FRANJA_GRAVEDAD[nivel]}`}
+  class={`tarj group relative flex flex-col items-start gap-4 text-left border pl-8 pr-6 py-6 min-h-[206px] transition-colors duration-200 w-full ${estadoClase}`}
   data-nivel={nivel}
   data-activa={activa ? 'true' : 'false'}
   aria-pressed={activa ? 'true' : 'false'}
 >
-  <span class="typo-overline text-mel-text-secondary">{overline}</span>
+  <span class="typo-overline text-mel-text-primary">{overline}</span>
 
   <span class="cifra typo-h1 text-mel-text-primary">{cifra}</span>
 
   <span class="lins flex flex-col w-full gap-1">
     {lineas.map((linea) => (
       <span class="flex items-baseline justify-between gap-4 w-full">
-        <span class="typo-caption text-mel-text-secondary truncate">{linea.titulo}</span>
+        <span class="typo-caption text-mel-text-primary truncate">{linea.titulo}</span>
         <span class="typo-caption text-mel-text-primary shrink-0">{linea.cifra}</span>
       </span>
     ))}
@@ -99,4 +104,6 @@ const FRANJA_GRAVEDAD: Record<1 | 2, string> = {
       </span>
     )}
   </span>
+
+  <span class={`absolute top-[-1px] bottom-[-1px] left-[-1px] w-2 ${FRANJA_GRAVEDAD[nivel]}`} aria-hidden="true"></span>
 </button>

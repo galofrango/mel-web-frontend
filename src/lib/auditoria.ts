@@ -87,6 +87,9 @@ type Regla = [
 // docs/superpowers/specs/2026-07-31-panel-control-archivo-design.md, sección
 // "El texto de cada aviso". El " / " del spec separa las dos frases (el
 // problema / la corrección); aquí se conserva el corte con <br><br>.
+// Excepción: la descripción de "sin-artistas" es una reescritura posterior
+// del propietario (frase única, sin ese corte y sin negritas) — no sigue el
+// patrón problema/corrección de las demás, y es a propósito.
 //
 // El marcador [hoja→X] (p.ej. [hoja→E1]) es un enlace a esa columna de la
 // hoja. NO se resuelve a <a href> aquí: la URL sale de `SHEET_ID` (mel.ts)
@@ -103,7 +106,7 @@ const REGLAS: Regla[] = [
    (f, t) => estaVacio(f.lugar)],
   ['sin-coordenadas', 1, 'Sin coordenadas', 'El evento no aparece en el mapa', 'Abrir en la hoja', false,
    '<b>El problema es que sin el enlace de Google Maps el evento no sale en el mapa.</b><br><br>La forma de corregirlo es buscar el local en Google Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1]. El sitio saca el punto exacto del propio enlace.',
-   'Si esta celda se deja <b>vacía</b> hay un plan B: el sitio busca la localidad en una tabla de 18 municipios y direcciones ya geocodificados, y coloca el evento en el centro de su municipio — aproximado, pero en el mapa. Ese respaldo <b>solo entra si la celda está vacía</b>, así que escribir «Desconocido» lo apaga y el evento desaparece del mapa del todo. Es al revés que en la columna Lugar, donde «Desconocido» da igual.', 'id',
+   'Si esta celda se deja vacía el sitio busca la localidad en una tabla y coloca el evento en el centro de su municipio. Si se rellena con «Desconocido», el evento no se mostrará en el mapa del todo.', 'id',
    (f, t) => estaVacio(f.coordenadas)],
   // Dentro de "Falta información" (nivel 1: sin-lugar, sin-coordenadas,
   // sin-artistas), el orden interno responde a otro criterio, no a la
@@ -114,7 +117,7 @@ const REGLAS: Regla[] = [
   // al fundirse en una sola, el rótulo dejó de distinguirlas — así que ahora
   // es el orden quien lo dice.
   ['sin-artistas', 1, 'Sin artistas', 'El archivo no sabe quién pinchó', 'Abrir en la hoja', false,
-   '<b>El problema es que el archivo no sabe quién pinchó en ese evento</b>, y en un archivo la laguna es información, no un error.<br><br>La forma de corregirlo es escribir los nombres en la columna H de la [hoja→H1]. Suelen estar impresos en el propio cartel.',
+   'Aún no sabemos quién actuó en el evento o no hemos rellenado la columna H de la [hoja→H1] con los nombres de los artistas separados por comas.',
    null, 'id',
    (f, t) => estaVacio(f.artistas)],
   ['png', 2, 'Archivo PNG', 'Hasta 10× de peso en miniatura, y la galería carga 32 de golpe', 'Convertir a JPG', true,
