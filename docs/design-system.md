@@ -29,6 +29,7 @@ Dos paletas primitivas:
 - **Leon Orig** (`--mel-primitive-le-50…950`): Granates saturados característicos de la marca.
 - **Leon Tinted** (`--mel-primitive-tinted-50…950`): Neutros rosados para fondos y textos secundarios.
 - **Primarios CMYK** (`cian`, `magenta`, `yellow`): Usados en la experiencia de la Intro Animada.
+- **Banner Colors** (`--mel-primitive-b-/g-/y-200|400|600`): Azul, verde y amarillo para los banners de aviso. Nombres y pasos calcados del grupo homónimo de Figma. Están los nueve aunque hoy solo se usen los tres amarillos: esta capa es el espejo de Figma, y un espejo con huecos no sirve para comparar. Es la única rampa en HEX y no en HSL, a propósito — ver el comentario en `global.css`.
 
 ### Tabla de Variables Semánticas
 
@@ -46,6 +47,12 @@ Dos paletas primitivas:
 | `action-secondary` | le-800 | le-100 | Botones principales y handles de slider |
 | `action-tertiary` | tinted-500 | tinted-400 | Bordes activos y elementos secundarios |
 | `border` | tinted-200 | tinted-700 | Divisores y bordes de tarjetas |
+| `banner-error-border` | le-500 | *(igual)* | Franja de 8px de gravedad nivel 1 en `/panel` |
+| `banner-warning-border` | y-400 | *(igual)* | Franja de 8px de gravedad nivel 2 en `/panel` |
+| `banner-warning-bg` | y-200 | *(igual)* | Fondo del banner de aviso de `/panel` |
+| `banner-warning-text` | y-600 | *(igual)* | Texto e icono de ese banner |
+
+**La familia `banner`** es traducción literal de las variables de Figma (`Border/Banner Error`, `Background/Banner Warning`…) para que las dos listas se comparen de un vistazo, aunque el uso desborde el nombre: los dos `*-border` son además el código de color por gravedad. Del banner **solo existe la variante de aviso**: en el diseño la usan igual las secciones de nivel 1 que las de nivel 2, y lo que distingue la gravedad es la franja, no el banner. Son los únicos semánticos que **no cambian con el tema** — un aviso tiene que leerse igual de urgente de noche que de día.
 
 El modo oscuro se activa mediante la clase `.dark` en la etiqueta `<html>`, persistida en `localStorage['mel-color-scheme']` y procesada antes del primer pintado en `Layout.astro`.
 

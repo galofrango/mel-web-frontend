@@ -135,9 +135,8 @@ Cada aviso dice su **consecuencia**, no su regla. Si no se puede terminar la fra
 | Sin lugar | `lugar` vacío o centinela | 1 | Abrir en la hoja (col. E) | No |
 | Sin coordenadas | `coordenadas` no resoluble | 3 | Abrir en la hoja (col. G) | No |
 | Archivo PNG | `tipo === 'png'` | 33 | Convertir a JPG **+ sRGB** | Sí |
-| En CMYK | `comp === 4` | 1 | Pasar a sRGB | Sí |
 | Por encima de 3000 px | lado mayor > 3000 | 6 | Reducir a 2400 px | Sí |
-| Sin perfil de color | sin ICC en cabecera | 34 | Incrustar sRGB | Sí |
+| No está en sRGB | `comp === 4` o ICC con primarios ≠ sRGB | 13 | Pasar a sRGB | Sí |
 | Por encima de 2 MB | `bytes > 2 MiB` | 25 | Recomprimir | Sí |
 | Baja resolución | lado mayor < 1200 | 13 | — | **No la hay** |
 | GIF animado | `tipo === 'gif'` | 1 | — | **No debe haberla** |
@@ -192,9 +191,10 @@ revés que en la columna Lugar, donde «Desconocido» da igual.»
 
 **Archivo PNG** · desc: «**El problema es el peso**: en tamaño de miniatura un PNG
 puede pesar diez veces más que el mismo cartel en JPEG, y la galería carga 32 de
-golpe. / La forma de corregirlo es convertir a JPEG calidad 85 **e incrustar sRGB
-en la misma pasada** — por separado, la conversión deja el fichero etiquetado como
-Adobe RGB y arreglas el peso creando un problema de color.» · banner: «20 de estos
+golpe. / La forma de corregirlo es convertir a JPEG calidad 85 **y pasar el color
+a sRGB en la misma pasada** — por separado, la conversión le quita al fichero la
+etiqueta de color sin convertir los píxeles, y arreglas el peso creando un
+problema de color.» · banner: «20 de estos
 33 llevan transparencia y JPEG no la admite, así que hay que decidir una vez sobre
 qué fondo se aplanan.»
 
@@ -209,13 +209,22 @@ corregirlo es reducir a 2400 px de lado mayor, que es el techo que fija vuestro
 *imagenes.md*.» · banner: «Medido en el más grande del archivo: de 4961×9674 a
 1230×2400, y de 2,1 MB a 263 KB.»
 
-**Sin perfil de color** · desc: «**El problema es que el fichero no dice en qué
-espacio de color están sus números**, así que el navegador asume sRGB. Si no lo
-era, el cartel sale apagado — y como avisa vuestro *imagenes.md*, el peligro no es
-tener Adobe RGB, es no tener nada. / La forma de corregirlo es convertir a sRGB e
-incrustar el perfil. No cambia lo que se ve si ya era sRGB: solo lo hace
-explícito.» · banner: «Tres de estos son en escala de grises (MEL-00002, MEL-00004
-y MEL-00007) y la conversión los pasaría a RGB. Decidid si se excluyen.»
+**Perfil que no es sRGB** · desc: «**El problema no es cómo se ve hoy: es que se
+ve bien por un favor de Drive.** El fichero lleva un perfil que no es sRGB, Drive
+lo conserva en la miniatura y el navegador lo respeta. Pero cualquier herramienta
+que redimensione la imagen le quita la etiqueta sin convertir los colores, y a
+partir de ahí el cartel sale apagado. / La forma de corregirlo es pasarlo a sRGB,
+que es lo que fija vuestro *imagenes.md* para todo el archivo.» · banner: «Medido
+en agosto de 2026: 8 en Adobe RGB (1998), 2 en Generic RGB y 2 con el perfil de un
+monitor. No hay ninguno en escala de grises entre ellos.»
+
+> **Corregido el 02/08/2026 — ver D-174.** Este aviso decía «Sin perfil de color»
+> y marcaba 34 carteles. Estaba mal por dos motivos que solo se ven midiendo: un
+> fichero sin etiqueta **ya se lee como sRGB**, así que la ausencia no es un
+> defecto; y **ninguna herramienta de esta máquina puede incrustar el perfil
+> sRGB** —ni `sips`, ni ImageIO— así que el arreglo que prometía era imposible.
+> Tal como estaba, el panel recomprimía 34 carteles para dejarlos igual y volvía
+> a avisar de los mismos, incluidos los que él mismo acababa de arreglar.
 
 **Por encima de 2 MB** · desc: «**El problema es que ese peso se paga en cada
 visita**: Drive responde *no-store*, así que no hay caché posible y el original
@@ -573,8 +582,11 @@ Medido descargando los 84 ficheros. La distribución de formatos —50 JPEG, 33 
 
 Hallazgos que no estaban documentados:
 
-- **34 de 84 (el 40%) no llevan perfil de color incrustado.** `imagenes.md` ya
-  avisaba de que ese es el peligro real, no tener Adobe RGB.
+- **34 de 84 (el 40%) no llevan perfil de color incrustado**, y se leyó como el
+  peligro que `imagenes.md` señalaba. **Era una lectura equivocada** — un fichero
+  sin etiqueta ya se lee como sRGB. Lo que sí es un hallazgo, medido después: **12
+  de los 50 JPEG llevan un perfil que NO es sRGB** (8 Adobe RGB, 2 Generic RGB, 2
+  el perfil de un monitor). Ver D-174.
 - **Hay un CMYK: `MEL-00006`.** La documentación decía que el CMYK es el problema
   serio y no señalaba ninguno.
 - **Seis pasan de 3000 px**, uno de ellos `MEL-00027` a 4961×9674 y otro
@@ -600,11 +612,15 @@ como son y además pesan menos**:
 | `MEL-00004` | 541 KB | **514 KB**, sigue en gris | 525 KB, pasa a RGB |
 | `MEL-00007` | 595 KB | **322 KB**, sigue en gris | 332 KB, pasa a RGB |
 
-**Decisión: no se excluyen, se arreglan bien.** El aviso sigue siendo «Sin perfil
-de color» —el diagnóstico es correcto, el fichero no lleva perfil— y lo que se
-adapta es la **acción**: `sips --matchTo` con el perfil de gris del sistema si el
-fichero es gris (`comp === 1` en JPEG), y con sRGB si es color o CMYK. Un cartel
-en blanco y negro se queda en blanco y negro.
+**Decisión: no se excluyen, se arreglan bien.** Lo que se adapta es la **acción**:
+`sips --matchTo` con el perfil de gris del sistema si el fichero es gris
+(`comp === 1` en JPEG), y con sRGB si es color o CMYK. Un cartel en blanco y negro
+se queda en blanco y negro.
+
+> **Matizado el 02/08/2026 — ver D-174.** Estos tres ya no salen en ningún aviso:
+> no llevar etiqueta dejó de ser un defecto. La regla del perfil de gris sigue
+> viva y sigue haciendo falta, porque se aplica a cualquier cartel gris que caiga
+> en un arreglo por otro motivo (pesar de más, ser PNG, pasar de 3000 px).
 
 Requiere una adición pequeña a `imagen.ts`: para PNG hay que registrar también si
 es gris (tipo de color 0 o 4 del IHDR), porque hoy solo se registra el alfa, y un

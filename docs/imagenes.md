@@ -14,7 +14,7 @@ Para quien sube material al Drive. No hace falta saber nada de código.
 | **Lado mayor** | **2000–2400px** |
 | **Mínimo aceptable** | **1200px** de lado mayor. Por debajo se ve blando al ampliar |
 | **Formato** | **JPEG**, calidad 85 |
-| **Perfil de color** | **sRGB, y que el perfil vaya incrustado**. Nunca CMYK |
+| **Perfil de color** | **sRGB**. Nunca CMYK, ni Adobe RGB. Sin etiqueta ya significa sRGB |
 | **Recorte** | Al borde del cartel, sin margen blanco de escaneo |
 | **Peso** | Da igual. 600 KB – 1,5 MB es normal y está bien |
 
@@ -85,19 +85,35 @@ de alguna, merece la pena resubirlo:
 `MEL-00034` (842×1191, dos imágenes) · `MEL-00047` (303×709 y 709×696) ·
 `MEL-00058` (1134×1030) · `MEL-00062` (408×992) · `MEL-00067` (300×709 y 510×510)
 
-### Por qué sRGB, y por qué lo que importa es que el perfil esté
+### Por qué sRGB, y qué significa de verdad no tener perfil
 
 El perfil de color es una nota dentro del fichero que dice con qué tabla hay que
-leer sus colores. Los navegadores modernos la respetan, así que **el peligro no es
-tener AdobeRGB: es no tener nada.** Un fichero sin perfil cuyos colores no son
-sRGB se pinta asumiendo sRGB, y sale apagado.
+leer sus colores. Un fichero **sin** esa nota se pinta asumiendo sRGB, en todos
+los navegadores. Así que "sin perfil" no es un defecto: **significa sRGB**. Lo
+malo es tener números que no son sRGB y ninguna nota que lo avise — que es lo que
+pasa cuando una herramienta convierte a medias.
 
-Así que la regla es: **convierte a sRGB e incrusta el perfil**. Es lo más
-compatible y lo más ligero.
+La regla, entonces: **convierte a sRGB**. Que la etiqueta acabe puesta o no es
+secundario, y de hecho **no está en tu mano**.
 
-Medido en el archivo (julio 2026): hay al menos uno en **Adobe RGB (1998)**
-(`MEL-00013`) y uno en sRGB correctamente incrustado (`MEL-00005`). El de Adobe
-RGB se ve bien hoy porque lleva su perfil, pero conviene pasarlo a sRGB.
+**Medido el 02/08/2026, y conviene saberlo antes de perder una tarde:**
+
+- De los 50 JPEG del archivo, **40 llevan perfil incrustado**: 28 en sRGB, 8 en
+  **Adobe RGB (1998)**, 2 en *Generic RGB* y 2 con el perfil de un monitor.
+- Los 12 que no son sRGB **se ven bien hoy**, porque Drive conserva el perfil en
+  la miniatura que sirve el sitio (comprobado leyendo la miniatura de
+  `MEL-00009`: llega con su Adobe RGB dentro).
+- `sips` **le quita la etiqueta a todo lo que toca** —redimensionar, recomprimir,
+  cambiar de formato— y **no convierte los píxeles al hacerlo**. Un Adobe RGB
+  redimensionado a secas sale apagado: medido, 13 puntos de 255 de desaturación
+  en las zonas de color. Por eso todo arreglo del panel lleva `--matchTo` en la
+  misma orden: así sí convierte.
+- **Nada de esta máquina incrusta el perfil sRGB.** Ni `sips --embedProfile`, ni
+  ImageIO desde Swift. macOS lo omite a propósito, porque para el sistema un
+  fichero sin etiqueta ya es sRGB.
+
+De ahí que el panel avise de **"perfil que no es sRGB"** y no de "sin perfil":
+avisar de la ausencia sería marcar como defectuoso su propio trabajo, en bucle.
 
 **CMYK sí es un problema de verdad**: es un espacio de imprenta, no de pantalla, y
 el soporte en navegador es irregular.
@@ -122,5 +138,6 @@ importa; que pese 800 KB o 1,4 MB, no.
 - **No ampliar** un original pequeño antes de subirlo. No añade información y
   engaña sobre la calidad real que hay
 - **No pasar de ~3000px** de lado mayor: no lo muestra nada
-- **No guardar sin perfil de color** si la imagen no es sRGB
+- **No guardar en Adobe RGB** ni en ningún espacio que no sea sRGB. Sin etiqueta
+  no es problema: eso ya se lee como sRGB
 - **No obsesionarse con el peso** a costa de la calidad

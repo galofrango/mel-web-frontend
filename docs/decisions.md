@@ -2668,3 +2668,392 @@ El hueco de más se resolverá el día que esta franja pase a ser parte de la ca
 
 - **`theme-color` NO está implementado.** Se creía que sí. No hay ni `theme-color`, ni manifest, ni metas de Apple en `Layout.astro` ni en `public/`. Lo que se ve en Safari es el navegador tiñendo su barra con el color de fondo de la página por su cuenta: funciona por defecto, no por diseño, y en modo oscuro no hay nada que lo gobierne.
 - **Los ~27px bajo el mapa en escritorio son PROPORCIONALES**, no fijos: `pb-[3vh]`, un 3% del alto de la ventana. Criterio del propietario: si es proporcional, se queda.
+
+## D-174 · El panel avisa de «perfil que no es sRGB», no de «sin perfil de color»
+
+**Contexto.** La regla `sin-perfil` marcaba los 34 carteles cuya cabecera no lleva
+un bloque ICC, y prometía «Incrustar sRGB». Salió de una lectura de `imagenes.md`
+que decía *«el peligro no es tener Adobe RGB, es no tener nada»* — cierto en su
+matiz original (*un fichero sin perfil **cuyos colores no son sRGB*** se pinta
+apagado), pero al pasar a código se perdió la condición.
+
+**Lo que se midió el 02/08/2026**, byte a byte y pixel a pixel:
+
+1. `sips -g profile` **miente**: contesta `sRGB IEC61966-2.1` incluso de un
+   fichero sin ningún perfil dentro. Informa del perfil *supuesto*. Toda
+   verificación de color hecha con esa orden no vale — hubo una, y era mía.
+2. **`--matchTo` sí convierte los píxeles** (21% de píxeles cambiados, los
+   saturados de 179,5·140,5·78,8 a 192,5·146,2·78,9, que es exactamente la
+   transformación Adobe RGB → sRGB). Control negativo: 0 diferencias.
+3. **Cualquier otra orden de `sips`** —`-Z`, `-s format jpeg`, recomprimir— le
+   quita la etiqueta al fichero **sin convertir los píxeles**: el resultado sale
+   13 puntos de 255 desaturado. Por eso `--matchTo` va **siempre** en la misma
+   invocación, y no es una comodidad sino un requisito.
+4. **Nada de esta máquina incrusta el perfil sRGB.** Ni `sips --embedProfile`
+   (en cuatro combinaciones), ni ImageIO desde Swift (`CGImageDestination`,
+   convirtiendo de verdad con `CGContext`). macOS lo omite a propósito: para el
+   sistema, sin etiqueta ya significa sRGB.
+5. **Drive conserva el perfil** en la miniatura que sirve el sitio: la de
+   `MEL-00009` llega con su Adobe RGB dentro (rojo X = 0,6097). O sea que hoy no
+   se ve nada mal — pero se ve bien por cortesía de Drive.
+
+**El fallo que eso destapó.** `planificarArreglo` contaba «no lleva perfil» como
+motivo de arreglo. Como el arreglo no puede poner la etiqueta, el panel proponía
+recomprimir 34 carteles —perdiendo calidad— para dejarlos exactamente igual, y
+después volvía a avisar de los mismos. Y de propina, todo cartel que el panel
+arreglara por cualquier otro motivo entraba en esa lista para siempre.
+
+**Decisión.** La regla pasa a ser `no-srgb`: avisa cuando el perfil incrustado
+**no es sRGB**. Hoy son 12 (8 Adobe RGB, 2 Generic RGB, 2 el perfil de un
+monitor). La ausencia de etiqueta deja de ser un defecto, porque no lo es.
+
+**Cómo se decide si un perfil es sRGB:** por los primarios rojo y verde del
+propio perfil (`rXYZ`/`gXYZ`), con tolerancia 0,004 — no por el nombre, que
+varía. Medido en el archivo: sRGB está en 0,4361·0,3851 y el no-sRGB más cercano
+(un perfil de monitor) en 0,4443·0,3794. Si el perfil no trae primarios (los de
+gris llevan `kTRC`), no se avisa: dar por malo lo que no se sabe leer es gritar
+en falso.
+
+**Consecuencias.**
+
+- `DatosImagen.perfil` (booleano, «lleva perfil») se sustituye por `noSrgb`. Hubo
+  que remedir el archivo entero.
+- **Los PNG no se miran**: todos disparan la regla `png` y se convierten con
+  `--matchTo`, así que su color se arregla por ese camino. Mirarlos sería avisar
+  dos veces del mismo cartel y obligaría a descomprimir el bloque `iCCP`.
+- `no-srgb` **no comparte ni un cartel** con `png`, `cmyk` ni `enorme`. Va antes
+  de `pesado` porque uno de los doce pasa de 2 MB y baja solo al convertirse.
+- `imagenes.md` queda corregido: la norma es «convierte a sRGB», y que la
+  etiqueta acabe puesta no está en nuestra mano.
+
+**Lo que esto enseña.** La comprobación de una herramienta contra sí misma no
+verifica nada. `sips` decía que el perfil estaba, y estuvo diciéndolo durante
+horas de trabajo montado encima. Quien lo pilló fue un agente que fue a mirar los
+bytes.
+
+## D-175 · Un botón del panel hace SOLO lo que dice
+
+**Contexto.** `planificarArreglo` calculaba el plan del **estado medido** del
+fichero e ignoraba qué botón se había pulsado. La idea era buena —una sola
+pasada de `sips`, porque cada recompresión de un JPEG pierde calidad— pero
+llevaba a esto: `MEL-00083` es un PNG de 3509×4962 que sale en «Por encima de
+3000 px» con el botón *Reducir a 2400 px*, y pulsarlo además lo convertía a JPEG
+**y le aplanaba la transparencia**.
+
+**El criterio del propietario (02/08/2026), literal:** *«Los botones no deben
+hacer más de lo que dicen, si no, no estaríamos separando por incidencias y no
+daríamos la opción de incluir otras acciones en el modal.»*
+
+Y detrás hay una decisión de producto más grande: **no va a haber una
+normalización general del archivo a una norma única**. Muchos PNG se quedan PNG
+porque llevan transparencia, y eso no impide optimizarlos por tamaño o por color.
+
+**Decisión.** `planificarArreglo(tecnico, acciones)` recibe las acciones que se
+piden —la del botón, más las que se marquen en el modal— y el estado medido solo
+decide si cada una tiene algo que hacer aquí. Consecuencias:
+
+- **La salida solo se mueve hacia JPEG, y solo si se pide `png`.** Un PNG al que
+  únicamente se le pide reducir sale reducido **y sigue siendo PNG**.
+- Sin `-s format`, `sips` conserva el PNG **y su transparencia** — comprobado
+  sobre `MEL-00008`: alfa intacto al reducir (2268→1200 px, 1112→495 KB) y al
+  pasar el color. Ojo, la conversión de color **engorda** el PNG (1112→1294 KB).
+- **La escalera de calidad solo baja si se pidió `pesado`.** Antes bajaba siempre
+  que el resultado pasara de 2 MB, aunque solo se hubiera pedido convertir.
+- **`pesado` sobre un PNG que sigue siendo PNG se rechaza**, con su motivo: un
+  PNG no tiene calidad que bajar. Si viene acompañado de `enorme`, adelgaza
+  reduciendo y no hace falta rechazar nada.
+- La ruta acepta `{ acciones: [...] }` además de `{ accion }`.
+
+**Lo único que se sigue haciendo sin pedirlo es `--matchTo`**, y no contradice
+la regla: es lo que impide **romper** el fichero. `sips` a secas le quita la
+etiqueta de color sin convertir los píxeles (D-174). Sobre algo que ya es sRGB
+no cambia nada.
+
+**Lo que esto enseña.** «Calcularlo del estado y no de lo que pidió el usuario»
+suena a robustez y es lo contrario: convierte cada botón en una caja negra que
+puede hacer algo que nadie autorizó. Si la interfaz separa por incidencias, el
+motor tiene que separar por incidencias.
+
+## D-176 · Del GIF se usa siempre el primer fotograma
+
+**Decisión del propietario (02/08/2026):** de `MEL-00077` (177 fotogramas,
+14,4 MB) se toma **el primer fotograma**, sin más criterio ni selección manual.
+
+**Y el fotograma vive también en Drive**, junto al GIF, con un nombre o apellido
+que deje claro lo que es. O sea: no se sustituye nada — el GIF entero se queda
+como copia de preservación y el fotograma entra como **fichero nuevo**. Y **sí
+entra en la hoja**, replicando las columnas de su fila padre salvo el orden del
+carrusel, que va a 0 (ver D-182).
+
+Eso cierra el qué, pero **estrena una capacidad que el motor no tiene**. Todo lo
+que hace hoy el panel es sustituir contenido conservando el id (`PATCH
+upload/…?uploadType=media`). Esto pide otras dos cosas:
+
+1. **Crear** un fichero en Drive, no reemplazarlo.
+2. **Escribir en la hoja** para que `urlDrive` apunte al fotograma, o el sitio
+   seguiría sirviendo los 14,4 MB. Hasta ahora ninguna acción del panel toca ni
+   una celda, que era parte de su contrato de seguridad.
+
+Las dos están al alcance de la cuenta de servicio (comprobadas en
+`scripts/probar-google.mjs`), pero son diseño, no un ajuste. Hasta entonces el
+aviso sigue **sin botón**, y el texto de la regla lo dice.
+
+## D-177 · La cuenta de servicio no puede borrar nada, y eso es la red de seguridad
+
+Al intentar limpiar el fichero de prueba `PRUEBA-PANEL-borrar.png` salió un 403.
+Medido contra la API de Drive: el dueño del fichero es el propietario
+(`galo.franganillo@gmail.com`), no la cuenta de servicio, que tiene
+`canEdit: true` pero `canDelete: false` y `canTrash: false`.
+
+No es una limitación que haya que arreglar: **el panel no puede borrar nada del
+archivo, ni por error ni a propósito.** Solo sobrescribe contenido conservando
+el id, y por eso la hoja nunca se rompe.
+
+Segunda red, también comprobada: **Drive guarda el historial de versiones**. El
+fichero de prueba conserva las dos, el PNG original y el JPEG que escribió el
+panel, así que un arreglo que salga mal se revierte desde el propio Drive.
+
+El único efecto práctico: la limpieza de ficheros de prueba la tiene que hacer
+el propietario a mano.
+
+## D-178 · «Mostrar avisos ocultos» sube a la cabecera, y un aviso oculto deja de desaparecer
+
+**Contexto.** El botón vivía dentro de cada sección. El propietario dio con la
+contradicción jugando con el prototipo: para alojarlo había que **seguir pintando
+la sección entera aunque no le quedara ni un aviso visible**. Una sección vacía
+que solo existe para hospedar su propio botón.
+
+**Decisión.** El botón pasa a la cabecera, junto a *Releer el spreadsheet*
+(Figma 1229:101016: 320px cada uno, `px-32 py-16`, 24 de hueco). Al encenderlo
+cambia **todo el panel**: reaparecen las secciones que solo tenían ocultos, y se
+recalculan las cifras de las tarjetas y de cada sección.
+
+**Lo que hubo que cambiar por debajo, que es lo de fondo.** `auditar()`
+**descartaba** los avisos silenciados con `#acepta:` en la hoja. Así, un aviso
+oculto no existía para el navegador: no había forma de enseñarlo sin volver a
+pedirle la hoja al servidor. Ahora vienen igual, marcados con `item.oculto`, y
+un grupo con todos sus avisos ocultos **sigue viniendo**.
+
+Con eso, los dos tipos de "oculto" —el silenciado en la hoja y el que se oculta
+en esta sesión— pasan a ser **el mismo estado**: `data-oculta` en la fila, que
+puede poner el servidor o el cliente. Lo que se ve lo decide una regla CSS que
+cruza ese atributo con el interruptor. Antes el de sesión era un `style.display`
+en línea y el otro no llegaba a existir.
+
+**Dos trampas que salieron al construirlo:**
+
+1. **El botón no aparecía nunca.** Estaba condicionado en SSR a que hubiera
+   `#acepta:` en la hoja, y hoy no hay ninguno — así que al ocultar filas en la
+   sesión no había botón para recuperarlas. Ahora se pinta siempre, nace
+   `hidden` y el cliente lo enseña con la cifra al día. Y con el interruptor
+   encendido no se esconde aunque la cifra baje a 0: sería un modo sin salida.
+2. **`section.hidden` ya tenía dueño.** El filtro por tarjeta (nivel 1 / nivel 2)
+   lo usaba para enseñar solo las secciones del nivel activo. Al escribir ahí
+   también "sección sin nada que enseñar", cada recálculo borraba el filtro —
+   medido: las nueve secciones de nivel 2 nacían ocultas. Se separó en
+   `data-vacia`, y los combina el CSS. **Un canal por concepto.**
+
+## D-179 · «En CMYK» se funde dentro de «No está en sRGB»
+
+Propuesta del propietario. El defecto es el mismo —el fichero no está en sRGB—,
+lo arregla el mismo botón, y una sección con **un solo cartel** era ruido.
+Quedan 13 (1 CMYK + 8 Adobe RGB + 2 Generic RGB + 2 de un monitor), sin ni un
+solapamiento entre las dos reglas viejas (medido).
+
+Ocupa el sitio que tenía `cmyk` en el orden de trabajo. Da igual cuál de los dos
+sitios: no comparte ni un cartel con `png` ni con `enorme`, y lo único que
+importa es que vaya por delante de `pesado`, porque uno de los trece pasa de
+2 MB y baja solo al convertirse.
+
+En el motor, `APLICA['no-srgb']` pasa a ser `t.comp === 4 || t.noSrgb`, y `cmyk`
+desaparece de las acciones válidas de la ruta.
+
+## D-180 · Un aviso oculto que se está enseñando es de solo lectura
+
+Con el interruptor de la cabecera encendido, una fila oculta **se ve apagada
+(45%), se va al final de la tabla, cambia su botón a «Mostrar aviso» y pierde el
+resto de controles** — la acción y la casilla se desactivan. Criterio del
+propietario: su aviso está aceptado, así que lo único que se le puede hacer es
+devolverlo. Poder convertirla desde ahí sería procesar algo que se había dado
+por bueno.
+
+**El apagado y el orden van en las CELDAS, no en la fila**, y no es un capricho:
+`.fila` es `display:contents`, no genera caja y por tanto no admite ni `opacity`
+ni `order`. Como sus 8 celdas son hijas directas de la rejilla de `.tabla`,
+basta con darles a todas `order:1`: se van detrás conservando entre ellas el
+orden del documento, o sea el que haya dejado la ordenación por columna. Sin JS,
+y sin pelearse con el reordenado de nodos que ya hace el cliente.
+
+El botón de la cabecera, encendido, dice **«No mostrar avisos ocultos (N)»** y
+pasa de `action-tertiary` a `action-secondary` — el estado activo es el más
+oscuro, como el resto de pares del panel.
+
+**Y se ve siempre, aunque no haya nada oculto**; en ese caso queda desactivado y
+con su «(0)», que ya es una respuesta. Llegó a esconderse del todo por la regla
+de "un control que no puede hacer nada es ruido", y fue peor: el propietario no
+lo encontraba. La causa es que **ocultar un aviso todavía no se guarda en ningún
+sitio** —eso lo trae la nota de la tarea 7B—, así que al recargar la cifra vuelve
+siempre a cero. Un control que aparece y desaparece según un estado que no
+sobrevive a una recarga se lee como un fallo, no como una comodidad.
+
+## D-181 · Umbral de tamaño a 2400, y «peso» solo para lo que ya está bien
+
+Dos cambios de comportamiento que llegaron con una ronda de textos del
+propietario (02/08/2026), y que cambian bastante las cifras.
+
+**1. El aviso de tamaño pasa de «más de 3000 px» a «más de 2400 px».** Se avisaba
+a partir de 3000 y se reducía a 2400, así que los carteles de 2401–3000 px no
+salían en ninguna parte pese a estar por encima de la norma. Un solo número
+(`UMBRAL_LADO` en auditoria.ts, `UMBRAL_ENORME`/`LADO_OBJETIVO` en arreglar.ts) y
+se acabó la franja muerta. **De 6 carteles a 16.**
+
+**2. «Peso superior a 2 MB» solo admite lo que ya está bien de todo lo demás**:
+JPEG, 2400 px o menos, y en sRGB. Palabras del propietario: *«para asegurarnos de
+que no se comprime el peso antes de ajustar el resto de ajustes»*. Convertir,
+reducir o pasar a sRGB ya adelgazan de por sí, y recomprimir antes pierde calidad
+para nada. **De 25 carteles a 4** — los otros 21 (14 PNG, 6 grandes, 1 de color)
+salen por su propia sección.
+
+La exclusión del **PNG** no estaba en el enunciado, que solo hablaba de
+resolución y espacio de color, pero se sigue del mismo criterio y además hacía
+falta: un PNG no tiene calidad que bajar, así que el botón «Recomprimir» no
+podría hacer nada con él (el motor lo rechaza desde D-175). Sin excluirlo, la
+sección ofrecía 14 botones que siempre fallan.
+
+**Animación al ocultar.** FLIP sobre las celdas —regla 2 del proyecto: dentro de
+un contenedor se anima con `transform`, nunca con `view-transition-name`— y por
+la misma razón que la opacidad y el `order` de D-180: `.fila` es
+`display:contents`, no genera caja y no admite transform. Un solo mecanismo
+sirve para los dos casos que pidió el propietario: con el interruptor apagado la
+fila se funde y las de debajo suben; con él encendido, esa misma fila baja
+deslizándose hasta el final de la tabla. Respeta `prefers-reduced-motion`.
+
+## D-182 · `carruselOrder = 0` significa «está en el archivo, pero no es una pieza»
+
+**Contexto.** El fotograma que se extraerá de un GIF (D-176) va a vivir en Drive
+**y en la hoja**, replicando las columnas de su fila padre salvo el orden del
+carrusel, que el propietario quiere a 0 «para no mostrarse». Preguntó si esa
+lógica existía. **No existía**, y además el 0 no llegaba vivo:
+
+| | |
+|---|---|
+| ¿Agrupa padre e hijo? | Sí, por `evento` + `fecha` en minúsculas. Es lo que hay que replicar |
+| ¿`carruselOrder` oculta algo? | No. Solo ordenaba |
+| ¿Qué hacía con un 0? | `parseInt(v,10) \|\| 1` lo convertía en **1** |
+| ¿Hay algún 0 hoy? | Ninguno (medido: 51 unos, 18 doses, 9 treses, 6 cuatros, 1 cinco) |
+
+**Decisión.** El 0 pasa a significar «existe, pero no es una pieza que enseñar».
+Se descartaron las otras dos vías: respetar el 0 solo para ordenar dejaría el
+fotograma y el GIF uno al lado del otro en la ficha —la misma pieza dos veces—, y
+marcarlo en otra columna necesita **exactamente el mismo código** y encima
+ensucia `Formato`, que es metadato real del archivo.
+
+**Lo que se tocó, y lo que no.** `visiblesDelCarrusel()` en `mel.ts` y dos líneas
+de la ficha. Nada más, y no por suerte: como el 0 **ordena primero**,
+`carruselItems[0]` sigue siendo la portada en galería, lista, mapa y metadatos
+sin cambiar ni una línea de esas páginas. Lo único nuevo es que el carrusel de la
+ficha —y las medidas de su caja de imagen, que tienen que cuadrar con él— usan
+`carruselVisibles`.
+
+El respaldo no es paranoia: si un evento acabara con todas sus imágenes a 0 se
+quedaría sin carrusel. En ese caso se enseñan igual. Un dato raro degrada a lo de
+siempre, no a una ficha en blanco.
+
+**Inerte hasta que haga falta**: hoy ningún evento cambia de carrusel (medido
+sobre los 51 reales). El comportamiento solo se activa cuando exista la fila del
+fotograma.
+
+## D-183 · El rango del deslizador de tiempo sale de los datos, no de un literal
+
+**Síntoma.** El propietario subió a mano un cartel nuevo (`MEL-00085`, «Jeff
+Mills Medium Tour», 7/02/2003) y, al recargar, **se veía un parpadeo y después
+no aparecía en ningún sitio**. Sin un solo error en consola.
+
+**Causa raíz.** El archivo iba de 2004 a 2019 y ese rango estaba escrito a mano
+en tres sitios: los `value` de los dos `<input type=range>` y los años de los dos
+tiradores en `TimeSlider.astro`, y `minYear`/`maxYear` en el estado de
+`index.astro`. El cartel es de **2003**, o sea fuera del rango de partida.
+Resultado: **el servidor pintaba la tarjeta y el cliente la borraba** en cuanto
+corría el primer `filterArchives()`. Eso es exactamente el parpadeo.
+
+`calculateDynamicBounds()` sí calculaba los límites reales de los datos, pero
+solo los aplicaba a `ABSOLUTE_MIN_YEAR`/`ABSOLUTE_MAX_YEAR` y a los atributos
+`min`/`max` del deslizador — **nunca a los valores que filtran** ni a la posición
+de los tiradores.
+
+**Y estaba avisado.** El comentario de D-086 ronda 6, dentro del propio
+`TimeSlider.astro`, decía de este literal: *«harmless while the data actually
+spans exactly 2004-2019, but silently wrong the moment it doesn't, e.g. once
+older/newer events get added»*. Aquel arreglo hizo dinámico el **pintado** del
+deslizador y dejó vivos los valores de partida. La lección no es que faltara
+diagnóstico: es que **un arreglo a medias de un dato duplicado deja la bomba
+puesta**, y encima con el comentario que la describe al lado.
+
+**Arreglo.** `rangoDeAnios()` en `mel.ts` —puro y con tests, incluidos los
+centinelas «SIN FECHA» que no deben arrastrar el rango a dos milenios— calculado
+en el SERVIDOR y pasado a `TimeSlider` como props y al cliente por `define:vars`
+(regla 7: el script de index.astro es inline y no puede importar). Los tres
+literales desaparecen; quedan solo como valor por defecto del componente suelto.
+
+**Verificado** con el dato real: filtro 2003–2019, tiradores en 2003 y 2019, la
+tarjeta la primera de la galería, y el evento de vuelta en Lista y en el mapa.
+
+**Lo que esto enseña, y va más allá de este bug:** el archivo no es un rango
+fijo. Cualquier cifra sacada de «cómo son los datos hoy» —años, formatos,
+tamaños— es una bomba de relojería en cuanto entre material nuevo, que es
+justamente lo que este proyecto espera que pase.
+
+## D-184 · Las coordenadas viven en la hoja, no en el código. Y el chip de Sheets las escondía
+
+**Contexto.** Un cartel nuevo (`MEL-00085`, Oh! León) no salía en el mapa. Al
+investigarlo apareció que **31 de los 51 eventos se colocaban gracias a un
+diccionario de 14 direcciones escrito a mano** en `index.astro`. No escala: cada
+garito nuevo es un evento invisible.
+
+**La causa real, que no era la que parecía.** El propietario **sí había pegado
+las URLs largas de Google Maps** en la columna G. Sheets se las ofreció convertir
+en *chip* —para no tener una URL fea en la tabla— y él aceptó, tras comprobar que
+funcionaba. Y funcionaba… en Sheets.
+
+El sitio lee la hoja por el endpoint **público** `gviz`, y ahí una celda con chip
+llega así:
+
+```json
+{"v":"Calle Cervantes, 9"}
+```
+
+Solo el texto. La URL vive en `chipRuns[].chip.richLinkProperties.uri`, que
+**solo devuelve la API autenticada**. Comprobado: la cadena `/maps/place/` no
+aparece ni una vez en toda la respuesta pública. El diccionario había nacido para
+tapar ese agujero sin que nadie supiera que el agujero era el chip.
+
+**Lo que se descartó.** Leer la hoja con la cuenta de servicio haría que los
+chips funcionasen y la tabla siguiera limpia, pero mete autenticación en **cada
+visita** — y la velocidad de pintado del mapa es prioridad del propietario. Con
+la URL en texto plano el coste es cero: misma petición, mismo endpoint.
+
+**Lo que se hizo.** Se leyeron las 38 celdas con chip y URL larga por la API, y
+se reescribieron con esa misma URL **como texto plano** (`valueInputOption: RAW`,
+respaldo previo en `respaldo-columna-G.json`). No se inventó ni una coordenada:
+son las URLs que el propietario ya había buscado. Las 44 celdas cuyo chip es un
+enlace **corto** (`maps.app.goo.gl`) no se tocaron: el sitio no resuelve enlaces
+cortos —exigiría una petición de red por visita— pero su texto son coordenadas en
+grados y ya funcionaban.
+
+**Resultado, medido sin diccionario:** 31 eventos por URL con pin preciso, 17 por
+grados, 3 sin ubicar (los que ponen «Desconocido» de verdad). El mapa pasó de 16
+marcadores a 17. Y el diccionario de direcciones **se borró**; queda solo el
+respaldo por localidad, que es otro mecanismo.
+
+**No se conserva "por si acaso"**, y es la lección: un respaldo que rescata en
+silencio tuvo escondido durante meses que la mitad del mapa dependía del código.
+Que falle a la vista.
+
+**A partir de ahora**, al añadir un garito: pegar la URL larga en la columna G y
+**no dejar que Sheets la convierta en chip** (`Cmd+Z` justo después deshace la
+conversión, o pegar con `Cmd+Shift+V`). El chip es cómodo de mirar e invisible
+para el sitio.
+
+**Efecto visible:** la dirección del panel del mapa ahora incluye código postal y
+ciudad («Calle Cervantes, 9» → «Calle Cervantes, 9, 24003 León»), porque es lo
+que trae la URL.

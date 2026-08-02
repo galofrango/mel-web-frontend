@@ -22,6 +22,12 @@
 - **Ningún commit ni tag sin que el propietario lo pida** (regla 16). Los pasos de commit de este plan se ejecutan solo con su visto bueno.
 - **Node ≥ 22.12** (ya en `package.json`). El proyecto corre hoy en Node 25.
 
+> **Aviso (02/08/2026).** Los fragmentos de código de este plan son los de cuando
+> se escribió. La regla `sin-perfil` que aparece en varios de ellos **ya no
+> existe**: se sustituyó por `no-srgb`, y `DatosImagen.perfil` por `noSrgb`. El
+> motivo, medido, está en **D-174**. No copies código de aquí sin contrastarlo
+> con `src/`.
+
 ---
 
 ## Estructura de ficheros
@@ -984,7 +990,7 @@ npm run build && grep -rl "arreglar" dist/ || echo "OK: la ruta no está en el b
 
 Los botones llaman a la ruta, y con el `tecnico` que devuelve **se recalculan TODAS las secciones**, no solo la pulsada.
 
-En el navegador: arreglar el CMYK (`MEL-00006`) y comprobar que desaparece de «En CMYK» **y también de «Sin perfil de color»**, y que las dos cifras bajan. Es la regla del spec: una acción arregla varios avisos a la vez, y parchear solo la sección pulsada deja el panel mintiendo.
+En el navegador: arreglar `MEL-00036` desde «Perfil que no es sRGB» y comprobar que desaparece de ahí **y también de «Por encima de 2 MB»** (pesa 2,5 MB y baja al convertirse), y que las dos cifras bajan. Es la regla del spec: una acción arregla varios avisos a la vez, y parchear solo la sección pulsada deja el panel mintiendo.
 
 - [ ] **Paso 6: commit**
 
