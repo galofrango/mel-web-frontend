@@ -551,6 +551,29 @@ body {
 .adaptive-tags-row .highlight-unit {
   max-width: 176px;
 }
+/* Sin esto, un arrastre táctil con el más mínimo componente vertical (casi
+   todos — un dedo real no traza una recta) dejaba que el navegador tratara
+   el gesto TAMBIÉN como scroll de página, mientras la fila se desplazaba en
+   horizontal: en la ficha de evento, con la cabecera `sticky`, eso se veía
+   como un temblor vertical de todo el bloque fijo mientras se intentaban
+   leer las tags. `pan-x` reclama el eje horizontal para esta fila y no cede
+   nada de vertical, en vez de dejar que el navegador reparta el gesto entre
+   los dos ejes. */
+.adaptive-tags-row {
+  touch-action: pan-x;
+  /* La fila solo fija `overflow-x-auto` (clase de AdaptiveTagsRow.astro) y
+     nunca `overflow-y` — y por especificación CSS, fijar overflow-x a algo
+     distinto de `visible` mientras overflow-y se queda en su valor por
+     defecto lo fuerza TAMBIÉN a `auto` (no a `visible`, aunque no se pida).
+     Resultado: la fila podía hacer scroll VERTICAL, aunque fuera un par de
+     píxeles por redondeo de line-height, y un arrastre con el mínimo
+     componente vertical desplazaba el texto fuera de su propia caja — lo
+     que se veía como el texto desapareciendo un instante. Confirmado por el
+     propio propietario al preguntar si el módulo tenía scroll vertical
+     habilitado; los dos intentos anteriores (capa de composición en la
+     cabecera y en esta fila) se retiran, no arreglaban esto. */
+  overflow-y: hidden;
+}
 .adaptive-tags-row.highlights-grid-equal {
   display: grid;
   /* grid-auto-flow:column + grid-auto-columns, not grid-template-columns:

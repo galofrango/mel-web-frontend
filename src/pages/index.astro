@@ -804,10 +804,18 @@ const tags = [
     pointer-events: none;
   }
 
-  .mel-marker-wrapper:hover {
-    transform: scale(1.05);
-    filter: drop-shadow(0px 6px 16px rgb(var(--mel-shadow-rgb) / 0.42));
-    z-index: 99999 !important;
+  /* Acotado a puntero fino: sin esto, tocar un marcador en móvil lo dejaba
+     agrandado y con la sombra realzada hasta el siguiente scroll — el "hover"
+     que el navegador simula al tocar, y que no suelta hasta entonces (mismo
+     mecanismo que el botón "Me presta", ver LikeButton.astro). No hace falta
+     equivalente táctil: tocar ya dispara `.active` (JS) y abre el panel, así
+     que el aviso real no depende de este realce, que es puro adorno de ratón. */
+  @media (hover: hover) and (pointer: fine) {
+    .mel-marker-wrapper:hover {
+      transform: scale(1.05);
+      filter: drop-shadow(0px 6px 16px rgb(var(--mel-shadow-rgb) / 0.42));
+      z-index: 99999 !important;
+    }
   }
 
   .mel-marker-wrapper.active {
@@ -859,11 +867,6 @@ const tags = [
     height: auto;
   }
 
-  .mel-marker-wrapper:hover .mel-marker-body {
-    background-color: var(--mel-action-primary);
-    filter: brightness(1.05);
-  }
-
   .mel-marker-label {
     font-family: 'Space Grotesk', sans-serif;
     font-weight: 500;
@@ -875,8 +878,17 @@ const tags = [
     transition: color 0.15s ease-out;
   }
 
-  .mel-marker-wrapper:hover .mel-marker-label {
-    color: var(--mel-text-on-action-primary) !important;
+  /* Mismo acotado que `.mel-marker-wrapper:hover` de arriba, y mismo motivo:
+     puro adorno de ratón, sin equivalente táctil necesario. */
+  @media (hover: hover) and (pointer: fine) {
+    .mel-marker-wrapper:hover .mel-marker-body {
+      background-color: var(--mel-action-primary);
+      filter: brightness(1.05);
+    }
+
+    .mel-marker-wrapper:hover .mel-marker-label {
+      color: var(--mel-text-on-action-primary) !important;
+    }
   }
 
   .mel-marker-pointer {
@@ -889,9 +901,12 @@ const tags = [
     transition: border-top-color 0.15s ease-out, filter 0.15s ease-out;
   }
 
-  .mel-marker-wrapper:hover .mel-marker-pointer {
-    border-top-color: var(--mel-action-primary);
-    filter: brightness(1.05);
+  /* Mismo acotado que el resto de `:hover` del marcador — ver más arriba. */
+  @media (hover: hover) and (pointer: fine) {
+    .mel-marker-wrapper:hover .mel-marker-pointer {
+      border-top-color: var(--mel-action-primary);
+      filter: brightness(1.05);
+    }
   }
 
   .sort-header {

@@ -853,10 +853,33 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // que pinta el SSR, sin repartirse el ancho disponible aunque cupiera.
     const ANCHO_MAXIMO_TAG = 176;   // tope por unidad (D-061 / global.css)
     const HUECO_ENTRE_TAGS = 32;
+    // Visto en grabación de pantalla (2026-08-01): la fila de tags "saltaba"
+    // al arrastrarla en horizontal, en cualquier punto del scroll — no tenía
+    // que ver con la cabecera sticky (se descartó esa hipótesis, ver
+    // decisions.md). La causa real: esta función desmontaba la fila entera
+    // (volvía a "modo contenido", quitando el ancho-igual si estaba puesto) y
+    // la volvía a montar EN CADA LLAMADA, aunque el ancho disponible no
+    // hubiera cambiado nada — y se llama en cada `resize` de ventana. Un
+    // gesto táctil, aunque sea horizontal, puede disparar la animación de la
+    // barra de Safari y con ella un resize de verdad sin que el ancho del
+    // contenedor cambie ni un píxel. Guardar el último ancho y no tocar nada
+    // si no ha cambiado quita el desmontaje innecesario y con él el salto.
+    let ultimoAnchoTags = null;
     function ajustarFilaTags() {
       const fila = document.getElementById('detail-tags-fixed-row');
       const contenedor = fila && fila.parentElement;
       if (!contenedor) return;
+
+      // Ancho de CONTENIDO, no el de caja: este contenedor sí lleva padding
+      // lateral propio (px-6 / sm:px-12), a diferencia del de la home. Medirlo
+      // con getBoundingClientRect() regalaba 96px que la fila no tiene. Se
+      // mide ANTES de tocar ninguna clase: no depende del modo actual de la
+      // fila (el padding vive en el contenedor, no en ella).
+      const relleno = getComputedStyle(contenedor);
+      const anchoContenedor = contenedor.clientWidth
+        - parseFloat(relleno.paddingLeft) - parseFloat(relleno.paddingRight);
+      if (anchoContenedor === ultimoAnchoTags) return;
+      ultimoAnchoTags = anchoContenedor;
 
       // Modo contenido primero: es el único estado en el que cada unidad mide
       // su ancho natural sin arrastrar el reparto que dejó una pasada previa.
@@ -865,12 +888,6 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       fila.style.width = '';
 
       const unidades = [...fila.querySelectorAll('.highlight-unit')];
-      // Ancho de CONTENIDO, no el de caja: este contenedor sí lleva padding
-      // lateral propio (px-6 / sm:px-12), a diferencia del de la home. Medirlo
-      // con getBoundingClientRect() regalaba 96px que la fila no tiene.
-      const relleno = getComputedStyle(contenedor);
-      const anchoContenedor = contenedor.clientWidth
-        - parseFloat(relleno.paddingLeft) - parseFloat(relleno.paddingRight);
       // Por encima de `lg` la fila está oculta (mide 0): sin esto el reparto
       // saldría negativo y quedaría fijado un modo que allí no se ve.
       if (!unidades.length || anchoContenedor <= 0) return;
@@ -1359,11 +1376,19 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       zona.addEventListener('pointercancel', soltar, { signal: wSig });
     }
 
-    function habilitarDeslizamiento(zona, irA, indiceActual) {
-      if (!zona || !imageUrls || imageUrls.length <= 1) return;
+    // Antes el dedo no movía nada: se acumulaba el arrastre en silencio y solo
+    // al soltar saltaba de golpe a la foto siguiente con una transición de
+    // 500ms — de ahí que se notara "del tirón" en vez de fino. Ahora la pista
+    // sigue el dedo en vivo (sin transición CSS mientras se arrastra, para que
+    // el seguimiento sea 1:1) y solo al soltar se reactiva la transición para
+    // el asentado, ya sea completando el cambio de foto o volviendo a la
+    // actual. `track` es el elemento que de verdad se desplaza (el propio
+    // `zona` solo delimita la zona táctil).
+    function habilitarDeslizamiento(zona, track, irA, indiceActual) {
+      if (!zona || !track || !imageUrls || imageUrls.length <= 1) return;
 
       const MINIMO = 45;
-      let x0 = null, y0 = null, dxUltimo = 0, dyUltimo = 0, huboDeslizamiento = false;
+      let x0 = null, y0 = null, dxUltimo = 0, dyUltimo = 0, huboDeslizamiento = false, arrastrando = false;
 
       // `pan-y` es imprescindible, no un adorno: sin él el navegador se queda
       // TODO el gesto: en cuanto el dedo se mueve en horizontal decide que es un
@@ -1374,41 +1399,62 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       // quedamos el horizontal.
       zona.style.touchAction = 'pan-y';
 
-      // Confirma el gesto sin mover de foto: un pellizco breve hacia el lado
-      // contrario al que se arrastraba, con rebote elástico de vuelta a 0. Así
-      // se nota que el dedo "llegó" en vez de que el sitio no respondiera.
-      function rebotar(dxIntentado) {
-        const tope = Math.max(-20, Math.min(20, dxIntentado / 3));
-        zona.animate(
-          [
-            { transform: 'translateX(0)' },
-            { transform: `translateX(${tope}px)` },
-            { transform: 'translateX(0)' },
-          ],
-          { duration: 260, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' }
-        );
+      // Resistencia elástica: arrastrar hacia un lado sin fotos deja hueco de
+      // sobra (un tercio del recorrido real) para notar que el gesto SÍ se ha
+      // recibido, sin dar la vuelta ni desplazarse como si hubiera algo detrás.
+      function amortiguar(dx, puedeAvanzar, puedeRetroceder) {
+        const saliendoPorDerecha = dx > 0 && !puedeRetroceder;
+        const saliendoPorIzquierda = dx < 0 && !puedeAvanzar;
+        return (saliendoPorDerecha || saliendoPorIzquierda) ? dx / 3 : dx;
       }
 
       const resolver = () => {
         if (x0 === null) return;
         x0 = null; y0 = null;
-        if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
+        const fueArrastre = arrastrando;
+        arrastrando = false;
+        // Reactiva la transición del CSS para el asentado — completar el
+        // cambio o volver a la foto actual, ambos animados, ninguno un salto.
+        track.style.transition = '';
+        // Fuerza un reflow ANTES de tocar el transform: reactivar la
+        // transición y cambiar el valor en el mismo instante puede hacer que
+        // el navegador aplique el cambio de golpe, sin animar, como si nunca
+        // hubiera pasado por 'none' — el "a veces salta sin transición" que
+        // se veía. Leer una propiedad de layout aquí obliga al navegador a
+        // asentar el 'none' antes de que el siguiente transform cuente.
+        void track.offsetWidth;
+        if (!fueArrastre) return;
+
+        const base = -indiceActual() * 100;
+        if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) {
+          track.style.transform = `translate3d(${base}%, 0, 0)`;
+          return;
+        }
         // En los extremos NO se da la vuelta: seguir arrastrando más allá de la
         // última foto volvía a la primera de golpe, y eso mareaba más que
         // simplemente no moverse (el autoplay sigue dando la vuelta él solo).
         const siguiente = indiceActual() + (dxUltimo < 0 ? 1 : -1);
         if (siguiente < 0 || siguiente >= imageUrls.length) {
-          rebotar(dxUltimo);
+          track.style.transform = `translate3d(${base}%, 0, 0)`;
           return;
         }
         huboDeslizamiento = true;
         irA(siguiente);   // arrastrar a la izquierda = siguiente
       };
 
+      // Ancho de una foto, en píxeles — medido UNA vez al empezar el gesto,
+      // no en cada movimiento. Con el transform en `calc(-100% + Npx)` el
+      // navegador tenía que resolver el porcentaje contra el layout en cada
+      // fotograma del arrastre (no puede quedar todo en la GPU), y eso es
+      // justo lo que se notaba "a trompicones" en el móvil real. En píxeles
+      // puros el compositor lo lleva sin tocar el hilo principal.
+      let anchoFoto = 0;
+
       zona.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
         x0 = e.clientX; y0 = e.clientY;
-        dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false;
+        dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false; arrastrando = false;
+        anchoFoto = zona.getBoundingClientRect().width;
       }, { signal: wSig });
 
       // El recorrido se acumula aquí y no se lee del evento final: si el
@@ -1417,6 +1463,21 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (x0 === null) return;
         dxUltimo = e.clientX - x0;
         dyUltimo = e.clientY - y0;
+
+        if (!arrastrando) {
+          // Sin decidir el eje todavía: un temblor mínimo no cuenta como
+          // gesto, y si domina el vertical es scroll de página, no nuestro.
+          if (Math.max(Math.abs(dxUltimo), Math.abs(dyUltimo)) < 6) return;
+          if (Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
+          arrastrando = true;
+          track.style.transition = 'none';
+        }
+
+        const puedeRetroceder = indiceActual() > 0;
+        const puedeAvanzar = indiceActual() < imageUrls.length - 1;
+        const dx = amortiguar(dxUltimo, puedeAvanzar, puedeRetroceder);
+        const basePx = -indiceActual() * anchoFoto;
+        track.style.transform = `translate3d(${basePx + dx}px, 0, 0)`;
       }, { signal: wSig });
 
       zona.addEventListener('pointerup', resolver, { signal: wSig });
@@ -1434,8 +1495,31 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }, { capture: true, signal: wSig });
     }
 
-    habilitarDeslizamiento(mainImageContainer, (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
-    habilitarDeslizamiento(document.getElementById('overlay-image-box'), showOverlayImage, () => overlayIndex);
+    habilitarDeslizamiento(mainImageContainer, document.getElementById('carousel-track'), (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
+    habilitarDeslizamiento(document.getElementById('overlay-image-box'), overlayTrack, showOverlayImage, () => overlayIndex);
+
+    // El autoplay (cada 5s) no debe competir con un arrastre en curso: si el
+    // temporizador caía a mitad de un gesto, cambiaba currentIndex y el
+    // transform por debajo del propio arrastre en vivo (sin transición, de
+    // golpe) — eso es lo que se notaba a trompicones después de varias
+    // pasadas seguidas, cuanto más se repetía el gesto más probable era que
+    // coincidiera con el tic de los 5s. Se para nada más tocar la foto y se
+    // reinicia al soltar, haya cambiado de foto o no.
+    if (mainImageContainer) {
+      mainImageContainer.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse') return;
+        if (window.melAutoplayInterval) {
+          clearInterval(window.melAutoplayInterval);
+          window.melAutoplayInterval = null;
+        }
+      }, { signal: wSig });
+      const reanudarAutoplay = (e) => {
+        if (e.pointerType === 'mouse') return;
+        startAutoplay();
+      };
+      mainImageContainer.addEventListener('pointerup', reanudarAutoplay, { signal: wSig });
+      mainImageContainer.addEventListener('pointercancel', reanudarAutoplay, { signal: wSig });
+    }
     // El arrastre vertical se engancha a TODA la caja fija, no solo a la foto:
     // la paginación y el faldón también son zona muerta si no.
     habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
