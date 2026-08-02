@@ -5,7 +5,7 @@ hoja**. Lo hace con una **cuenta de servicio**: un usuario que no es una persona
 con su propio correo, al que se le comparte la carpeta y la hoja como se le
 compartirían a un compañero.
 
-**Estado: montado el 02/08/2026.** Lo que queda por hacer está en «Lo que falta».
+**Estado: montado y verificado el 02/08/2026.** Funciona de punta a punta.
 
 ---
 
@@ -26,24 +26,28 @@ está en `.gitignore`, y lo que se commitea es la ruta, no el contenido.
 
 ---
 
-## Lo que falta
+## Comprobado
 
-**Compartir la carpeta y la hoja con la cuenta de servicio.** Sin esto no puede
-tocar nada: la cuenta existe pero no tiene acceso a nada de tu Drive.
+**Verificado el 02/08/2026 contra los datos reales**, con `scripts/probar-google.mjs`:
 
-Correo a compartir:
-
-```
-panel-mel@mel-panel.iam.gserviceaccount.com
+```bash
+node scripts/probar-google.mjs
 ```
 
-**En Drive:** abre la carpeta con los 84 carteles → botón derecho → **Compartir** →
-pega ese correo → permiso **Editor** → desmarca «Notificar a las personas» (no hay
-nadie a quien avisar) → **Compartir**.
+| Paso | Resultado |
+|---|---|
+| Token de acceso | OK |
+| Leer un cartel de Drive | OK (`MEL-00050…png`, 3,0 MB) |
+| Permiso de edición en Drive | OK — puede sustituir ficheros |
+| Leer la hoja | OK |
+| Escribir en la hoja | OK |
+| Limpiar lo escrito | OK |
 
-**En la hoja:** lo mismo. Abrir, **Compartir**, mismo correo, **Editor**.
+Ese script es la primera parada cuando algo deje de funcionar: dice **cuál** de los
+seis pasos falla y con qué error, en vez de dejarte adivinando.
 
-Después de eso, el circuito está completo y se puede comprobar.
+El JWT se firma con el `crypto` de Node — **cero dependencias nuevas**, como el
+resto del proyecto.
 
 ---
 
