@@ -74,6 +74,11 @@ filas.forEach((f) => {
 
 const grupos = auditar(filas, flyerTecnico as any);
 
+// Avisos silenciados con `#acepta:` en la hoja. Se cuentan AVISOS, no carteles:
+// un mismo cartel con dos avisos silenciados suma dos, porque lo que el
+// interruptor enseña son avisos.
+const totalOcultos = grupos.reduce((n, g) => n + g.items.filter((it) => it.oculto).length, 0);
+
 // --- Resumen de cada tarjeta (nivel 1/2) -----------------------------------
 // La cifra grande es de IDS ÚNICOS, no la suma de los tamaños de sección: un
 // mismo cartel puede estar en varias reglas del mismo nivel (p.ej. un PNG que
@@ -90,8 +95,15 @@ type Linea = { titulo: string; cifra: number };
 function resumenNivel(nivel: 1 | 2) {
   const gruposNivel = grupos.filter((g) => g.nivel === nivel);
 
+  // Solo lo VISIBLE. Los avisos silenciados en la hoja vienen igual dentro del
+  // grupo (para que el interruptor «Mostrar avisos ocultos» pueda sacarlos sin
+  // volver al servidor), pero no cuentan en ninguna cifra de partida. Cuando el
+  // interruptor se enciende, `recalcularTodo()` reescribe estas mismas cifras
+  // desde el DOM con el mismo criterio.
+  const visibles = (g: typeof gruposNivel[number]) => g.items.filter((it) => !it.oculto);
+
   const idsUnicos = new Set<string>();
-  gruposNivel.forEach((g) => g.items.forEach((it) => idsUnicos.add(it.idMel)));
+  gruposNivel.forEach((g) => visibles(g).forEach((it) => idsUnicos.add(it.idMel)));
 
   // Solo las líneas que existen — nada de relleno cuando el nivel tiene menos
   // de 3 secciones (corrección del propietario: "una tarjeta con menos de tres
@@ -99,11 +111,11 @@ function resumenNivel(nivel: 1 | 2) {
   // cifra, para que las tarjetas compartan línea de base pese a tener listas
   // de alto distinto.
   const top3 = gruposNivel.slice(0, 3);
-  const lineas: Linea[] = top3.map((g) => ({ titulo: g.titulo, cifra: g.items.length }));
+  const lineas: Linea[] = top3.map((g) => ({ titulo: g.titulo, cifra: visibles(g).length }));
 
   const restantes = gruposNivel.slice(3);
   const desbordamiento = restantes.length > 0
-    ? restantes.reduce((suma, g) => suma + g.items.length, 0)
+    ? restantes.reduce((suma, g) => suma + visibles(g).length, 0)
     : null;
 
   return { cifra: idsUnicos.size, lineas, desbordamiento };
@@ -127,35 +139,55 @@ const tarjetas = [
         </nav>
       </div>
 
-      <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pt-6">
-        <p class="typo-lead text-mel-text-secondary max-w-[720px]">
+      <div class="flex flex-col gap-8 pt-6">
+        <p class="typo-lead text-mel-text-secondary">
           Panel de control del archivo digital de Memoria Electrónica Leonesa. Permite controlar la calidad de los archivos y optimizar algunos de sus parámetros para garantizar el óptimo funcionamiento de la web.
         </p>
-        <!-- "Releer" no puede distinguir hoy la lectura barata de la hoja del
-             remedido caro de las 84 imágenes (eso pide la ruta de la tarea
-             7), así que el cliente (tarea 6) lo resuelve con lo único honesto
-             que puede hacer: una recarga dura, que relee la hoja en el mismo
-             golpe. Nace `disabled` porque sin JS no hay nada que hacer al
-             pulsarlo; el propio script lo habilita. `id` propio (no una
-             clase) porque es el único control de la cabecera que el cliente
-             necesita seleccionar. Sin ancho ni alto fijos (corrección tras
-             revisión visual, Figma 1210:206643): el `w-[237px]` anterior era
-             una medida leída del texto de otra versión ("Releer el
-             archivo"), no un valor de diseño — con el padding y la
-             tipografía reales (`typo-h3`, no `typo-button`) el botón se mide
-             solo. Fondo, borde y color de texto/icono, los tres literales
-             del nodo (`action-primary` y `text-on-action`, no
-             `text-on-action-primary`: variables distintas, confirmado contra
-             Figma en vivo). -->
-        <button type="button" id="panel-releer" class="shrink-0 inline-flex items-center justify-center gap-3 px-8 py-3 border border-mel-action-primary bg-mel-action-primary text-mel-text-on-action typo-h3 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
-          Releer archivo
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path>
-            <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path>
-            <path d="M3 21v-5h5"></path>
-            <path d="M21 3v5h-5"></path>
-          </svg>
-        </button>
+        <!-- Los dos botones de cabecera (Figma 1229:101016: 320px cada uno,
+             `px-32 py-16`, 24 de hueco; tipografía H4, no H3 como estaba). Van
+             DEBAJO del texto de introducción y alineados a la izquierda, no a su
+             derecha: el párrafo es una fila entera (Figma 1210:206652, Subtitle
+             a todo el ancho y los botones 32px por debajo), y por eso tampoco
+             lleva ya tope de 720px. Ninguno de los dos lleva borde. "Releer" no puede distinguir hoy la lectura
+             barata de la hoja del remedido caro de las 84 imágenes (eso pide
+             la ruta de la tarea 7), así que el cliente lo resuelve con lo único
+             honesto que puede hacer: una recarga dura, que relee la hoja en el
+             mismo golpe. Por eso el rótulo dice "spreadsheet" y no "archivo":
+             es lo que de verdad vuelve a leer.
+
+             "Mostrar avisos ocultos" vive AQUÍ y no dentro de cada sección
+             (criterio del propietario, 02/08/2026): dentro obligaba a seguir
+             pintando una sección entera solo para alojar su propio botón,
+             aunque todos sus avisos estuvieran ocultos. Arriba, esas secciones
+             desaparecen del panel y solo vuelven al encender el interruptor —
+             y entonces cambian TODAS las cifras, las de las tarjetas y las de
+             cada sección.
+
+             Los dos nacen `disabled` porque sin JS no hay nada que hacer al
+             pulsarlos; el propio script los habilita.
+
+             El segundo se VE siempre, aunque no haya ni un aviso oculto: en ese
+             caso queda desactivado y con su «(0)», que ya es una respuesta —«no
+             hay nada escondido»—. Llegó a esconderse del todo, y fue peor: el
+             propietario no lo encontraba, porque hoy ocultar un aviso no se
+             guarda en ningún sitio (eso lo trae la nota de la tarea 7B) y al
+             recargar la cifra vuelve siempre a cero. Un control que aparece y
+             desaparece según un estado que no sobrevive a una recarga se lee
+             como un fallo, no como una comodidad. -->
+        <div class="flex flex-wrap items-center gap-6">
+          <button type="button" id="panel-releer" class="shrink-0 inline-flex items-center justify-center gap-4 w-[320px] px-8 py-4 bg-mel-action-primary text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+            Releer el spreadsheet
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path>
+              <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path>
+              <path d="M3 21v-5h5"></path>
+              <path d="M21 3v5h-5"></path>
+            </svg>
+          </button>
+          <button type="button" id="panel-ver-ocultos" aria-pressed="false" class="shrink-0 inline-flex items-center justify-center gap-4 w-[320px] px-8 py-4 bg-mel-action-tertiary text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+            Mostrar avisos ocultos ({totalOcultos})
+          </button>
+        </div>
       </div>
     </header>
 
@@ -201,7 +233,7 @@ const tarjetas = [
   // `data-mayor`/`data-bytes` para ordenar sin reinterpretar texto) en cada
   // fila, `.tarj` en cada tarjeta, `.sec-cab[aria-expanded]` en la cabecera
   // plegable, `.nn` en el contador entre corchetes, `.cifra`/`.lins` en la
-  // tarjeta, `.ver-ocultos`, `.ocultar-seleccionados`,
+  // tarjeta, `#panel-ver-ocultos`, `.ocultar-seleccionados`,
   // `.accion-seleccionados` (estas tres nacen `hidden`), `.ocultar-aviso`
   // (nace `disabled`), `.cab-col[data-col]` en cada rótulo ordenable (con
   // `role="columnheader"`/`aria-sort="none"` de fábrica y `.cab-col-icono`,
@@ -218,19 +250,95 @@ const tarjetas = [
   // gane o no en especificidad — el atributo se pondría pero la fila seguiría
   // maquetada. El estilo en línea sí gana siempre (especificidad máxima), así
   // que es lo que se usa aquí.
+  // El ESTADO (¿este aviso está oculto?) vive en `data-oculta`, no en el estilo:
+  // así lo puede poner el servidor para los que ya vienen silenciados con
+  // `#acepta:` en la hoja, y el cliente para los que se ocultan aquí, sin dos
+  // mecanismos distintos. Lo que se VE lo decide una regla CSS que cruza ese
+  // atributo con el interruptor global (ver el <style> de esta página).
   function filaOculta(fila: HTMLElement): boolean {
-    return fila.style.display === 'none';
+    return fila.dataset.oculta === 'true';
   }
   function ocultarFila(fila: HTMLElement) {
-    fila.style.display = 'none';
+    fila.dataset.oculta = 'true';
     const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
     if (chk) chk.checked = false;
   }
   function mostrarFila(fila: HTMLElement) {
-    fila.style.display = '';
+    delete fila.dataset.oculta;
+  }
+  /** Si el interruptor de la cabecera está encendido. Cuando lo está, un aviso
+   *  oculto se ve Y cuenta: el propietario pidió que cambiaran todas las cifras,
+   *  no solo que asomaran las filas. */
+  function mostrandoOcultos(): boolean {
+    return document.body.classList.contains('mostrar-ocultos');
+  }
+  /** Los avisos que hay que contar y enseñar ahora mismo en esta sección. */
+  function filasContables(sec: Element): HTMLElement[] {
+    return filasDe(sec).filter((f) => !filaOculta(f) || mostrandoOcultos());
   }
   function filasDe(sec: Element): HTMLElement[] {
     return Array.from(sec.querySelectorAll('.fila[data-id]')) as HTMLElement[];
+  }
+
+  // --- Animación de las filas (FLIP) ---------------------------------------
+  // Regla 2 del proyecto: dentro de un contenedor se anima con `transform`,
+  // nunca con `view-transition-name` (que se escapa de cualquier recorte).
+  //
+  // Y se anima sobre las CELDAS, no sobre `.fila`, por lo mismo que la opacidad
+  // y el `order` de los ocultos: `.fila` es `display:contents`, no genera caja y
+  // no admite transform.
+  const SIN_MOVIMIENTO = matchMedia('(prefers-reduced-motion: reduce)');
+
+  /** Aplica `cambio` y desliza a su sitio nuevo todo lo que se haya movido: al
+   *  ocultar una fila las de debajo suben, y con el interruptor encendido esa
+   *  misma fila baja hasta el final de la tabla. Un solo mecanismo para los dos. */
+  function conDeslizamiento(sec: HTMLElement, cambio: () => void) {
+    if (SIN_MOVIMIENTO.matches) { cambio(); return; }
+    const celdas = Array.from(sec.querySelectorAll('.fila[data-id] > *')) as HTMLElement[];
+    const antes = celdas.map((c) => c.getBoundingClientRect().top);
+    cambio();
+    const movidas: HTMLElement[] = [];
+    celdas.forEach((c, i) => {
+      const r = c.getBoundingClientRect();
+      // Sin caja antes o después no hay nada que deslizar: o acaba de irse, o
+      // se la llevó por delante que la sección entera se quedara vacía.
+      if (!r.height || !antes[i]) return;
+      const delta = antes[i] - r.top;
+      if (!delta) return;
+      c.style.transition = 'none';
+      c.style.transform = `translateY(${delta}px)`;
+      movidas.push(c);
+    });
+    requestAnimationFrame(() => {
+      movidas.forEach((c) => {
+        c.style.transition = 'transform 240ms cubic-bezier(0.4, 0, 0.2, 1)';
+        c.style.transform = '';
+        c.addEventListener('transitionend', () => { c.style.transition = ''; }, { once: true });
+      });
+    });
+  }
+
+  /** Funde unas filas antes de que desaparezcan. Solo cuando de verdad se van:
+   *  con el interruptor encendido no desaparecen, se mudan al final, y ahí el
+   *  deslizamiento ya lo cuenta todo. */
+  function fundir(filas: HTMLElement[], despues: () => void) {
+    if (SIN_MOVIMIENTO.matches || filas.length === 0) { despues(); return; }
+    const celdas = filas.flatMap((f) => Array.from(f.children) as HTMLElement[]);
+    celdas.forEach((c) => { c.style.transition = 'opacity 140ms linear'; c.style.opacity = '0'; });
+    setTimeout(() => {
+      celdas.forEach((c) => { c.style.transition = ''; c.style.opacity = ''; });
+      despues();
+    }, 140);
+  }
+
+  /** Oculta o recupera filas con su animación. `ocultar` decide el sentido. */
+  function cambiarVisibilidad(sec: HTMLElement, filas: HTMLElement[], ocultar: boolean) {
+    if (filas.length === 0) return;
+    const aplicar = () => conDeslizamiento(sec, () => {
+      filas.forEach(ocultar ? ocultarFila : mostrarFila);
+      recalcularTodo();
+    });
+    if (ocultar && !mostrandoOcultos()) fundir(filas, aplicar); else aplicar();
   }
 
   // --- Cabecera de columnas: ordenar cada sección por separado --------------
@@ -414,25 +522,51 @@ const tarjetas = [
   // trae el check de cabecera tras el clic nativo (indeterminado + clic
   // siempre resuelve a marcado — ver el comentario de `chk-cab` en `alCambiar`).
   function marcarVisibles(sec: HTMLElement, marcar: boolean) {
-    filasDe(sec).forEach((fila) => {
-      if (filaOculta(fila)) return; // "sobre las visibles" (encargo, punto 4)
+    // Sobre las VISIBLES de verdad, no sobre las que se están enseñando: una
+    // fila oculta no se puede seleccionar ni procesar, solo volver a mostrar.
+    filasDe(sec).filter((f) => !filaOculta(f)).forEach((fila) => {
       const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
       if (chk) chk.checked = marcar;
     });
     actualizarAccionesBloque(sec);
   }
 
-  function verAvisosOcultos(sec: HTMLElement) {
-    filasDe(sec).forEach((fila) => { if (filaOculta(fila)) mostrarFila(fila); });
+  /** Enciende o apaga el interruptor de la cabecera. No toca ni una fila: solo
+   *  cambia la clase del <body>, que es lo que la regla CSS mira, y recalcula.
+   *  Los avisos ocultos siguen ocultos —no se "des-ocultan"—, simplemente se
+   *  están enseñando. Por eso el botón vuelve a apagarse sin perder nada. */
+  function alternarOcultos() {
+    document.body.classList.toggle('mostrar-ocultos');
     recalcularTodo();
   }
 
+  /** Rótulo, estado y presencia del interruptor, siempre desde el DOM. Se llama
+   *  desde `recalcularTodo()`, así que da igual por dónde haya cambiado el
+   *  número de ocultos: silenciados que vienen de la hoja, filas ocultadas en
+   *  esta sesión o filas que dejaron de tener aviso tras un arreglo. */
+  function actualizarBotonOcultos() {
+    const btn = document.getElementById('panel-ver-ocultos') as HTMLButtonElement | null;
+    if (!btn) return;
+    const n = document.querySelectorAll('.fila[data-oculta="true"]').length;
+    const encendido = mostrandoOcultos();
+    // Siempre visible. Sin nada que enseñar se desactiva —pero con el
+    // interruptor encendido NO, aunque n sea 0: sería atraparte en un modo del
+    // que no se puede salir.
+    btn.disabled = n === 0 && !encendido;
+    btn.setAttribute('aria-pressed', String(encendido));
+    btn.textContent = encendido ? `No mostrar avisos ocultos (${n})` : `Mostrar avisos ocultos (${n})`;
+    // Encendido pasa a `action-secondary`: el estado activo es más oscuro que
+    // el de reposo (`action-tertiary`), igual que el resto de pares del panel.
+    btn.classList.toggle('bg-mel-action-secondary', encendido);
+    btn.classList.toggle('bg-mel-action-tertiary', !encendido);
+  }
+
   function ocultarSeleccionados(sec: HTMLElement) {
-    filasDe(sec).forEach((fila) => {
-      const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
-      if (chk && chk.checked) ocultarFila(fila);
+    const elegidas = filasDe(sec).filter((f) => {
+      const chk = f.querySelector('.chk-fila') as HTMLInputElement | null;
+      return !!chk && chk.checked;
     });
-    recalcularTodo();
+    cambiarVisibilidad(sec, elegidas, true);
   }
 
   // --- Recalcular desde cero ---------------------------------------------------
@@ -445,17 +579,24 @@ const tarjetas = [
   function recalcularTodo() {
     document.querySelectorAll('section[data-clave]').forEach((el) => {
       const sec = el as HTMLElement;
-      const filas = filasDe(sec);
-      const ocultas = filas.filter(filaOculta);
-      const visibles = filas.length - ocultas.length;
+      const visibles = filasContables(sec).length;
 
       const nn = sec.querySelector('.nn');
       if (nn) nn.textContent = `[${visibles}]`;
 
-      sec.classList.toggle('opacity-40', visibles === 0); // atenuar sección vacía
+      // Una sección sin nada que enseñar no se atenúa: se va. Volverá sola en
+      // cuanto se encienda el interruptor, porque entonces sus avisos ocultos
+      // cuentan como visibles.
+      //
+      actualizarControlesFila(sec);
 
-      const btnVerOcultos = sec.querySelector('.ver-ocultos') as HTMLElement | null;
-      if (btnVerOcultos) btnVerOcultos.hidden = ocultas.length === 0;
+      // Va por `data-vacia` y NO por `hidden`, aunque `hidden` sería lo obvio:
+      // ese atributo ya tiene dueño, el filtro por tarjeta (`pulsarTarjeta`),
+      // que lo usa para enseñar solo las secciones del nivel activo. Dos dueños
+      // sobre el mismo atributo significa que el último en escribir gana, y el
+      // filtro de nivel se perdía en cada recálculo. Un canal por concepto, y
+      // que los combine el CSS.
+      if (visibles === 0) sec.dataset.vacia = 'true'; else delete sec.dataset.vacia;
 
       actualizarAccionesBloque(sec); // ocultar una fila puede llevarse la única marca
     });
@@ -471,7 +612,7 @@ const tarjetas = [
       const secciones = Array.from(document.querySelectorAll(`section[data-nivel="${nivel}"]`)) as HTMLElement[];
       const idsUnicos = new Set<string>();
       const cuentaPorSeccion = secciones.map((sec) => {
-        const visibles = filasDe(sec).filter((f) => !filaOculta(f));
+        const visibles = filasContables(sec);
         visibles.forEach((f) => { if (f.dataset.id) idsUnicos.add(f.dataset.id); });
         return visibles.length;
       });
@@ -498,6 +639,25 @@ const tarjetas = [
         }
       });
     });
+
+    actualizarBotonOcultos();
+  }
+
+  /** Los controles de una fila que se está ENSEÑANDO aunque esté oculta. Su
+   *  aviso está aceptado, así que lo único que se le puede hacer es devolverlo:
+   *  el botón de contorno pasa a «Mostrar aviso» y tanto la casilla como el
+   *  botón de acción se desactivan. Se escriben valores sobre el marcado que ya
+   *  existe, nunca se construye marcado aquí (regla 7). */
+  function actualizarControlesFila(sec: HTMLElement) {
+    filasDe(sec).forEach((fila) => {
+      const oculta = filaOculta(fila);
+      const btn = fila.querySelector('.ocultar-aviso') as HTMLElement | null;
+      if (btn) btn.textContent = oculta ? 'Mostrar aviso' : 'Ocultar aviso';
+      const accion = fila.querySelector('.fila-accion') as HTMLButtonElement | null;
+      if (accion) accion.disabled = oculta;
+      const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
+      if (chk) { chk.disabled = oculta; if (oculta) chk.checked = false; }
+    });
   }
 
   // --- Delegación de eventos ---------------------------------------------------
@@ -519,12 +679,7 @@ const tarjetas = [
 
     if (target.closest('#panel-releer')) { window.location.reload(); return; }
 
-    const btnVerOcultos = target.closest('.ver-ocultos') as HTMLElement | null;
-    if (btnVerOcultos) {
-      const sec = btnVerOcultos.closest('section[data-clave]') as HTMLElement | null;
-      if (sec) verAvisosOcultos(sec);
-      return;
-    }
+    if (target.closest('#panel-ver-ocultos')) { alternarOcultos(); return; }
 
     const btnOcultarSel = target.closest('.ocultar-seleccionados') as HTMLElement | null;
     if (btnOcultarSel) {
@@ -536,8 +691,10 @@ const tarjetas = [
     const btnOcultarAviso = target.closest('.ocultar-aviso') as HTMLElement | null;
     if (btnOcultarAviso) {
       const fila = btnOcultarAviso.closest('.fila[data-id]') as HTMLElement | null;
-      if (fila) ocultarFila(fila);
-      recalcularTodo();
+      const sec = btnOcultarAviso.closest('section[data-clave]') as HTMLElement | null;
+      // Alterna: con el interruptor encendido este mismo botón es el único
+      // control que le queda a una fila oculta, y sirve para recuperarla.
+      if (fila && sec) cambiarVisibilidad(sec, [fila], !filaOculta(fila));
       return;
     }
   }
@@ -576,6 +733,8 @@ const tarjetas = [
     document.querySelectorAll('.ocultar-aviso').forEach((btn) => { (btn as HTMLButtonElement).disabled = false; });
     const btnReleer = document.getElementById('panel-releer') as HTMLButtonElement | null;
     if (btnReleer) btnReleer.disabled = false;
+    // El de ocultos NO se habilita aquí: su estado lo fija `recalcularTodo()`
+    // (vía `actualizarBotonOcultos`) según cuántos avisos ocultos haya.
 
     // Numera cada fila con su posición de partida (gravedad, tarea 4) ANTES
     // de que se pulse ningún rótulo de columna: es a lo que vuelve el tercer

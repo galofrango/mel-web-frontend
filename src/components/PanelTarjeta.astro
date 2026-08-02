@@ -14,12 +14,15 @@
  * vivo. Ya no es "mismo idioma que `FRANJA_CABECERA`" en PanelSeccion.astro:
  * esa cabecera sigue con `border-l-8` porque no se ha tocado en esta tarea,
  * y es un nodo de Figma distinto. `FRANJA_GRAVEDAD` mapea nivel → clase de
- * fondo para esa franja; nivel 1 reutiliza el primitivo `le-400` ya
- * autorizado (fijo, no cambia con el tema), nivel 2 el token
- * `--mel-gravedad-2` nuevo en global.css (el ámbar de Figma no existía en el
- * DS). Añadir un nivel 3 es añadir su color en global.css y una línea en
+ * fondo para esa franja. Añadir un nivel 3 es añadir su color en global.css y una línea en
  * este mapa Y en el de PanelSeccion.astro — los dos únicos sitios que lo
  * necesitan, nunca las tarjetas u cabeceras ya pintadas.
+ *
+ * Los colores salen de la familia `banner` del DS (02/08/2026): nivel 1 es
+ * `banner-error-border` y nivel 2 `banner-warning-border`, que es la traducción
+ * literal de `Border/Banner Error` y `Border/Banner Warning` de Figma. Antes
+ * nivel 1 usaba `le-400` (#aa3c52) y el diseño pide #981932 — se veía más
+ * claro de la cuenta.
  *
  * `min-h-[206px]` (no `h-`): 206px es el alto de la tarjeta en Figma, pero
  * es el de la MÁS CORTA de las dos (3 líneas, sin desbordamiento) — «Bajo
@@ -74,8 +77,8 @@ const estadoClase = activa
 // de si la tarjeta está activa o no (el color de gravedad no es un estado,
 // es un dato). Ahora es clase de FONDO (`bg-`), no de borde.
 const FRANJA_GRAVEDAD: Record<1 | 2, string> = {
-  1: 'bg-mel-le-400',
-  2: 'bg-mel-gravedad-2',
+  1: 'bg-mel-banner-error-border',
+  2: 'bg-mel-banner-warning-border',
 };
 ---
 

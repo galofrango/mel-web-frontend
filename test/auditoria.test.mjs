@@ -7,7 +7,7 @@ const filaBase = {
   lugar: 'El Gran Café', localidad: 'León', coordenadas: 'https://maps.google.com/…!3d42.5!4d-5.5',
   artistas: 'DJ Uno', notasArchivo: '',
 };
-const tecBase = { tipo: 'jpeg', px: [1600, 2000], comp: 3, perfil: true, alfa: false, bytes: 900000 };
+const tecBase = { tipo: 'jpeg', px: [1600, 2000], comp: 3, noSrgb: false, alfa: false, bytes: 900000 };
 
 const claves = (filas, tec) => auditar(filas, tec).map(g => g.clave);
 const grupo = (filas, tec, clave) => auditar(filas, tec).find(g => g.clave === clave);
@@ -26,16 +26,34 @@ test('los centinelas de la hoja cuentan como vacío', () => {
 test('detecta los avisos técnicos por separado', () => {
   const casos = [
     ['png',      { ...tecBase, tipo: 'png' }],
-    ['cmyk',     { ...tecBase, comp: 4 }],
-    ['enorme',   { ...tecBase, px: [4961, 9674] }],
-    ['sin-perfil', { ...tecBase, perfil: false }],
-    ['pesado',   { ...tecBase, bytes: 3 * 1024 * 1024 }],
+    ['enorme',   { ...tecBase, px: [2600, 1200] }],   // basta con pasar de 2400, no de 3000
+    ['no-srgb',  { ...tecBase, noSrgb: true }],
+    ['no-srgb',  { ...tecBase, comp: 4 }],   // el CMYK entra por la misma regla
+    ['pesado',   { ...tecBase, bytes: 3 * 1024 * 1024 }],   // jpeg, 1600×2000, sRGB: limpio salvo el peso
     ['pequeno',  { ...tecBase, px: [600, 289] }],
     ['gif',      { ...tecBase, tipo: 'gif' }],
   ];
   for (const [clave, tec] of casos) {
     assert.ok(claves([filaBase], { AAA: tec }).includes(clave), `esperaba el aviso "${clave}"`);
   }
+});
+
+test('"pesado" solo admite lo que ya está bien de todo lo demás', () => {
+  // Criterio del propietario: no comprimir el peso antes de ajustar el resto,
+  // porque convertir, reducir o pasar a sRGB ya adelgazan de por sí. Sin esto,
+  // el panel proponía recomprimir 25 carteles de los que 21 iban a bajar solos.
+  const gordo = 3 * 1024 * 1024;
+  const noEntra = {
+    'siendo PNG': { ...tecBase, tipo: 'png', bytes: gordo },
+    'pasando de 2400 px': { ...tecBase, px: [2600, 1200], bytes: gordo },
+    'con perfil raro': { ...tecBase, noSrgb: true, bytes: gordo },
+    'en CMYK': { ...tecBase, comp: 4, bytes: gordo },
+  };
+  for (const [motivo, tec] of Object.entries(noEntra)) {
+    assert.ok(!claves([filaBase], { AAA: tec }).includes('pesado'), `no debería entrar ${motivo}`);
+  }
+  assert.ok(claves([filaBase], { AAA: { ...tecBase, bytes: gordo } }).includes('pesado'),
+    'pero uno limpio y gordo sí');
 });
 
 test('detecta los huecos de datos', () => {
@@ -51,13 +69,13 @@ test('detecta los huecos de datos', () => {
 // La comparación es de la SECUENCIA completa (assert.deepEqual), no pares
 // sueltos: comparar por pares solo ata lo que se compara explícitamente, y una
 // mutación que intercambie dos reglas contiguas sin tocar los pares vigilados
-// pasa en verde (comprobado: sin-perfil↔pesado y cmyk↔enorme no los detectaba
+// pasa en verde (comprobado: no-srgb↔pesado y png↔no-srgb no los detectaba
 // la versión anterior de este test). Con la secuencia completa, cualquier
 // intercambio revienta.
 //
-// Por qué este orden y no otro: convertir los PNG + el CMYK + los "enorme" ya
-// resuelve de paso la mayoría de "sin perfil" (25/34) y de "pesado" (17/25),
-// así que esas tres van antes que esas dos. "pesado" casi al final porque
+// Por qué este orden y no otro: convertir los PNG + los "no-srgb" (que ya
+// incluye el CMYK) + los "enorme" resuelve de paso la mayoría de "pesado"
+// (18/25), así que van antes que él. "pesado" casi al final porque
 // recomprimir pronto perdería calidad en imágenes que iban a bajar de peso
 // solas al convertirse. "pequeno" no comparte ni un cartel con las de arriba
 // (es independiente, sin arreglo por software) y por eso cierra los técnicos.
@@ -67,22 +85,27 @@ test('detecta los huecos de datos', () => {
 // "Falta información"), lo que ROMPE el mapa va antes que la laguna de
 // catalogación que no rompe nada — ver el comentario de REGLAS en auditoria.ts.
 test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => {
+  // Hacen falta TRES filas desde que "pesado" solo admite lo que ya está bien de
+  // todo lo demás: la fila A dispara png/no-srgb/enorme pero por eso mismo YA NO
+  // dispara pesado, así que hace falta una fila limpia y gorda solo para él.
   const filas = [
     { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '', artistas: '' },
     { ...filaBase, idMel: 'MEL-B', urlDrive: '.../d/B/view' },
+    { ...filaBase, idMel: 'MEL-C', urlDrive: '.../d/C/view' },
   ];
   const tec = {
-    A: { ...tecBase, tipo: 'png', perfil: false, bytes: 3 * 1024 * 1024, px: [4961, 9674], comp: 4 },
+    A: { ...tecBase, tipo: 'png', noSrgb: true, bytes: 3 * 1024 * 1024, px: [4961, 9674], comp: 4 },
     B: { ...tecBase, px: [600, 289] },
+    C: { ...tecBase, bytes: 3 * 1024 * 1024, px: [2000, 1500] },
   };
   const orden = claves(filas, tec);
   // Si el fixture deja de disparar alguno de los nueve, el deepEqual de abajo
   // fallaría igual, pero por la razón equivocada (fixture roto, no orden roto).
-  for (const c of ['sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno']) {
+  for (const c of ['sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'no-srgb', 'enorme', 'pesado', 'pequeno']) {
     assert.ok(orden.includes(c), `el fixture debe disparar "${c}"`);
   }
   assert.deepEqual(orden, [
-    'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'cmyk', 'enorme', 'sin-perfil', 'pesado', 'pequeno',
+    'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'no-srgb', 'enorme', 'pesado', 'pequeno',
   ], 'el orden es de TRABAJO, no un ranking: arreglar los de arriba resuelve los de abajo');
 });
 
@@ -90,7 +113,7 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
 // pasó de nivel 3 (última) a nivel 1, justo detrás de "sin-coordenadas" y antes
 // del primer grupo de nivel 2 ("png"). El test de la cascada completa de arriba
 // ya lo cubre de paso, pero aquí queda aislado en un fixture mínimo — sin
-// arrastrar cmyk/enorme/sin-perfil/pesado — para que si este borde concreto se
+// arrastrar no-srgb/enorme/pesado — para que si este borde concreto se
 // rompe algún día, falle un test que lo señale por su nombre, no solo el de la
 // secuencia larga.
 test('el orden es el de trabajo: sin-artistas va después de sin-coordenadas y antes de png', () => {
@@ -125,12 +148,24 @@ test('dentro de cada grupo, lo peor primero', () => {
     'en baja resolución el peor es el más pequeño');
 });
 
-test('la marca en notasArchivo silencia solo ese aviso', () => {
-  const tec = { AAA: { ...tecBase, tipo: 'png', perfil: false } };
+test('la marca en notasArchivo marca ese aviso como oculto, y solo ese', () => {
+  // El silenciado ya NO descarta el item: lo marca. El panel lo pinta escondido
+  // y el interruptor «Mostrar avisos ocultos» lo saca sin volver a pedir la hoja.
+  const tec = { AAA: { ...tecBase, tipo: 'png', noSrgb: true } };
   const conMarca = [{ ...filaBase, notasArchivo: 'Escaneo del propio autor. #acepta:png' }];
-  const c = claves(conMarca, tec);
-  assert.ok(!c.includes('png'), 'el aviso marcado desaparece');
-  assert.ok(c.includes('sin-perfil'), 'los demás avisos del mismo cartel siguen');
+  const g = auditar(conMarca, tec);
+  assert.deepEqual(g.map(x => x.clave), ['png', 'no-srgb'], 'el grupo sigue viniendo');
+  assert.equal(g.find(x => x.clave === 'png').items[0].oculto, true, 'el marcado va oculto');
+  assert.equal(g.find(x => x.clave === 'no-srgb').items[0].oculto, false, 'los demás avisos del mismo cartel siguen visibles');
+});
+
+test('un grupo en el que TODO está oculto sigue viniendo', () => {
+  // Si no viniera, el interruptor global no tendría nada que enseñar y esa
+  // sección desaparecería del panel para siempre.
+  const tec = { AAA: { ...tecBase, tipo: 'png' } };
+  const g = auditar([{ ...filaBase, notasArchivo: '#acepta:png' }], tec);
+  assert.deepEqual(g.map(x => x.clave), ['png']);
+  assert.equal(g[0].items.every(i => i.oculto), true);
 });
 
 test('el silenciado no confunde una clave con el prefijo de otra', () => {

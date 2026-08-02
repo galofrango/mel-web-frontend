@@ -60,6 +60,13 @@ interface Props {
 
 const { grupo, urlPorId, formatoPorId } = Astro.props;
 
+// Cuántos avisos se ven de partida. Los silenciados con `#acepta:` en la hoja
+// vienen dentro del grupo igual (`item.oculto`), para que el interruptor de la
+// cabecera pueda sacarlos sin volver al servidor, pero ni cuentan aquí ni se
+// pintan. Una sección sin ni uno visible nace `hidden`: solo aparece al
+// encender el interruptor.
+const visiblesDeEntrada = grupo.items.filter((it) => !it.oculto).length;
+
 const sheetBase = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=0#gid=0`;
 
 // Columna real de la hoja que corrige cada acción manual (AGENTS.md, columnas
@@ -151,21 +158,20 @@ const CAB_COL = 'cab-col h-10 flex items-center justify-between pl-4 pr-2 border
 // Franja de color a la izquierda de la cabecera de sección — ajuste pedido
 // por el propietario tras usar el panel, dibujado por él: 8px por NIVEL DE
 // GRAVEDAD (el color por nivel que este comentario ya anticipaba). EXCEPCIÓN
-// autorizada a "solo tokens semánticos", la segunda después del `le-200` del
-// banner de aviso (ver `avisoHtml` más abajo): nivel 1 usa el primitivo
-// `le-400` directamente — no es `action-primary` aunque hoy se le parezca en
-// claro, porque `action-primary` cambia con el tema (le-500 en claro, le-400
-// en oscuro, ver global.css) y esta franja no debe. Nivel 2 usa el token
-// `--mel-gravedad-2` (global.css), el ámbar de Figma que no existía en el DS.
+// Ya NO es excepción a "solo tokens semánticos": desde el 02/08/2026 los dos
+// colores son la familia `banner` del DS, traducción literal de las variables
+// de Figma (`Border/Banner Error` y `Border/Banner Warning`). Siguen sin ser
+// `action-primary`, aunque en claro se le parezcan: `action-primary` cambia con
+// el tema (le-500 en claro, le-400 en oscuro) y esta franja no debe.
 // Mismo mapa que `FRANJA_GRAVEDAD` en PanelTarjeta.astro: añadir un nivel 3
 // es tocar esos dos mapas, nunca las diez cabeceras ni las tarjetas.
 const FRANJA_CABECERA: Record<1 | 2, string> = {
-  1: 'border-l-8 border-mel-le-400',
-  2: 'border-l-8 border-mel-gravedad-2',
+  1: 'border-l-8 border-mel-banner-error-border',
+  2: 'border-l-8 border-mel-banner-warning-border',
 };
 ---
 
-<section class="border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)]" data-nivel={grupo.nivel} data-clave={grupo.clave}>
+<section class="border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)]" data-nivel={grupo.nivel} data-clave={grupo.clave} data-vacia={visiblesDeEntrada === 0 ? 'true' : undefined}>
   <button
     type="button"
     class={`sec-cab w-full flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 text-left ${FRANJA_CABECERA[grupo.nivel]}`}
@@ -173,7 +179,7 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
     aria-controls={`sec-cuerpo-${grupo.clave}`}
   >
     <span class="typo-h4 text-mel-text-primary">
-      {grupo.titulo} <span class="nn text-mel-text-secondary">[{grupo.items.length}]</span>
+      {grupo.titulo} <span class="nn text-mel-text-secondary">[{visiblesDeEntrada}]</span>
     </span>
     <span class="chevron shrink-0 w-10 h-10 flex items-center justify-center text-mel-text-primary">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -191,25 +197,30 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
         guion ni raya) ni la mayúscula de "Sips" son errores a corregir. */}
     {grupo.auto && (
       <p class="typo-caption text-mel-text-secondary px-6 pt-3 max-w-[720px]">
-        <b>Arreglo automático:</b> Un script descarga el original de Drive en tu
-        ordenador, Sips –la herramienta de imagen nativa de macOS– lo procesa y lo
-        devuelve a Drive como nueva versión del mismo fichero conservando su ID y toda
-        la información del spreadsheet intacta.
+        <b>Explicación del proceso:</b> Si eliges continuar, un script descargará el
+        original de Drive en tu ordenador, Sips –la herramienta de imagen nativa de
+        macOS– lo procesará y lo devolverá a Drive como nueva versión del mismo
+        fichero, conservando su ID y toda la información del spreadsheet intacta.
       </p>
     )}
 
+    {/* Banner de aviso — nodo 1223:231692 de Figma. Una sola variante para los
+        dos niveles de gravedad: en el diseño la usan igual "Sin lugar" (nivel 1)
+        que las secciones de nivel 2, y no existen `Background/Banner Error` ni
+        `Text/Banner Error` que hicieran otra. Lo que dice la gravedad es la
+        franja de la cabecera, no esto. Antes era rosa (`le-200` + texto
+        `action-secondary`), un primitivo suelto que además chocaba con la franja
+        roja de nivel 1. */}
     {avisoHtml ? (
-      <div class="mx-6 mt-5 bg-mel-le-200 flex items-start gap-3 py-5 px-6">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-mel-action-secondary shrink-0 mt-0.5">
+      <div class="mx-6 mt-5 bg-mel-banner-warning-bg text-mel-banner-warning-text flex items-center gap-6 py-4 px-8">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
           <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
           <path d="M12 9v4"></path>
           <path d="M12 17h.01"></path>
         </svg>
-        <p class="typo-body-sans text-mel-action-secondary" set:html={avisoHtml} />
+        <p class="typo-body-sans" set:html={avisoHtml} />
       </div>
-    ) : (
-      <div class="mx-6 mt-5 border-t border-mel-border"></div>
-    )}
+    ) : null}
 
     {/* El servidor no sabe si hay selección (ni, sin remedir, cuántos avisos
         hay ocultos hoy — auditar() ya los excluye), así que estos tres nacen
@@ -218,18 +229,18 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
         en que se ven sin poder usarse — es justo lo que vio el propietario.
         La tarea 6 los revela (quita `hidden`) al marcar una casilla o al
         encontrar avisos ocultos que enseñar. */}
-    <div class="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
-      <div class="flex items-center gap-6">
-        <button type="button" class="ver-ocultos typo-body-roman text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent" hidden>
-          Ver avisos ocultos
-        </button>
-      </div>
-      <div class="flex items-center gap-3">
-        <button type="button" class={`${BTN_CONTORNO} ocultar-seleccionados`} hidden>Ocultar seleccionados</button>
-        {mostrarAccionEnBloque && (
-          <button type="button" class={`${BTN_SOLIDO} accion-seleccionados`} hidden>{grupo.accion} seleccionados</button>
-        )}
-      </div>
+    {/* Los dos botones van a la IZQUIERDA (nodo 1206:149519 de Figma:
+        `pl-24 pr-16`, gap 24, 204px de ancho mínimo). Antes estaban a la derecha
+        con `justify-between`. Primero el de contorno, que oculta, y el sólido el
+        último, que es el que toca el archivo.
+        «Ver avisos ocultos» YA NO está aquí: se subió a la cabecera de la página
+        (ver panel.astro) porque tenerlo dentro obligaba a pintar la sección
+        entera solo para alojarlo, aunque no quedara ni un aviso visible. */}
+    <div class="flex flex-wrap items-center gap-6 pl-6 pr-4 py-5">
+      <button type="button" class={`${BTN_CONTORNO} ocultar-seleccionados min-w-[204px]`} hidden>Ocultar seleccionados</button>
+      {mostrarAccionEnBloque && (
+        <button type="button" class={`${BTN_SOLIDO} accion-seleccionados min-w-[204px]`} hidden>{grupo.accion} seleccionados</button>
+      )}
     </div>
 
     <div class="overflow-x-auto pb-6">
@@ -259,7 +270,7 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
             : '';
           const hrefMel = `${sheetBase}&range=K${item.fila}`;
           return (
-            <div class="fila contents" data-id={item.idMel} data-mayor={item.mayor} data-bytes={item.bytes}>
+            <div class="fila contents" data-id={item.idMel} data-mayor={item.mayor} data-bytes={item.bytes} data-oculta={item.oculto ? 'true' : undefined}>
               <div class="flex items-center justify-center h-16">
                 <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${item.evento}`} />
               </div>
@@ -306,6 +317,46 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
 </section>
 
 <style>
+  /* Sección sin ni un aviso que enseñar. No usa `hidden` a propósito: ese
+     atributo lo gobierna el filtro por tarjeta (nivel 1 / nivel 2) en
+     panel.astro, y compartirlo hacía que cada recálculo borrase el filtro. */
+  section[data-vacia="true"] {
+    display: none;
+  }
+
+  /* Un aviso oculto se ESCONDE, no se borra: la fila sigue en el DOM para que
+     el interruptor «Mostrar avisos ocultos» de la cabecera pueda enseñarla sin
+     volver a pedirle la hoja al servidor.
+
+     `display` y no el atributo `hidden`: `[hidden]` vive en la hoja del USER
+     AGENT y una regla de autor —la `display:contents` de `.fila`— le gana
+     siempre, gane o no en especificidad. Con `.fila[data-oculta]` (0,2,0) sí se
+     gana a `.contents` (0,1,0), y sin recurrir a estilos en línea como antes:
+     así el estado vive en un atributo que también puede poner el servidor.
+
+     Al volver a enseñarla hay que devolverle `contents`, no `block`: la fila es
+     un contenedor transparente cuyos 8 hijos caen en la rejilla de `.tabla`. */
+  .fila[data-oculta="true"] {
+    display: none;
+  }
+  :global(body.mostrar-ocultos) .fila[data-oculta="true"] {
+    display: contents;
+  }
+
+  /* Enseñado pero apagado, y al final de la tabla. Las dos cosas van en las
+     CELDAS y no en la fila porque `.fila` es `display:contents`: no genera caja,
+     así que no admite ni opacidad ni orden.
+
+     `order` funciona porque con `contents` las 8 celdas son hijas directas de la
+     rejilla de `.tabla`: todas las de las filas ocultas comparten `order:1` y se
+     van detrás de las demás, conservando entre ellas el orden del documento (y
+     por tanto el que haya dejado la ordenación por columna). Sin JS, y sin pelear
+     con el reordenado de nodos que ya hace el cliente. */
+  :global(body.mostrar-ocultos) .fila[data-oculta="true"] > * {
+    order: 1;
+    opacity: 0.45;
+  }
+
   /* Casilla cuadrada a mano: un checkbox nativo en macOS/Chrome lleva esquina
      redondeada de fábrica, y la regla 5 del DS ("nada redondeado, en ningún
      sitio") no admite excepción por ser un control nativo. Compartida con

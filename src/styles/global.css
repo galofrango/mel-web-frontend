@@ -49,6 +49,31 @@
   --mel-primitive-yellow: hsla(60, 100%, 50%, 1);
   --mel-primitive-cian: hsla(180, 100%, 50%, 1);
 
+  /* Color / Banner Colors — el grupo de Figma con ese nombre, los nueve, con
+     sus nombres y sus pasos tal cual: B (azul), G (verde) e Y (amarillo), en
+     200/400/600. Están los nueve aunque hoy solo se usen los tres amarillos:
+     esta capa es el espejo de Figma, y un espejo con huecos deja de servir para
+     comparar. El azul y el verde son para variantes de banner que aún no
+     existen en el panel.
+
+     No hay familia roja aquí: el banner de error tira de `Border/Banner Error`,
+     que en Figma vale #981932 y es la marca de siempre (`le-500`).
+
+     Van en HEX y no en HSLA, al revés que `le` y `tinted`: el valor de Figma es
+     el hex, y convertirlo a HSL y de vuelta desplaza uno o dos puntos por canal
+     (comprobado: `le-500` sale #9a1933 y en Figma es #981932). Para un color de
+     marca da igual; para estos, que se comparan a ojo contra el diseño, no
+     merece la pena introducir esa deriva. */
+  --mel-primitive-b-200: #d8e2f1;
+  --mel-primitive-b-400: #2274f7;
+  --mel-primitive-b-600: #153972;
+  --mel-primitive-g-200: #d4eadd;
+  --mel-primitive-g-400: #1fa453;
+  --mel-primitive-g-600: #1b5e35;
+  --mel-primitive-y-200: #eee2d1;
+  --mel-primitive-y-400: #ce9538;
+  --mel-primitive-y-600: #664105;
+
   /* ==========================================================================
      SOMBRAS Y DIMS — un ÚNICO primitivo (Tinted 950) para todas las sombras,
      elevaciones y scrims del sitio. Canales separados por espacio para poder
@@ -116,19 +141,25 @@
   /* Border */
   --mel-border: var(--mel-primitive-tinted-200);          /* TINTED 200 */
 
-  /* Gravedad — código de color por nivel de aviso en /panel (franja de 8px
-     de las tarjetas y de las cabeceras de sección). No es paleta de marca:
-     nivel 1 ("Falta información") reutiliza el primitivo `le-400` ya
-     autorizado directamente en el marcado — es fijo, no cambia con el tema,
-     así que no necesita entrada aquí (ver FRANJA_GRAVEDAD en
-     PanelTarjeta.astro y FRANJA_CABECERA en PanelSeccion.astro). Nivel 2
-     ("Bajo rendimiento") no tenía color propio en el DS: este es su único
-     token, para el ámbar suelto de Figma que la regla de "solo tokens
-     semánticos" prohíbe escribir a mano en el marcado. Añadir un nivel 3 el
-     día de mañana es añadir `--mel-gravedad-3` aquí (+ su override en
-     `.dark` si necesita otro tono) y una línea en esos dos mapas — nunca
-     tocar una tarjeta o cabecera ya pintada. */
-  --mel-gravedad-2: #ce9538;
+  /* Banner — la familia de los avisos del panel. Los nombres son traducción
+     literal de las variables de Figma (`Border/Banner Error`,
+     `Background/Banner Warning`…) para que las dos listas se puedan comparar
+     de un vistazo, aunque el uso desborde el nombre: los dos `*-border` son
+     además el código de color por nivel de gravedad, o sea la franja de 8px de
+     las tarjetas y de las cabeceras de sección. Si un día se separan en Figma,
+     se separan aquí.
+
+     Del banner solo existe la variante de aviso: en el diseño la usan tanto las
+     secciones de nivel 1 como las de nivel 2, y no hay `Background/Banner
+     Error` ni `Text/Banner Error` que la acompañen. Lo que distingue la
+     gravedad es la franja, no el banner.
+
+     Estos cuatro NO cambian con el tema (ver el bloque `.dark`): un aviso tiene
+     que leerse igual de urgente de noche que de día. */
+  --mel-banner-error-border: var(--mel-primitive-le-500);      /* LE 500 */
+  --mel-banner-warning-border: var(--mel-primitive-y-400);      /* Y 400 */
+  --mel-banner-warning-bg: var(--mel-primitive-y-200);          /* Y 200 */
+  --mel-banner-warning-text: var(--mel-primitive-y-600);        /* Y 600 */
 
   /* Primaries CMYK */
   --mel-cyan: var(--mel-primitive-cian);
@@ -170,11 +201,12 @@
   /* Border override */
   --mel-border: var(--mel-primitive-tinted-700);
 
-  /* Gravedad override — ver razonamiento junto a la definición en :root.
-     Mismo hex que en claro por ahora; pendiente de comprobación visual
-     sobre `bg-mel-bg-secondary`/`-tertiary` oscuros antes de decidir si
-     necesita un tono propio. */
-  --mel-gravedad-2: #ce9538;
+  /* La familia `banner` NO se sobrescribe aquí a propósito — ver el
+     razonamiento junto a su definición en :root. Es la única que hereda tal
+     cual del tema claro, y por eso `--mel-banner-error-border` se queda en
+     `le-500` mientras `--mel-action-primary`, que en claro vale lo mismo, sí
+     baja a `le-400` de noche. Si algún día el ámbar no aguanta sobre los
+     fondos oscuros, el sitio de arreglarlo es aquí. */
 }
 
 
@@ -210,7 +242,10 @@
   --color-mel-bg-secondary: var(--mel-bg-secondary);
   --color-mel-bg-tertiary: var(--mel-bg-tertiary);
   --color-mel-border: var(--mel-border);
-  --color-mel-gravedad-2: var(--mel-gravedad-2);
+  --color-mel-banner-error-border: var(--mel-banner-error-border);
+  --color-mel-banner-warning-border: var(--mel-banner-warning-border);
+  --color-mel-banner-warning-bg: var(--mel-banner-warning-bg);
+  --color-mel-banner-warning-text: var(--mel-banner-warning-text);
 
   --color-mel-text-primary: var(--mel-text-primary);
   --color-mel-text-secondary: var(--mel-text-secondary);

@@ -3,12 +3,26 @@
  * avisos. Sin red, sin disco, sin DOM — por eso se puede probar entero.
  *
  * El ORDEN de GRUPOS es un orden de TRABAJO, no un ranking por número: arreglar
- * los de arriba resuelve los de abajo. Medido sobre el archivo el 31/07/2026:
- * convertir los 33 PNG, el CMYK y los 6 grandes resuelve de paso 25 de los 34
- * "sin perfil" y 17 de los 25 "+2 MB". Reordenarlo por cantidad hace que el panel
- * proponga recomprimir 17 imágenes que iban a bajar solas.
+ * los de arriba resuelve los de abajo. Medido sobre el archivo el 02/08/2026:
+ * convertir los 33 PNG, los 13 que no están en sRGB y los 6 grandes resuelve de
+ * paso 18 de los 25 "+2 MB". Reordenarlo por cantidad hace que el panel proponga
+ * recomprimir 18 imágenes que iban a bajar solas.
+ *
+ * "no-srgb" absorbió a la antigua regla "cmyk" (criterio del propietario,
+ * 02/08/2026): el defecto es el mismo —el fichero no está en sRGB—, el arreglo
+ * es el mismo botón, y una sección con UN solo cartel era ruido. No comparte ni
+ * un cartel con "png" ni con "enorme" (medido), así que su sitio no lo decide el
+ * arrastre: va donde estaba "cmyk", y por delante de "pesado" porque uno de los
+ * trece pasa de 2 MB y baja solo al convertirse.
  */
 import { ladoMayor, type DatosImagen } from './imagen.ts';
+
+/** Lado mayor a partir del cual una imagen sobra de tamaño, y al que se reduce.
+ *  Un solo número para las dos cosas: si se avisa por encima de 2400 y se
+ *  reduce a 2400, no queda franja muerta. Antes se avisaba a partir de 3000 y
+ *  se reducía a 2400, así que los de 2401–3000 no salían en ningún sitio.
+ *  El mismo valor vive en `arreglar.ts` (LADO_OBJETIVO/UMBRAL_ENORME). */
+const UMBRAL_LADO = 2400;
 
 /** Una fila de la hoja de Flyers ya mapeada por `mapSheetRow` (mel.ts), con su
  *  número de fila real añadido (`n`, para el enlace "Abrir en la hoja"). */
@@ -40,6 +54,13 @@ export type Item = {
   peso: string;
   bytes: number;
   mayor: number;
+  /** Silenciado con `#acepta:clave` en notasArchivo. Sigue viniendo en el grupo
+   *  —el panel lo pinta escondido y lo saca con el interruptor «Mostrar avisos
+   *  ocultos»— pero no cuenta en ninguna cifra mientras esté oculto. Antes
+   *  `auditar()` lo descartaba, y entonces un aviso oculto no existía para el
+   *  navegador: no había forma de enseñarlo sin volver a pedirle la hoja al
+   *  servidor. */
+  oculto: boolean;
 };
 
 export type Grupo = {
@@ -120,37 +141,39 @@ const REGLAS: Regla[] = [
    'Aún no sabemos quién actuó en el evento o no hemos rellenado la columna H de la [hoja→H1] con los nombres de los artistas separados por comas.',
    null, 'id',
    (f, t) => estaVacio(f.artistas)],
-  ['png', 2, 'Archivo PNG', 'Hasta 10× de peso en miniatura, y la galería carga 32 de golpe', 'Convertir a JPG', true,
-   '<b>El problema es el peso</b>: en tamaño de miniatura un PNG puede pesar diez veces más que el mismo cartel en JPEG, y la galería carga 32 de golpe.<br><br>La forma de corregirlo es convertir a JPEG calidad 85 <b>e incrustar sRGB en la misma pasada</b> — por separado, la conversión deja el fichero etiquetado como Adobe RGB y arreglas el peso creando un problema de color.',
-   '20 de estos 33 llevan transparencia y JPEG no la admite, así que hay que decidir una vez sobre qué fondo se aplanan.', 'bytes',
+  ['png', 2, 'Archivo PNG', 'Pesa hasta diez veces más que el mismo cartel en JPEG', 'Convertir a JPG', true,
+   '<b>El problema es el peso</b>: un PNG puede pesar diez veces más que el mismo cartel en JPEG y la galería carga 32 de golpe.<br><br>La forma de corregirlo es convertir a JPEG (calidad 85) y pasar el color a sRGB en la misma pasada.',
+   'JPEG no admite transparencias, así que no proceses aquellos archivos que necesiten conservarla.', 'bytes',
    (f, t) => t.tipo === 'png'],
-  ['cmyk', 2, 'En CMYK', 'Espacio de imprenta; el soporte en navegador es irregular', 'Pasar a sRGB', true,
-   '<b>El problema es que CMYK es un espacio de imprenta, no de pantalla</b>, y los navegadores lo tratan de forma irregular.<br><br>La forma de corregirlo es pasarlo a sRGB.',
-   'Medido en este fichero: de 798 KB a 225 KB, y el color queda en el espacio que el navegador espera.', 'bytes',
-   (f, t) => t.comp === 4],
-  ['enorme', 2, 'Por encima de 3000 px', 'Nada del sitio lo muestra a ese tamaño', 'Reducir a 2400 px', true,
-   '<b>El problema es que nada del sitio muestra un cartel a ese tamaño</b>, así que esos píxeles de más solo suman peso.<br><br>La forma de corregirlo es reducir a 2400 px de lado mayor, que es el techo que fija vuestro <i>imagenes.md</i>.',
-   'Medido en el más grande del archivo: de 4961×9674 a 1230×2400, y de 2,1 MB a 263 KB.', 'px-desc',
-   (f, t) => ladoMayor(t) > 3000],
-  ['sin-perfil', 2, 'Sin perfil de color', 'El navegador lo pinta como sRGB; si no lo era, sale apagado', 'Incrustar sRGB', true,
-   '<b>El problema es que el fichero no dice en qué espacio de color están sus números</b>, así que el navegador asume sRGB. Si no lo era, el cartel sale apagado — y como avisa vuestro <i>imagenes.md</i>, el peligro no es tener Adobe RGB, es no tener nada.<br><br>La forma de corregirlo es convertir a sRGB e incrustar el perfil. No cambia lo que se ve si ya era sRGB: solo lo hace explícito.',
-   'Tres de estos son en escala de grises (MEL-00002, MEL-00004 y MEL-00007) y la conversión los pasaría a RGB. Decidid si se excluyen.', 'bytes',
-   (f, t) => t.tipo !== 'desconocido' && !t.perfil],
-  ['pesado', 2, 'Por encima de 2 MB', 'El original tarda en llegar, y Drive no lo deja cachear', 'Recomprimir', true,
-   '<b>El problema es que ese peso se paga en cada visita</b>: Drive responde <i>no-store</i>, así que no hay caché posible y el original viaja entero cada vez.<br><br>La forma de corregirlo es bajar la calidad hasta entrar en 2 MB.',
-   'Este aviso va el último: casi todos estos son los PNG y el CMYK de las otras secciones, y al convertirlos bajan solos. Recomprimir dos veces la misma imagen pierde calidad para nada.', 'bytes',
-   (f, t) => t.bytes > 2 * 1048576],
+  ['no-srgb', 2, 'Espacio de color diferente a sRGB', 'Los colores pueden verse apagados', 'Pasar a sRGB', true,
+   '<b>sRGB es el único espacio que todos los navegadores tratan igual.</b> Con otros espacios de color, los colores podrían verse apagados.<br><br>La forma de corregirlo es pasarlo a sRGB.',
+   null, 'bytes',
+   (f, t) => t.comp === 4 || t.noSrgb],
+  ['enorme', 2, 'Resolución mayor de 2400px', 'Esos píxeles de más solo añaden peso', 'Reducir a 2400 px', true,
+   '<b>El sitio no muestra imágenes superiores a ese tamaño</b> por lo que esos píxeles de más solo añaden peso.<br><br>La forma de corregirlo es reducir a 2400 px de lado mayor.',
+   'La reducción de tamaño implica necesariamente una reducción de peso.', 'px-desc',
+   (f, t) => ladoMayor(t) > UMBRAL_LADO],
+  ['pesado', 2, 'Peso superior a 2Mb', 'El original viaja entero en cada visita', 'Recomprimir', true,
+   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.',
+   null, 'bytes',
+   // Aquí SOLO entra lo que ya está bien de todo lo demás (criterio del
+   // propietario, 02/08/2026): así no se recomprime —perdiendo calidad— algo
+   // que iba a adelgazar solo al convertirlo, reducirlo o pasarlo a sRGB. El
+   // PNG se excluye por la misma razón y por una más dura: un PNG no tiene
+   // calidad que bajar, así que el botón «Recomprimir» no podría hacer nada
+   // (el motor lo rechaza, ver arreglar.ts).
+   (f, t) => t.bytes > 2 * 1048576 && t.tipo !== 'png' && ladoMayor(t) <= UMBRAL_LADO && !t.noSrgb && t.comp !== 4],
   ['pequeno', 2, 'Baja resolución', 'Por debajo de 1200 px: no se estira, se ve pequeño', null, false,
-   '<b>El problema es que el original no da más de sí.</b> El sitio nunca amplía una imagen por encima de su tamaño real, así que no se ve borrosa: se ve pequeña.<br><br>La única forma de corregirlo es conseguir un escaneo mejor de la pieza.',
-   'Ampliar con IA está descartado: reinventa las letras del cartel, y en un archivo de diseño gráfico eso es falsificar la pieza.', 'px-asc',
+   '<b>La imagen original no alcanza la resolución óptima para el sitio web.</b> La imagen se verá pequeña en algunas ocasiones, ya que la página nunca la ampliará por encima de su tamaño real para no distorsionarla.<br><br>La única forma de corregirlo es conseguir un original de mayor resolución.',
+   null, 'px-asc',
    (f, t) => ladoMayor(t) > 0 && ladoMayor(t) < 1200],
   ['gif', 2, 'GIF animado', 'Drive no lo redimensiona: se descarga entero', null, false,
-   '<b>El problema es que son 177 fotogramas y 14,4 MB que Drive no redimensiona</b>: el visitante se los descarga enteros, pida el tamaño que pida.<br><br>La decisión es vuestra: dejarlo como está, o guardar el GIF aparte y elegir un fotograma como cara de la pieza en el archivo.',
-   'No lleva botón a propósito: convertirlo a JPEG destruiría la animación, que es parte de la pieza.', 'bytes',
+   '<b>Google Drive no redimensiona y el archivo se descarga entero en cada visita</b>, incluidas las miniaturas.<br><br>Solo podemos optimizar la navegación extrayendo un fotograma fijo que sirva como portada de la pieza hasta que el usuario acceda a la página de evento para ver la pieza completa.',
+   'El GIF original quedará intacto y se creará una imagen nueva en la carpeta de Drive que no aparecerá en el spreadsheet.', 'bytes',
    (f, t) => t.tipo === 'gif'],
 ];
 
-const VACIO: DatosImagen = { tipo: 'desconocido', px: null, comp: null, perfil: false, alfa: false, bytes: 0 };
+const VACIO: DatosImagen = { tipo: 'desconocido', px: null, comp: null, noSrgb: false, alfa: false, bytes: 0 };
 
 const ORDENA: Record<Criterio, (a: Item, b: Item) => number> = {
   bytes: (a, b) => b.bytes - a.bytes,
@@ -188,9 +211,6 @@ export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>)
     const items: Item[] = [];
 
     for (const fila of filas) {
-      // La marca en notasArchivo silencia solo esta regla, en esta fila.
-      if (estaSilenciado(fila.notasArchivo, clave)) continue;
-
       const t = tecnico[idDeDrive(fila.urlDrive)] || VACIO;
       if (!prueba(fila, t)) continue;
 
@@ -202,6 +222,8 @@ export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>)
         peso: t.bytes ? MB(t.bytes) : '—',
         bytes: t.bytes,
         mayor: ladoMayor(t),
+        // La marca en notasArchivo silencia solo esta regla, en esta fila.
+        oculto: estaSilenciado(fila.notasArchivo, clave),
       });
     }
 

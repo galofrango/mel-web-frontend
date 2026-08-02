@@ -8,15 +8,22 @@
  * excepción (ver docs/superpowers/specs/2026-07-31-panel-control-archivo-design.md,
  * sección "Seguridad").
  *
- * Una llamada = UN fichero, nunca un lote (cuerpo `{ accion, idMel }`): así el
- * cliente puede pedir de uno en uno, contar «12 de 33» de verdad y parar a
- * mitad. El plan de qué operaciones aplicar sale del ESTADO MEDIDO del
- * fichero (`planificarArreglo`), no de qué botón se pulsó — `accion` solo
- * valida que la petición tiene sentido y viaja de vuelta en la respuesta.
- * Motivo: el estado es lo único fiable en el momento de procesar (puede haber
- * cambiado desde que se pintó el panel), y es lo que permite la regla de una
- * sola pasada — si al cartel le hacen falta tres arreglos, salen los tres en
- * la misma invocación de `sips`, nunca en tres.
+ * Una llamada = UN fichero, nunca un lote (cuerpo `{ acciones, idMel }`): así
+ * el cliente puede pedir de uno en uno, contar «12 de 33» de verdad y parar a
+ * mitad.
+ *
+ * El plan sale de LAS ACCIONES QUE SE PIDEN, y el estado medido solo decide si
+ * cada una tiene algo que hacer en este fichero. Antes era al revés —el plan se
+ * deducía del estado e ignoraba el botón— y eso hacía que «Reducir a 2400 px»
+ * sobre un PNG lo convirtiera además a JPEG, aplanándole la transparencia.
+ * Corregido el 02/08/2026 por el propietario: un botón hace lo que dice, y las
+ * demás operaciones se ofrecen en el modal para que se marquen a mano.
+ *
+ * Lo que SÍ se conserva es la regla de una sola pasada: si se piden tres
+ * operaciones, salen las tres en la misma invocación de `sips`, nunca en tres
+ * —cada recompresión de un JPEG pierde calidad—. Y el estado se vuelve a medir
+ * aquí, sobre el fichero recién descargado, porque es lo único fiable en el
+ * momento de procesar: puede haber cambiado desde que se pintó el panel.
  *
  * La segunda mitad de la tarea 7 (el modal de confirmación, que decide qué
  * conjunto de mejoras ofrecer y con qué texto) consume esta ruta pero no vive
@@ -45,7 +52,7 @@ const execFileP = promisify(execFile);
 /** Las cinco claves de auditoria.ts que tienen arreglo automático. Las otras
  *  (sin-lugar, sin-coordenadas, sin-artistas, pequeno, gif) son manuales o no
  *  tienen arreglo, y esta ruta no las acepta. */
-const ACCIONES_VALIDAS = new Set(['png', 'cmyk', 'enorme', 'sin-perfil', 'pesado']);
+const ACCIONES_VALIDAS = new Set(['png', 'no-srgb', 'enorme', 'pesado']);
 
 const PERFIL_SRGB = '/System/Library/ColorSync/Profiles/sRGB Profile.icc';
 const PERFIL_GRIS = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc';
@@ -53,28 +60,49 @@ const CALIDAD_INICIAL = 85;   // el estándar del proyecto (imagenes.md)
 const CALIDAD_MINIMA = 30;    // no bajar de aquí: destruir el cartel no es "arreglarlo"
 const PASO_CALIDAD = 15;
 const LIMITE_PESO = 2 * 1048576;  // 2 MB, el mismo umbral que auditoria.ts
-const UMBRAL_ENORME = 3000;       // el mismo umbral que la regla "enorme" de auditoria.ts
-const LADO_OBJETIVO = 2400;       // a lo que se reduce, fija imagenes.md
+// Un solo número: se avisa por encima de 2400 y se reduce a 2400, así no queda
+// franja muerta (antes se avisaba a partir de 3000 y los de 2401–3000 no salían
+// en ningún sitio). El mismo valor vive en auditoria.ts como UMBRAL_LADO.
+const UMBRAL_ENORME = 2400;
+const LADO_OBJETIVO = 2400;
+
+export type Accion = 'png' | 'no-srgb' | 'enorme' | 'pesado';
 
 export type PlanArreglo =
   | { estado: 'rechazado'; motivo: string }
   | { estado: 'sin-cambios' }
-  | { estado: 'aplicar'; reduce: boolean; perfil: string };
+  | { estado: 'aplicar'; salida: 'jpeg' | 'png'; reduce: boolean; recomprime: boolean; perfil: string };
+
+/** Si cada acción tiene algo que hacer en ESTE fichero. Pedir reducir un cartel
+ *  que no pasa de 3000 px no es un error del que avisar: simplemente no aplica,
+ *  y aplicarlo lo AMPLIARÍA (`--resampleHeightWidthMax` agranda, medido). */
+const APLICA: Record<Accion, (t: DatosImagen) => boolean> = {
+  png: (t) => t.tipo === 'png',
+  // CMYK entra aquí: la regla "cmyk" se fundió en "no-srgb" (ver auditoria.ts).
+  'no-srgb': (t) => t.comp === 4 || t.noSrgb,
+  enorme: (t) => ladoMayor(t) > UMBRAL_ENORME,
+  pesado: (t) => t.bytes > LIMITE_PESO,
+};
 
 /**
- * Qué hace falta para que un fichero pase las cinco comprobaciones
- * automáticas (png, cmyk, enorme, sin-perfil, pesado), calculado del estado
- * medido — no de qué botón se pulsó. Por eso un cartel que necesite tres
- * arreglos a la vez (PNG + grande + sin perfil) los junta los tres: cada
- * recompresión de JPEG pierde calidad, así que no hay una pasada por aviso,
- * hay una pasada por FICHERO.
+ * Qué hay que hacerle a un fichero, dadas LAS ACCIONES QUE SE HAN PEDIDO — la
+ * del botón que se pulsó, más las que se marquen en el modal. Ni una más.
  *
- * Todo arreglo automático convierte a JPEG e incrusta perfil en la MISMA
- * pasada, se necesitara "convertir" o no: `sips -s format jpeg` a secas deja
- * el resultado etiquetado como Adobe RGB (medido), así que separarlos no es
- * una opción. El perfil es el que el fichero ES — gris si lo era, sRGB si no.
+ * Esto es lo contrario de lo que hacía antes, y el cambio viene del propietario
+ * (02/08/2026): antes el plan se deducía del estado medido e ignoraba qué botón
+ * se había pulsado, de modo que "Reducir a 2400 px" sobre un PNG además lo
+ * convertía a JPEG y le aplanaba la transparencia. Un botón que hace más de lo
+ * que dice se come la razón de separar los avisos por incidencia, y deja sin
+ * sentido que el modal ofrezca añadir las otras.
+ *
+ * **Muchos PNG se quedan PNG**: los que llevan transparencia se conservan tal
+ * cual, y eso no impide optimizarlos por tamaño o por color. Solo la acción
+ * `png` cambia el formato, y la salida solo se mueve hacia JPEG, nunca al revés.
+ *
+ * La ÚNICA cosa que se hace siempre sin pedirla es `--matchTo` (ver
+ * `argumentosSips`), y no es un extra: es lo que impide romper el fichero.
  */
-export function planificarArreglo(t: DatosImagen): PlanArreglo {
+export function planificarArreglo(t: DatosImagen, acciones: readonly Accion[]): PlanArreglo {
   if (t.tipo === 'gif') {
     return { estado: 'rechazado', motivo: 'GIF animado: no tiene arreglo automático, convertirlo destruiría la animación' };
   }
@@ -82,28 +110,53 @@ export function planificarArreglo(t: DatosImagen): PlanArreglo {
     return { estado: 'rechazado', motivo: 'fichero no reconocido' };
   }
 
-  const leHaceFalta = t.tipo === 'png' || t.comp === 4 || !t.perfil
-    || ladoMayor(t) > UMBRAL_ENORME || t.bytes > LIMITE_PESO;
-  if (!leHaceFalta) return { estado: 'sin-cambios' };
+  const pedidas = new Set(acciones.filter((a) => APLICA[a]?.(t)));
+  if (pedidas.size === 0) return { estado: 'sin-cambios' };
 
-  return {
-    estado: 'aplicar',
-    reduce: ladoMayor(t) > UMBRAL_ENORME,
-    perfil: t.gris ? PERFIL_GRIS : PERFIL_SRGB,
-  };
+  // La salida solo se mueve hacia JPEG, y solo si se ha pedido convertir. Un
+  // JPEG de entrada sigue siendo JPEG haga lo que haga.
+  const salida: 'jpeg' | 'png' = pedidas.has('png') || t.tipo === 'jpeg' ? 'jpeg' : 'png';
+  const reduce = pedidas.has('enorme');
+
+  // Un PNG es sin pérdida: no tiene calidad que bajar, así que la escalera de
+  // recompresión solo existe si la salida es JPEG. Si eso deja el plan sin nada
+  // que hacer, se dice — antes esto se "arreglaba" convirtiéndolo a JPEG por su
+  // cuenta, que es justo lo que ya no se hace.
+  const recomprime = pedidas.has('pesado') && salida === 'jpeg';
+  if (!recomprime && !reduce && salida === 'png') {
+    return {
+      estado: 'rechazado',
+      motivo: 'Un PNG que sigue siendo PNG no adelgaza recomprimiendo: no tiene calidad que bajar. Redúcelo de tamaño o conviértelo a JPG.',
+    };
+  }
+
+  return { estado: 'aplicar', salida, reduce, recomprime, perfil: t.gris ? PERFIL_GRIS : PERFIL_SRGB };
 }
 
 /**
  * Los argumentos de `sips` para una pasada, dada la calidad a probar.
  * SIEMPRE lista de argumentos — nunca una cadena de shell (regla del spec).
- * El PNG con transparencia se aplana solo, sin argumento aparte: comprobado
- * sobre un fichero real que `--matchTo` compone el alfa=0 sobre BLANCO (no
- * negro, no deja ver el color de debajo), que es la decisión del propietario.
+ *
+ * `--matchTo` va en TODAS, se haya pedido tocar el color o no, y eso no
+ * contradice lo de "hacer solo lo que dice el botón": es lo único que evita
+ * romperlo. `sips` a secas —redimensionar, recomprimir o cambiar de formato—
+ * le quita al fichero la etiqueta de color SIN convertir los píxeles, y un
+ * Adobe RGB sin etiqueta se pinta apagado (medido: 13 puntos de 255 de
+ * desaturación). Con `--matchTo` en la misma orden sale convertido de verdad.
+ * Sobre un fichero que ya es sRGB no cambia nada. Ver D-174.
+ *
+ * Si la salida sigue siendo PNG no se toca el formato: sin `-s format`, `sips`
+ * conserva el PNG **y su transparencia** — comprobado sobre MEL-00008, que
+ * mantiene el alfa tanto al reducir como al pasar el color.
+ *
+ * Cuando SÍ se convierte a JPEG, el alfa se aplana solo, sin argumento aparte:
+ * comprobado sobre un fichero real que `--matchTo` compone el alfa=0 sobre
+ * BLANCO (no negro), que es la decisión del propietario.
  */
 export function argumentosSips(plan: Extract<PlanArreglo, { estado: 'aplicar' }>, calidad: number, entrada: string, salida: string): string[] {
   const args: string[] = [];
   if (plan.reduce) args.push('--resampleHeightWidthMax', String(LADO_OBJETIVO));
-  args.push('-s', 'format', 'jpeg', '-s', 'formatOptions', String(calidad));
+  if (plan.salida === 'jpeg') args.push('-s', 'format', 'jpeg', '-s', 'formatOptions', String(calidad));
   args.push('--matchTo', plan.perfil);
   args.push(entrada, '--out', salida);
   return args;
@@ -155,16 +208,24 @@ export const POST: APIRoute = async ({ request }) => {
   const host = request.headers.get('host') || '';
   if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new Response(null, { status: 404 });
 
-  let cuerpo: { accion?: string; idMel?: string };
+  let cuerpo: { accion?: string; acciones?: string[]; idMel?: string };
   try {
     cuerpo = await request.json();
   } catch {
     return json({ ok: false, motivo: 'cuerpo no es JSON válido' }, 400);
   }
 
-  const { accion, idMel } = cuerpo;
-  if (!accion || !ACCIONES_VALIDAS.has(accion)) {
-    return json({ ok: false, motivo: `accion desconocida: "${accion}"` }, 400);
+  // Se aceptan las dos formas: `accion` (la del botón pulsado, a secas) y
+  // `acciones` (esa más las que se marquen en el modal). Se normaliza a lista
+  // porque el motor razona en plural desde que un botón hace solo lo suyo.
+  const { idMel } = cuerpo;
+  const acciones = cuerpo.acciones ?? (cuerpo.accion ? [cuerpo.accion] : []);
+  if (!Array.isArray(acciones) || acciones.length === 0) {
+    return json({ ok: false, motivo: 'falta la acción' }, 400);
+  }
+  const desconocida = acciones.find((a) => typeof a !== 'string' || !ACCIONES_VALIDAS.has(a));
+  if (desconocida !== undefined) {
+    return json({ ok: false, motivo: `accion desconocida: "${desconocida}"` }, 400);
   }
   if (!idMel || typeof idMel !== 'string') {
     return json({ ok: false, motivo: 'falta idMel' }, 400);
@@ -178,11 +239,11 @@ export const POST: APIRoute = async ({ request }) => {
     //    Google, nunca en una ruta de disco.
     const filas = (await fetchSheetRows()).map(f => mapSheetRow(f.c));
     const fila = filas.find(f => f && f.idMel === idMel);
-    if (!fila) return json({ ok: false, idMel, accion, motivo: 'ese idMel no está en la hoja' });
+    if (!fila) return json({ ok: false, idMel, acciones, motivo: 'ese idMel no está en la hoja' });
 
     const idDrive = idDeDrive(fila.urlDrive);
     if (!ID_DRIVE_VALIDO.test(idDrive)) {
-      return json({ ok: false, idMel, accion, motivo: 'id de Drive inválido o ausente' });
+      return json({ ok: false, idMel, acciones, motivo: 'id de Drive inválido o ausente' });
     }
 
     // 2. Autenticar y descargar el original.
@@ -191,19 +252,19 @@ export const POST: APIRoute = async ({ request }) => {
     try {
       original = await descargarFichero(idDrive, token);
     } catch (e: any) {
-      return json({ ok: false, idMel, accion, motivo: `descarga falló: ${e.message}` });
+      return json({ ok: false, idMel, acciones, motivo: `descarga falló: ${e.message}` });
     }
 
     // 3. Medir y decidir. Puro: nada de lo que sigue en este bloque puede
     //    cambiar el resultado de planificarArreglo.
     const estado = leerCabecera(original);
-    const plan = planificarArreglo(estado);
+    const plan = planificarArreglo(estado, acciones as Accion[]);
 
     if (plan.estado === 'rechazado') {
-      return json({ ok: false, idMel, accion, motivo: plan.motivo, tecnico: estado });
+      return json({ ok: false, idMel, acciones, motivo: plan.motivo, tecnico: estado });
     }
     if (plan.estado === 'sin-cambios') {
-      return json({ ok: true, idMel, accion, hecho: false, motivo: 'no le hacía falta ningún arreglo automático', tecnico: estado });
+      return json({ ok: true, idMel, acciones, hecho: false, motivo: 'no le hacía falta ningún arreglo automático', tecnico: estado });
     }
 
     // 4. sips sobre un temporal, con reintentos de calidad si el resultado
@@ -214,14 +275,19 @@ export const POST: APIRoute = async ({ request }) => {
     let salidaBuf: Buffer;
     try {
       const entrada = join(dirTmp, 'entrada');
-      const salida = join(dirTmp, 'salida.jpg');
+      const salida = join(dirTmp, plan.salida === 'jpeg' ? 'salida.jpg' : 'salida.png');
       await writeFile(entrada, original);
 
+      // La escalera de calidad SOLO baja si se pidió "pesado". Antes bajaba
+      // siempre que el resultado pasara de 2 MB, aunque solo se hubiera pedido
+      // convertir: eso es perseguir un peso que nadie pidió arreglar, perdiendo
+      // calidad por el camino. Un PNG que sigue siendo PNG nunca entra aquí —
+      // no tiene calidad que bajar (`recomprime` es false por construcción).
       let calidad = CALIDAD_INICIAL;
       for (;;) {
         await execFileP('sips', argumentosSips(plan, calidad, entrada, salida));
         salidaBuf = await readFile(salida);
-        if (salidaBuf.length <= LIMITE_PESO) break;
+        if (!plan.recomprime || salidaBuf.length <= LIMITE_PESO) break;
         const siguiente = siguienteCalidad(calidad);
         if (siguiente === null) break;
         calidad = siguiente;
@@ -232,19 +298,19 @@ export const POST: APIRoute = async ({ request }) => {
 
     // 5. Sustituir en Drive, conservando el id — no toca ni una celda de la hoja.
     try {
-      await sustituirFichero(idDrive, salidaBuf, 'image/jpeg', token);
+      await sustituirFichero(idDrive, salidaBuf, plan.salida === 'jpeg' ? 'image/jpeg' : 'image/png', token);
     } catch (e: any) {
-      return json({ ok: false, idMel, accion, motivo: `no se pudo sustituir en Drive: ${e.message}` });
+      return json({ ok: false, idMel, acciones, motivo: `no se pudo sustituir en Drive: ${e.message}` });
     }
 
     // 6. Remedir el resultado. El panel recalcula TODAS las secciones con esto,
     //    no solo la que se pulsó (una acción puede arreglar varios avisos).
     const tecnicoNuevo = leerCabecera(salidaBuf);
-    return json({ ok: true, idMel, accion, hecho: true, tecnico: tecnicoNuevo });
+    return json({ ok: true, idMel, acciones, hecho: true, tecnico: tecnicoNuevo });
   } catch (e: any) {
     // Cualquier fallo inesperado se convierte en un fallo de ESTE fichero, no
     // en un 500: el cliente pide de uno en uno y tiene que poder seguir con
     // el siguiente aunque este reviente.
-    return json({ ok: false, idMel, accion, motivo: `error inesperado: ${e.message}` });
+    return json({ ok: false, idMel, acciones, motivo: `error inesperado: ${e.message}` });
   }
 };

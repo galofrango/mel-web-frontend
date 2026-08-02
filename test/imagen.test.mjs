@@ -26,14 +26,44 @@ function png(ancho, alto, tipoColor, conICCP = false) {
   return Buffer.concat(partes);
 }
 
+/**
+ * Perfil ICC mínimo de verdad: cabecera de 128 bytes, tabla de etiquetas y los
+ * primarios rojo y verde, que son los que dicen si es sRGB. Con `null` sale un
+ * perfil sin primarios — el caso de los grises, que llevan kTRC y no rXYZ.
+ */
+function perfilICC(rojoX, verdeX) {
+  const conXYZ = rojoX !== null;
+  const total = conXYZ ? 196 : 132;
+  const p = Buffer.alloc(total);
+  p.writeUInt32BE(total, 0);
+  p.writeUInt32BE(conXYZ ? 2 : 0, 128);
+  if (conXYZ) {
+    const escribir = (etiqueta, pos, x) => {
+      p.write(etiqueta, pos, 'latin1');
+      p.writeUInt32BE(pos === 132 ? 156 : 176, pos + 4);
+      p.writeUInt32BE(20, pos + 8);
+      const dato = pos === 132 ? 156 : 176;
+      p.write('XYZ ', dato, 'latin1');
+      p.writeInt32BE(Math.round(x * 65536), dato + 8);
+    };
+    escribir('rXYZ', 132, rojoX);
+    escribir('gXYZ', 144, verdeX);
+  }
+  return p;
+}
+
 /** JPEG mínimo: SOI + (opcional) APP2 con ICC + SOF0 + EOI. */
 function jpeg(ancho, alto, componentes, conICC = false) {
   const partes = [Buffer.from([0xFF, 0xD8])];
   if (conICC) {
-    const app2 = Buffer.alloc(4 + 12);
+    // `conICC` puede ser `true` (perfil vacío, como antes) o un Buffer de perfil.
+    const perfil = Buffer.isBuffer(conICC) ? conICC : Buffer.alloc(0);
+    const app2 = Buffer.alloc(4 + 14 + perfil.length);
     app2[0] = 0xFF; app2[1] = 0xE2;
-    app2.writeUInt16BE(14, 2);
+    app2.writeUInt16BE(2 + 14 + perfil.length, 2);
     app2.write('ICC_PROFILE\0', 4, 'latin1');
+    app2[16] = 1; app2[17] = 1;   // trozo 1 de 1
+    perfil.copy(app2, 18);
     partes.push(app2);
   }
   const sof = Buffer.alloc(12);
@@ -55,9 +85,12 @@ test('PNG: dimensiones y alfa', () => {
   assert.equal(leerCabecera(png(100, 100, 6)).alfa, true);
 });
 
-test('PNG: detecta el perfil por el bloque iCCP', () => {
-  assert.equal(leerCabecera(png(100, 100, 2, false)).perfil, false);
-  assert.equal(leerCabecera(png(100, 100, 2, true)).perfil, true);
+test('PNG: nunca marca noSrgb, lleve el perfil que lleve', () => {
+  // Todo PNG dispara la regla "png" y se convierte a JPEG con --matchTo, así
+  // que su perfil ya queda arreglado por ese camino. Avisar aquí sería avisar
+  // dos veces de lo mismo. Ver el comentario de imagen.ts.
+  assert.equal(leerCabecera(png(100, 100, 2, false)).noSrgb, false);
+  assert.equal(leerCabecera(png(100, 100, 2, true)).noSrgb, false);
 });
 
 test('PNG: gris por el tipo de color del IHDR (0 y 4), no confundir con alfa', () => {
@@ -68,22 +101,56 @@ test('PNG: gris por el tipo de color del IHDR (0 y 4), no confundir con alfa', (
   assert.equal(leerCabecera(png(100, 100, 6)).gris, false, 'tipo 6 = RGBA, no es gris');
 });
 
-test('JPEG: dimensiones, componentes y perfil', () => {
+test('JPEG: dimensiones, componentes y gris', () => {
   const color = leerCabecera(jpeg(1613, 2235, 3, true));
   assert.equal(color.tipo, 'jpeg');
   assert.deepEqual(color.px, [1613, 2235]);
   assert.equal(color.comp, 3);
-  assert.equal(color.perfil, true);
   assert.equal(color.gris, false);
 
   const cmyk = leerCabecera(jpeg(800, 600, 4, false));
   assert.equal(cmyk.comp, 4);
-  assert.equal(cmyk.perfil, false);
+  assert.equal(cmyk.noSrgb, false);
   assert.equal(cmyk.gris, false);
 
   const gris = leerCabecera(jpeg(800, 600, 1, false));
   assert.equal(gris.comp, 1);
   assert.equal(gris.gris, true, 'comp === 1 es la señal de gris en JPEG');
+});
+
+// Los cuatro perfiles que hay de verdad en el archivo, con sus primarios
+// medidos de los ficheros originales (agosto 2026).
+const SRGB = [0.4361, 0.3851];
+const ADOBE_RGB = [0.6097, 0.2053];
+const GENERIC_RGB = [0.4543, 0.3533];
+const DISPLAY = [0.4443, 0.3794];   // perfil de un monitor; el no-sRGB más cercano
+
+test('JPEG: noSrgb solo cuando el perfil incrustado NO es sRGB', () => {
+  const conPerfil = (p) => leerCabecera(jpeg(800, 600, 3, perfilICC(...p))).noSrgb;
+  assert.equal(conPerfil(SRGB), false, 'sRGB es lo que queremos, no se avisa');
+  assert.equal(conPerfil(ADOBE_RGB), true);
+  assert.equal(conPerfil(GENERIC_RGB), true);
+  assert.equal(conPerfil(DISPLAY), true, 'el más cercano a sRGB sigue sin serlo');
+});
+
+test('JPEG: sin perfil NO es noSrgb — sin etiqueta significa sRGB', () => {
+  // macOS no incrusta el perfil sRGB a propósito, así que todo cartel que
+  // arregle el panel sale sin etiqueta. Si esto avisara, el panel se avisaría
+  // a sí mismo de su propio trabajo, en bucle. Medido en agosto de 2026.
+  assert.equal(leerCabecera(jpeg(800, 600, 3, false)).noSrgb, false);
+  assert.equal(leerCabecera(jpeg(800, 600, 3, true)).noSrgb, false, 'APP2 vacío tampoco');
+});
+
+test('JPEG: un perfil sin primarios no dispara el aviso', () => {
+  // Los perfiles de gris llevan kTRC y no rXYZ: no hay nada que comparar, y
+  // dar por malo lo que no se sabe leer es gritar en falso.
+  assert.equal(leerCabecera(jpeg(800, 600, 1, perfilICC(null, null))).noSrgb, false);
+});
+
+test('JPEG: la tolerancia de sRGB no es ni tan ancha ni tan estrecha', () => {
+  const rojo = (x) => leerCabecera(jpeg(800, 600, 3, perfilICC(x, SRGB[1]))).noSrgb;
+  assert.equal(rojo(SRGB[0] + 0.003), false, 'redondeos del perfil siguen siendo sRGB');
+  assert.equal(rojo(SRGB[0] + 0.006), true, 'pero 0,006 ya es otro espacio de color');
 });
 
 test('GIF: dimensiones en little-endian', () => {
@@ -112,7 +179,7 @@ test('ficheros truncados no revienta: buffer vacío', () => {
   assert.equal(d.tipo, 'desconocido');
   assert.equal(d.px, null);
   assert.equal(d.comp, null);
-  assert.equal(d.perfil, false);
+  assert.equal(d.noSrgb, false);
   assert.equal(d.bytes, 0);
 });
 

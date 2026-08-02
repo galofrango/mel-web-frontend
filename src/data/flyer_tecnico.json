@@ -6,8 +6,9 @@
    2067
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 3105399
  },
  "10EIQpW-pLXvCL1fTcczbAWx6hLBKiGaf": {
@@ -17,8 +18,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1534830
  },
  "13B_CNH-8tR2uQjXQfz379yWTbxUZe6_W": {
@@ -28,8 +30,9 @@
    2235
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2825284
  },
  "13W5CRrmetP6jDgO7GVhayF3aHxLZY0qv": {
@@ -39,8 +42,9 @@
    2268
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1264240
  },
  "15KB7rD7qrlvQsLNHmVJl9I-s58TJUDQ_": {
@@ -50,8 +54,9 @@
    2504
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 814552
  },
  "15o7cXX-2J5v_paSB4aoYPo_ygHMludA0": {
@@ -61,8 +66,9 @@
    718
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 798877
  },
  "16JyNjF76OLAMw1H7tY_ZsxG1r8qicLL2": {
@@ -72,8 +78,9 @@
    1393
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 669726
  },
  "185EH5typYUMdkE-HRA7a3FF8Z9ZEpaVv": {
@@ -83,8 +90,9 @@
    1191
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 576996
  },
  "18nu4z8sbBsYVQf_qEGT2UJcmtpCA-0j5": {
@@ -94,8 +102,9 @@
    560
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 175514
  },
  "194niLKJZop9Ze-zyQNzRFuSFMn8H01uY": {
@@ -105,8 +114,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1580317
  },
  "19RDXS_1ZTH0tibXqIONXof7ZV-yh1-Q4": {
@@ -116,8 +126,9 @@
    1697
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 798007
  },
  "1AP3g6qliroiEYTAkWax50p7w81fGN10f": {
@@ -127,8 +138,9 @@
    2089
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2772887
  },
  "1B7icE8DZJIHxOpcb4C817O7Ytqy81nh5": {
@@ -138,8 +150,9 @@
    2362
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 3466608
  },
  "1BtIPDcR2i8i7IvHqaKReY0W_u-VJ3wxR": {
@@ -149,8 +162,9 @@
    2505
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1019661
  },
  "1DE-xbvVO3D0lfq-eRcu5kW7ncLHS6LB_": {
@@ -160,8 +174,9 @@
    2507
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 3267939
  },
  "1Em8wnNwe2wzbCZbGYEUh2QP4_s5uRj_S": {
@@ -171,8 +186,9 @@
    2121
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 216316
  },
  "1EqBr1D0zPNas-KeEtUTkyGE4Qqz_B8wm": {
@@ -182,8 +198,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1666629
  },
  "1F0fJTdK8MfPaXAltf5TMJroLcooShRkE": {
@@ -193,8 +210,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 2567521
  },
  "1FzlF5EqVNTmsbdQyZLEq0Sry0sh902Tb": {
@@ -204,8 +222,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 2154866
  },
  "1GDMZEzNN7k9vENrOJEctIXOohiV0I7Q_": {
@@ -215,8 +234,9 @@
    4961
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1164929
  },
  "1HLtdv8Z18TLejCXyUw012E2NT4kRWo6t": {
@@ -226,8 +246,9 @@
    2390
   ],
   "comp": 3,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2653801
  },
  "1IJ8FsKEbuUvR5ysd2Q6QE2Lc6zvE9DHy": {
@@ -237,8 +258,9 @@
    1415
   ],
   "comp": 3,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 550657
  },
  "1IqWQP9C1olPottUIh_oJTiOtITJP5R7J": {
@@ -248,8 +270,9 @@
    2067
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 3715040
  },
  "1JQpjOknVoEvxz7B3SxKMx7nsWs91msBj": {
@@ -259,8 +282,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 2884614
  },
  "1KIez_veoLTOlQJ96ljLILFwZVrgUkqjH": {
@@ -270,8 +294,9 @@
    1021
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1139097
  },
  "1KnscBQ5XmvVDW5BEvp-4W95U06XKgdVP": {
@@ -281,8 +306,9 @@
    2121
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 207247
  },
  "1L3PFQbZM2-pY-ocSf-hyBEqgSCh_0xFD": {
@@ -292,8 +318,9 @@
    709
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 235301
  },
  "1MwAZGkEnF2bWkP8KSZD9CLKf0Wa2CDhr": {
@@ -303,8 +330,9 @@
    1030
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 305519
  },
  "1NrfCtXnM-_3kdGSOFsMXparXAfPt0dbP": {
@@ -314,8 +342,9 @@
    2004
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 2638893
  },
  "1QutpleRAdvyazIWatiUtWI2NoWpuc3P6": {
@@ -325,8 +354,9 @@
    2067
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2575242
  },
  "1RthTluhE4Wg5JeeydUrSyHLCe00H58gM": {
@@ -336,8 +366,9 @@
    500
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 15075851
  },
  "1S2pZma8z_4LB3iRCOEIpBV5UfzB86z6U": {
@@ -347,8 +378,9 @@
    827
   ],
   "comp": 4,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 816844
  },
  "1SDn68EAyjTvNZ_uLFz2Q38R1iWClE4E7": {
@@ -358,8 +390,9 @@
    9674
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2242986
  },
  "1T2FRwTCLcdXYjOZivQC67VdnRIiuuHlA": {
@@ -369,8 +402,9 @@
    2506
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2900968
  },
  "1TYiIK_b4FKj_DINn-zR_eOnUXXkVL9Ml": {
@@ -380,8 +414,9 @@
    1403
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1665937
  },
  "1Tji1zPj6ajqAKNpMwRPX1wOIgZD4wvJ0": {
@@ -391,8 +426,9 @@
    1203
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2815565
  },
  "1UNNMXYmjxglkGAOjWnndQj8DSE1Q0r2X": {
@@ -402,8 +438,9 @@
    3246
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1620624
  },
  "1UXNzYTF6zxcCUbWtUVbi2VtEFPW-w1tn": {
@@ -413,8 +450,9 @@
    2505
   ],
   "comp": 3,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2458343
  },
  "1XaSPKN1vljl_JrJjROT30oXOSAeU22Jz": {
@@ -424,8 +462,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1505708
  },
  "1XiLBMaREudvP7sBc-ytVMXL240ZNsz2z": {
@@ -435,8 +474,9 @@
    1191
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1147225
  },
  "1ZCTA0419LWQ-11XbEnEv8yn2QxZIf_c0": {
@@ -446,8 +486,9 @@
    709
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 317925
  },
  "1aVBPggHx-7HKdx9smtduEHdCrUFoeA3J": {
@@ -457,8 +498,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 2628114
  },
  "1asPPzcApsqGRxlhW-W3OpoF7yEPMbOYV": {
@@ -468,8 +510,9 @@
    2006
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1438791
  },
  "1bsfcpRcunl6JjffkuNvQVKYHTnOn51cD": {
@@ -479,8 +522,9 @@
    2004
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2732814
  },
  "1btmjVLRdinnfJmasxW2u_LKgdlzkInwG": {
@@ -490,8 +534,9 @@
    1575
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1552276
  },
  "1bvbttkkpUkPHNCRjWxFEGot4KVk0I9ES": {
@@ -501,8 +546,9 @@
    2006
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1216875
  },
  "1cJO0xyaPft3ymQOIl09_Q5TfqyufF2-w": {
@@ -512,8 +558,9 @@
    1284
   ],
   "comp": 1,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": true,
   "bytes": 541049
  },
  "1d9zztdYL1dUgZz7205OFgKdyl6YfOnrz": {
@@ -523,8 +570,9 @@
    992
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 299401
  },
  "1eDShFSiD8dNzVZjZ-jSh5c8H-6RJ9DDq": {
@@ -534,8 +582,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1721873
  },
  "1eRfwDfWPeDakNUBpAtLJB_QAwd99cJaR": {
@@ -545,8 +594,9 @@
    289
   ],
   "comp": 3,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 165619
  },
  "1fBVtnRzbPnoL_Tdp72zK1to4wHymvMGy": {
@@ -556,8 +606,9 @@
    600
   ],
   "comp": 3,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 159235
  },
  "1fHTbXPui4CPyioF9VtpDN2yUAJCI4xw3": {
@@ -567,8 +618,9 @@
    2382
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 330874
  },
  "1fhk1RN6p05NkfS60NRPYlyx-g1iADoOG": {
@@ -578,8 +630,9 @@
    2382
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 299281
  },
  "1fr-sC3sHZDehjQGy6G6zKlBpjsXd8jwN": {
@@ -589,8 +642,9 @@
    2054
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 3007216
  },
  "1fshRaYm9PfM3WqXdUArI9rZPv81IiUhr": {
@@ -600,8 +654,9 @@
    2506
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1423009
  },
  "1g8HznRjYYnv8LLJXBE-f88K9Td7ECQwH": {
@@ -611,8 +666,9 @@
    2382
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 311034
  },
  "1h9oOEgUHegXqBVatsmDTi6UX7EE0FWS-": {
@@ -622,8 +678,9 @@
    2005
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1554231
  },
  "1hh-AojohcA3WgqFyuaxnHOAsTche5cYb": {
@@ -633,8 +690,9 @@
    1215
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 917259
  },
  "1jBgHh3qQxEblOruMaG8-32fIkKe2vlIr": {
@@ -644,8 +702,9 @@
    530
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 346146
  },
  "1jcHf2hT2sJI2n_9yAk5V0P89KxRfaHVX": {
@@ -655,8 +714,9 @@
    2505
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2106221
  },
  "1k75vDam2AnQv4hSaLZxUJi6XLTxjo9dv": {
@@ -666,8 +726,9 @@
    530
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 322890
  },
  "1kETG_MQlzvDR2guV8_s9FhBHA8FjwqNl": {
@@ -677,8 +738,9 @@
    2382
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 274781
  },
  "1lBGtIgpi67k9sCtXWoc9AzP0K5y76CN0": {
@@ -688,8 +750,9 @@
    1772
   ],
   "comp": 1,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": true,
   "bytes": 595962
  },
  "1lCriJhTq27hGHTwsziktclRf9LgdcAhD": {
@@ -699,8 +762,9 @@
    1697
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 933160
  },
  "1m0MzvwmRBUuJ363JFgcyVkoKX_kUiT90": {
@@ -710,8 +774,9 @@
    688
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1444224
  },
  "1nOAB_172gtmUBjOSppN-H-Hola62x4lq": {
@@ -721,8 +786,9 @@
    456
   ],
   "comp": 3,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 224979
  },
  "1nUHZEuY0uhOrdPEAvdNxSB8kj8UiYkJW": {
@@ -732,8 +798,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1619933
  },
  "1ncKH4acJXeT77Mg6c_LcdR-2pVg7F5qp": {
@@ -743,8 +810,9 @@
    510
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 104959
  },
  "1nccCCn0bz7xeF-V5E3rf0turLiaA4rqg": {
@@ -754,8 +822,9 @@
    530
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 317172
  },
  "1oE6HHUJcU6mjP1YGRdOSi47oNs1zFCgN": {
@@ -765,8 +834,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1520514
  },
  "1pOswrByGTsKEcCZwibYIC1XaR7OiiXiR": {
@@ -776,8 +846,9 @@
    2531
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1251119
  },
  "1qy8LsZwZTYyPH2rz8kRYCeHVity3foCY": {
@@ -787,8 +858,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 2514502
  },
  "1rmgdqlLfNy8dRhwpyuNxMnQvJ1xc3d-A": {
@@ -798,8 +870,9 @@
    696
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 760876
  },
  "1s3IDfsx6TdsoAZip62wmD8qu_VSMhZsf": {
@@ -809,8 +882,9 @@
    2506
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 1085570
  },
  "1t7R8QGDJUxA_4T8WcN59FDp41g90t3wK": {
@@ -820,8 +894,9 @@
    1736
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 783488
  },
  "1tcrjf13RmIfzQOYR94BzuAlfyd1iqMOP": {
@@ -831,8 +906,9 @@
    698
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 344958
  },
  "1tgh4_Ux9B51WkpMniEw8iT7EEILJijJV": {
@@ -842,8 +918,9 @@
    2004
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1156592
  },
  "1v1M1eypKqigTUnzUp3wJ2GDdR6f-3V12": {
@@ -853,8 +930,9 @@
    1402
   ],
   "comp": 3,
-  "perfil": true,
+  "noSrgb": true,
   "alfa": false,
+  "gris": false,
   "bytes": 1130721
  },
  "1v2PepLgfIoeoe1e4OlUlGRCOiEbbtyzW": {
@@ -864,8 +942,9 @@
    4962
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 410013
  },
  "1wGKjHCRdCeRFdacJK26HjOsQ6KLZTZEP": {
@@ -875,8 +954,9 @@
    1019
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 1125634
  },
  "1wZWXEremCGIsp14rnbi17KHi0wr-qC4D": {
@@ -886,8 +966,9 @@
    1800
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": true,
+  "gris": false,
   "bytes": 2246675
  },
  "1xIPBTnndq3pVhAM-j2sEb6kspcRLhqcM": {
@@ -897,8 +978,9 @@
    2067
   ],
   "comp": null,
-  "perfil": true,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 2752858
  },
  "1yrCoSQ_OJf7K6BaN3R8Ey9_0WwOIPHvS": {
@@ -908,8 +990,9 @@
    1376
   ],
   "comp": 1,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": true,
   "bytes": 692901
  },
  "1ytwSck3nUkPEsacv4LFxOw_l7giNg4yL": {
@@ -919,8 +1002,9 @@
    2067
   ],
   "comp": null,
-  "perfil": false,
+  "noSrgb": false,
   "alfa": false,
+  "gris": false,
   "bytes": 3016519
  }
 }
