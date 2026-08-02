@@ -1,165 +1,134 @@
 # Cómo accede el panel a Google
 
 El panel de control necesita **sustituir imágenes en Drive** y **escribir en la
-hoja**. Para eso entra con **las credenciales del propietario**, no con las de un
-usuario robot: se identifica una vez en el navegador y queda un permiso guardado en
-el Mac, revocable en cualquier momento.
+hoja**. Lo hace con una **cuenta de servicio**: un usuario que no es una persona,
+con su propio correo, al que se le comparte la carpeta y la hoja como se le
+compartirían a un compañero.
 
-> **No hace falta saber programar.** Son un rato de pinchar en la consola de Google
-> y dos órdenes en el Terminal. Si algo no se parece a lo que dice aquí, para y
-> pregunta.
+**Estado: montado el 02/08/2026.** Lo que queda por hacer está en «Lo que falta».
 
 ---
 
-## Antes de empezar
+## Lo que hay montado
 
-**Es gratis.** Las APIs de Drive y de Sheets no cuestan nada para este uso: 84
-ficheros y una hoja, contra cuotas de decenas de miles de peticiones al día. **Si
-en algún momento te pide una tarjeta, algo va mal** — para y pregunta.
+| | |
+|---|---|
+| Cuenta de Google | `galo.franganillo@gmail.com` |
+| Organización | `galo-franganillo-org` (id `251873064771`) — la creó Google sola |
+| Proyecto | `mel-panel`, dentro de esa organización |
+| APIs habilitadas | `drive.googleapis.com`, `sheets.googleapis.com` |
+| Cuenta de servicio | `panel-mel@mel-panel.iam.gserviceaccount.com` |
+| Clave | `~/.config/mel/panel-google.json`, permisos `600` |
+| Variable de entorno | `GOOGLE_CUENTA_SERVICIO` en `.env` (ignorado por git) |
 
-**No hay que unirse a ningún «Developer Program».** Eso que ofrece la pantalla de
-bienvenida es publicidad de cursos.
-
-**Vale la cuenta del dominio.** Aunque tenga políticas de seguridad puestas, esas
-prohíben crear *claves*, no habilitar APIs ni identificarse.
-
----
-
-## Paso 1 — Un proyecto
-
-Un «proyecto» de Google Cloud es solo un contenedor donde se encienden servicios y
-se contabiliza su uso. No cuesta nada tenerlo.
-
-1. Entra en [console.cloud.google.com](https://console.cloud.google.com).
-2. Arriba, junto al logo, hay un **selector con el nombre del proyecto** actual.
-   Púlsalo.
-3. **«Proyecto nuevo»**, arriba a la derecha.
-4. Nombre: `MEL Panel`. Ubicación, como venga.
-5. **Crear**, y cuando termine **vuelve al selector y elige el nuevo**. Si te
-   quedas en otro, todo lo que hagas después se aplica al sitio equivocado.
-
-> Si ya tenías un **«Maps Platform Demo Project»**, déjalo en paz: lo creó Google
-> al activar Maps y tu clave del mapa sigue ahí. Esto es aparte y no lo toca.
-
-**Cómo sabes que vas bien:** arriba pone `MEL Panel`.
-
-**Apunta el ID del proyecto** — no el nombre. Está en la portada, junto al número, y
-tiene esta pinta: `mel-panel-472913`. Lo necesitas en el paso 4.
+**La clave nunca entra en el repositorio.** Vive en la carpeta personal, `.env`
+está en `.gitignore`, y lo que se commitea es la ruta, no el contenido.
 
 ---
 
-## Paso 2 — Encender las dos APIs
+## Lo que falta
 
-Un proyecto nuevo no trae nada encendido.
+**Compartir la carpeta y la hoja con la cuenta de servicio.** Sin esto no puede
+tocar nada: la cuenta existe pero no tiene acceso a nada de tu Drive.
 
-1. Menú izquierdo (o «Acceso rápido»): **«APIs y servicios»**.
-2. **«+ Habilitar API y servicios»**.
-3. Busca **`Google Drive API`**, púlsala, **«Habilitar»**.
-4. Vuelve atrás y repite con **`Google Sheets API`**.
+Correo a compartir:
 
-**Cómo sabes que vas bien:** en «APIs habilitadas» aparecen las dos.
-
----
-
-## Paso 3 — Instalar la herramienta de Google
-
-```bash
-brew install --cask google-cloud-sdk
+```
+panel-mel@mel-panel.iam.gserviceaccount.com
 ```
 
-Tarda: son unos cuantos cientos de megas. Al terminar, **abre una terminal nueva** —
-el instalador toca el arranque y las terminales ya abiertas no se enteran — y
-comprueba:
+**En Drive:** abre la carpeta con los 84 carteles → botón derecho → **Compartir** →
+pega ese correo → permiso **Editor** → desmarca «Notificar a las personas» (no hay
+nadie a quien avisar) → **Compartir**.
+
+**En la hoja:** lo mismo. Abrir, **Compartir**, mismo correo, **Editor**.
+
+Después de eso, el circuito está completo y se puede comprobar.
+
+---
+
+## Por qué costó, y qué se tocó para arreglarlo
+
+Esto queda escrito porque no es evidente y va a hacer falta si algún día hay que
+rehacerlo.
+
+**El problema.** Al intentar descargar la clave, Google respondió con la política
+`iam.disableServiceAccountKeyCreation`: *«se aplicó una política de la organización
+que impide la creación de claves para cuentas de servicio en tu empresa»*. Con una
+cuenta personal de Gmail y sin dominio propio, el mensaje no tenía sentido.
+
+**La causa.** Google había creado una **organización** de forma automática,
+`galo-franganillo-org`, y el proyecto `mel-panel` cuelga de ella. Las
+organizaciones nuevas nacen con políticas de seguridad por defecto, y esa es una de
+ellas. La sorpresa es tener una organización sin haberla pedido, no la política.
+
+**El intento intermedio, y por qué se descartó.** Antes de encontrar la causa se
+probó a entrar con las credenciales del propietario en vez de con una cuenta de
+servicio (`gcloud auth application-default login`). Falló dos veces:
+
+1. `gcloud` avisó de que **los permisos de Drive y Sheets van a bloquearse** para
+   su identificador genérico. Y no era una advertencia a futuro: la pantalla
+   siguiente ya decía **«Esta aplicación está bloqueada»**.
+2. La salida a eso —crear un identificador OAuth propio— arrastra la pantalla de
+   consentimiento, y para una app **externa en modo de pruebas** el permiso
+   **caduca cada 7 días**. Publicarla para que no caduque exige la verificación de
+   Google, porque el permiso de Drive completo es de los «restringidos».
+
+O sea: la vía de las credenciales de usuario obligaba a re-identificarse cada
+semana, o a pasar una verificación de Google. Ninguna de las dos cosas es aceptable
+para algo que tiene que estar ahí cuando haga falta.
+
+**Lo que se tocó.** Dos cambios, los dos reversibles:
+
+1. Al propietario se le concedió `roles/orgpolicy.policyAdmin` sobre su
+   organización. Ya era `organizationAdmin`, pero Google separó la gestión de
+   políticas en un rol aparte.
+2. La política `iam.disableServiceAccountKeyCreation` se desactivó **solo para el
+   proyecto `mel-panel`**. En el resto de la organización sigue vigente.
 
 ```bash
-gcloud --version
+# Para volver a activarla, si algún día se quiere:
+gcloud resource-manager org-policies enable-enforce \
+  iam.disableServiceAccountKeyCreation --project=mel-panel
 ```
 
----
-
-## Paso 4 — Identificarte
-
-```bash
-gcloud auth application-default login --scopes=https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/cloud-platform
-```
-
-Se abre el navegador. **Entra con la cuenta dueña del archivo y de la hoja** — esa
-es la que importa, no la que creó el proyecto.
-
-Puede salir un aviso de «aplicación no verificada»: es normal, la aplicación es la
-propia herramienta de Google que acabas de instalar. Continúa.
-
-Y después, con el ID del paso 1:
-
-```bash
-gcloud auth application-default set-quota-project TU_ID_DE_PROYECTO
-```
-
-Sin esto, las llamadas pueden rechazarse por no saber a qué proyecto atribuirlas.
-
-**Dónde queda el permiso:** en un fichero dentro de `~/.config/gcloud/`. No se toca
-ni se mueve: las librerías lo encuentran solas. Y **nunca entra en el repositorio**.
+**Y esa política protegía de algo real**: un fichero de clave es lo más fácil de
+perder de todo lo que hay aquí. Se ha aceptado el riesgo a conciencia, con dos
+medidas: la clave vive fuera del repositorio con permisos `600`, y la cuenta solo
+puede tocar lo que se le comparta explícitamente. Si mañana se filtra, se revoca la
+clave desde la consola y se acabó.
 
 ---
 
-## Lo que estás concediendo, dicho claro
+## Por qué una cuenta de servicio y no entrar como el propietario
 
-`auth/drive` es **acceso completo a tu Drive**, no solo a la carpeta de los
-carteles. No es una elección: Google no ofrece un permiso intermedio que sirva aquí
-— el que existe, `drive.file`, solo alcanza a ficheros que la propia aplicación
-haya creado, y aquí hay que modificar 84 que ya existían.
+Porque **no caduca, no pide navegador y no depende de una pantalla de
+consentimiento**. Se configura una vez y sigue funcionando dentro de un año.
 
-Tres cosas lo acotan:
+Entrar como el propietario habría sido más honesto en un sentido —el panel haría
+lo que su dueño puede hacer, ni más ni menos— pero en la práctica significaba
+re-identificarse cada semana. Y una herramienta que hay que reparar cada lunes
+acaba sin usarse.
 
-- El permiso **vive solo en tu Mac**. No viaja a ningún servidor.
-- El panel **solo corre cuando tú lo arrancas** con `npm run dev`.
-- Lo retiras cuando quieras en
-  [myaccount.google.com/permissions](https://myaccount.google.com/permissions).
-
-Queda escrito porque es más de lo que habría necesitado un usuario robot, y dentro
-de un año alguien puede preguntarse por qué el panel podía leer todo el Drive.
+Además, la cuenta de servicio concede **menos** acceso, no más: solo alcanza lo que
+se le comparta. La vía del propietario exigía el permiso `auth/drive`, que es
+acceso completo a todo el Drive.
 
 ---
 
-## Cuando termines
-
-Dime **solo** que los cuatro pasos están hechos y el **ID del proyecto** — eso no es
-secreto. Con eso se escribe la comprobación: un script que lea un fichero de la
-carpeta y escriba en una celda de prueba, y diga si funciona o exactamente qué
-falta.
-
----
-
-## Si algo no cuadra
+## Si algo falla
 
 | Lo que ves | Qué pasa |
 |---|---|
-| Te pide una tarjeta | Estás habilitando otra API. Vuelve al paso 2. |
-| `gcloud: command not found` | Cierra la terminal y abre una nueva. |
-| «Aplicación no verificada» | Es la herramienta de Google. Continúa. |
-| No sabes en qué proyecto estás | El nombre está siempre arriba, junto al logo. |
-| El navegador no se abre solo | `gcloud` imprime una URL: ábrela a mano. |
+| `403` al leer o escribir en Drive | Falta compartir la carpeta con el correo de la cuenta de servicio, o está compartida como Lector en vez de Editor. |
+| `403` al escribir en la hoja | Lo mismo, pero con la hoja. |
+| `404` sobre un fichero que existe | La cuenta no lo ve porque no está dentro de lo compartido. |
+| Vuelve la política al crear otra clave | La excepción es por proyecto: si se creó otro proyecto, hay que repetirla ahí. |
+| Se perdió la clave | Se crea otra: `gcloud iam service-accounts keys create` con la misma cuenta. La vieja se revoca desde la consola. |
 
----
+Las órdenes de `gcloud` necesitan esto en el PATH, que el instalador de Homebrew no
+añade a las terminales ya abiertas:
 
-## Por qué no se usa una cuenta de servicio
-
-Fue el primer plan: crear un usuario robot con su propia clave, compartirle la
-carpeta y la hoja, y que el panel entrase con esa identidad. Es lo correcto cuando
-una herramienta la usan varias personas o corre sin nadie delante.
-
-**Se descartó porque el dominio del propietario lo prohíbe.** Al intentar descargar
-la clave, Google respondió con la política `iam.disableServiceAccountKeyCreation`:
-la organización impide crear claves descargables de cuentas de servicio. Es una
-restricción razonable —un fichero de clave es lo más fácil de perder— y no se
-esquiva sin permisos de administrador del dominio.
-
-De las tres salidas posibles —crear el proyecto con una cuenta personal fuera de la
-organización, pedir una excepción de la política, o entrar como el propietario— se
-eligió la tercera. Y no solo porque fuese la que quedaba: **para un panel que va a
-usar una sola persona, es la más honesta.** El panel hace lo que su dueño puede
-hacer, ni más ni menos, y no hay una identidad extra dando vueltas con permisos
-sobre el archivo.
-
-Si algún día lo usa más gente, la cuenta de servicio vuelve a ser lo correcto — y
-entonces habrá que resolver antes lo de la política del dominio.
+```bash
+export PATH="/opt/homebrew/share/google-cloud-sdk/bin:$PATH"
+```
