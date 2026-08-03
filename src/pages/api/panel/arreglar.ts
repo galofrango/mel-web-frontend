@@ -32,7 +32,7 @@
 import type { APIRoute } from 'astro';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, readFile, rm, mkdir, readdir, unlink } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { leerCabecera, ladoMayor, type DatosImagen } from '../../../lib/imagen.ts';
@@ -233,7 +233,7 @@ export const POST: APIRoute = async ({ request }) => {
   const host = request.headers.get('host') || '';
   if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new Response(null, { status: 404 });
 
-  let cuerpo: { accion?: string; acciones?: string[]; idMel?: string; simular?: boolean; limpiar?: boolean; abrirCarpeta?: boolean; calidadMaxima?: boolean };
+  let cuerpo: { accion?: string; acciones?: string[]; idMel?: string; calidadMaxima?: boolean };
   try {
     cuerpo = await request.json();
   } catch {
@@ -243,20 +243,6 @@ export const POST: APIRoute = async ({ request }) => {
   // Se aceptan las dos formas: `accion` (la del botón pulsado, a secas) y
   // `acciones` (esa más las que se marquen en el modal). Se normaliza a lista
   // porque el motor razona en plural desde que un botón hace solo lo suyo.
-  // Abrir la carpeta de simulaciones en el Finder. Va aquí y no en una ruta
-  // aparte porque los guardas que hacen esto aceptable —solo en desarrollo y
-  // solo desde localhost— ya están puestos arriba. La ruta es FIJA: no entra
-  // nada del cuerpo en el comando, así que no hay nada que inyectar.
-  if (cuerpo.abrirCarpeta) {
-    const dir = join(process.cwd(), 'simulacion');
-    await mkdir(dir, { recursive: true });
-    try {
-      await execFileP('open', [dir]);
-      return json({ ok: true, abierta: 'simulacion' });
-    } catch (e: any) {
-      return json({ ok: false, motivo: `no se pudo abrir la carpeta: ${e.message}` });
-    }
-  }
 
   const { idMel } = cuerpo;
   const acciones = cuerpo.acciones ?? (cuerpo.accion ? [cuerpo.accion] : []);
@@ -336,46 +322,7 @@ export const POST: APIRoute = async ({ request }) => {
       await rm(dirTmp, { recursive: true, force: true });
     }
 
-    // 5a. SIMULACIÓN: el recorrido entero menos la última línea. Se ha
-    //     descargado el original de verdad, se ha medido de verdad y sips lo ha
-    //     procesado de verdad; lo único que no pasa es sustituirlo en Drive.
-    //
-    //     El resultado NO se tira: se deja en `simulacion/` junto al original,
-    //     con nombres que se emparejan (`-antes` / `-despues`), para poder
-    //     abrirlos y compararlos antes de dejar que esto toque el archivo. Es
-    //     petición del propietario, y es mejor que procesar a ciegas: los
-    //     números dicen que pesa menos, pero solo el ojo dice si sigue estando
-    //     bien.
-    if (cuerpo.simular) {
-      const dir = join(process.cwd(), 'simulacion');
-      await mkdir(dir, { recursive: true });
-      // El cliente marca `limpiar` en el PRIMER fichero de cada tanda: así la
-      // carpeta enseña solo lo que se acaba de probar, en vez de ir acumulando
-      // pruebas viejas hasta que no se sabe cuál es de cuándo. Se borra aquí y
-      // no al cerrar el modal porque cerrar no es "he terminado de mirar".
-      if (cuerpo.limpiar) {
-        for (const f of await readdir(dir)) {
-          if (/^MEL-[\w-]+\.(jpg|png|bin)$/.test(f) || /-(antes|despues)\./.test(f)) {
-            await unlink(join(dir, f)).catch(() => {});
-          }
-        }
-      }
-      const ext = (b: Buffer) => (b[0] === 0xFF && b[1] === 0xD8 ? 'jpg' : b[1] === 0x50 ? 'png' : 'bin');
-      const antes = join(dir, `${idMel}-antes.${ext(original)}`);
-      const despues = join(dir, `${idMel}-despues.${plan.salida === 'jpeg' ? 'jpg' : 'png'}`);
-      await writeFile(antes, original);
-      await writeFile(despues, salidaBuf);
-      return json({
-        ok: true, idMel, acciones, simulado: true, hecho: false,
-        antes: { bytes: original.length, tipo: estado.tipo, px: estado.px, perfil: estado.perfil, comp: estado.comp },
-        despues: { bytes: salidaBuf.length, ...leerCabecera(salidaBuf) },
-        // Rutas relativas: el panel las enseña para poder abrirlas, y no hay
-        // por qué publicar el árbol de directorios de la máquina.
-        ficheros: [`simulacion/${idMel}-antes.${ext(original)}`, `simulacion/${idMel}-despues.${plan.salida === 'jpeg' ? 'jpg' : 'png'}`],
-      });
-    }
-
-    // 5b. Sustituir en Drive, conservando el id — no toca ni una celda de la hoja.
+    // 5.  Sustituir en Drive, conservando el id — no toca ni una celda de la hoja.
     try {
       await sustituirFichero(idDrive, salidaBuf, plan.salida === 'jpeg' ? 'image/jpeg' : 'image/png', token);
     } catch (e: any) {

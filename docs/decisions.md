@@ -3441,3 +3441,46 @@ Detalles que se decidieron mirando la tabla con datos:
 para que se viera poblado y el propietario lo rechazó, con razón: un marcador
 que miente sobre el trabajo hecho no sirve para nada. Hasta la primera pasada
 real, la sección dice que no hay nada — que es la verdad.
+
+---
+
+## D-196 · El servidor de desarrollo no debe vigilar lo que el panel escribe
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+Tras arreglar un cartel, el modal de resumen **se cerraba solo**, sin que nadie
+lo tocara. No lo cerraba nadie: la página se recargaba entera.
+
+La ruta de arreglos escribe dos ficheros al terminar —`flyer_tecnico.json` (la
+medida nueva) y `panel_historial.json` (el apunte)— y los dos viven en `src/`,
+que es lo que vigila Vite. Cada pasada real disparaba una recarga en caliente
+justo en el momento de enseñar el resultado. La medición automática al arrancar
+(D-194) escribe el mismo fichero, así que también recargaba.
+
+Se excluyen los dos del vigilante en `astro.config.mjs`. Son datos, no código:
+no hay nada que recompilar cuando cambian.
+
+**La lección, que se repite:** un fichero que el propio programa escribe no debe
+estar donde el compilador busca cambios. Si algún día el panel escribe alguno
+más, va a la misma lista.
+
+---
+
+## D-197 · Fuera la simulación
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+«Simular sin tocar nada» existía para poder mirar el antes y el después en
+`simulacion/` antes de dejar que el panel tocara el archivo. Cumplió su función
+—sirvió para decidir la calidad 95, para ver que un PNG puede engordar al pasar
+a JPG y para validar el motor entero sin arriesgar nada— y el propietario la
+retira una vez comprobada la primera pasada real.
+
+Se van con ella: el botón, el de «Abrir en el Finder», la carpeta `simulacion/`
+y su entrada en `.gitignore`, y del motor el modo `simular`, `limpiar` y
+`abrirCarpeta` (con ellos, la única llamada a `open` que quedaba en el
+proyecto). El camino que queda es uno solo, que es más fácil de sostener que
+dos que hacen casi lo mismo.
+
+Lo que NO se va: Drive guarda la versión anterior de cada fichero durante 30
+días, que es la red de seguridad de verdad.

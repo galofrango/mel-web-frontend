@@ -18,7 +18,7 @@
  * `data-estado`), `.modal-titulo`, `.modal-cuerpo`, `.modal-img`,
  * `.modal-mejoras` (la sección entera de opciones extra), `.mejora[data-clave]`
  * con su `input.mejora-chk` y su `.mejora-detalle`, `.modal-cancelar`,
- * `.modal-simular`, `.modal-aplicar`, `.modal-progreso`, `.modal-barra`,
+ * `.modal-aplicar`, `.modal-progreso`, `.modal-barra`,
  * `.modal-resumen-lista`, `.modal-cerrar`.
  */
 import type { Grupo } from '../lib/auditoria';
@@ -220,9 +220,7 @@ const FRANJA: Record<1 | 2, string> = {
             botón: las comparten los de la tabla, que no deben estirarse. */}
         <div class="flex items-center gap-8 w-full [&>*]:flex-1 [&>*]:h-14">
           <button type="button" class={`${BTN_CONTORNO} modal-cancelar`}>Cancelar</button>
-          <button type="button" class={`${BTN_CONTORNO} modal-simular`}>Simular sin tocar nada</button>
           <button type="button" class={`${BTN_SOLIDO} modal-aplicar`}>Aplicar</button>
-          <button type="button" class={`${BTN_CONTORNO} modal-finder`} hidden>Abrir en el Finder</button>
           <button type="button" class={`${BTN_CONTORNO} modal-drive`} hidden>Abrir en Drive</button>
           <button type="button" class={`${BTN_SOLIDO} modal-cerrar`}>Entendido</button>
         </div>
@@ -252,20 +250,16 @@ const FRANJA: Record<1 | 2, string> = {
   #panel-modal[data-estado="resumen"] .modal-lista,
   #panel-modal[data-estado="en-curso"] .modal-mejoras,
   #panel-modal[data-estado="en-curso"] .modal-cancelar,
-  #panel-modal[data-estado="en-curso"] .modal-simular,
   #panel-modal[data-estado="en-curso"] .modal-aplicar,
   #panel-modal[data-estado="resumen"] .modal-mejoras,
   #panel-modal[data-estado="resumen"] .modal-cancelar,
-  #panel-modal[data-estado="resumen"] .modal-simular,
   #panel-modal[data-estado="resumen"] .modal-aplicar,
   #panel-modal[data-estado="resumen"] .modal-progreso,
   #panel-modal[data-estado="confirmar"] .modal-progreso,
   #panel-modal[data-estado="confirmar"] .modal-resumen,
   #panel-modal[data-estado="en-curso"] .modal-resumen,
   #panel-modal[data-estado="confirmar"] .modal-cerrar,
-  #panel-modal[data-estado="confirmar"] .modal-finder,
   #panel-modal[data-estado="confirmar"] .modal-drive,
-  #panel-modal[data-estado="en-curso"] .modal-finder,
   #panel-modal[data-estado="en-curso"] .modal-drive,
   #panel-modal[data-estado="en-curso"] .modal-cerrar {
     display: none !important;

@@ -14,7 +14,7 @@
  * unidad que significa algo; una lista continua de 200 líneas, no.
  *
  * Sale de `src/data/panel_historial.json`, que escribe la ruta de arreglos
- * tras cada pasada REAL — las simulaciones no cuentan, no han tocado nada.
+ * tras cada pasada.
  * Si el fichero no existe todavía, aquí no hay nada que enseñar y se dice.
  *
  * Mismos dos guardas que Control: solo en desarrollo y solo desde el propio
@@ -104,9 +104,7 @@ const CELDA = 'h-16 flex items-center px-4 border-t border-mel-border min-w-0';
 
       <div class="flex flex-col gap-8 pt-6">
         <p class="typo-lead text-mel-text-secondary">
-          Todo lo que el panel ha modificado, cartel a cartel y día a día. Solo entran
-          aquí las pasadas reales: las simulaciones no tocan ningún fichero, así que no
-          dejan rastro.
+          Todo lo que el panel ha modificado, cartel a cartel y día a día.
         </p>
       </div>
     </header>
@@ -115,8 +113,8 @@ const CELDA = 'h-16 flex items-center px-4 border-t border-mel-border min-w-0';
       <div class="border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)] px-8 py-16 text-center">
         <p class="typo-h4 text-mel-text-primary">Todavía no se ha arreglado ningún cartel.</p>
         <p class="typo-body-sans text-mel-text-secondary pt-3">
-          En cuanto apliques una acción desde Control —no una simulación— aparecerá aquí
-          con su antes y su después.
+          En cuanto apliques una acción desde Control aparecerá aquí con su antes y
+          su después.
         </p>
       </div>
     ) : (
@@ -173,9 +171,9 @@ const CELDA = 'h-16 flex items-center px-4 border-t border-mel-border min-w-0';
                       <div class={CELDA}>
                         {a.antes.tipo !== a.despues.tipo ? (
                           <span class="flex items-center gap-3">
-                            <span class="typo-button text-mel-text-secondary">{a.antes.tipo}</span>
-                            <span class="text-mel-action-tertiary" aria-hidden="true">→</span>
-                            <span class="typo-button text-mel-banner-success-text">{a.despues.tipo}</span>
+                            <span class="typo-caption text-mel-text-secondary">{a.antes.tipo}</span>
+                            <span class="typo-caption text-mel-action-tertiary" aria-hidden="true">→</span>
+                            <span class="typo-caption text-mel-banner-success-text">{a.despues.tipo}</span>
                           </span>
                         ) : <span class="typo-caption text-mel-text-tertiary">—</span>}
                       </div>
@@ -183,9 +181,9 @@ const CELDA = 'h-16 flex items-center px-4 border-t border-mel-border min-w-0';
                       <div class={CELDA}>
                         {cambióElColor(a) ? (
                           <span class="flex items-center gap-3 min-w-0">
-                            <span class="typo-button text-mel-text-secondary truncate">{perfilDe(a.antes)}</span>
-                            <span class="text-mel-action-tertiary shrink-0" aria-hidden="true">→</span>
-                            <span class="typo-button text-mel-banner-success-text shrink-0">{a.despues.perfil ?? 'sRGB'}</span>
+                            <span class="typo-caption text-mel-text-secondary truncate">{perfilDe(a.antes)}</span>
+                            <span class="typo-caption text-mel-action-tertiary shrink-0" aria-hidden="true">→</span>
+                            <span class="typo-caption text-mel-banner-success-text shrink-0">{a.despues.perfil ?? 'sRGB'}</span>
                           </span>
                         ) : <span class="typo-caption text-mel-text-tertiary">—</span>}
                       </div>
@@ -194,9 +192,9 @@ const CELDA = 'h-16 flex items-center px-4 border-t border-mel-border min-w-0';
                           engordar el fichero, y esconderlo sería maquillar el dato. */}
                       <div class={CELDA}>
                         <span class="flex items-center gap-3">
-                          <span class="typo-button text-mel-text-secondary">{kb(a.antes.bytes)}</span>
-                          <span class="text-mel-action-tertiary" aria-hidden="true">→</span>
-                          <span class={`typo-button ${a.despues.bytes > a.antes.bytes ? 'text-mel-banner-error-border' : 'text-mel-banner-success-text'}`}>
+                          <span class="typo-caption text-mel-text-secondary">{kb(a.antes.bytes)}</span>
+                          <span class="typo-caption text-mel-action-tertiary" aria-hidden="true">→</span>
+                          <span class={`typo-caption ${a.despues.bytes > a.antes.bytes ? 'text-mel-banner-error-border' : 'text-mel-banner-success-text'}`}>
                             {kb(a.despues.bytes)}
                           </span>
                         </span>

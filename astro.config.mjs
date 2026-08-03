@@ -9,6 +9,18 @@ export default defineConfig({
   output: 'server',
   vite: {
     plugins: [tailwindcss()],
+    server: {
+      watch: {
+        // El panel ESCRIBE estos dos ficheros mientras trabaja: la caché de
+        // medidas cuando mide un cartel nuevo, y el historial tras cada pasada
+        // real. Están dentro de `src/`, así que el servidor de desarrollo los
+        // veía cambiar y recargaba la página — en mitad de la faena. El modal
+        // de resumen se cerraba solo, sin que nadie lo tocara, justo después de
+        // arreglar un cartel. Son datos, no código: no hay nada que recompilar
+        // cuando cambian.
+        ignored: ['**/src/data/flyer_tecnico.json', '**/src/data/panel_historial.json'],
+      },
+    },
   },
 
   // ISR: la página construida se guarda en el borde 5 minutos. Se pone AQUÍ y

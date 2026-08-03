@@ -1204,14 +1204,14 @@ const tarjetas = [
    * cuando la ruta iba a responder una sola vez para N ficheros; se hizo de
    * una en una precisamente para poder contarlo sin mentir.
    */
-  async function ejecutar(simular) {
+  async function ejecutar() {
     const calidadMaxima = quiereCalidadMaxima();
     const m = modal();
     const { ids, accion } = encargo;
     const acciones = accionesElegidas();
     m.dataset.estado = 'en-curso';
     m.querySelector('.modal-progreso-texto').textContent =
-      `${simular ? 'Simulando' : accion} · 0 de ${ids.length}`;
+      `${accion} · 0 de ${ids.length}`;
     m.querySelector('.modal-barra').style.width = '0%';
 
     const resultados = [];
@@ -1223,7 +1223,7 @@ const tarjetas = [
         const resp = await fetch('/api/panel/arreglar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ idMel, acciones, simular, limpiar: simular && i === 0, calidadMaxima }),
+          body: JSON.stringify({ idMel, acciones, calidadMaxima }),
         });
         r = await resp.json();
       } catch (e) {
@@ -1232,26 +1232,22 @@ const tarjetas = [
       resultados.push({ idMel, ...r });
       const hechos = i + 1;
       m.querySelector('.modal-progreso-texto').textContent =
-        `${simular ? 'Simulando' : accion} · ${hechos} de ${ids.length}`;
+        `${accion} · ${hechos} de ${ids.length}`;
       m.querySelector('.modal-barra').style.width = `${(hechos / ids.length) * 100}%`;
     }
 
     encargo.resultados = resultados;
-    pintarResumen(simular);
+    pintarResumen();
   }
 
-  function pintarResumen(simular) {
+  function pintarResumen() {
     const m = modal();
     const lista = m.querySelector('.modal-resumen-lista');
     lista.textContent = '';   // se vacía, no se reconstruye el marcado del modal
 
     const bien = encargo.resultados.filter((r) => r.ok && (r.antes || r.hecho));
-    m.querySelector('.modal-titulo').textContent = simular
-      ? `${bien.length} de ${encargo.resultados.length} simulados. No se ha tocado nada.`
-      : `${bien.length} de ${encargo.resultados.length} — ${encargo.accion}.`;
-    m.querySelector('.modal-cuerpo').textContent = simular
-      ? 'Los resultados están en la carpeta simulacion/, con el antes y el después de cada uno para que los compares.'
-      : 'Recarga el panel para ver las cifras al día.';
+    m.querySelector('.modal-titulo').textContent = `${bien.length} de ${encargo.resultados.length} — ${encargo.accion}.`;
+    m.querySelector('.modal-cuerpo').textContent = 'Recarga el panel para ver las cifras al día.';
 
     // El resumen usa la MISMA forma de fila que la confirmación: nombre del
     // cartel y los cambios en columnas fijas, con las flechas en vertical
@@ -1301,12 +1297,9 @@ const tarjetas = [
       lista.appendChild(li);
     }
 
-    // «Abrir en el Finder» solo tiene sentido tras una simulación (los ficheros
-    // están en disco); «Abrir en Drive», solo tras una pasada real. Nacen con
-    // `hidden` en el marcado y NADIE se lo quitaba: por eso el resumen salía
-    // con un único botón a todo lo ancho.
-    m.querySelector('.modal-finder').hidden = !simular;
-    m.querySelector('.modal-drive').hidden = simular;
+    // «Abrir en Drive» nace con `hidden` en el marcado y hay que quitárselo:
+    // por eso el resumen llegó a salir con un único botón a todo lo ancho.
+    m.querySelector('.modal-drive').hidden = false;
     m.dataset.estado = 'resumen';
   }
 
@@ -1465,11 +1458,7 @@ const tarjetas = [
     if (target.closest('.nota-cancelar')) { notaPendiente = null; return; }
 
     if (target.closest('.modal-cancelar')) { cerrarModal(); return; }
-    if (target.closest('.modal-simular')) { ejecutar(true); return; }
-    if (target.closest('.modal-aplicar')) { ejecutar(false); return; }
-    if (target.closest('.modal-finder')) { fetch('/api/panel/arreglar', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ abrirCarpeta: true }) }); return; }
+    if (target.closest('.modal-aplicar')) { ejecutar(); return; }
     if (target.closest('.modal-drive')) {
       // La carpeta del archivo en Drive, no cada fichero: con veinte resultados
       // abrir veinte pestañas sería peor que no ofrecerlo.
@@ -1477,9 +1466,8 @@ const tarjetas = [
       return;
     }
     if (target.closest('.modal-cerrar')) {
-      const simulado = encargo?.resultados.some((r) => r.simulado);
       cerrarModal();
-      if (!simulado) window.location.reload();   // el servidor vuelve a auditar
+      window.location.reload();   // el servidor vuelve a auditar
       return;
     }
 
