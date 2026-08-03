@@ -137,6 +137,10 @@ export function mapSheetRow(c: any[]) {
     formato: c[21] ? c[21].v : 'Flyer',
     notasArchivo: c[24] ? c[24].v : '',
     ocr: c[25] ? c[25].v : '',
+    // AA — columna creada el 03/08/2026 para las notas del panel. Va al FINAL
+    // a propósito: el mapa de columnas es por índice, así que meterla en medio
+    // habría corrido todas las de detrás y roto la web entera.
+    notasOcultas: c[26] ? c[26].v : '',
   };
 }
 
@@ -195,6 +199,31 @@ export function rangoDeAnios(items: Array<{ fecha?: unknown }>): { min: number; 
   return { min: Math.min(...anios), max: Math.max(...anios) };
 }
 
+/**
+ * Si de esta celda de «Dirección / Coordenadas» se puede sacar un punto en el
+ * mapa. Existe porque el panel avisaba de «Sin coordenadas» mirando solo si la
+ * celda estaba VACÍA, y así `MEL-00085` —que tenía escrita una dirección que
+ * nada sabía leer— pasó la auditoría en verde mientras el evento era invisible
+ * en el mapa. Lo que importa no es que haya algo escrito: es que se pueda
+ * colocar (D-186).
+ *
+ * Los tres formatos que valen son los que de verdad hay en el archivo: la URL
+ * larga de Google Maps (que trae dirección Y coordenadas), los grados, y los
+ * decimales. El enlace CORTO de Maps no vale: resolverlo pediría una petición
+ * de red en cada visita, y el sitio se renderiza en cada carga.
+ *
+ * GEMELA DE `parseCoords()` en index.astro (regla 7): aquella vive en un script
+ * inline que no puede importar de aquí. Si cambian los formatos aceptados, hay
+ * que tocar las dos — y compararlas.
+ */
+export function tieneUbicacion(coordenadas?: unknown): boolean {
+  const s = String(coordenadas ?? '').trim();
+  if (!s) return false;
+  if (/google\.[a-z.]+\/maps/i.test(s) && (/!3d-?[\d.]+!4d-?[\d.]+/.test(s) || /@-?\d+\.\d+,-?\d+\.\d+/.test(s))) return true;
+  if (/\d+°\s*\d+'\s*[\d.]+"\s*[NS]/i.test(s)) return true;
+  return /-?\d+\.\d+\s*,\s*-?\d+\.\d+/.test(s);
+}
+
 export async function fetchEvents() {
   const rows = await fetchSheetRows();
   const rawItems = rows
@@ -221,6 +250,7 @@ export async function fetchEvents() {
         formato: item.formato,
         notasArchivo: item.notasArchivo,
         ocr: item.ocr,
+        notasOcultas: item.notasOcultas,
         idMel: item.idMel,
       };
     }

@@ -65,12 +65,35 @@ interface Props {
   /** Suma de las secciones que no caben en las 3 líneas. `null` = sin sobrante. */
   desbordamiento: number | null;
   activa?: boolean;
+  /**
+   * Si la tarjeta FILTRA el panel al pulsarla. La de «Peso ahorrado» no filtra
+   * nada —no es una gravedad, es un marcador de lo hecho— así que se pinta como
+   * `<div>` y sin `data-nivel`. Es importante que no lo lleve: el filtro por
+   * tarjeta esconde las secciones cuyo nivel no coincide, y una tarjeta con un
+   * nivel inventado dejaría el panel en blanco al pulsarla.
+   */
+  filtra?: boolean;
+  /** Clase de fondo de la franja cuando la tarjeta no tiene nivel. */
+  franja?: string;
+  /** Texto pequeño bajo la cifra (p. ej. «desde el 3 de agosto»). */
+  pie?: string | null;
+  /** Qué parte del archivo representa esa cifra. Va al lado y entre paréntesis:
+   *  «74» no dice si son muchos o pocos hasta que sabes que es la mitad. */
+  porcentaje?: number | null;
 }
 
-const { nivel, overline, cifra, lineas, desbordamiento, activa = false } = Astro.props;
+const { nivel, overline, cifra, lineas, desbordamiento, activa = false,
+        filtra = true, franja, pie = null, porcentaje = null } = Astro.props;
 
+// El borde de la tarjeta activa lleva SU color de gravedad, no el rojo de
+// acción: con `action-primary` fijo, la de «Bajo rendimiento» salía con franja
+// ámbar y borde granate, dos colores diciendo cosas distintas de lo mismo.
+const BORDE_ACTIVO: Record<1 | 2, string> = {
+  1: 'border-mel-banner-error-border',
+  2: 'border-mel-banner-warning-border',
+};
 const estadoClase = activa
-  ? 'bg-mel-bg-tertiary border-mel-action-primary shadow-[var(--mel-shadow-button)]'
+  ? `bg-mel-bg-tertiary ${franja ? 'border-mel-banner-success-border' : BORDE_ACTIVO[nivel]} shadow-[var(--mel-shadow-button)]`
   : 'bg-mel-bg-secondary border-mel-border';
 
 // Ver comentario de cabecera: barra absoluta de 8px por nivel, independiente
@@ -80,18 +103,23 @@ const FRANJA_GRAVEDAD: Record<1 | 2, string> = {
   1: 'bg-mel-banner-error-border',
   2: 'bg-mel-banner-warning-border',
 };
+const claseFranja = franja ?? FRANJA_GRAVEDAD[nivel];
+const Etiqueta = filtra ? 'button' : 'div';
 ---
 
-<button
-  type="button"
-  class={`tarj group relative flex flex-col items-start gap-4 text-left border pl-8 pr-6 py-6 min-h-[206px] transition-colors duration-200 w-full ${estadoClase}`}
-  data-nivel={nivel}
-  data-activa={activa ? 'true' : 'false'}
-  aria-pressed={activa ? 'true' : 'false'}
+<Etiqueta
+  type={filtra ? 'button' : undefined}
+  class={`${filtra ? 'tarj ' : ''}group relative flex flex-col items-start gap-4 text-left border pl-8 pr-6 py-6 min-h-[206px] transition-colors duration-200 w-full ${estadoClase}`}
+  data-nivel={filtra ? nivel : undefined}
+  data-activa={filtra ? (activa ? 'true' : 'false') : undefined}
+  aria-pressed={filtra ? (activa ? 'true' : 'false') : undefined}
 >
   <span class="typo-overline text-mel-text-primary">{overline}</span>
 
-  <span class="cifra typo-h1 text-mel-text-primary">{cifra}</span>
+  <span class="flex items-baseline gap-3">
+    <span class="cifra typo-h1 text-mel-text-primary">{cifra}</span>
+    {porcentaje !== null && <span class="pct typo-h3 text-mel-text-secondary">({porcentaje}%)</span>}
+  </span>
 
   <span class="lins flex flex-col w-full gap-1">
     {lineas.map((linea) => (
@@ -102,11 +130,13 @@ const FRANJA_GRAVEDAD: Record<1 | 2, string> = {
     ))}
     {desbordamiento !== null && (
       <span class="flex items-baseline justify-between gap-4 w-full">
-        <span class="typo-caption text-mel-text-tertiary truncate">Otras incidencias</span>
-        <span class="typo-caption text-mel-text-tertiary shrink-0">+{desbordamiento}</span>
+        <span class="typo-caption text-mel-text-secondary truncate">Otras incidencias</span>
+        <span class="typo-caption text-mel-text-secondary shrink-0">+{desbordamiento}</span>
       </span>
     )}
   </span>
 
-  <span class={`absolute top-[-1px] bottom-[-1px] left-[-1px] w-2 ${FRANJA_GRAVEDAD[nivel]}`} aria-hidden="true"></span>
-</button>
+  {pie && <span class="typo-caption text-mel-text-tertiary">{pie}</span>}
+
+  <span class={`absolute top-[-1px] bottom-[-1px] left-[-1px] w-2 ${claseFranja}`} aria-hidden="true"></span>
+</Etiqueta>

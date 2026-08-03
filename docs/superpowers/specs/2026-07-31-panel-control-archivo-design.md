@@ -285,7 +285,7 @@ merece. Una auditoría que repite cada semana los mismos avisos ya aceptados se
 convierte en ruido y deja de abrirse.
 
 **La marca vive en la hoja**, en la columna `notasArchivo` (col. Y, `c[24]`), con
-una marca convenida (`#acepta:png`). No en un JSON del repositorio: la razón tiene
+una marca convenida (`#oculto:png`). No en un JSON del repositorio: la razón tiene
 que estar junto a la pieza, no en un fichero paralelo que dentro de un año nadie
 sepa por qué existe. `notasArchivo` ya se parsea en `mel.ts` y hoy no la usa nadie.
 

@@ -1,0 +1,214 @@
+---
+/**
+ * /panel/historial — lo que el panel ya ha hecho, cartel a cartel.
+ *
+ * Es la contrapartida de la pestaña Control: aquella dice lo que FALTA, esta
+ * lo que se ha ARREGLADO. Y sirve para algo más que presumir — es el único
+ * sitio donde consta que un cartel pasó por `sips` y con qué resultado, que es
+ * exactamente lo que hace falta saber si algún día uno se ve peor de lo que se
+ * recordaba.
+ *
+ * Se agrupa POR DÍA, una tabla por jornada, con el mismo armazón que las
+ * secciones de Control (cabecera en `bg-secondary`, filas de 64, filete entre
+ * ellas). Un registro se lee en jornadas: «el día que pasé los PNG» es una
+ * unidad que significa algo; una lista continua de 200 líneas, no.
+ *
+ * Sale de `src/data/panel_historial.json`, que escribe la ruta de arreglos
+ * tras cada pasada REAL — las simulaciones no cuentan, no han tocado nada.
+ * Si el fichero no existe todavía, aquí no hay nada que enseñar y se dice.
+ *
+ * Mismos dos guardas que Control: solo en desarrollo y solo desde el propio
+ * ordenador.
+ */
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+const host = Astro.request.headers.get('host') || '';
+if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new Response(null, { status: 404 });
+
+import Layout from '../../layouts/Layout.astro';
+import type { Apunte } from '../../lib/historial';
+import { readFileSync } from 'node:fs';
+import { fetchSheetRows, mapSheetRow } from '../../lib/mel';
+
+let apuntes: Apunte[] = [];
+try {
+  apuntes = JSON.parse(readFileSync(new URL('../../data/panel_historial.json', import.meta.url), 'utf8'));
+} catch { /* aún no se ha arreglado nada */ }
+
+/** Los rótulos de las acciones, con las palabras de los botones que las lanzan. */
+const ROTULO: Record<string, string> = {
+  png: 'Convertir a JPG',
+  'no-srgb': 'Pasar a sRGB',
+  enorme: 'Reducir a 2400 px',
+  pesado: 'Comprimir',
+};
+
+const kb = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.round(b / 1024)} KB`);
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+const díaLargo = (clave: string) =>
+  new Date(clave + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+/** Origen legible del color. El CMYK no trae nombre de perfil, pero se sabe de
+ *  dónde viene por sus 4 componentes. */
+const perfilDe = (d: any) => d?.perfil ?? (d?.comp === 4 ? 'CMYK' : null);
+
+/** Si el color cambió DE VERDAD. Un fichero que ya era sRGB y sale sin etiqueta
+ *  no ha cambiado de espacio: `sips` le quita el perfil y macOS no lo vuelve a
+ *  poner, pero un fichero sin etiqueta se lee como sRGB en todos los
+ *  navegadores (ver docs/imagenes.md). Enseñar «sRGB IEC61966-2.1 → sRGB» sería
+ *  anunciar un cambio que no existe. */
+function cambióElColor(a: Apunte): boolean {
+  const de = perfilDe(a.antes);
+  if (!de) return false;
+  return !(/srgb/i.test(de) && /srgb/i.test(a.despues.perfil ?? 'sRGB'));
+}
+
+// Agrupado por día, y los días de más reciente a más antiguo. Dentro de cada
+// uno, también lo último primero: de un registro interesa qué pasó hace un rato.
+const porDía = new Map<string, Apunte[]>();
+for (const a of [...apuntes].sort((x, y) => y.fecha.localeCompare(x.fecha))) {
+  const clave = a.fecha.slice(0, 10);
+  (porDía.get(clave) ?? porDía.set(clave, []).get(clave)!).push(a);
+}
+const días = [...porDía.entries()];
+
+/** Lo ahorrado en una jornada. Puede ser NEGATIVO —pasar a sRGB engorda— y se
+ *  dice: esconderlo sería maquillar el número. */
+const ahorroDe = (lista: Apunte[]) => lista.reduce((n, a) => n + a.antes.bytes - a.despues.bytes, 0);
+
+// El enlace a la imagen en Drive de cada cartel. Se lee la hoja igual que hace
+// Control: es la única que sabe qué fichero de Drive le toca a cada MEL, y aquí
+// hace falta para poder ir a verlo — que es lo que se quiere hacer justo
+// después de leer que se ha tocado.
+const driveDe: Record<string, string> = {};
+for (const fila of await fetchSheetRows()) {
+  const m = mapSheetRow(fila.c);
+  if (m?.idMel?.startsWith('MEL-') && m.urlDrive) driveDe[m.idMel] = m.urlDrive;
+}
+
+const COL = 'grid grid-cols-[92px_130px_minmax(180px,1fr)_170px_240px_190px] min-w-[1002px]';
+const CELDA = 'h-16 flex items-center px-4 border-t border-mel-border min-w-0';
+---
+
+<Layout title="Historial del panel">
+  <div class="w-full max-w-[1440px] min-h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-16">
+
+    <header class="pt-10 pb-6">
+      <div class="flex items-center justify-between gap-4 pb-6 border-b border-mel-border">
+        <h1 class="typo-h3 text-mel-text-primary">Panel de archivos M.E.L.</h1>
+        <nav class="flex items-center gap-6" aria-label="Secciones del panel">
+          <a href="/panel" class="typo-button text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200">Control</a>
+          <span class="typo-button text-mel-text-primary" aria-current="page">Historial</span>
+          <span class="typo-button text-mel-text-tertiary" title="Todavía no existe: ingesta de material nuevo">Preparación</span>
+        </nav>
+      </div>
+
+      <div class="flex flex-col gap-8 pt-6">
+        <p class="typo-lead text-mel-text-secondary">
+          Todo lo que el panel ha modificado, cartel a cartel y día a día. Solo entran
+          aquí las pasadas reales: las simulaciones no tocan ningún fichero, así que no
+          dejan rastro.
+        </p>
+      </div>
+    </header>
+
+    {días.length === 0 ? (
+      <div class="border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)] px-8 py-16 text-center">
+        <p class="typo-h4 text-mel-text-primary">Todavía no se ha arreglado ningún cartel.</p>
+        <p class="typo-body-sans text-mel-text-secondary pt-3">
+          En cuanto apliques una acción desde Control —no una simulación— aparecerá aquí
+          con su antes y su después.
+        </p>
+      </div>
+    ) : (
+      <div class="flex flex-col gap-8">
+        {días.map(([clave, lista]) => {
+          const ahorro = ahorroDe(lista);
+          // Plegado nativo del navegador (`<details>`) en vez de un botón con
+          // JavaScript: esta página no tiene script de cliente. Cerrado por
+          // defecto — con muchas jornadas, la lista abierta es una pared.
+          return (
+            <details class="dia border border-mel-border bg-mel-bg-primary shadow-[var(--mel-shadow-md)]">
+              {/* Mismo armazón que las secciones de Control: cabecera en
+                  `bg-secondary` con franja a la izquierda. Aquí la franja es
+                  verde — lo verde en este panel es lo que ya está resuelto. */}
+              <summary class="dia-cab flex items-center justify-between gap-4 bg-mel-bg-secondary hover:bg-mel-bg-tertiary transition-colors duration-200 px-6 py-5 border-l-8 border-mel-banner-success-border cursor-pointer list-none">
+                <span class="typo-h4 text-mel-text-primary first-letter:uppercase">
+                  {díaLargo(clave)} <span class="text-mel-text-secondary">[{lista.length}]</span>
+                </span>
+                <span class="flex items-center gap-6 shrink-0">
+                  <span class={`typo-h3 ${ahorro >= 0 ? 'text-mel-banner-success-text' : 'text-mel-banner-error-border'}`}>
+                    {ahorro >= 0 ? `−${kb(ahorro)}` : `+${kb(-ahorro)}`}
+                  </span>
+                  <span class="chevron w-10 h-10 flex items-center justify-center text-mel-text-primary" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </span>
+                </span>
+              </summary>
+
+              <div class="overflow-x-auto">
+                <div class={COL} role="table" aria-label={`Carteles procesados el ${díaLargo(clave)}`}>
+                  <div class="contents">
+                    {['Hora', 'Referencia', 'Acción', 'Formato', 'Color', 'Peso'].map((c) => (
+                      <div class="h-10 flex items-center px-4 bg-mel-bg-secondary border-t border-mel-border typo-overline text-mel-text-secondary" role="columnheader">{c}</div>
+                    ))}
+                  </div>
+                  {lista.map((a) => (
+                    <div class="contents">
+                      <div class={`${CELDA} typo-caption text-mel-text-primary`}>{hora(a.fecha)}</div>
+                      {/* Sin `href` —si el cartel ya no está en la hoja— un
+                          <a> se pinta como texto normal y no navega a ningún
+                          sitio, que es exactamente lo que hace falta. */}
+                      <div class={CELDA}>
+                        <a href={driveDe[a.idMel] || undefined} target="_blank" rel="noopener" class="typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 truncate">{a.idMel}</a>
+                      </div>
+                      <div class={`${CELDA} typo-caption text-mel-text-primary`}>
+                        <span class="truncate">{a.acciones.map((c) => ROTULO[c] ?? c).join(' · ')}</span>
+                      </div>
+
+                      {/* Cada cambio en el mismo formato que los modales: origen
+                          en secundario, flecha, destino en verde. Una raya cuando
+                          esa columna no cambió — decir «jpeg → jpeg» es ruido. */}
+                      <div class={CELDA}>
+                        {a.antes.tipo !== a.despues.tipo ? (
+                          <span class="flex items-center gap-3">
+                            <span class="typo-button text-mel-text-secondary">{a.antes.tipo}</span>
+                            <span class="text-mel-action-tertiary" aria-hidden="true">→</span>
+                            <span class="typo-button text-mel-banner-success-text">{a.despues.tipo}</span>
+                          </span>
+                        ) : <span class="typo-caption text-mel-text-tertiary">—</span>}
+                      </div>
+
+                      <div class={CELDA}>
+                        {cambióElColor(a) ? (
+                          <span class="flex items-center gap-3 min-w-0">
+                            <span class="typo-button text-mel-text-secondary truncate">{perfilDe(a.antes)}</span>
+                            <span class="text-mel-action-tertiary shrink-0" aria-hidden="true">→</span>
+                            <span class="typo-button text-mel-banner-success-text shrink-0">{a.despues.perfil ?? 'sRGB'}</span>
+                          </span>
+                        ) : <span class="typo-caption text-mel-text-tertiary">—</span>}
+                      </div>
+
+                      {/* El peso SIEMPRE, y en rojo si subió: pasar a sRGB puede
+                          engordar el fichero, y esconderlo sería maquillar el dato. */}
+                      <div class={CELDA}>
+                        <span class="flex items-center gap-3">
+                          <span class="typo-button text-mel-text-secondary">{kb(a.antes.bytes)}</span>
+                          <span class="text-mel-action-tertiary" aria-hidden="true">→</span>
+                          <span class={`typo-button ${a.despues.bytes > a.antes.bytes ? 'text-mel-banner-error-border' : 'text-mel-banner-success-text'}`}>
+                            {kb(a.despues.bytes)}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </details>
+          );
+        })}
+      </div>
+    )}
+  </div>
+</Layout>

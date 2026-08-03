@@ -1,0 +1,30 @@
+---
+/**
+ * Las dos tarjetas informativas de la cabecera del panel: «Archivos procesados»
+ * y «Optimización total». No son accionables — no filtran, no abren nada, no se
+ * pueden pulsar. Son un marcador de lo que el panel lleva hecho, y por eso van
+ * en verde y no en el código de gravedad: lo verde es lo que ya está resuelto.
+ *
+ * Se separan de `PanelTarjeta` a propósito en vez de meterle una tercera forma:
+ * aquella tiene desglose de secciones, estado activo, filtro por nivel y franja
+ * de gravedad. Esta no tiene nada de eso. Forzarlas a compartir componente
+ * habría sido un `if` dentro de otro `if` para ahorrar veinte líneas.
+ */
+interface Props {
+  overline: string;
+  /** El porcentaje, que es lo que se lee de un vistazo. */
+  porcentaje: number;
+  /** El detalle que lo sostiene: «27 de 64», «47 de 250 Mb». Sin esto el
+   *  porcentaje es una cifra sin escala — 23% de qué. */
+  detalle: string;
+}
+const { overline, porcentaje, detalle } = Astro.props;
+---
+
+<div class="bg-mel-banner-success-bg flex flex-col gap-4 px-6 py-6">
+  <span class="typo-overline text-mel-banner-success-text">{overline}</span>
+  <span class="flex items-baseline gap-3">
+    <span class="typo-h1 text-mel-banner-success-text">{porcentaje}%</span>
+    <span class="typo-lead text-mel-banner-success-text">{detalle}</span>
+  </span>
+</div>

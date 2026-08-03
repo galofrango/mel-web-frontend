@@ -31,12 +31,14 @@ function png(ancho, alto, tipoColor, conICCP = false) {
  * primarios rojo y verde, que son los que dicen si es sRGB. Con `null` sale un
  * perfil sin primarios — el caso de los grises, que llevan kTRC y no rXYZ.
  */
-function perfilICC(rojoX, verdeX) {
+function perfilICC(rojoX, verdeX, nombre = null) {
   const conXYZ = rojoX !== null;
-  const total = conXYZ ? 196 : 132;
+  const etq = nombre ? Buffer.from(nombre + '\0', 'latin1') : null;
+  const base = conXYZ ? 196 : 132;
+  const total = etq ? base + 12 + etq.length : base;
   const p = Buffer.alloc(total);
   p.writeUInt32BE(total, 0);
-  p.writeUInt32BE(conXYZ ? 2 : 0, 128);
+  p.writeUInt32BE((conXYZ ? 2 : 0) + (etq ? 1 : 0), 128);
   if (conXYZ) {
     const escribir = (etiqueta, pos, x) => {
       p.write(etiqueta, pos, 'latin1');
@@ -48,6 +50,16 @@ function perfilICC(rojoX, verdeX) {
     };
     escribir('rXYZ', 132, rojoX);
     escribir('gXYZ', 144, verdeX);
+  }
+  if (etq) {
+    // La etiqueta `desc` de tipo "desc": firma + reservado + longitud + texto.
+    const entrada = 132 + (conXYZ ? 24 : 0);
+    p.write('desc', entrada, 'latin1');
+    p.writeUInt32BE(base, entrada + 4);
+    p.writeUInt32BE(12 + etq.length, entrada + 8);
+    p.write('desc', base, 'latin1');
+    p.writeUInt32BE(etq.length, base + 8);
+    etq.copy(p, base + 12);
   }
   return p;
 }
@@ -203,4 +215,20 @@ test('ficheros truncados no revienta: GIF muy corto', () => {
   const d = leerCabecera(gifIncompleto);
   assert.equal(d.tipo, 'desconocido');
   assert.equal(d.px, null);
+});
+
+test('JPEG: dice de qué espacio de color viene, no solo si es raro', () => {
+  // El resumen del panel enseña «Adobe RGB (1998) → sRGB», no un genérico
+  // «color arreglado»: saber de dónde venía es la mitad de la información.
+  const conNombre = (rojoX, verdeX, nombre) => {
+    const p = perfilICC(rojoX, verdeX, nombre);
+    return leerCabecera(jpeg(800, 600, 3, p)).perfil;
+  };
+  assert.equal(conNombre(...ADOBE_RGB, 'Adobe RGB (1998)'), 'Adobe RGB (1998)');
+  assert.equal(conNombre(...SRGB, 'sRGB IEC61966-2.1'), 'sRGB IEC61966-2.1');
+});
+
+test('sin perfil incrustado no se inventa un nombre', () => {
+  assert.equal(leerCabecera(jpeg(800, 600, 3, false)).perfil, null);
+  assert.equal(leerCabecera(png(100, 100, 2)).perfil, null);
 });

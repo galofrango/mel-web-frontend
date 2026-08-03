@@ -13,10 +13,16 @@ Para quien sube material al Drive. No hace falta saber nada de código.
 |---|---|
 | **Lado mayor** | **2000–2400px** |
 | **Mínimo aceptable** | **1200px** de lado mayor. Por debajo se ve blando al ampliar |
-| **Formato** | **JPEG**, calidad 85 |
+| **Formato** | **JPEG**, calidad 95 |
 | **Perfil de color** | **sRGB**. Nunca CMYK, ni Adobe RGB. Sin etiqueta ya significa sRGB |
 | **Recorte** | Al borde del cartel, sin margen blanco de escaneo |
 | **Peso** | Da igual. 600 KB – 1,5 MB es normal y está bien |
+
+> **La calidad pasó de 85 a 95 el 03/08/2026.** Medido sobre el propio archivo:
+> subir de 85 a 95 engorda el fichero solo un **10%** y la diferencia se nota a
+> ojo. Y sigue bastando para lo que hace falta — los tres JPEG que pasaban de
+> 2 MB bajan por debajo ya en la primera pasada a 95. El 85 solo se usa como
+> escalón si 95 no consigue meter el fichero en los 2 MB.
 
 De la rotación no hay que preocuparse: Drive endereza los píxeles al generar la
 miniatura. Comprobado en el archivo (julio 2026) — todas las imágenes servidas
@@ -46,6 +52,11 @@ concreto, a `w200`:
 
 - JPEG: **11 KB**
 - PNG: **113 KB** — diez veces más
+
+Pero **a `w700`, que es lo que pide de verdad la galería**, la diferencia se
+estrecha bastante. Medido el 03/08/2026 sobre las 32 miniaturas de la primera
+pantalla: JPG **159 KB** de media, PNG **406 KB** — dos veces y media, no diez.
+Sigue mereciendo la pena convertir, pero el número que hay que decir es este.
 
 La galería carga 32 carteles de golpe, así que ahí es donde eso se nota de
 verdad, y con datos móviles más.

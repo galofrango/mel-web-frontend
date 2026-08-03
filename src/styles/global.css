@@ -160,6 +160,11 @@
   --mel-banner-warning-border: var(--mel-primitive-y-400);      /* Y 400 */
   --mel-banner-warning-bg: var(--mel-primitive-y-200);          /* Y 200 */
   --mel-banner-warning-text: var(--mel-primitive-y-600);        /* Y 600 */
+  /* El verde de la familia estrena uso: la tarjeta de «Optimizado con el panel»
+     no es una gravedad, es lo contrario — lo que ya está hecho. */
+  --mel-banner-success-border: var(--mel-primitive-g-400);      /* G 400 */
+  --mel-banner-success-bg: var(--mel-primitive-g-200);          /* G 200 */
+  --mel-banner-success-text: var(--mel-primitive-g-600);        /* G 600 */
 
   /* Primaries CMYK */
   --mel-cyan: var(--mel-primitive-cian);
@@ -246,6 +251,9 @@
   --color-mel-banner-warning-border: var(--mel-banner-warning-border);
   --color-mel-banner-warning-bg: var(--mel-banner-warning-bg);
   --color-mel-banner-warning-text: var(--mel-banner-warning-text);
+  --color-mel-banner-success-border: var(--mel-banner-success-border);
+  --color-mel-banner-success-bg: var(--mel-banner-success-bg);
+  --color-mel-banner-success-text: var(--mel-banner-success-text);
 
   --color-mel-text-primary: var(--mel-text-primary);
   --color-mel-text-secondary: var(--mel-text-secondary);
@@ -619,3 +627,192 @@ body {
 }
 
 
+
+
+/* --- Jornadas plegables del historial (dev) -------------------------------
+   El triángulo que pone el navegador en un <summary> se quita —`list-none` no
+   basta en WebKit, hace falta el pseudoelemento— porque la sección ya tiene su
+   propio chevron, que gira al abrirse igual que los de Control. */
+.dia-cab::-webkit-details-marker { display: none; }
+.dia-cab::marker { content: ''; }
+.dia .chevron svg { transition: transform 200ms ease; }
+.dia[open] .chevron svg { transform: rotate(180deg); }
+
+/* --- Lista con scroll del modal (dev) ------------------------------------
+   La barra SIEMPRE a la vista: macOS la esconde hasta que mueves la rueda, y
+   con seis filas y media asomando la séptima no había forma de saber que se
+   podía seguir bajando salvo probando. `scrollbar-gutter: stable` reserva su
+   hueco para que la tabla no se desplace al aparecer.
+
+   Sin esquinas redondeadas — regla 5 del DS, sin excepción por ser un control
+   del navegador. */
+.modal-lista { scrollbar-gutter: stable; }
+.modal-lista::-webkit-scrollbar { width: 8px; }
+.modal-lista::-webkit-scrollbar-track { background: var(--mel-bg-secondary); }
+.modal-lista::-webkit-scrollbar-thumb { background: var(--mel-action-tertiary); }
+.modal-lista::-webkit-scrollbar-thumb:hover { background: var(--mel-action-secondary); }
+
+/* --- Globo de notas del panel (dev) --------------------------------------
+   Vive aquí y no en el `<style>` de PanelSeccion.astro por lo mismo que el
+   interruptor: los estilos del panel ya se mudaron a este archivo cuando el
+   modal necesitó compartirlos. Y hay una razón práctica encima — el servidor
+   de desarrollo sirvió DOS VECES en esta tarea una versión rancia del estilo
+   `scoped` del componente (la regla llegaba al navegador sin las últimas
+   declaraciones), y perseguir eso cuesta media hora cada vez. */
+/* El globo de notas usa la API nativa de `popover`: da el cierre al pulsar
+   fuera y con Escape, y la capa superior del navegador — que es lo que hace
+   falta aquí, porque la tabla vive dentro de un contenedor con scroll
+   horizontal y cualquier caja posicionada DENTRO de una celda saldría
+   recortada. Se le quitan las reglas del navegador (`inset:auto; margin:0`)
+   porque las suyas lo centran en la pantalla; lo coloca junto a su botón el
+   posicionador de panel.astro. */
+/* El `display` va AQUÍ y NUNCA como clase de Tailwind en el elemento. Un
+   `flex` suelto en el marcado le gana al `display: none` con el que el
+   navegador esconde un `[popover]` cerrado, así que los 100 globos de la tabla
+   salían pintados a la vez nada más cargar el panel —apilados unos sobre
+   otros— y su equis no cerraba nada, porque en realidad ninguno estaba
+   "abierto": solo eran cajas visibles. */
+.notas-popup:popover-open {
+  display: flex;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.notas-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  border: 1px solid var(--mel-border);
+  box-shadow: var(--mel-shadow-button);
+  overflow-y: auto;
+  white-space: pre-wrap;   /* la nota puede traer saltos de línea del archivo */
+  /* El ancho va aquí y no en clases de Tailwind: `max-w-[calc(100vw-32px)]`
+     compilaba a `max-width: 0px` —la sintaxis arbitraria pide guiones bajos
+     donde el CSS lleva espacios— y el globo salía de 66px. */
+  width: 504px;   /* Figma 1256:107782 */
+  max-width: calc(100vw - 32px);
+}
+/* La equis va SOBRE el texto, no en una fila propia: así los paddings de la
+   caja siguen siendo los mismos que los de la caja de descripción de la
+   sección, que es de donde sale el esquema. El texto se aparta solo lo justo
+   con `padding-right` en su primera línea. */
+/* Qué botón se ve en la última celda: sin nota, la acción; con nota, «Ver
+   notas». Nunca los dos (criterio del propietario). Los DOS van siempre en el
+   marcado y lo decide `data-notas`, para que al guardar una nota no haya que
+   fabricar este botón a mano en JavaScript ni recargar la página. */
+.ver-notas { display: none; }
+.fila[data-notas] .accion-normal { display: none; }
+.fila[data-notas] .ver-notas { display: inline-flex; }
+
+/* El botón pasa a `action-primary` mientras su globo está abierto: es el único
+   sitio donde se ve qué nota estás mirando cuando hay varias en pantalla. Se
+   hace con `:has()` desde la celda —el ancestro común de los dos— y no con una
+   clase puesta por JavaScript: el estado ya lo sabe el propio popover. */
+.fila td:has(.notas-popup:popover-open) .ver-notas,
+.fila div:has(.notas-popup:popover-open) .ver-notas {
+  background: var(--mel-action-primary);
+  border-color: var(--mel-action-primary);
+  color: var(--mel-text-on-action);
+}
+
+.notas-texto { display: block; }
+.notas-cerrar {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  color: var(--mel-action-secondary);
+  transition: color 200ms;
+}
+.notas-cerrar:hover { color: var(--mel-action-primary); }
+
+/* --- Interruptor «Ver ocultos» del panel (dev) ----------------------------
+   Figma 1249:58237. Todo su estado visual cuelga de `aria-checked`, que es el
+   mismo atributo que lo anuncia a un lector de pantalla: un solo sitio, y es
+   imposible que el aspecto y lo que se anuncia se contradigan.
+
+   Va aquí y no en la página porque panel.astro NO TIENE bloque <style> — sus
+   reglas viven en este archivo desde que el modal necesitó compartirlas. Se
+   intentó primero con `classList.toggle('translate-x-[40px]')` desde el JS, y
+   no funciona: esa clase solo existía dentro de una cadena de JavaScript, así
+   que Tailwind nunca generó la regla y la clase se ponía sin pintar nada. */
+#panel-ver-ocultos .sw-manija {
+  transform: translateX(0);
+  background: var(--mel-action-tertiary);
+  transition: transform 200ms ease, background-color 200ms ease;
+}
+#panel-ver-ocultos[aria-checked='true'] .sw-manija {
+  transform: translateX(40px);
+  background: var(--mel-action-secondary);
+}
+/* Apagado enseña la equis, encendido el check. Se cruzan de opacidad. */
+#panel-ver-ocultos .sw-icono { transition: opacity 200ms ease; }
+#panel-ver-ocultos .sw-check,
+#panel-ver-ocultos[aria-checked='true'] .sw-equis { opacity: 0; }
+#panel-ver-ocultos[aria-checked='true'] .sw-check { opacity: 1; }
+
+/* Desactivado: se apaga TODO, no solo con transparencia. El diseño da colores
+   propios para este estado (Figma 1250:105962) y no un `opacity` global, que
+   dejaría el granate del pulgar reconocible detrás del velo. */
+#panel-ver-ocultos:disabled { opacity: 1; cursor: not-allowed; }
+#panel-ver-ocultos:disabled .sw-texto { color: var(--mel-text-tertiary); }
+#panel-ver-ocultos:disabled .sw-carril { background: var(--mel-bg-tertiary); }
+#panel-ver-ocultos:disabled .sw-manija { background: var(--mel-text-tertiary); }
+
+/* --- Casilla cuadrada del panel (dev) ------------------------------------
+   Estaba en PanelSeccion.astro, pero el modal la necesita también y los
+   estilos `scoped` de Astro no cruzan entre componentes. */
+/* Casilla cuadrada a mano: un checkbox nativo en macOS/Chrome lleva esquina
+   redondeada de fábrica, y la regla 5 del DS ("nada redondeado, en ningún
+   sitio") no admite excepción por ser un control nativo. Compartida con
+   `.chk-cab` (la casilla de cabecera, "Seleccionar/deseleccionar todo")
+   para no duplicar la regla — misma pieza, dos sitios. */
+.chk-fila,
+.chk-cab,
+.mejora-chk {
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--mel-action-secondary);
+  background-color: var(--mel-bg-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.chk-fila:checked,
+.chk-cab:checked {
+  background-color: var(--mel-action-secondary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px 14px;
+}
+/* Selección parcial de la sección (`chkCab.indeterminate = true`, JS — no
+   hay atributo HTML para esto, solo propiedad del DOM): un guion en vez
+   del check, mismo lenguaje visual. Solo `.chk-cab` lo necesita — una fila
+   suelta no tiene un "algo entre marcado y no marcado" que representar. */
+.chk-cab:indeterminate {
+  background-color: var(--mel-action-secondary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cline x1='5' y1='12' x2='19' y2='12'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px 14px;
+}
+
+
+/* --- Rayas de fondo de las cajas de imagen --------------------------------
+   Estaba copiada BYTE A BYTE en index.astro y en event/[id].astro, y el panel
+   iba camino de ser la tercera. Es la misma pieza en los tres sitios: la caja
+   que dice "aquí acaba el cartel y empieza el hueco". Vive aquí una vez. */
+.striped-bg {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 7px,
+    var(--mel-border) 7px,
+    var(--mel-border) 8px
+  );
+}

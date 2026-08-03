@@ -591,7 +591,7 @@ test('dentro de cada grupo, lo peor primero', () => {
 
 test('la marca en notasArchivo silencia solo ese aviso', () => {
   const tec = { AAA: { ...tecBase, tipo: 'png', perfil: false } };
-  const conMarca = [{ ...filaBase, notasArchivo: 'Escaneo del propio autor. #acepta:png' }];
+  const conMarca = [{ ...filaBase, notasArchivo: 'Escaneo del propio autor. #oculto:png' }];
   const c = claves(conMarca, tec);
   assert.ok(!c.includes('png'), 'el aviso marcado desaparece');
   assert.ok(c.includes('sin-perfil'), 'los demás avisos del mismo cartel siguen');
@@ -690,14 +690,14 @@ const ORDENA: Record<Criterio, (a, b) => number> = {
 
 export function auditar(filas, tecnico) {
   // Recorrer REGLAS en su orden, y para cada una recorrer filas. Saltar la fila
-  // si `notasArchivo` contiene `#acepta:<clave>`. Construir el Item con px, peso,
+  // si `notasArchivo` contiene `#oculto:<clave>`. Construir el Item con px, peso,
   // bytes y mayor. Ordenar con ORDENA[criterio]. Devolver solo grupos con items.
 }
 ```
 
 Reglas de implementación de `auditar()`:
 - La imagen que no está en `tecnico` usa `VACIO`, así que no dispara ningún aviso técnico. Nunca lanza.
-- El silenciado se comprueba con `String(fila.notasArchivo).toLowerCase().includes('#acepta:' + clave)`.
+- El silenciado se comprueba con `String(fila.notasArchivo).toLowerCase().includes('#oculto:' + clave)`.
 - El `Item.px` es `px.join('×')` o `'—'`; `Item.peso` es `MB(bytes)` o `'—'`.
 - **Las descripciones y banners se copian literalmente del spec.** Son texto de producto, ya revisado por el propietario; no los reescribas.
 

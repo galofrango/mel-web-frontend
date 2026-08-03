@@ -50,3 +50,27 @@ test('un archivo sin ninguna fecha legible no devuelve un rango imposible', () =
 test('un solo evento da un rango de un año, no uno invertido', () => {
   assert.deepEqual(rangoDeAnios([{ fecha: '7/02/2003' }]), { min: 2003, max: 2003 });
 });
+
+import { tieneUbicacion } from '../src/lib/mel.ts';
+
+test('se puede ubicar: URL larga de Maps, grados o decimales', () => {
+  assert.equal(tieneUbicacion('https://www.google.es/maps/place/Calle+Cervantes,+9/@42.599,-5.569,17z'), true);
+  assert.equal(tieneUbicacion('42° 36\' 19.8576" N 5° 25\' 5.5632" W'), true, 'grados, como 17 filas del archivo');
+  assert.equal(tieneUbicacion('42.5987, -5.5671'), true);
+});
+
+test('NO se puede ubicar: texto suelto, centinelas o vacío', () => {
+  // El caso que dejó a Oh! León fuera del mapa sin que el panel dijera nada:
+  // la celda tenía texto, así que "no está vacía", pero no había forma de
+  // sacar coordenadas de ahí.
+  assert.equal(tieneUbicacion('Av. del Alcalde Miguel Castaño, 115'), false);
+  assert.equal(tieneUbicacion('Desconocido'), false);
+  assert.equal(tieneUbicacion(''), false);
+  assert.equal(tieneUbicacion(undefined), false);
+});
+
+test('un enlace CORTO de Maps no cuenta: el sitio no lo resuelve', () => {
+  // Resolverlo pediría una petición de red por visita, y el sitio se renderiza
+  // en cada carga. Si su texto no trae coordenadas, no hay ubicación.
+  assert.equal(tieneUbicacion('https://maps.app.goo.gl/QJchRLb7EhZTKsuAA'), false);
+});

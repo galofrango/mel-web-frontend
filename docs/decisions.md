@@ -3099,3 +3099,345 @@ node -e 'const {fetchEvents}=await import("./src/lib/mel.ts");
 
 Y ojo con ese id: la ruta busca por el `idMel` **del grupo**, no por el de cada
 imagen del carrusel. Pedir `/event/<id de una imagen>` da 404 y no es un fallo.
+
+---
+
+## D-186 · Todo se guarda a calidad 95, y la escalera baja de cinco en cinco
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+Antes había dos calidades: 95 para lo que ya iba a recodificarse igualmente
+(convertir un PNG, recomprimir por peso) y **la máxima** para el cambio de
+espacio de color y el redimensionado, con el argumento de "no añadas pérdida a
+algo que nadie pidió aligerar".
+
+El argumento era correcto y el resultado era malo: a máxima calidad el JPEG
+resultante pesa como el PNG de origen, o más — se veía en la propia carpeta de
+simulación. Se pagaba el coste de recodificar sin ninguna de las ventajas.
+
+**Decisión del propietario:** 95 en **todos** los arreglos, y cuando haya que
+bajar, de **cinco en cinco** desde ahí (95 → 90 → 85 …).
+
+Lo que NO cambia: la escalera solo corre en «peso superior a 2 MB». Es el único
+arreglo que persigue una cifra concreta; bajar calidad en los demás sería
+perseguir un objetivo que nadie fijó, y volvería a romper la regla de que un
+botón hace lo que dice.
+
+Medido sobre el archivo antes de decidirlo: subir de 85 a 95 engorda el fichero
+un ~10% (MEL-00056, de PNG: 956 KB a 85, 1048 KB a 95, desde 3627 KB de origen),
+y los tres JPEG que pasaban de 2 MB entran por debajo ya en la primera pasada
+a 95. El 85 deja de ser la norma y pasa a ser un escalón.
+
+---
+
+## D-187 · «Ocultos», sin decir de qué. Y la marca en la hoja se llama igual
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+El panel tenía dos vocabularios para el mismo acto: la interfaz decía **ocultar
+aviso** y la hoja escribía **`#acepta:`**. Se propuso unificarlos por el lado de
+"aceptar" —dar por bueno un fichero que no va a cambiar— y **el propietario lo
+rechazó, con razón**: por buenas que sean las razones, lo que se está haciendo es
+meter un fallo debajo de la alfombra, y llamarlo "aceptar" lo blanquea. El fallo
+sigue ahí; lo que se pide es que quede registrado **por qué** no se quiere volver
+a ver.
+
+Así que se unifica por el otro lado:
+
+- La marca en `notasArchivo` pasa de `#acepta:<clave>` a **`#oculto:<clave>`**.
+  Sin migración: no había ni una en la hoja (medido el 03/08/2026, 0 de 90).
+- Cae la palabra **«aviso»** del vocabulario de ocultar. El botón de fila dice
+  «Ocultar»/«Mostrar» y el interruptor «Ver ocultos (N)», sin decir ocultos de
+  qué — que era justo lo que no terminaba de leerse.
+
+Tres invariantes que el propietario fijó, y que **ya se cumplían** (ahora con
+test que lo sujeta, en `test/auditoria.test.mjs`):
+
+1. Ocultar en una sección no oculta ese cartel en las demás. La marca lleva la
+   clave de la regla, y cada sección pinta su propia fila.
+2. Un oculto **no** cuenta como procesado ni optimizado: esas dos cifras salen
+   de `panel_historial.json`, que solo escribe la ruta de arreglos tras una
+   pasada real. Ocultar no la toca.
+3. Un oculto **no** desaparece del recuento total: `totalCarteles` son las
+   claves de `flyer_tecnico.json`, todas, se oculte lo que se oculte.
+
+---
+
+## D-188 · Las notas se leen en el panel, no en la hoja
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+Al ocultar se escribe un motivo en `notasArchivo` (columna Y). Ese texto no
+tenía dónde leerse: mandar a otra pestaña de Google Sheets a leer dos frases es
+un viaje absurdo, y sin leerlas la nota se escribe para nadie.
+
+**«Ver notas»** abre un globo con el texto íntegro, con el mismo formato que la
+explicación de la sección. Sale **solo** si hay algo que leer y **ocupa el sitio**
+del botón de acción: nunca conviven (criterio del propietario — llegaron a verse
+tres botones en la misma celda, desbordando la columna).
+
+Consecuencia asumida: un fichero con notas de archivo que además tenga arreglo
+automático pierde su botón de arreglar de fila. Sigue arreglándose por casilla +
+acción en bloque. Hoy no afecta a nadie (0 de 90 filas tienen notas).
+
+**Tres cosas de implementación que costaron rato:**
+
+- Se usa la **API nativa de `popover`**, que da cierre al pulsar fuera, cierre
+  con Escape y —lo que aquí hace falta— la capa superior del navegador: la tabla
+  vive en un contenedor con scroll horizontal y cualquier caja posicionada dentro
+  de una celda saldría recortada.
+- Se coloca en `beforetoggle`, y **ahí el globo aún mide cero**. Cualquier cuenta
+  con su ancho o su alto sale mal (salía a la derecha del botón, no debajo). Se
+  ancla por **bordes** (`right`/`bottom`), que no necesitan medirlo.
+- `max-w-[calc(100vw-32px)]` de Tailwind compila a **`max-width: 0px`**: la
+  sintaxis arbitraria pide guiones bajos donde el CSS lleva espacios. El globo
+  salía de 66px. El ancho se define en el CSS del componente, no en clases.
+
+---
+
+## D-189 · El interruptor de «Ver ocultos» pinta desde `aria-checked`
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+«Mostrar avisos ocultos» era un botón sólido de 320px que competía en peso
+visual con «Releer el spreadsheet». El propietario lo rediseñó como interruptor
+(Figma 1249:58237): rótulo + carril de 80×32 con manija de 40×32.
+
+Todo su estado visual cuelga del atributo **`aria-checked`**, que es el mismo que
+lo anuncia a un lector de pantalla. Un solo sitio, y es imposible que el aspecto
+y lo que se anuncia se contradigan.
+
+Se intentó primero moviéndolo con `classList.toggle('translate-x-[40px]')` desde
+el JS y **no funciona**: esa clase solo existía dentro de una cadena de
+JavaScript, así que Tailwind nunca generó la regla — la clase se ponía en el
+elemento y no pintaba nada. Es el mismo tipo de trampa que la regla 7 de
+AGENTS.md, pero con clases en vez de marcado: **lo que solo vive en una cadena de
+JS no existe para las herramientas que leen el código fuente.**
+
+Las reglas viven en `global.css` y no en la página porque **`panel.astro` no
+tiene bloque `<style>`** — los estilos del panel se mudaron ahí cuando el modal
+necesitó compartirlos.
+
+El rótulo ya no cambia de verbo («Mostrar…»/«No mostrar…»): un interruptor dice
+qué gobierna, y lo que pasará al pulsarlo lo dice su propia posición.
+
+**Colores por estado** (Figma 1250:106028, los tres del componente):
+
+| | carril | manija | icono | rótulo |
+|---|---|---|---|---|
+| Apagado | `bg-secondary` | `action-tertiary` | equis | `text-primary` |
+| Encendido | `bg-secondary` | `action-secondary` | check | `text-primary` |
+| Desactivado | `bg-tertiary` | `text-tertiary` | equis | `text-tertiary` |
+
+El estado desactivado tiene **colores propios**, no un `opacity` global: con
+transparencia el granate de la manija seguía reconociéndose detrás del velo y
+parecía encendido-pero-apagado. Los dos iconos van siempre en el marcado,
+superpuestos en la misma celda de un grid, y se cruzan de opacidad — si se
+pusiera y quitara el que toca, la manija cambiaría de contenido a mitad del
+deslizamiento.
+
+---
+
+## D-190 · El modal enseña el cambio como «de dónde → a dónde», con el destino en verde
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+El resumen del cambio en el modal de confirmación era una lista de definiciones
+—«Formato: PNG → JPG»— con todo en el mismo color. Pasa a ser la franja
+«Fix table resume» de Figma (1238:102590):
+
+- Filete arriba y abajo (`border`), contenido centrado.
+- Cada cambio es `origen · flecha · destino`, con celdas de 100px de mínimo y
+  64 de alto.
+- **El origen va en `text-secondary` y el destino en `banner-success-text`**
+  (verde). De un vistazo se ve qué se gana sin leer ninguna etiqueta.
+
+Por eso la etiqueta ya **no se pinta**: «PNG → JPG» no necesita que le pongan
+«Formato» delante. Sigue en el `<dt>` con `sr-only`, donde sí hace falta —un
+lector de pantalla anuncia «PNG, flecha, JPG» y ahí la etiqueta es la
+diferencia entre entenderlo y no.
+
+Envuelve (`flex-wrap`) porque pueden entrar hasta tres cambios a la vez y en
+una sola fila serían 768px dentro de una columna de 480.
+
+**La caja de imagen pasa a 400px fijos** (Figma 1239:121505: `w-[400px]`,
+`self-stretch`) con el cartel en `object-contain`. Antes la caja tomaba la
+proporción real del cartel —calculada en JS— para que la imagen fuera a sangre;
+con un ancho fijo eso sobra, las rayas rellenan lo que quede, y la columna deja
+de cambiar de tamaño según el cartel que toque. Lleva `max-w-full` porque por
+debajo de `lg` el modal se apila en vertical y 400 fijos se saldrían de una
+pantalla estrecha.
+
+---
+
+## D-191 · Ocultar pregunta por qué, y lo escribe en la hoja
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+Ocultar dejaba de mostrar un aviso y no guardaba nada, así que a la siguiente
+recarga volvía. Ahora pasa por `PanelNota.astro` y por la ruta
+`/api/panel/ocultar`, que escribe `#oculto:<clave> <motivo>` en la columna Y.
+
+- **AÑADE, nunca pisa.** La columna es de notas de archivo y puede traer prosa
+  que no tiene nada que ver con el panel.
+- **Relee la celda justo antes de escribirla**, en vez de fiarse de lo que el
+  navegador cargó al abrir la página: entre una cosa y otra pueden pasar horas
+  y el propietario edita esa hoja a mano con el panel abierto.
+- **Si la escritura falla no se oculta nada**, y el modal se reabre con el
+  motivo tecleado intacto. Ocultar sin haber escrito la marca sería mentir: el
+  panel se reconstruye desde la hoja en cada visita, así que la fila volvería
+  sola y el propietario creería haberla ocultado.
+- **El motivo no es obligatorio.** Forzarlo lleva a teclear un punto para salir
+  del paso, y eso es peor que no tener nota: una nota vacía se ve vacía, un
+  punto parece una nota.
+- **Mostrar no pregunta nada.** Devolver un aviso a la lista no esconde
+  información, así que no hay nada que justificar.
+- **En bloque se pregunta UNA vez** y el mismo motivo se escribe en la fila de
+  cada uno. Veinte preguntas seguidas acabarían en veinte notas vacías.
+
+Va en un `<dialog>` aparte y no como cuarto estado de `PanelModal`: aquel gira
+entero alrededor de un encargo de arreglo (imagen, mejoras, progreso, resumen)
+y meterle un formulario dentro habría sido un `if` grande cruzando las cuatro
+fases. El formulario es `method="dialog"`, así que el propio navegador cierra y
+deja en `returnValue` el botón pulsado — y Escape hace lo mismo que «Cerrar sin
+ocultar», gratis.
+
+---
+
+## D-192 · Con varios carteles, cada uno enseña SUS cambios
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+El modal de confirmación en lote resumía con un agregado: «3 espacios distintos
+→ sRGB». Decía a cuántos afecta pero no a cuáles, que es justo lo que hay que
+poder mirar antes de tocar 33 ficheros. Ahora la franja de arriba es **solo para
+un cartel** —y entonces sus cambios van uno encima de otro, con filete entre
+ellos— y en lote cada fila de la lista lleva los suyos dentro.
+
+Las columnas se reservan por ACCIÓN PEDIDA, no por cartel: si un cartel no
+necesita una de ellas se le deja el hueco vacío. Sin eso, un cartel con un solo
+cambio corría su columna al sitio donde el de al lado tenía otra cosa y la lista
+no se podía leer en vertical. El hueco solo se reserva si algún cartel del lote
+usa esa columna.
+
+Las filas envuelven (`flex-wrap`): tres pares más el identificador no caben en
+la columna del modal, y sin envolver el último par se **recortaba por el borde**
+en vez de bajar de línea.
+
+**El peso sigue fuera de la confirmación** y dentro del resumen. No es un
+olvido: no se puede saber sin procesar el fichero (D-181), así que prometerlo
+sería inventárselo. En el resumen ya está medido — y va en ROJO si subió.
+
+---
+
+## D-193 · Las notas del panel tienen su propia columna, y es la última
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+Las marcas `#oculto:` se escribían en **Y (Notas de archivo)**, que es prosa de
+catalogación del propietario. Mezclar las dos cosas obligaba a que la plomería
+del panel conviviera con texto que no tiene nada que ver, y a enseñar la marca
+al leer la nota.
+
+Se crea **AA — «Notas desde el panel»**, y va **al final de la hoja a propósito**:
+el mapa de columnas de `mel.ts` es por índice (`c[n]`), así que una columna nueva
+en medio habría corrido todas las de detrás y roto la web entera.
+
+Formato: **una línea por regla oculta** del mismo cartel.
+
+```
+#oculto:png Es un vector con transparencia.
+#oculto:enorme Hace falta poder ampliar el detalle.
+```
+
+`componerNota()` **sustituye** la línea de esa regla si ya existía, en vez de
+añadir otra: es lo que hace que «Editar» funcione y evita que ocultar dos veces
+deje dos motivos contradictorios uno debajo del otro. Las líneas de las demás
+reglas se respetan siempre. Con el motivo a `null` la borra, que es «Borrar».
+
+`notaDeLaRegla()` (en `auditoria.ts`) devuelve **solo la línea de esa regla y sin
+la marca**: el globo de una sección enseña lo suyo, no las notas de las otras
+reglas del mismo cartel, y la marca es plomería, no texto para leer.
+
+**Borrar la nota des-oculta.** Si no queda escrito por qué se esconde, no hay
+motivo para seguir escondiéndolo.
+
+El código no depende del RÓTULO de la columna, solo de su posición (`c[26]`):
+el propietario la renombró de «Notas de ocultación» a «Notas desde el panel» sin
+tocar nada. Lo único que hubo que cambiar fue el texto del modal, que la nombra
+para que sepas dónde ir a leerla.
+
+**Trampa que costó un rato, y que se repite:** el globo lleva `[popover]`, y el
+navegador lo esconde con `display: none` mientras está cerrado. Una clase suelta
+de Tailwind (`flex`) EN EL PROPIO ELEMENTO le gana a esa regla, así que los ~100
+globos de la tabla salían pintados a la vez nada más cargar el panel, apilados
+unos sobre otros, y su equis no cerraba nada — porque ninguno estaba «abierto»:
+solo eran cajas visibles. El `display` de un popover se declara en CSS con
+`:popover-open`, nunca como utilidad en el marcado.
+
+---
+
+## D-194 · El panel mide lo que le falte al arrancar
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+`flyer_tecnico.json` se rellenaba solo con `scripts/medir-archivo.mjs`, a mano.
+Un cartel recién subido llegaba al panel sin medir y caía en «Sin medir». Como
+aviso era correcto; como comportamiento era pereza: el panel PUEDE averiguarlo.
+
+Ahora, **solo en desarrollo** y **solo los que faltan**, el panel los mide al
+cargar y guarda el resultado en el mismo fichero que escribe el script. Medido
+el 03/08/2026 sobre el caso real: 11 carteles nuevos, **4,3 s** la primera carga
+y **~280 ms** las siguientes. Medir los 101 costaría ~125 MB y sí sería
+inaceptable en cada visita; medir los que faltan, no.
+
+Un fallo al medir uno no tumba la página: ese cartel se queda en «Sin medir»,
+que es exactamente lo que la sección está para decir. La lógica de descarga vive
+en `medirDeDrive()` (`src/lib/imagen.ts`), compartida con el script.
+
+`formatoPorId` se calcula DESPUÉS de medir, o los recién medidos salían con «—»
+hasta la siguiente recarga.
+
+---
+
+## D-195 · El historial es una sección, no dos tarjetas
+
+**Fecha:** 2026-08-03 · **Estado:** vigente
+
+Las dos tarjetas verdes de la cabecera de Control son un **marcador**: resumen
+en dos cifras lo que el panel lleva hecho. No son el historial. El historial es
+`/panel/historial`, pestaña propia junto a Preparación, y es donde consta **qué
+pasó con cada cartel**: cuándo, qué acción, y el antes/después de formato, color
+y peso.
+
+Por qué importa que exista y no baste con las cifras: es el único sitio donde
+queda escrito que un cartel pasó por `sips` y con qué resultado. Si dentro de un
+año uno se ve peor de lo que se recordaba, esto es lo que contesta.
+
+Se agrupa **por día**, una tabla por jornada, con el mismo armazón que las
+secciones de Control: caja con borde y sombra, cabecera en `bg-secondary` con
+franja de 8px —aquí VERDE, que en este panel es lo ya resuelto— y el total
+ahorrado de la jornada a la derecha. Un registro se lee en jornadas: «el día que
+pasé los PNG» es una unidad que significa algo; una lista continua de 200 líneas,
+no.
+
+No lleva tarjetas de resumen arriba. Las dos verdes ya están en Control y son el
+marcador; repetirlas aquí era decir dos veces lo mismo, y una tercera de
+«Pasadas» no significaba nada para nadie.
+
+Detalles que se decidieron mirando la tabla con datos:
+
+- **Lo último primero.** De un registro interesa qué pasó hace un rato.
+- **Una raya donde no hubo cambio.** Decir «jpeg → jpeg» es ruido.
+- **El peso siempre, y en rojo si subió.** Pasar a sRGB puede engordar el
+  fichero; esconderlo sería maquillar el dato.
+- **«sRGB IEC61966-2.1 → sRGB» no se enseña.** `sips` le quita la etiqueta al
+  fichero y macOS no la vuelve a poner, pero un fichero sin etiqueta se lee como
+  sRGB en todos los navegadores: anunciar ese «cambio» sería anunciar uno que no
+  existe.
+- Solo entran las pasadas **reales**. Las simulaciones no tocan nada.
+
+**Sin datos falsos.** Se llegó a generar un `panel_historial.json` de mentira
+para que se viera poblado y el propietario lo rechazó, con razón: un marcador
+que miente sobre el trabajo hecho no sirve para nada. Hasta la primera pasada
+real, la sección dice que no hay nada — que es la verdad.

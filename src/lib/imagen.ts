@@ -23,6 +23,11 @@ export type DatosImagen = {
    * panel se avisaría a sí mismo de su propio trabajo, para siempre.
    */
   noSrgb: boolean;
+  /** Nombre del perfil incrustado («Adobe RGB (1998)», «sRGB IEC61966-2.1»…),
+   *  o `null` si no lleva ninguno. El resumen del panel enseña de DÓNDE venía
+   *  el color y no solo que se arregló: saberlo es la mitad de la información,
+   *  y es lo que permite entender por qué un cartel cambió de aspecto. */
+  perfil: string | null;
   /** Si el PNG lleva canal alfa (tipos de color 4 y 6). JPEG nunca lo lleva. */
   alfa: boolean;
   /**
@@ -45,22 +50,51 @@ export type DatosImagen = {
 const X_SRGB = { rojo: 0.4361, verde: 0.3851 };
 const TOLERANCIA = 0.004;
 
-/** La X de un primario del perfil ICC, o `null` si no está o no se puede leer. */
-function xDelPrimario(perfil: Buffer, etiqueta: string): number | null {
+/** El desplazamiento y tamaño de una etiqueta del perfil, o `null`. */
+function etiquetaICC(perfil: Buffer, etiqueta: string): { pos: number; largo: number } | null {
   if (perfil.length < 132) return null;
   const cuantas = perfil.readUInt32BE(128);
-  if (cuantas > 200) return null;                     // tabla imposible: perfil cortado
+  if (cuantas > 200) return null;
   for (let i = 0; i < cuantas; i++) {
     const entrada = 132 + i * 12;
     if (entrada + 12 > perfil.length) return null;
     if (perfil.slice(entrada, entrada + 4).toString('latin1') !== etiqueta) continue;
-    const dato = perfil.readUInt32BE(entrada + 4);
-    // Un perfil grande viaja partido en varios APP2 y aquí solo está el primero:
-    // el dato cae fuera. Preferimos no saberlo a inventarnos que es malo.
-    if (dato + 12 > perfil.length) return null;
-    return perfil.readInt32BE(dato + 8) / 65536;
+    return { pos: perfil.readUInt32BE(entrada + 4), largo: perfil.readUInt32BE(entrada + 8) };
   }
   return null;
+}
+
+/** El nombre legible del perfil (etiqueta `desc`). Soporta los dos tipos que se
+ *  encuentran de verdad: `desc` (ICC v2, el de todos los del archivo) y `mluc`
+ *  (v4, texto en UTF-16). Si no se puede leer, `null` — un nombre inventado
+ *  sería peor que no dar ninguno. */
+function nombreDelPerfil(perfil: Buffer): string | null {
+  const e = etiquetaICC(perfil, 'desc');
+  if (!e || e.pos + 12 > perfil.length) return null;
+  const tipo = perfil.slice(e.pos, e.pos + 4).toString('latin1');
+  try {
+    if (tipo === 'desc') {
+      const largo = perfil.readUInt32BE(e.pos + 8);
+      if (largo < 1 || e.pos + 12 + largo > perfil.length) return null;
+      return perfil.slice(e.pos + 12, e.pos + 12 + largo - 1).toString('latin1') || null;
+    }
+    if (tipo === 'mluc') {
+      const largo = perfil.readUInt32BE(e.pos + 20);
+      const desde = e.pos + perfil.readUInt32BE(e.pos + 24);
+      if (desde + largo > perfil.length) return null;
+      return perfil.slice(desde, desde + largo).swap16().toString('utf16le').replace(/\0/g, '') || null;
+    }
+  } catch { /* perfil raro: mejor sin nombre que con uno inventado */ }
+  return null;
+}
+
+/** La X de un primario del perfil ICC, o `null` si no está o no se puede leer. */
+function xDelPrimario(perfil: Buffer, etiqueta: string): number | null {
+  const e = etiquetaICC(perfil, etiqueta);
+  // Un perfil grande viaja partido en varios APP2 y aquí solo está el primero:
+  // el dato cae fuera. Preferimos no saberlo a inventarnos que es malo.
+  if (!e || e.pos + 12 > perfil.length) return null;
+  return perfil.readInt32BE(e.pos + 8) / 65536;
 }
 
 function noEsSrgb(perfil: Buffer): boolean {
@@ -71,7 +105,7 @@ function noEsSrgb(perfil: Buffer): boolean {
 }
 
 export function leerCabecera(buf: Buffer): DatosImagen {
-  const d: DatosImagen = { tipo: 'desconocido', px: null, comp: null, noSrgb: false, alfa: false, gris: false, bytes: buf.length };
+  const d: DatosImagen = { tipo: 'desconocido', px: null, comp: null, noSrgb: false, perfil: null, alfa: false, gris: false, bytes: buf.length };
 
   // GIF: ancho y alto en los bytes 6-9, little-endian.
   if (buf.length >= 10 && buf.slice(0, 3).toString('latin1') === 'GIF') {
@@ -104,7 +138,9 @@ export function leerCabecera(buf: Buffer): DatosImagen {
       // etiquetas. Mirar los siguientes solo serviría para borrar el resultado.
       if (marcador === 0xE2 && buf[i + 16] === 1
           && buf.slice(i + 4, i + 15).toString('latin1') === 'ICC_PROFILE') {
-        d.noSrgb = noEsSrgb(buf.slice(i + 18, i + 2 + largo));
+        const icc = buf.slice(i + 18, i + 2 + largo);
+        d.noSrgb = noEsSrgb(icc);
+        d.perfil = nombreDelPerfil(icc);
       }
       if (marcador >= 0xC0 && marcador <= 0xC3) {
         d.px = [buf.readUInt16BE(i + 7), buf.readUInt16BE(i + 5)];
@@ -124,3 +160,27 @@ export function leerCabecera(buf: Buffer): DatosImagen {
 export function ladoMayor(d: DatosImagen): number {
   return d.px ? Math.max(d.px[0], d.px[1]) : 0;
 }
+
+/**
+ * Descarga UNA imagen de Drive y devuelve sus medidas. Es el trozo que
+ * comparten `scripts/medir-archivo.mjs` (que mide el archivo entero, offline)
+ * y el panel, que al arrancar mide lo que le falte.
+ *
+ * Vive aquí y no en el script porque un cartel recién subido no puede quedarse
+ * en «Sin medir» hasta que alguien se acuerde de lanzar un comando: el panel es
+ * la herramienta de control del archivo, y decir «no sé lo que mide esto»
+ * cuando podía averiguarlo en dos segundos es pereza suya, no un dato.
+ *
+ * OJO: `curl` recibe 0 bytes de este endpoint de Drive y `fetch` de Node no.
+ * Si algún día deja de ir, mira por ahí antes de dudar de la URL.
+ */
+export async function medirDeDrive(idDrive: string): Promise<DatosImagen> {
+  const r = await fetch(`https://drive.google.com/uc?export=download&id=${idDrive}`);
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const datos = leerCabecera(Buffer.from(await r.arrayBuffer()));
+  // Un 200 no prueba que lo devuelto sea una imagen: Drive contesta con una
+  // página de error cuando el fichero no es público.
+  if (datos.tipo === 'desconocido' || !datos.px) throw new Error('no es una imagen válida');
+  return datos;
+}
+

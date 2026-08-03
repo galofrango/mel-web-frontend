@@ -127,12 +127,14 @@ test('argumentosSips: la calidad siempre va explícita, nunca la de sips por def
   assert.equal(args[args.indexOf('formatOptions') + 1], '47');
 });
 
-test('siguienteCalidad: baja de 15 en 15 y para en el suelo, nunca null antes de tiempo', () => {
-  assert.equal(siguienteCalidad(85), 70);
-  assert.equal(siguienteCalidad(70), 55);
-  assert.equal(siguienteCalidad(55), 40);
-  assert.equal(siguienteCalidad(40), null, 'bajar más (25) destruiría el cartel para perseguir un peso');
-  assert.equal(siguienteCalidad(30), null);
+test('siguienteCalidad: baja de 5 en 5 y para en el suelo, nunca null antes de tiempo', () => {
+  // De cinco en cinco (criterio del propietario, 03/08/2026): así para en cuanto
+  // el fichero entra en los 2 MB, en vez de pasarse de largo quitando calidad
+  // que no hacía falta quitar.
+  assert.equal(siguienteCalidad(85), 80);
+  assert.equal(siguienteCalidad(80), 75);
+  assert.equal(siguienteCalidad(35), 30);
+  assert.equal(siguienteCalidad(30), null, 'por debajo de 30 se destruye el cartel para perseguir un peso');
 });
 
 test('argumentosSips: si la salida sigue siendo PNG, NO se le cambia el formato', () => {
@@ -157,4 +159,64 @@ test('argumentosSips: --matchTo va SIEMPRE, se pida o no tocar el color', () => 
       assert.ok(args.includes('--matchTo'), `falta --matchTo en salida=${salida} reduce=${reduce}`);
     }
   }
+});
+
+// --- Calidad: no se comprime lo que no se ha pedido comprimir ---------------
+// Criterio del propietario (02/08/2026): «no dar por hecho que se quiere
+// comprimir más si no tenemos forma de saber si ya se ha hecho ese proceso
+// antes». Medido sobre cinco carteles del archivo: TODOS están codificados por
+// encima de calidad 95, así que recomprimir a 85 es una pérdida real, no un
+// no-op. Y como cambiar el color obliga a recodificar sí o sí, la única forma
+// de no añadir pérdida es recodificar a la máxima calidad — aunque engorde.
+
+test('TODO se guarda a 95, sea cual sea el arreglo', () => {
+  // Antes el color y el redimensionado usaban la máxima para no añadir pérdida,
+  // y salían ficheros que pesaban como el original o más. 95 es la norma y vale
+  // para todo (propietario, 03/08/2026).
+  for (const [tec, acc] of [
+    [{ ...limpio, noSrgb: true }, 'no-srgb'],
+    [{ ...limpio, px: [4961, 9674] }, 'enorme'],
+    [{ ...limpio, tipo: 'png', comp: null }, 'png'],
+  ]) {
+    assert.equal(planificarArreglo(tec, [acc]).calidad, 95, `con la acción ${acc}`);
+  }
+});
+
+test('la escalera solo corre para "pesado", que es quien persigue un peso', () => {
+  assert.equal(planificarArreglo({ ...limpio, px: [4961, 9674] }, ['enorme']).recomprime, false);
+  assert.equal(planificarArreglo({ ...limpio, bytes: 3 * 1048576 }, ['pesado']).recomprime, true);
+});
+
+test('"pesado" arranca en 95 y puede bajar: es justo lo que se ha pedido', () => {
+  const plan = planificarArreglo({ ...limpio, bytes: 3 * 1048576 }, ['pesado']);
+  assert.equal(plan.calidad, 95);
+  assert.equal(plan.recomprime, true);
+});
+
+test('los escalones bajan de 5 en 5 desde 95', () => {
+  assert.equal(siguienteCalidad(95), 90);
+  assert.equal(siguienteCalidad(90), 85);
+  assert.equal(siguienteCalidad(85), 80);
+});
+
+test('argumentosSips usa la calidad del plan, no una fija', () => {
+  const plan = { estado: 'aplicar', salida: 'jpeg', reduce: false, recomprime: false, calidad: 100, perfil: '/p.icc' };
+  const args = argumentosSips(plan, plan.calidad, '/e', '/s');
+  assert.equal(args[args.indexOf('formatOptions') + 1], '100');
+});
+
+test('la calidad 95 es una OPCIÓN, no una imposición', () => {
+  // Marcada (por defecto) → 95. Sin marcar → máxima, que no añade pérdida pero
+  // deja el fichero pesando como el original. Petición del propietario del
+  // 04/08/2026: el banner la anuncia como recomendación, y una recomendación
+  // que se aplica sola no es una recomendación.
+  const conColor = { ...limpio, noSrgb: true };
+  assert.equal(planificarArreglo(conColor, ['no-srgb']).calidad, 95, 'marcada');
+  assert.equal(planificarArreglo(conColor, ['no-srgb'], true).calidad, 100, 'sin marcar');
+});
+
+test('«pesado» no pregunta: ahí la calidad ES el arreglo', () => {
+  const gordo = { ...limpio, bytes: 3 * 1048576 };
+  assert.equal(planificarArreglo(gordo, ['pesado'], true).calidad, 95,
+    'ni desmarcando: perseguir 2 MB a calidad máxima es un imposible');
 });

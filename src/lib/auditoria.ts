@@ -16,6 +16,7 @@
  * trece pasa de 2 MB y baja solo al convertirse.
  */
 import { ladoMayor, type DatosImagen } from './imagen.ts';
+import { tieneUbicacion } from './mel.ts';
 
 /** Lado mayor a partir del cual una imagen sobra de tamaño, y al que se reduce.
  *  Un solo número para las dos cosas: si se avisa por encima de 2400 y se
@@ -44,6 +45,7 @@ export type FilaHoja = {
   formato: string;
   notasArchivo: string;
   ocr: string;
+  notasOcultas: string;
 };
 
 export type Item = {
@@ -54,13 +56,21 @@ export type Item = {
   peso: string;
   bytes: number;
   mayor: number;
-  /** Silenciado con `#acepta:clave` en notasArchivo. Sigue viniendo en el grupo
-   *  —el panel lo pinta escondido y lo saca con el interruptor «Mostrar avisos
-   *  ocultos»— pero no cuenta en ninguna cifra mientras esté oculto. Antes
+  /** Nombre del perfil de color incrustado, o `null`. Lo usa el modal para
+   *  decir de dónde a dónde va el color ANTES de tocar nada — es de los pocos
+   *  datos del resultado que sí se pueden saber por adelantado. */
+  perfil: string | null;
+  /** Ocultado con `#oculto:clave` en la columna AA («Notas desde el panel»). Sigue viniendo en el grupo
+   *  —el panel lo pinta escondido y lo saca con el interruptor «Ver ocultos»—
+   *  pero no cuenta en ninguna cifra mientras esté oculto. Antes
    *  `auditar()` lo descartaba, y entonces un aviso oculto no existía para el
    *  navegador: no había forma de enseñarlo sin volver a pedirle la hoja al
    *  servidor. */
   oculto: boolean;
+  /** El motivo escrito al ocultar ESTA regla, ya sin la marca `#oculto:`.
+   *  La columna AA puede llevar las líneas de otras reglas del mismo cartel:
+   *  aquí llega solo la que corresponde a este grupo. */
+  notas: string;
 };
 
 export type Grupo = {
@@ -122,13 +132,13 @@ type Regla = [
 // clave, nivel, título, consecuencia, acción, auto, descripción, banner, criterio, prueba
 const REGLAS: Regla[] = [
   ['sin-lugar', 1, 'Sin lugar', 'No hay local que situar en el mapa', 'Abrir en la hoja', false,
-   '<b>El problema es que la ficha no tiene nombre de local</b>, así que no hay nada que enseñar en la etiqueta «Lugar» ni por lo que agrupar el evento en el mapa.<br><br>La forma de corregirlo es escribir el nombre del local en la columna E de la [hoja→E1].',
-   'Aquí «Desconocido» vale exactamente igual que dejar la celda vacía: el sitio trata las dos cosas como un hueco y ofrece «¿Nos ayudas?». Escríbelo si prefieres que se vea que no se ha olvidado. Ojo, en Coordenadas no es así.', 'id',
+   'Sin la información de lugar no se puede agrupar el evento en el mapa. Hay que escribir el nombre del local en la columna E de la [hoja→E1].',
+   'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la tag de Lugar.', 'id',
    (f, t) => estaVacio(f.lugar)],
-  ['sin-coordenadas', 1, 'Sin coordenadas', 'El evento no aparece en el mapa', 'Abrir en la hoja', false,
-   '<b>El problema es que sin el enlace de Google Maps el evento no sale en el mapa.</b><br><br>La forma de corregirlo es buscar el local en Google Maps, copiar la URL larga del navegador y pegarla en la columna G de la [hoja→G1]. El sitio saca el punto exacto del propio enlace.',
-   'Si esta celda se deja vacía el sitio busca la localidad en una tabla y coloca el evento en el centro de su municipio. Si se rellena con «Desconocido», el evento no se mostrará en el mapa del todo.', 'id',
-   (f, t) => estaVacio(f.coordenadas)],
+  ['sin-coordenadas', 1, 'Sin dirección exacta', 'El evento no aparece en el mapa', 'Abrir en la hoja', false,
+   'Sin el link de Google Maps no se puede mostrar el evento en el mapa. Hay que buscar la dirección en Google Maps y pegar la URL larga del navegador en la columna G de la [hoja→G1] — la que empieza por <i>google.com/maps/place/…</i>, no el enlace corto de Compartir.',
+   null, 'id',
+   (f, t) => !tieneUbicacion(f.coordenadas)],
   // Dentro de "Falta información" (nivel 1: sin-lugar, sin-coordenadas,
   // sin-artistas), el orden interno responde a otro criterio, no a la
   // cascada de arriba: lo que ROMPE va antes que lo que FALTA. Sin lugar y
@@ -139,22 +149,26 @@ const REGLAS: Regla[] = [
   // es el orden quien lo dice.
   ['sin-artistas', 1, 'Sin artistas', 'El archivo no sabe quién pinchó', 'Abrir en la hoja', false,
    'Aún no sabemos quién actuó en el evento o no hemos rellenado la columna H de la [hoja→H1] con los nombres de los artistas separados por comas.',
-   null, 'id',
+   'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la sección de artistas.', 'id',
    (f, t) => estaVacio(f.artistas)],
-  ['png', 2, 'Archivo PNG', 'Pesa hasta diez veces más que el mismo cartel en JPEG', 'Convertir a JPG', true,
-   '<b>El problema es el peso</b>: un PNG puede pesar diez veces más que el mismo cartel en JPEG y la galería carga 32 de golpe.<br><br>La forma de corregirlo es convertir a JPEG (calidad 85) y pasar el color a sRGB en la misma pasada.',
-   'JPEG no admite transparencias, así que no proceses aquellos archivos que necesiten conservarla.', 'bytes',
+  ['sin-medir', 1, 'Sin medir', 'Se le escapan los avisos de formato, tamaño y peso', null, false,
+   '<b>El problema es que de este cartel no hay medidas</b>, así que las comprobaciones de formato, tamaño y peso ni siquiera se le aplican: pasa en verde por no haber sido mirado.<br><br>La forma de corregirlo es volver a medir el archivo:<br><code>node scripts/medir-archivo.mjs</code>',
+   'Le pasa a todo lo que se sube después de la última medición. No es un defecto del cartel, es que aún no se ha mirado.', 'id',
+   (f, t) => t.tipo === 'desconocido'],
+  ['png', 2, 'Archivo PNG', 'Pesa unas dos veces y media más que el mismo cartel en JPEG', 'Convertir a JPG', true,
+   '<b>El problema es el peso</b>: a tamaño de miniatura un PNG pesa unas dos veces y media más que el mismo cartel en JPEG, y la galería carga 32 de golpe.<br><br>La forma de corregirlo es convertir a JPEG (calidad 95) y pasar el color a sRGB en la misma pasada.',
+   'JPEG no admite transparencias. No proceses aquellos archivos que necesiten conservarla.', 'bytes',
    (f, t) => t.tipo === 'png'],
   ['no-srgb', 2, 'Espacio de color diferente a sRGB', 'Los colores pueden verse apagados', 'Pasar a sRGB', true,
    '<b>sRGB es el único espacio que todos los navegadores tratan igual.</b> Con otros espacios de color, los colores podrían verse apagados.<br><br>La forma de corregirlo es pasarlo a sRGB.',
-   null, 'bytes',
+   'Con el cambio a sRGB puede que el archivo gane peso. Es recomendable bajarlo a calidad 95 en la misma pasada para evitar ese aumento en el procesamiento del archivo.', 'bytes',
    (f, t) => t.comp === 4 || t.noSrgb],
   ['enorme', 2, 'Resolución mayor de 2400px', 'Esos píxeles de más solo añaden peso', 'Reducir a 2400 px', true,
    '<b>El sitio no muestra imágenes superiores a ese tamaño</b> por lo que esos píxeles de más solo añaden peso.<br><br>La forma de corregirlo es reducir a 2400 px de lado mayor.',
    'La reducción de tamaño implica necesariamente una reducción de peso.', 'px-desc',
    (f, t) => ladoMayor(t) > UMBRAL_LADO],
-  ['pesado', 2, 'Peso superior a 2Mb', 'El original viaja entero en cada visita', 'Recomprimir', true,
-   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.',
+  ['pesado', 2, 'Peso superior a 2Mb', 'El original viaja entero en cada visita', 'Comprimir', true,
+   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.<br><br>La forma de corregirlo es bajar la calidad del archivo hasta que quede por debajo de 2 MB, empezando con una compresión al 95 de calidad.',
    null, 'bytes',
    // Aquí SOLO entra lo que ya está bien de todo lo demás (criterio del
    // propietario, 02/08/2026): así no se recomprime —perdiendo calidad— algo
@@ -164,7 +178,7 @@ const REGLAS: Regla[] = [
    // (el motor lo rechaza, ver arreglar.ts).
    (f, t) => t.bytes > 2 * 1048576 && t.tipo !== 'png' && ladoMayor(t) <= UMBRAL_LADO && !t.noSrgb && t.comp !== 4],
   ['pequeno', 2, 'Baja resolución', 'Por debajo de 1200 px: no se estira, se ve pequeño', null, false,
-   '<b>La imagen original no alcanza la resolución óptima para el sitio web.</b> La imagen se verá pequeña en algunas ocasiones, ya que la página nunca la ampliará por encima de su tamaño real para no distorsionarla.<br><br>La única forma de corregirlo es conseguir un original de mayor resolución.',
+   '<b>La imagen original no alcanza la resolución óptima de 2400 px de lado largo para la página.</b> La imagen se verá pequeña en algunas ocasiones ya que la página nunca la ampliará por encima de su tamaño real para no distorsionarla.<br><br>La única forma de corregirlo es conseguir un original de mayor resolución.',
    null, 'px-asc',
    (f, t) => ladoMayor(t) > 0 && ladoMayor(t) < 1200],
   ['gif', 2, 'GIF animado', 'Drive no lo redimensiona: se descarga entero', null, false,
@@ -172,6 +186,19 @@ const REGLAS: Regla[] = [
    'El GIF original quedará intacto y se creará una imagen nueva en la carpeta de Drive que no aparecerá en el spreadsheet.', 'bytes',
    (f, t) => t.tipo === 'gif'],
 ];
+
+/**
+ * Las reglas que tienen arreglo automático, con lo que el modal necesita
+ * enseñar de cada una. Salen de REGLAS y en su mismo orden de trabajo, así que
+ * añadir una regla automática la lleva al modal sola.
+ *
+ * Se exportan TODAS, tengan o no carteles hoy: el modal las pinta las cuatro en
+ * SSR y enseña las que apliquen (regla 7 — ver PanelModal.astro). Un grupo sin
+ * items no llega en `auditar()`, así que esta lista no se puede sacar de ahí.
+ */
+export const AUTOMATICAS = REGLAS
+  .filter(([, , , , accion, auto]) => auto && accion)
+  .map(([clave, nivel, titulo, , accion, , descripcion]) => ({ clave, nivel, titulo, accion, descripcion }));
 
 const VACIO: DatosImagen = { tipo: 'desconocido', px: null, comp: null, noSrgb: false, alfa: false, bytes: 0 };
 
@@ -193,15 +220,30 @@ function idDeDrive(url: string): string {
   return '';
 }
 
-/** Si `notas` lleva la marca `#acepta:<clave>`. El `(?![a-z0-9-])` ancla el
+/** Si `notas` lleva la marca `#oculto:<clave>`. El `(?![a-z0-9-])` ancla el
  *  final de la clave: sin él, un `includes()` a secas confundiría la marca
  *  con el prefijo de otra. Hoy no colisiona —ninguna de las diez claves es
  *  prefijo de otra—, pero si el día de mañana una clave nueva extiende a una
  *  vieja sin separador (p.ej. "pesado2" junto a "pesado"), aceptar la nueva
  *  silenciaría la vieja sin que nadie lo pidiera. No lo simplifiques de
  *  vuelta a `includes()`: es justo el caso que este límite existe para evitar. */
+/** El texto que se escribió al ocultar ESTA regla, sin la marca delante. La
+ *  columna AA guarda una línea por regla oculta del mismo cartel:
+ *
+ *      #oculto:png Es un vector con transparencia.
+ *      #oculto:enorme Hace falta poder ampliar el detalle.
+ *
+ *  El globo de una sección enseña solo la suya: sacar las de las otras sería
+ *  contestar a algo que nadie preguntó. Y sin la marca, que es plomería para
+ *  que el panel sepa qué está oculto, no texto para leer. */
+export function notaDeLaRegla(notas: unknown, clave: string): string {
+  const patrón = new RegExp('^\\s*#oculto:' + clave + '(?![a-z0-9-])', 'i');
+  const mía = String(notas ?? '').split('\n').find((l) => patrón.test(l));
+  return mía ? mía.replace(patrón, '').trim() : '';
+}
+
 function estaSilenciado(notas: unknown, clave: string): boolean {
-  return new RegExp('#acepta:' + clave + '(?![a-z0-9-])').test(String(notas).toLowerCase());
+  return new RegExp('#oculto:' + clave + '(?![a-z0-9-])').test(String(notas).toLowerCase());
 }
 
 export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>): Grupo[] {
@@ -222,8 +264,14 @@ export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>)
         peso: t.bytes ? MB(t.bytes) : '—',
         bytes: t.bytes,
         mayor: ladoMayor(t),
-        // La marca en notasArchivo silencia solo esta regla, en esta fila.
-        oculto: estaSilenciado(fila.notasArchivo, clave),
+        perfil: t.perfil,
+        // La marca en AA silencia solo esta regla, en esta fila.
+        oculto: estaSilenciado(fila.notasOcultas, clave),
+        // Solo la nota de ESTA regla, y sin la marca delante: la columna puede
+        // llevar las de otras reglas del mismo cartel, y enseñarlas todas en el
+        // globo de una sección concreta sería contestar a algo que nadie
+        // preguntó. La marca es plomería, no texto para leer.
+        notas: notaDeLaRegla(fila.notasOcultas, clave),
       });
     }
 

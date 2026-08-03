@@ -50,7 +50,7 @@ una pieza: *"el texto se escribe para la fase que se implemente"* (plan, línea
 riesgo real (sustitución irreversible) que el encargo pide resolver; fase 1
 lleva su propia variante de cada texto.
 
-**3. Escribir `#acepta:<clave>` en la hoja tampoco está conectado hoy.** El
+**3. Escribir `#oculto:<clave>` en la hoja tampoco está conectado hoy.** El
 botón «Ocultar aviso» que ya existe solo oculta la fila en la sesión del
 navegador (`fila.style.display = 'none'`, sin ningún `fetch`) — se resetea al
 recargar. La persistencia en `notasArchivo` es el comportamiento **documentado**
@@ -358,7 +358,7 @@ de peso en cada sentido:
   decisión sin razón escrita se pierde — es literalmente la razón de ser de
   `insights.md` ("es lo primero que se pierde [...] dentro de un año alguien
   deshace el arreglo sin saber que arreglaba algo").
-- A favor de dejarla opcional: la marca `#acepta:<clave>` **ya es**, por sí
+- A favor de dejarla opcional: la marca `#oculto:<clave>` **ya es**, por sí
   sola, la señal de que fue a propósito — mucho mejor que el silencio total que
   hay hoy, con o sin frase detrás. Obligar texto en una acción en bloque de 12
   fichas por la misma razón evidente es fricción sin beneficio real. Y el
@@ -378,7 +378,7 @@ Dos caminos distintos, y hay que distinguirlos con cuidado porque los dos
 "parecen" no hacer nada:
 
 1. **Se deja el campo vacío y se pulsa `Ocultar sin nota`.** El aviso se
-   oculta. Se escribe la marca sin texto detrás (`#acepta:png`, sin nada más).
+   oculta. Se escribe la marca sin texto detrás (`#oculto:png`, sin nada más).
    Es una acción completa y deliberada.
 2. **Se cierra el popover sin pulsar ningún botón** (×, Esc, clic fuera).
    No pasa nada en absoluto: no se oculta el aviso, no se escribe nada en la
@@ -391,12 +391,12 @@ el parseo").
 
 ### Cómo se guarda
 
-`#acepta:<clave>` seguido, si hay nota, de un espacio y el texto — en la misma
+`#oculto:<clave>` seguido, si hay nota, de un espacio y el texto — en la misma
 celda `notasArchivo`, **añadido** a lo que ya hubiera (nunca sustituyendo el
 contenido entero: una fila puede llevar más de una marca, para reglas
 distintas). Comprobado contra la función real que ya lee la marca
 (`estaSilenciado()`, `src/lib/auditoria.ts:169-171`): el patrón es
-`#acepta:<clave>(?![a-z0-9-])`, así que un espacio justo después de la clave ya
+`#oculto:<clave>(?![a-z0-9-])`, así que un espacio justo después de la clave ya
 cumple el límite — el formato propuesto funciona con el código que ya existe,
 sin tocarlo.
 
@@ -502,7 +502,7 @@ existe). Cuando vuelve:
   silenciada de forma persistente: si borra solo la marca de esa `clave` o la
   celda entera, y qué pasa con la nota. El encargo pedía diseñar la nota **al
   ocultar**, no el camino inverso; dejo apuntado que "quitar solo el segmento
-  `#acepta:<clave> ...texto...` de esa regla, sin tocar el resto de la celda"
+  `#oculto:<clave> ...texto...` de esa regla, sin tocar el resto de la celda"
   es la opción obvia, pero no es una decisión mía que tomar sin que el
   propietario la vea primero.
 - **Un editor de notas dentro del panel** (para corregir una nota ya escrita).

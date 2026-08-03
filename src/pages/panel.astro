@@ -26,10 +26,19 @@ if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new Response(null, {
 
 import Layout from '../layouts/Layout.astro';
 import PanelTarjeta from '../components/PanelTarjeta.astro';
+import PanelCifra from '../components/PanelCifra.astro';
 import PanelSeccion from '../components/PanelSeccion.astro';
-import { auditar, LIMPIO, type FilaHoja } from '../lib/auditoria';
+import PanelModal from '../components/PanelModal.astro';
+import PanelNota from '../components/PanelNota.astro';
+import { resumirHistorial, type Apunte } from '../lib/historial';
+import { auditar, AUTOMATICAS, LIMPIO, type FilaHoja } from '../lib/auditoria';
 import { fetchSheetRows, mapSheetRow } from '../lib/mel';
+import { medirDeDrive } from '../lib/imagen.ts';
 import flyerTecnico from '../data/flyer_tecnico.json';
+// Lectura de disco y no `import`: el registro puede no existir todavía, y un
+// import de un fichero ausente tumba el build. Es de la ruta de arreglos, que
+// lo va escribiendo — no es un dato del repositorio.
+import { readFileSync, writeFileSync } from 'node:fs';
 
 // Misma hoja que el resto del sitio, leída en vivo (mel.ts, sin caché propia).
 // Los datos técnicos (dimensiones, formato, peso, perfil) SÍ están cacheados
@@ -64,19 +73,60 @@ function idDeDrive(url: string): string {
 }
 const ROTULO_FORMATO: Record<string, string> = { jpeg: 'JPG', png: 'PNG', gif: 'GIF' };
 
+// --- El panel mide lo que le falte, al arrancar ------------------------------
+// `flyer_tecnico.json` se rellena offline con `scripts/medir-archivo.mjs`, así
+// que un cartel recién subido a la hoja llegaba aquí sin medir y caía en la
+// sección «Sin medir». Eso es correcto como aviso pero es pereza como
+// comportamiento: el panel PUEDE averiguarlo, y son dos segundos.
+//
+// Se miden SOLO los que faltan, en lotes de 8 (más y Drive corta), y el
+// resultado se guarda en el mismo fichero que escribe el script — así la
+// siguiente carga ya no paga nada. Medir los 101 costaría ~125 MB y sí sería
+// inaceptable en cada visita; medir los 11 que faltan, no.
+//
+// Solo en desarrollo, que es lo único que existe de esta página.
+const tecnico: Record<string, any> = { ...(flyerTecnico as any) };
+const RUTA_TECNICO = new URL('../data/flyer_tecnico.json', import.meta.url);
+const porMedir = [...new Set(filas.map((f) => idDeDrive(f.urlDrive)).filter((id) => id && !tecnico[id]))];
+if (import.meta.env.DEV && porMedir.length) {
+  for (let i = 0; i < porMedir.length; i += 8) {
+    await Promise.all(porMedir.slice(i, i + 8).map(async (id) => {
+      // Un fallo no tumba la página: ese cartel se queda en «Sin medir», que
+      // es exactamente lo que la sección está para decir.
+      try { tecnico[id] = await medirDeDrive(id); } catch { /* sigue sin medir */ }
+    }));
+  }
+  const medidos = porMedir.filter((id) => tecnico[id]).length;
+  if (medidos) {
+    writeFileSync(RUTA_TECNICO, JSON.stringify(tecnico, null, 2) + '\n');
+    console.log(`[panel] medidos ${medidos} carteles nuevos y guardados en flyer_tecnico.json`);
+  }
+}
+
 const urlPorId: Record<string, string> = {};
 const formatoPorId: Record<string, string> = {};
 filas.forEach((f) => {
   urlPorId[f.idMel] = f.urlDrive;
-  const tipo = (flyerTecnico as any)[idDeDrive(f.urlDrive)]?.tipo;
-  formatoPorId[f.idMel] = ROTULO_FORMATO[tipo] || '—';
+  formatoPorId[f.idMel] = ROTULO_FORMATO[tecnico[idDeDrive(f.urlDrive)]?.tipo] || '—';
 });
 
-const grupos = auditar(filas, flyerTecnico as any);
+const grupos = auditar(filas, tecnico);
 
-// Avisos silenciados con `#acepta:` en la hoja. Se cuentan AVISOS, no carteles:
+// Avisos silenciados con `#oculto:` en la hoja. Se cuentan AVISOS, no carteles:
 // un mismo cartel con dos avisos silenciados suma dos, porque lo que el
 // interruptor enseña son avisos.
+// El registro de lo que el panel ya ha hecho. Se lee del disco porque es lo que
+// escribe la ruta de arreglos tras cada pasada REAL; si no existe todavía, no
+// hay nada que presumir y la tarjeta lo dice con un cero honesto.
+let apuntes: Apunte[] = [];
+try {
+  apuntes = JSON.parse(readFileSync(new URL('../data/panel_historial.json', import.meta.url), 'utf8'));
+} catch { /* aún no se ha arreglado nada */ }
+const pesoActual = Object.values(flyerTecnico as Record<string, any>).reduce((n, d) => n + (d?.bytes ?? 0), 0);
+const historial = resumirHistorial(apuntes, pesoActual);
+const totalCarteles = Object.keys(flyerTecnico as Record<string, any>).length;
+const MB = (b: number) => Math.round(b / 1048576);
+
 const totalOcultos = grupos.reduce((n, g) => n + g.items.filter((it) => it.oculto).length, 0);
 
 // --- Resumen de cada tarjeta (nivel 1/2) -----------------------------------
@@ -96,7 +146,7 @@ function resumenNivel(nivel: 1 | 2) {
   const gruposNivel = grupos.filter((g) => g.nivel === nivel);
 
   // Solo lo VISIBLE. Los avisos silenciados en la hoja vienen igual dentro del
-  // grupo (para que el interruptor «Mostrar avisos ocultos» pueda sacarlos sin
+  // grupo (para que el interruptor «Ver ocultos» pueda sacarlos sin
   // volver al servidor), pero no cuentan en ninguna cifra de partida. Cuando el
   // interruptor se enciende, `recalcularTodo()` reescribe estas mismas cifras
   // desde el DOM con el mismo criterio.
@@ -135,6 +185,7 @@ const tarjetas = [
         <h1 class="typo-h3 text-mel-text-primary">Panel de archivos M.E.L.</h1>
         <nav class="flex items-center gap-6" aria-label="Secciones del panel">
           <span class="typo-button text-mel-text-primary" aria-current="page">Control</span>
+          <a href="/panel/historial" class="typo-button text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200">Historial</a>
           <span class="typo-button text-mel-text-tertiary" title="Todavía no existe: ingesta de material nuevo">Preparación</span>
         </nav>
       </div>
@@ -155,7 +206,7 @@ const tarjetas = [
              mismo golpe. Por eso el rótulo dice "spreadsheet" y no "archivo":
              es lo que de verdad vuelve a leer.
 
-             "Mostrar avisos ocultos" vive AQUÍ y no dentro de cada sección
+             "Ver ocultos" vive AQUÍ y no dentro de cada sección
              (criterio del propietario, 02/08/2026): dentro obligaba a seguir
              pintando una sección entera solo para alojar su propio botón,
              aunque todos sus avisos estuvieran ocultos. Arriba, esas secciones
@@ -174,20 +225,55 @@ const tarjetas = [
              recargar la cifra vuelve siempre a cero. Un control que aparece y
              desaparece según un estado que no sobrevive a una recarga se lee
              como un fallo, no como una comodidad. -->
-        <div class="flex flex-wrap items-center gap-6">
-          <button type="button" id="panel-releer" class="shrink-0 inline-flex items-center justify-center gap-4 w-[320px] px-8 py-4 bg-mel-action-primary text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+        {/* Dos tarjetas informativas + los botones a su derecha. Las verdes NO
+            son accionables: no filtran, no abren nada. Son el marcador de lo
+            hecho, y por eso el verde — la gravedad tiene sus propios colores
+            justo debajo. */}
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <PanelCifra
+            overline="Archivos procesados"
+            porcentaje={totalCarteles ? Math.round((historial.carteles / totalCarteles) * 100) : 0}
+            detalle={`${historial.carteles} de ${totalCarteles}`}
+          />
+          <PanelCifra
+            overline="Optimización total"
+            porcentaje={historial.porcentaje}
+            detalle={`${MB(historial.ahorro)} de ${MB(pesoActual + historial.ahorro)} Mb`}
+          />
+          <div class="flex flex-col gap-4 items-stretch">
+          <button type="button" id="panel-releer" class="h-14 inline-flex items-center justify-center gap-4 w-full px-8 bg-mel-action-primary text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
             Releer el spreadsheet
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path>
               <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path>
               <path d="M3 21v-5h5"></path>
               <path d="M21 3v5h-5"></path>
             </svg>
           </button>
-          <button type="button" id="panel-ver-ocultos" aria-pressed="false" class="shrink-0 inline-flex items-center justify-center gap-4 w-[320px] px-8 py-4 bg-mel-action-tertiary text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
-            Mostrar avisos ocultos ({totalOcultos})
+          <button type="button" id="panel-ver-ocultos" role="switch" aria-checked="false" class="group flex items-center justify-center gap-6 h-14 w-full disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+            <span class="sw-texto typo-h4 text-mel-text-primary whitespace-nowrap">Ver ocultos ({totalOcultos})</span>
+            {/* Carril 80×32 con la manija de 40×32 que se desliza justo su
+                mitad. El borde va en `outline` y no en `border` para que el
+                carril mida 80 exactos por dentro y la manija case con el
+                borde sin cuentas raras de `box-sizing`. El desplazamiento es
+                `transform` (regla 2), no `left`. */}
+            <span class="sw-carril relative w-[80px] h-[32px] shrink-0 bg-mel-bg-secondary outline outline-1 outline-mel-border shadow-[inset_0_0_8px_rgba(33,24,26,0.16)]">
+              <span class="sw-manija absolute top-0 left-0 w-[40px] h-[32px] shadow-[0_4px_8px_rgba(38,31,31,0.32)] grid place-items-center">
+                {/* Los DOS iconos van siempre en el marcado, superpuestos en la
+                    misma celda del grid, y se cruzan de opacidad. Si se pusiera
+                    y quitara el que toca, la manija cambiaría de contenido a
+                    mitad del deslizamiento y se vería el salto. */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="sw-icono sw-equis col-start-1 row-start-1 text-mel-text-on-action" aria-hidden="true">
+                  <path d="M18 6 6 18M6 6l12 12"></path>
+                </svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="sw-icono sw-check col-start-1 row-start-1 text-mel-text-on-action" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5"></path>
+                </svg>
+              </span>
+            </span>
           </button>
         </div>
+      </div>
       </div>
     </header>
 
@@ -199,8 +285,10 @@ const tarjetas = [
           cifra={t.cifra}
           lineas={t.lineas}
           desbordamiento={t.desbordamiento}
+          porcentaje={totalCarteles ? Math.round((t.cifra / totalCarteles) * 100) : 0}
         />
       ))}
+
     </div>
 
     <div class="flex flex-col gap-6 pb-16">
@@ -220,6 +308,9 @@ const tarjetas = [
     </div>
 
   </div>
+
+  <PanelModal automaticas={AUTOMATICAS} />
+  <PanelNota />
 </Layout>
 
 <script>
@@ -252,7 +343,7 @@ const tarjetas = [
   // que es lo que se usa aquí.
   // El ESTADO (¿este aviso está oculto?) vive en `data-oculta`, no en el estilo:
   // así lo puede poner el servidor para los que ya vienen silenciados con
-  // `#acepta:` en la hoja, y el cliente para los que se ocultan aquí, sin dos
+  // `#oculto:` en la hoja, y el cliente para los que se ocultan aquí, sin dos
   // mecanismos distintos. Lo que se VE lo decide una regla CSS que cruza ese
   // atributo con el interruptor global (ver el <style> de esta página).
   function filaOculta(fila: HTMLElement): boolean {
@@ -453,14 +544,25 @@ const tarjetas = [
   // --- Tarjetas: filtran las secciones de su nivel --------------------------
   // Mismas clases que pintaría el servidor con `activa=true` en
   // PanelTarjeta.astro — no se inventa ningún estado visual nuevo.
-  const CLASES_TARJ_ACTIVA = ['bg-mel-bg-tertiary', 'border-mel-action-primary', 'shadow-[var(--mel-shadow-button)]'];
+  const CLASES_TARJ_ACTIVA = ['bg-mel-bg-tertiary', 'shadow-[var(--mel-shadow-button)]'];
   const CLASES_TARJ_INACTIVA = ['bg-mel-bg-secondary', 'border-mel-border'];
+  // El borde activo lleva EL COLOR DE SU GRAVEDAD, no el granate de acción: con
+  // un color fijo, «Bajo rendimiento» salía con franja ámbar y borde granate —
+  // dos colores diciendo cosas distintas de lo mismo. Tiene que estar aquí Y en
+  // PanelTarjeta.astro: el servidor pinta el estado inicial y esto lo cambia al
+  // pulsar, así que tocar solo uno deja el color a medias.
+  const BORDE_ACTIVO: Record<string, string> = {
+    '1': 'border-mel-banner-error-border',
+    '2': 'border-mel-banner-warning-border',
+  };
 
   function marcarTarjeta(tarj: HTMLElement, activa: boolean) {
     tarj.dataset.activa = activa ? 'true' : 'false';
     tarj.setAttribute('aria-pressed', activa ? 'true' : 'false');
     CLASES_TARJ_ACTIVA.forEach((c) => tarj.classList.toggle(c, activa));
     CLASES_TARJ_INACTIVA.forEach((c) => tarj.classList.toggle(c, !activa));
+    Object.values(BORDE_ACTIVO).forEach((c) => tarj.classList.remove(c));
+    if (activa) tarj.classList.add(BORDE_ACTIVO[tarj.dataset.nivel ?? '1']);
   }
 
   // Pulsar la tarjeta ya activa NO HACE NADA (corrección del propietario tras
@@ -489,7 +591,9 @@ const tarjetas = [
     const cuerpo = cuerpoId ? document.getElementById(cuerpoId) : null;
     if (cuerpo) cuerpo.hidden = expandido;
     const chevronSvg = cab.querySelector('.chevron svg');
-    if (chevronSvg) chevronSvg.classList.toggle('rotate-180', expandido);
+    // Cerrado apunta ABAJO —el icono base—, que es la invitación a abrir;
+    // abierto apunta arriba. Estaba justo al revés.
+    if (chevronSvg) chevronSvg.classList.toggle('rotate-180', !expandido);
   }
 
   // --- Selección y acciones en bloque ----------------------------------------
@@ -535,6 +639,224 @@ const tarjetas = [
    *  cambia la clase del <body>, que es lo que la regla CSS mira, y recalcula.
    *  Los avisos ocultos siguen ocultos —no se "des-ocultan"—, simplemente se
    *  están enseñando. Por eso el botón vuelve a apagarse sin perder nada. */
+  /** El globo crece desde su esquina INFERIOR DERECHA, que queda pegada a la
+   *  del botón (criterio del propietario): así se despliega hacia arriba y
+   *  hacia la izquierda, que es por donde hay sitio — el botón vive en la
+   *  última columna de la tabla, contra el borde derecho.
+   *
+   *  Se ancla por BORDES (`right`/`bottom`) y no por posición + tamaño porque
+   *  esto corre en `beforetoggle`: ahí el globo todavía está sin pintar y mide
+   *  cero, así que cualquier cuenta con su ancho o su alto sale mal —y salía:
+   *  se colocaba a la derecha del botón en vez de junto a él.
+   *
+   *  Coordenadas de viewport (`position: fixed`), que es justo lo que devuelve
+   *  `getBoundingClientRect`, así que el scroll horizontal de la tabla no lo
+   *  descoloca. */
+  function colocarNotas(pop: HTMLElement) {
+    const btn = document.querySelector(`[popovertarget="${pop.id}"]`);
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    // Si no cabe hacia arriba, cae hacia abajo. Sin esto, una fila de las
+    // primeras dejaba el globo mordido por el borde de la pantalla.
+    const arriba = r.top >= 220;
+    pop.style.left = 'auto';
+    pop.style.right = `${Math.max(16, window.innerWidth - r.right)}px`;
+    pop.style.top = arriba ? 'auto' : `${r.bottom}px`;
+    pop.style.bottom = arriba ? `${window.innerHeight - r.top}px` : 'auto';
+    pop.style.maxHeight = `${(arriba ? r.top : window.innerHeight - r.bottom) - 16}px`;
+  }
+
+  /** Pregunta el motivo y, si se guarda, lo escribe en la hoja y oculta. Si la
+   *  escritura falla NO se oculta nada: el panel se recarga desde la hoja en
+   *  cada visita, así que una fila oculta sin su marca escrita volvería sola a
+   *  la primera recarga — y el propietario habría creído que la ocultó.
+   *
+   *  Devuelve `true` si se ocultó de verdad. */
+  /** El motivo que ya viene escrito, uno por regla. Son frases de verdad, no
+   *  ejemplos: llegan seleccionadas enteras, así que valen de un clic si
+   *  encajan y se sustituyen tecleando encima si no. Un `placeholder` gris se
+   *  lee como «ya escribiré algo» y acaba en notas vacías. */
+  const MOTIVOS = {
+    'sin-lugar': 'No consta en qué local se celebró y no hay forma de averiguarlo.',
+    'sin-coordenadas': 'El local ya no existe y no se ha podido situar su dirección exacta.',
+    'sin-artistas': 'El cartel no nombra a ningún artista.',
+    'sin-medir': 'Pendiente de medir; no afecta a cómo se ve en la web.',
+    png: 'Es una pieza de color plano con transparencia: en JPG perdería el fondo.',
+    'no-srgb': 'El color original forma parte del documento y se conserva tal cual.',
+    enorme: 'Se conserva a máxima resolución para poder ampliar y leer la letra pequeña.',
+    pesado: 'Se conserva el peso original a propósito: es la copia de preservación.',
+    pequeno: 'Es el único escaneo que existe; no hay ninguna copia mejor de la que tirar.',
+    gif: 'Se conserva la animación original.',
+  };
+
+  /** Lo que se está a punto de ocultar mientras el modal de la nota está
+   *  abierto. Se guarda aquí en vez de esperar al evento `close` del
+   *  `<dialog>`: ese evento NO se dispara en el navegador integrado de este
+   *  entorno —comprobado, ni siquiera llamando a `close()` a mano—, así que
+   *  una promesa colgada de él no resolvía nunca y el guardado se quedaba a
+   *  medias sin dar ni un error. El resto del panel ya gobierna sus modales
+   *  con clics delegados por la misma razón. */
+  let notaPendiente: { sec: HTMLElement; filas: HTMLElement[] } | null = null;
+
+  /** Abre el modal con el motivo ya escrito y la vista previa del cartel. No
+   *  oculta nada todavía: eso lo hace `guardarNota()` si se pulsa «Guardar». */
+  function pedirNotaYOcultar(sec: HTMLElement, filas: HTMLElement[]) {
+    const dlg = document.getElementById('panel-nota') as HTMLDialogElement | null;
+    if (!dlg || filas.length === 0) return;
+    const clave = sec.dataset.clave!;
+    const texto = dlg.querySelector('.nota-texto') as HTMLTextAreaElement;
+    const error = dlg.querySelector('.nota-error') as HTMLElement;
+    error.hidden = true;
+    texto.value = MOTIVOS[clave] ?? '';
+
+    // La vista previa, igual que en el modal de confirmación: solo con UN
+    // cartel, porque en un lote no hay "la" imagen que enseñar.
+    const caja = dlg.querySelector('.nota-img-caja') as HTMLElement;
+    const img = dlg.querySelector('.nota-img') as HTMLImageElement;
+    const miniatura = filas.length === 1 ? filas[0].querySelector('img') : null;
+    caja.hidden = !miniatura;
+    if (miniatura) { img.src = enGrande(miniatura.src); img.alt = miniatura.alt || filas[0].dataset.id!; }
+
+    notaPendiente = { sec, filas };
+    dlg.showModal();
+    // Seleccionado ENTERO y después de abrir: `select()` sobre un campo que
+    // todavía está en un diálogo cerrado no hace nada.
+    texto.focus();
+    texto.select();
+  }
+
+  /** De qué fila y qué sección es un globo de notas. */
+  function filaDelGlobo(pop: HTMLElement) {
+    const fila = document.querySelector(`.fila[data-id="${CSS.escape(pop.dataset.id!)}"][data-fila="${pop.dataset.fila}"]`) as HTMLElement | null;
+    return { fila, sec: fila?.closest('section[data-clave]') as HTMLElement | null };
+  }
+
+  /** Devuelve el aviso a la lista Y borra su nota de la hoja. Las dos cosas van
+   *  juntas siempre: la marca `#oculto:` es lo que mantiene oculto el aviso, así
+   *  que dejarla escrita haría que volviera a esconderse a la primera recarga.
+   *
+   *  Es lo que hace «Mostrar» en la fila y «Borrar» en el globo — el mismo acto
+   *  visto desde dos sitios. */
+  async function mostrarYBorrarNota(sec: HTMLElement, fila: HTMLElement) {
+    cambiarVisibilidad(sec, [fila], false);
+    const globo = fila.querySelector('.notas-texto');
+    if (globo) globo.textContent = '';
+    delete fila.dataset.notas;
+    try {
+      const r = await fetch('/api/panel/ocultar', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fila: Number(fila.dataset.fila), clave: sec.dataset.clave, borrar: true }),
+      });
+      const j = await r.json();
+      if (!j.ok) alert(`El aviso ha vuelto a la lista, pero no se pudo borrar su nota de la hoja: ${j.motivo}`);
+    } catch (e: any) {
+      alert(`El aviso ha vuelto a la lista, pero no se pudo borrar su nota de la hoja: ${e.message}`);
+    }
+  }
+
+  async function borrarNota(pop: HTMLElement) {
+    const { fila, sec } = filaDelGlobo(pop);
+    if (!fila || !sec) return;
+    (pop as any).hidePopover?.();
+    await mostrarYBorrarNota(sec, fila);
+  }
+
+  /** Vuelve a abrir el modal con lo que ya había escrito, para corregirlo. */
+  function editarNota(pop: HTMLElement) {
+    const { fila, sec } = filaDelGlobo(pop);
+    if (!fila || !sec) return;
+    (pop as any).hidePopover?.();
+    pedirNotaYOcultar(sec, [fila]);
+    const texto = document.querySelector('#panel-nota .nota-texto') as HTMLTextAreaElement;
+    // El motivo que YA está escrito manda sobre el preescrito: se está
+    // corrigiendo, no empezando de cero.
+    texto.value = fila.querySelector('.notas-texto')?.textContent?.trim() || texto.value;
+    texto.select();
+  }
+
+  /** Escribe la nota en la hoja y, solo si TODAS se escribieron, oculta.
+   *
+   *  Si falla no se oculta nada: el panel se reconstruye desde la hoja en cada
+   *  visita, así que una fila oculta sin su marca escrita volvería sola a la
+   *  primera recarga — y el propietario habría creído que la ocultó. */
+  async function guardarNota() {
+    const encargoNota = notaPendiente;
+    notaPendiente = null;
+    if (!encargoNota) return;
+    const { sec, filas } = encargoNota;
+    const dlg = document.getElementById('panel-nota') as HTMLDialogElement;
+    const texto = dlg.querySelector('.nota-texto') as HTMLTextAreaElement;
+    const error = dlg.querySelector('.nota-error') as HTMLElement;
+    const clave = sec.dataset.clave!;
+
+    // El diálogo se cierra solo al pulsar (es `method="dialog"`), así que para
+    // contar el progreso hay que volver a abrirlo. Solo con varios: con uno es
+    // un parpadeo y molesta más que informa.
+    const progreso = dlg.querySelector('.nota-progreso') as HTMLElement;
+    const rotuloProgreso = dlg.querySelector('.nota-progreso-texto') as HTMLElement;
+    const barra = dlg.querySelector('.nota-barra') as HTMLElement;
+    const varios = filas.length > 1;
+    if (varios) {
+      progreso.hidden = false;
+      rotuloProgreso.textContent = `Escribiendo notas… 0 de ${filas.length}`;
+      barra.style.width = '0%';
+      (dlg.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).forEach((b) => { b.disabled = true; });
+      if (!dlg.open) dlg.showModal();
+    }
+
+    const fallos: string[] = [];
+    // Lo que se enseña es lo que el servidor confirma que quedó escrito para
+    // ESTA regla, ya sin la marca — no lo que se tecleó, que puede haber
+    // llegado con espacios de más o con saltos de línea que se aplanan.
+    const notaPorFila = new Map<HTMLElement, string>();
+    for (const fila of filas) {
+      try {
+        const r = await fetch('/api/panel/ocultar', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fila: Number(fila.dataset.fila), clave, motivo: texto.value }),
+        });
+        const j = await r.json();
+        if (j.ok) notaPorFila.set(fila, j.motivo);
+        else fallos.push(`${fila.dataset.id}: ${j.motivo}`);
+      } catch (e: any) {
+        fallos.push(`${fila.dataset.id}: ${e.message}`);
+      }
+      if (varios) {
+        const hechas = notaPorFila.size + fallos.length;
+        rotuloProgreso.textContent = `Escribiendo notas… ${hechas} de ${filas.length}`;
+        barra.style.width = `${Math.round((hechas / filas.length) * 100)}%`;
+      }
+    }
+    if (varios) {
+      progreso.hidden = true;
+      (dlg.querySelectorAll('button') as NodeListOf<HTMLButtonElement>).forEach((b) => { b.disabled = false; });
+      dlg.close();
+    }
+    if (fallos.length) {
+      // Se vuelve a abrir con el motivo escrito intacto: perder lo tecleado por
+      // un fallo de red sería la forma más rápida de que no se escriba ninguna
+      // nota nunca más.
+      error.textContent = `No se pudo escribir en la hoja. ${fallos.join(' · ')}`;
+      error.hidden = false;
+      notaPendiente = encargoNota;
+      if (!dlg.open) dlg.showModal();
+      return;
+    }
+
+    // La nota se ve YA, sin recargar. El panel se pinta en el servidor, así que
+    // sin esto había que darle a «Releer el spreadsheet» para ver lo que
+    // acababas de escribir — que es exactamente lo que parecía «no me deja
+    // guardarla». El marcado del botón y del globo ya lo pintó
+    // PanelSeccion.astro para TODAS las filas (regla 7): aquí solo se escribe
+    // el texto dentro y se enciende con `data-notas`.
+    for (const fila of filas) {
+      const globo = fila.querySelector('.notas-texto');
+      if (globo) globo.textContent = notaPorFila.get(fila) ?? texto.value;
+      fila.dataset.notas = 'si';
+    }
+    cambiarVisibilidad(sec, filas, true);
+  }
+
   function alternarOcultos() {
     document.body.classList.toggle('mostrar-ocultos');
     recalcularTodo();
@@ -553,12 +875,18 @@ const tarjetas = [
     // interruptor encendido NO, aunque n sea 0: sería atraparte en un modo del
     // que no se puede salir.
     btn.disabled = n === 0 && !encendido;
-    btn.setAttribute('aria-pressed', String(encendido));
-    btn.textContent = encendido ? `No mostrar avisos ocultos (${n})` : `Mostrar avisos ocultos (${n})`;
-    // Encendido pasa a `action-secondary`: el estado activo es más oscuro que
-    // el de reposo (`action-tertiary`), igual que el resto de pares del panel.
-    btn.classList.toggle('bg-mel-action-secondary', encendido);
-    btn.classList.toggle('bg-mel-action-tertiary', !encendido);
+    btn.setAttribute('aria-checked', String(encendido));
+    const texto = btn.querySelector('.sw-texto');
+    if (texto) texto.textContent = `Ver ocultos (${n})`;
+    // El rótulo ya NO cambia de verbo: un interruptor dice qué gobierna, no lo
+    // que pasará al pulsarlo — eso lo dice su propia posición.
+    //
+    // La manija y el check los mueve el CSS a partir del `aria-checked` de
+    // arriba. Se intentó con `classList.toggle('translate-x-[40px]')` y NO
+    // funciona: esa clase solo aparecía dentro de una cadena de JS, así que
+    // Tailwind nunca generó la regla — la clase se ponía en el elemento y no
+    // pintaba nada. Ahora el estado accesible y el visual salen del mismo
+    // atributo y no se pueden desincronizar.
   }
 
   function ocultarSeleccionados(sec: HTMLElement) {
@@ -566,7 +894,420 @@ const tarjetas = [
       const chk = f.querySelector('.chk-fila') as HTMLInputElement | null;
       return !!chk && chk.checked;
     });
-    cambiarVisibilidad(sec, elegidas, true);
+    // Una sola nota para todo el lote: se pregunta una vez y el mismo motivo
+    // se escribe en la fila de cada uno. Preguntar veinte veces seguidas
+    // acabaría en veinte notas vacías.
+    pedirNotaYOcultar(sec, elegidas);
+  }
+
+
+  // ===================================================================
+  // El modal: confirmar → en curso → resumen
+  // ===================================================================
+  // Aquí es donde el panel deja de ser un informe y pasa a hacer algo. Todo el
+  // marcado lo pintó `PanelModal.astro` en SSR (regla 7): esto solo enseña,
+  // esconde y escribe valores.
+
+  /** Lo que se está a punto de hacer. `null` = el modal no está en marcha. */
+  let encargo = null;
+
+  const modal = () => document.getElementById('panel-modal');
+
+  /** Las claves de las secciones donde ESTE cartel también sale, que son las
+   *  otras mejoras que se le pueden ofrecer. Sale del DOM y no de un dato
+   *  aparte: el panel ya sabe en qué secciones está cada fila. */
+  function otrasMejoras(ids, claveActual) {
+    const claves = [];
+    document.querySelectorAll('section[data-clave]').forEach((sec) => {
+      const clave = sec.dataset.clave;
+      if (clave === claveActual) return;
+      if (!sec.querySelector('.accion-seleccionados')) return;   // no es automática
+      const hay = ids.some((id) => sec.querySelector(`.fila[data-id="${CSS.escape(id)}"]`));
+      if (hay) claves.push(clave);
+    });
+    return claves;
+  }
+
+  function abrirModal(ids, clave, accion) {
+    if (ids.length === 0) return;
+    encargo = { ids, clave, accion, resultados: [] };
+    const m = modal();
+    m.dataset.estado = 'confirmar';
+
+    const unico = ids.length === 1;
+    m.querySelector('.modal-titulo').textContent = unico
+      ? `${accion} ${ids[0]}`
+      : `${accion} ${ids.length} archivos`;
+    m.querySelector('.modal-cuerpo').textContent =
+      'Aunque Google Drive guarda una copia del estado actual de la imagen durante algún tiempo, esta acción no se puede deshacer automáticamente.';
+
+    // La vista previa solo tiene sentido con un cartel: en un lote no hay "la"
+    // imagen que enseñar.
+    const caja = m.querySelector('.modal-img-caja');
+    const img = m.querySelector('.modal-img');
+    const miniatura = unico ? document.querySelector(`.fila[data-id="${CSS.escape(ids[0])}"] img`) : null;
+    caja.hidden = !miniatura;
+    if (miniatura) {
+      img.src = enGrande(miniatura.src);
+      img.alt = miniatura.alt || ids[0];
+      // La caja ya no se mide aquí: son 400px fijos por CSS y el cartel va en
+      // `contain`. Se calculaba en JS cuando la caja tomaba la proporción del
+      // cartel para que fuera a sangre.
+    }
+
+    // Las otras mejoras: se enseñan las que apliquen, marcadas de partida —
+    // "Aplicar todas las mejoras" es la recomendación, no una trampa.
+    const extras = otrasMejoras(ids, clave);
+    // La calidad solo es una decisión si el fichero se va a reescribir como
+    // JPEG por algo que NO sea perseguir un peso: en «pesado» la calidad es el
+    // arreglo, y ofrecer «no bajes la calidad» ahí sería ofrecer no hacer nada.
+
+    m.querySelectorAll('.mejora').forEach((fila) => {
+      // «calidad» no sale de `extras` —no es una regla de la auditoría— y este
+      // bucle la volvía a esconder justo después de haberla mostrado.
+      if (fila.dataset.clave === 'calidad') return;
+      const suya = extras.includes(fila.dataset.clave);
+      fila.hidden = !suya;
+      const chk = fila.querySelector('.mejora-chk');
+      if (chk) chk.checked = suya;
+      const det = fila.querySelector('.mejora-detalle');
+      const info = fila.querySelector('.mejora-info');
+      // Sin párrafo aparte: el problema y su corrección son una sola idea, y
+      // partirlos en dos bloques hacía la caja el doble de alta por nada.
+      const txt = det?.querySelector('p');
+      if (txt && txt.innerHTML.includes('<br>')) txt.innerHTML = txt.innerHTML.replace(/(<br\s*\/?>\s*)+/gi, ' ');
+      if (det) det.hidden = true;
+      if (info) info.setAttribute('aria-expanded', 'false');
+    });
+    // La calidad se decide aquí, DESPUÉS del bucle: no sale de `extras` —no es
+    // una regla de la auditoría, sino la decisión que obliga a tomar cualquier
+    // arreglo que reescriba el fichero— y ponerla antes hacía que el bucle la
+    // volviera a esconder.
+    //
+    // Solo aparece si hay decisión que tomar: en «pesado» la calidad ES el
+    // arreglo, y ofrecer ahí «no bajes la calidad» sería ofrecer no hacer nada.
+    const filaCalidad = m.querySelector('.mejora-calidad');
+    filaCalidad.hidden = clave === 'pesado' || extras.includes('pesado');
+    filaCalidad.querySelector('.mejora-chk').checked = true;
+    filaCalidad.querySelector('.mejora-detalle').hidden = true;
+    filaCalidad.querySelector('.mejora-info').setAttribute('aria-expanded', 'false');
+
+    // El bloque se enseña si hay ALGO que ofrecer, sean mejoras o la calidad.
+    m.querySelector('.modal-mejoras').hidden = extras.length === 0 && filaCalidad.hidden;
+
+    // DESPUÉS de reiniciar las casillas, nunca antes: `pintarCambios` lee lo
+    // que hay marcado, y hacerlo primero le daba las marcas del cartel
+    // anterior — salía «Adobe RGB» en un lote de PNG que no lo tenían.
+    pintarCambios(ids, m);
+    pintarLista(ids, unico, m);
+
+    m.querySelector('.modal-aplicar').textContent = accion;
+    m.showModal();
+  }
+
+  /**
+   * Lo que va a cambiar, dicho ANTES de tocar nada. Solo lo predecible: el
+   * formato lo decide la acción pulsada, el color sale del perfil ya medido y
+   * las dimensiones del techo de 2400. El peso NO — hace falta procesar el
+   * fichero para saberlo, y prometerlo aquí sería inventarlo.
+   *
+   * Con varios ficheros se resume en vez de listar: «PNG → JPG» vale igual para
+   * uno que para veinte, y «4961×9674 → 1230×2400» no, así que ahí se dice
+   * cuántos se reducen.
+   */
+  /** Un par «de → a» con el formato de Figma (1238:102590): origen en texto
+   *  secundario, flecha, destino en verde. Se fabrica aquí y no se clona de
+   *  ningún sitio porque no existe en SSR — es un trozo que aparece tantas
+   *  veces como cambios haya, y el número solo se sabe en el navegador.
+   *  `rojo` tiñe el destino de rojo en vez de verde: lo usa el RESUMEN cuando
+   *  el fichero acabó pesando más, que es un resultado medido, no una promesa.
+   */
+  /** Las columnas de una rejilla de cambios: por cada tipo en juego, un hueco
+   *  de origen, uno de flecha y uno de destino. Con ancho FIJO — es lo único
+   *  que pone las flechas en vertical y hace que todos los textos empiecen en
+   *  el mismo punto (Figma 1216:227717). Con cajas que se estiran al contenido,
+   *  cada fila colocaba su flecha donde le cabía. */
+  const COLS_CAMBIO = ' minmax(0,164px) 32px minmax(0,110px)';
+
+  /** Las tres celdas de un cambio, sueltas para meterlas en la rejilla. Origen
+   *  a la izquierda de su hueco, flecha centrada, destino en verde. */
+  function celdasDeCambio(de, a, rojo) {
+    const uno = document.createElement('span');
+    uno.className = 'typo-button text-mel-text-secondary truncate text-right pr-4';
+    uno.textContent = de ?? '';
+    const flecha = document.createElement('span');
+    flecha.className = 'grid place-items-center text-mel-action-tertiary';
+    flecha.setAttribute('aria-hidden', 'true');
+    if (de) flecha.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    const dos = document.createElement('span');
+    dos.className = `typo-button truncate pl-4 ${rojo ? 'text-mel-banner-error-border' : 'text-mel-banner-success-text'}`;
+    dos.textContent = a ?? '';
+    return [uno, flecha, dos];
+  }
+
+  function parDeCambio(de, a, rojo) {
+    const caja = document.createElement('span');
+    caja.className = 'flex items-center shrink-0';
+    const uno = document.createElement('span');
+    uno.className = 'typo-button text-mel-text-secondary min-w-[100px] px-4 text-center';
+    uno.textContent = de;
+    const flecha = document.createElement('span');
+    flecha.className = 'w-10 shrink-0 grid place-items-center text-mel-action-tertiary';
+    flecha.setAttribute('aria-hidden', 'true');
+    flecha.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+    const dos = document.createElement('span');
+    dos.className = `typo-button min-w-[100px] px-4 text-center ${rojo ? 'text-mel-banner-error-border' : 'text-mel-banner-success-text'}`;
+    dos.textContent = a;
+    caja.append(uno, flecha, dos);
+    return caja;
+  }
+
+  /** Lo que va a cambiar en UN cartel, leído de su propia fila. Devuelve pares
+   *  `[de, a]` en el orden en que se enseñan. El PESO no está: no se puede
+   *  saber sin procesar el fichero, y prometerlo sería inventárselo (esa
+   *  columna sí aparece en el resumen, ya medida). */
+  function cambiosDe(fila, acciones) {
+    const pares = [];
+    if (acciones.includes('png')) {
+      pares.push(['formato', 'Formato', fila.querySelector('.formato-valor')?.textContent.trim() || '—', 'JPG']);
+    }
+    if (acciones.includes('no-srgb')) {
+      pares.push(['color', 'Modo de color', fila.dataset.perfil || 'sin perfil', 'sRGB']);
+    }
+    if (acciones.includes('enorme') && Number(fila.dataset.mayor) > 2400) {
+      pares.push(['dimensiones', 'Dimensiones', fila.dataset.px, destinoPx(fila.dataset.px)]);
+    }
+    return pares;
+  }
+
+  /** El lado mayor va a 2400 y el otro baja en la misma proporción. Es de los
+   *  pocos números del resultado que no hace falta procesar el fichero para
+   *  saber. */
+  function destinoPx(px) {
+    const [a, b] = String(px).split('×').map(Number);
+    if (!a || !b) return '2400 px de lado mayor';
+    const k = 2400 / Math.max(a, b);
+    return `${Math.round(a * k)}×${Math.round(b * k)}`;
+  }
+
+  function pintarCambios(ids, m) {
+    // La franja de cambios de arriba es SOLO para un cartel. Con varios, cada
+    // uno lleva los suyos dentro de su fila de la lista (boceto del
+    // propietario): un agregado tipo «3 espacios distintos → sRGB» decía a
+    // cuántos afecta pero no a cuáles, que es justo lo que hay que mirar antes
+    // de tocar 33 ficheros.
+    const dl = m.querySelector('.modal-cambios');
+    dl.querySelectorAll('.cambio').forEach((c) => { c.hidden = true; });
+    if (ids.length !== 1) { dl.hidden = true; return; }
+
+    const fila = document.querySelector(`.fila[data-id="${CSS.escape(ids[0])}"]`);
+    const pares = fila ? cambiosDe(fila, accionesElegidas()) : [];
+    for (const [clave, etiqueta, de, a] of pares) {
+      const filaCambio = dl.querySelector(`.cambio-${clave}`);
+      if (!filaCambio) continue;
+      filaCambio.hidden = false;
+      filaCambio.querySelector('dt').textContent = etiqueta;
+      filaCambio.querySelector('.de').textContent = de;
+      filaCambio.querySelector('.a').textContent = a;
+    }
+    dl.hidden = pares.length === 0;
+  }
+
+  /** La lista de a qué carteles afecta, solo cuando son varios. Se escriben
+   *  valores sobre `<li>` clonados de la propia tabla — no se fabrica marcado
+   *  nuevo (regla 7). */
+  function pintarLista(ids, unico, m) {
+    const lista = m.querySelector('.modal-lista');
+    lista.textContent = '';
+    lista.hidden = unico;
+    if (unico) return;
+    const acciones = accionesElegidas();
+
+    // Qué columnas hacen falta: las que use ALGÚN cartel del lote. Se calculan
+    // una vez y valen para todas las filas — es lo que las alinea.
+    const filas = ids.map((id) => document.querySelector(`.fila[data-id="${CSS.escape(id)}"]`)).filter(Boolean);
+    const enJuego = ['formato', 'color', 'dimensiones'].filter((c) =>
+      filas.some((f) => cambiosDe(f, acciones).some(([clave]) => clave === c)));
+    const plantilla = `48px minmax(0,1fr)${COLS_CAMBIO.repeat(enJuego.length)}`;
+
+    for (const fila of filas) {
+      const suyos = new Map(cambiosDe(fila, acciones).map(([clave, , de, a]) => [clave, [de, a]]));
+      // Cada cartel es un <li> que ES la rejilla, no una tanda de celdas sueltas
+      // dentro de una rejilla común: así el filete de abajo es UNA línea de lado
+      // a lado. Con las celdas sueltas cada una pintaba su trocito y la línea
+      // salía a cachos.
+      const li = document.createElement('li');
+      li.className = 'grid items-center border-b border-mel-border';
+      li.style.gridTemplateColumns = plantilla;
+
+      const cajaMini = document.createElement('span');
+      cajaMini.className = 'flex items-center py-2';
+      const mini = fila.querySelector('img')?.cloneNode(true);
+      if (mini) { mini.className = 'w-10 h-10 object-cover'; cajaMini.appendChild(mini); }
+      li.appendChild(cajaMini);
+
+      // El MEL y no el nombre del evento: es como se llaman los ficheros en la
+      // carpeta de Drive, así que es lo que permite casar lo que se ve aquí con
+      // lo que hay allí (criterio del propietario, 04/08/2026). El nombre del
+      // evento está a un clic, en la propia tabla del panel.
+      const txt = document.createElement('span');
+      txt.className = 'typo-lead text-mel-text-primary truncate pr-4';
+      txt.textContent = fila.dataset.id;
+      li.appendChild(txt);
+
+      // Un hueco vacío donde a este cartel no le toca esa columna: si no, su
+      // siguiente cambio se corría al sitio donde el de al lado tiene otra cosa.
+      for (const clave of enJuego) {
+        const par = suyos.get(clave);
+        celdasDeCambio(par?.[0] ?? null, par?.[1] ?? null).forEach((c) => li.appendChild(c));
+      }
+      lista.appendChild(li);
+    }
+  }
+
+  function cerrarModal() {
+    const m = modal();
+    m.close();
+    encargo = null;
+  }
+
+  /** Las acciones que se van a pedir: la del botón, más las marcadas. */
+  function accionesElegidas() {
+    const extras = Array.from(modal().querySelectorAll('.mejora'))
+      .filter((f) => !f.hidden && f.querySelector('.mejora-chk')?.checked)
+      .map((f) => f.dataset.clave)
+      // «calidad» no es una acción de la auditoría: es la calidad a la que se
+      // guarda. Viaja aparte, en `calidadMaxima`.
+      .filter((c) => c !== 'calidad');
+    return [encargo.clave, ...extras];
+  }
+
+  /** Si se ha DESMARCADO «Bajar a calidad 95». La fila solo está a la vista
+   *  cuando la decisión existe, así que escondida no cuenta. */
+  function quiereCalidadMaxima() {
+    const fila = modal().querySelector('.mejora-calidad') as HTMLElement | null;
+    return !!fila && !fila.hidden && !(fila.querySelector('.mejora-chk') as HTMLInputElement)?.checked;
+  }
+
+  /** La misma imagen de Drive pero pidiéndola grande. Las miniaturas de la
+   *  tabla se piden a 200px porque ahí se ven a 40, pero los modales las
+   *  enseñan a 400 y salían al doble de su tamaño real — pixeladas. Drive
+   *  sirve el tamaño que se le pida en la URL, así que basta con cambiarlo. */
+  const enGrande = (src) => String(src || '').replace(/([?&]sz=w)\d+/, '$11000');
+
+  const kb = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.round(b / 1024) + ' KB');
+
+  /**
+   * Procesa los carteles DE UNO EN UNO. Es lo que permite que el contador sea
+   * de verdad: la ruta responde por fichero, así que "12 de 33" es lo que ha
+   * terminado, no una estimación. El spec de flujos descartaba el contador
+   * cuando la ruta iba a responder una sola vez para N ficheros; se hizo de
+   * una en una precisamente para poder contarlo sin mentir.
+   */
+  async function ejecutar(simular) {
+    const calidadMaxima = quiereCalidadMaxima();
+    const m = modal();
+    const { ids, accion } = encargo;
+    const acciones = accionesElegidas();
+    m.dataset.estado = 'en-curso';
+    m.querySelector('.modal-progreso-texto').textContent =
+      `${simular ? 'Simulando' : accion} · 0 de ${ids.length}`;
+    m.querySelector('.modal-barra').style.width = '0%';
+
+    const resultados = [];
+    for (let i = 0; i < ids.length; i++) {
+      const idMel = ids[i];
+      m.querySelector('.modal-progreso-actual').textContent = idMel;
+      let r;
+      try {
+        const resp = await fetch('/api/panel/arreglar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ idMel, acciones, simular, limpiar: simular && i === 0, calidadMaxima }),
+        });
+        r = await resp.json();
+      } catch (e) {
+        r = { ok: false, idMel, motivo: 'no se pudo hablar con el servidor' };
+      }
+      resultados.push({ idMel, ...r });
+      const hechos = i + 1;
+      m.querySelector('.modal-progreso-texto').textContent =
+        `${simular ? 'Simulando' : accion} · ${hechos} de ${ids.length}`;
+      m.querySelector('.modal-barra').style.width = `${(hechos / ids.length) * 100}%`;
+    }
+
+    encargo.resultados = resultados;
+    pintarResumen(simular);
+  }
+
+  function pintarResumen(simular) {
+    const m = modal();
+    const lista = m.querySelector('.modal-resumen-lista');
+    lista.textContent = '';   // se vacía, no se reconstruye el marcado del modal
+
+    const bien = encargo.resultados.filter((r) => r.ok && (r.antes || r.hecho));
+    m.querySelector('.modal-titulo').textContent = simular
+      ? `${bien.length} de ${encargo.resultados.length} simulados. No se ha tocado nada.`
+      : `${bien.length} de ${encargo.resultados.length} — ${encargo.accion}.`;
+    m.querySelector('.modal-cuerpo').textContent = simular
+      ? 'Los resultados están en la carpeta simulacion/, con el antes y el después de cada uno para que los compares.'
+      : 'Recarga el panel para ver las cifras al día.';
+
+    // El resumen usa la MISMA forma de fila que la confirmación: nombre del
+    // cartel y los cambios en columnas fijas, con las flechas en vertical
+    // (Figma 1216:227717). Faltaba el nombre — con «MEL-00051» a secas hay que
+    // ir a buscar cuál era.
+    const conCambio = encargo.resultados.filter((r) => r.ok && r.antes);
+    // El CMYK no trae nombre de perfil legible, pero se sabe de dónde viene por
+    // sus 4 componentes: decir «CMYK → sRGB» es más útil que callarse justo en
+    // el caso más grave.
+    const colorDe = (r) => r.antes.perfil ?? (r.antes.comp === 4 ? 'CMYK' : null);
+    const cambióColor = (r) => !!colorDe(r) && colorDe(r) !== r.despues.perfil;
+    const hayColor = conCambio.some(cambióColor);
+    const hayFormato = conCambio.some((r) => r.antes.tipo !== r.despues.tipo);
+    const columnas = (hayFormato ? 1 : 0) + (hayColor ? 1 : 0) + 1;   // +1: el peso, siempre
+    const plantilla = `minmax(0,1fr)${COLS_CAMBIO.repeat(columnas)}`;
+    // Con UN solo resultado la rejilla se centra en el modal en vez de quedarse
+    // pegada a la izquierda con medio ancho vacío al lado.
+    lista.style.justifyItems = 'stretch';
+    lista.className = `modal-resumen-lista flex flex-col ${encargo.resultados.length === 1 ? 'items-center' : ''}`;
+
+    for (const r of encargo.resultados) {
+      const li = document.createElement('div');
+      li.className = 'grid items-center border-b border-mel-border w-full';
+      li.style.gridTemplateColumns = plantilla;
+
+      const nombre = document.createElement('span');
+      nombre.className = 'typo-lead text-mel-text-primary truncate pr-4 py-2';
+      nombre.textContent = r.idMel;
+      li.appendChild(nombre);
+
+      if (!r.ok || !r.antes) {
+        const txt = document.createElement('span');
+        txt.className = `typo-caption py-2 ${r.ok ? 'text-mel-text-tertiary' : 'text-mel-banner-error-border'}`;
+        txt.style.gridColumn = `span ${columnas * 3}`;
+        txt.textContent = r.motivo ?? (r.ok ? 'sin cambios' : 'falló');
+        li.appendChild(txt);
+      } else {
+        // Hueco entero vacío donde ESTE cartel no cambió esa columna: dejar
+        // solo el destino diría «→ jpeg» de un fichero que ya era jpeg.
+        const cambióTipo = r.antes.tipo !== r.despues.tipo;
+        if (hayFormato) celdasDeCambio(cambióTipo ? r.antes.tipo : null, cambióTipo ? r.despues.tipo : null).forEach((c) => li.appendChild(c));
+        if (hayColor) celdasDeCambio(cambióColor(r) ? colorDe(r) : null, cambióColor(r) ? (r.despues.perfil ?? 'sRGB') : null).forEach((c) => li.appendChild(c));
+        // El peso SIEMPRE, y en rojo si subió — reducir un PNG plano puede
+        // engordarlo (medido: 400 KB → 581 KB), y eso solo se ve si se dice.
+        celdasDeCambio(kb(r.antes.bytes), kb(r.despues.bytes), r.despues.bytes > r.antes.bytes).forEach((c) => li.appendChild(c));
+      }
+      lista.appendChild(li);
+    }
+
+    // «Abrir en el Finder» solo tiene sentido tras una simulación (los ficheros
+    // están en disco); «Abrir en Drive», solo tras una pasada real. Nacen con
+    // `hidden` en el marcado y NADIE se lo quitaba: por eso el resumen salía
+    // con un único botón a todo lo ancho.
+    m.querySelector('.modal-finder').hidden = !simular;
+    m.querySelector('.modal-drive').hidden = simular;
+    m.dataset.estado = 'resumen';
   }
 
   // --- Recalcular desde cero ---------------------------------------------------
@@ -652,7 +1393,7 @@ const tarjetas = [
     filasDe(sec).forEach((fila) => {
       const oculta = filaOculta(fila);
       const btn = fila.querySelector('.ocultar-aviso') as HTMLElement | null;
-      if (btn) btn.textContent = oculta ? 'Mostrar aviso' : 'Ocultar aviso';
+      if (btn) btn.textContent = oculta ? 'Mostrar' : 'Ocultar';
       const accion = fila.querySelector('.fila-accion') as HTMLButtonElement | null;
       if (accion) accion.disabled = oculta;
       const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
@@ -679,6 +1420,70 @@ const tarjetas = [
 
     if (target.closest('#panel-releer')) { window.location.reload(); return; }
 
+    // --- Modal --------------------------------------------------------------
+    const btnFilaAccion = target.closest('.fila-accion');
+    if (btnFilaAccion) {
+      const sec = btnFilaAccion.closest('section[data-clave]');
+      const fila = btnFilaAccion.closest('.fila[data-id]');
+      if (sec && fila) abrirModal([fila.dataset.id], sec.dataset.clave, sec.querySelector('.accion-seleccionados')?.textContent.replace(' seleccionados', '').trim() || 'Aplicar');
+      return;
+    }
+    const btnAccionSel = target.closest('.accion-seleccionados');
+    if (btnAccionSel) {
+      const sec = btnAccionSel.closest('section[data-clave]');
+      if (!sec) return;
+      const ids = filasDe(sec)
+        .filter((f) => !filaOculta(f) && f.querySelector('.chk-fila')?.checked)
+        .map((f) => f.dataset.id);
+      abrirModal(ids, sec.dataset.clave, btnAccionSel.textContent.replace(' seleccionados', '').trim());
+      return;
+    }
+    if (target.closest('.mejora-chk') && encargo) {
+      // Se repintan las DOS: si no, desmarcar «Reducir a 2400 px» lo quitaba de
+      // la orden pero su columna seguía anunciándose arriba.
+      pintarCambios(encargo.ids, modal());
+      pintarLista(encargo.ids, encargo.ids.length === 1, modal());
+      return;
+    }
+
+    const btnInfo = target.closest('.mejora-info');
+    if (btnInfo) {
+      const fila = btnInfo.closest('.mejora');
+      const det = fila?.querySelector('.mejora-detalle');
+      if (det) {
+        det.hidden = !det.hidden;
+        btnInfo.setAttribute('aria-expanded', String(!det.hidden));
+      }
+      return;
+    }
+    const btnBorrarNota = target.closest('.notas-borrar');
+    if (btnBorrarNota) { borrarNota(btnBorrarNota.closest('.notas-popup') as HTMLElement); return; }
+    const btnEditarNota = target.closest('.notas-editar');
+    if (btnEditarNota) { editarNota(btnEditarNota.closest('.notas-popup') as HTMLElement); return; }
+
+    if (target.closest('.nota-guardar')) { guardarNota(); return; }
+    if (target.closest('.nota-cancelar')) { notaPendiente = null; return; }
+
+    if (target.closest('.modal-cancelar')) { cerrarModal(); return; }
+    if (target.closest('.modal-simular')) { ejecutar(true); return; }
+    if (target.closest('.modal-aplicar')) { ejecutar(false); return; }
+    if (target.closest('.modal-finder')) { fetch('/api/panel/arreglar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ abrirCarpeta: true }) }); return; }
+    if (target.closest('.modal-drive')) {
+      // La carpeta del archivo en Drive, no cada fichero: con veinte resultados
+      // abrir veinte pestañas sería peor que no ofrecerlo.
+      window.open('https://drive.google.com/drive/folders/1Y0nNna_GaM7uB0MesOWfOWQPBPrFaiWc', '_blank', 'noopener');
+      return;
+    }
+    if (target.closest('.modal-cerrar')) {
+      const simulado = encargo?.resultados.some((r) => r.simulado);
+      cerrarModal();
+      if (!simulado) window.location.reload();   // el servidor vuelve a auditar
+      return;
+    }
+
+
     if (target.closest('#panel-ver-ocultos')) { alternarOcultos(); return; }
 
     const btnOcultarSel = target.closest('.ocultar-seleccionados') as HTMLElement | null;
@@ -692,9 +1497,15 @@ const tarjetas = [
     if (btnOcultarAviso) {
       const fila = btnOcultarAviso.closest('.fila[data-id]') as HTMLElement | null;
       const sec = btnOcultarAviso.closest('section[data-clave]') as HTMLElement | null;
-      // Alterna: con el interruptor encendido este mismo botón es el único
-      // control que le queda a una fila oculta, y sirve para recuperarla.
-      if (fila && sec) cambiarVisibilidad(sec, [fila], !filaOculta(fila));
+      // Alterna. OCULTAR pasa antes por el modal de la nota; MOSTRAR no
+      // pregunta nada —devolver un aviso a la lista no esconde información— pero
+      // SÍ borra la nota de la hoja: si no, el aviso volvía a estar oculto a la
+      // primera recarga, porque la marca seguía escrita. Es lo mismo que hace
+      // «Borrar» en el globo, y por la misma razón.
+      if (fila && sec) {
+        if (filaOculta(fila)) mostrarYBorrarNota(sec, fila);
+        else pedirNotaYOcultar(sec, [fila]);
+      }
       return;
     }
   }
@@ -731,8 +1542,15 @@ const tarjetas = [
     // tarea 5 (sin JS no había nada honesto que hacer al pulsarlos). Se
     // habilitan aquí; no se reconstruyen.
     document.querySelectorAll('.ocultar-aviso').forEach((btn) => { (btn as HTMLButtonElement).disabled = false; });
+    // `.fila-accion` también: nació `disabled` porque hasta que existió la ruta
+    // de arreglos no había nada que hacer al pulsarlo. Ya lo hay.
+    document.querySelectorAll('.fila-accion').forEach((btn) => { (btn as HTMLButtonElement).disabled = false; });
     const btnReleer = document.getElementById('panel-releer') as HTMLButtonElement | null;
     if (btnReleer) btnReleer.disabled = false;
+    // Una pasada de recálculo al arrancar: deja los controles de cada fila, las
+    // secciones vacías y el interruptor de ocultos coherentes desde el primer
+    // pintado, en vez de esperar a la primera interacción.
+    recalcularTodo();
     // El de ocultos NO se habilita aquí: su estado lo fija `recalcularTodo()`
     // (vía `actualizarBotonOcultos`) según cuántos avisos ocultos haya.
 
@@ -769,6 +1587,13 @@ const tarjetas = [
 
     document.addEventListener('click', alPulsar, { signal: sig });
     document.addEventListener('change', alCambiar, { signal: sig });
+    // `beforetoggle` de un popover NO burbujea, pero la fase de captura recorre
+    // el árbol igual — de ahí el `capture`. Colocarlo ANTES de que se pinte
+    // evita que el globo aparezca centrado y salte a su sitio.
+    document.addEventListener('beforetoggle', (e) => {
+      const pop = e.target as HTMLElement;
+      if ((e as any).newState === 'open' && pop?.classList?.contains('notas-popup')) colocarNotas(pop);
+    }, { signal: sig, capture: true });
   }
 
   // Registro del oyente de astro:page-load, IDEMPOTENTE (regla 1 de

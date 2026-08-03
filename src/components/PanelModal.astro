@@ -1,0 +1,274 @@
+---
+/**
+ * El modal del panel (Figma 1215:219163), con sus tres estados en UN solo
+ * componente que cambia `data-estado`: `confirmar` → `en-curso` → `resumen`.
+ * No se cierra y se abre otro: es la misma ventana contando la misma historia,
+ * y así no hay parpadeo entre pasos.
+ *
+ * REGLA 7. Aquí está la razón de que este fichero exista en vez de que el
+ * cliente escriba el modal: un script de `panel.astro` va con `define:vars`, o
+ * sea inline, y no puede importar nada. Fabricar este marcado a mano en JS sería
+ * la copia que la regla 7 lleva media docena de bugs advirtiendo. La salida:
+ * **las cuatro operaciones automáticas se pintan aquí, en SSR, y nacen
+ * ocultas**; el cliente solo quita el `hidden` de las que apliquen y escribe
+ * valores. Son cuatro y son fijas (png, no-srgb, enorme, pesado), así que
+ * pintarlas todas no es desperdicio: es lo que permite no construir nada fuera.
+ *
+ * Ganchos para el cliente, no cambiar su forma: `#panel-modal` (raíz, con
+ * `data-estado`), `.modal-titulo`, `.modal-cuerpo`, `.modal-img`,
+ * `.modal-mejoras` (la sección entera de opciones extra), `.mejora[data-clave]`
+ * con su `input.mejora-chk` y su `.mejora-detalle`, `.modal-cancelar`,
+ * `.modal-simular`, `.modal-aplicar`, `.modal-progreso`, `.modal-barra`,
+ * `.modal-resumen-lista`, `.modal-cerrar`.
+ */
+import type { Grupo } from '../lib/auditoria';
+
+interface Props {
+  /** Las reglas con arreglo automático, en el orden de trabajo de auditoria.ts.
+   *  Se pintan las cuatro aunque el cartel solo necesite una: ver regla 7. */
+  automaticas: Pick<Grupo, 'clave' | 'nivel' | 'titulo' | 'accion' | 'descripcion'>[];
+}
+const { automaticas } = Astro.props;
+
+// Mismos estilos de botón que las secciones, para que el modal no estrene una
+// pareja propia. Alto 56 y ancho al 50% son del nodo de Figma.
+const BTN_SOLIDO = 'bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 typo-button h-14 flex-1 inline-flex items-center justify-center gap-2 px-4 whitespace-nowrap';
+const BTN_CONTORNO = 'bg-transparent border border-mel-action-secondary text-mel-action-secondary hover:border-mel-action-primary hover:text-mel-action-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-200 typo-button h-14 flex-1 inline-flex items-center justify-center px-4 whitespace-nowrap';
+
+const FRANJA: Record<1 | 2, string> = {
+  1: 'bg-mel-banner-error-border',
+  2: 'bg-mel-banner-warning-border',
+};
+---
+
+{/* El diálogo va en <dialog>: el navegador ya sabe hacer modal de verdad
+    —foco atrapado, Esc, capa superior por encima de cualquier overflow— y
+    reimplementarlo a mano es la clase de rueda que este proyecto no reinventa.
+    El fondo oscurecido es `::backdrop`, en el <style> de abajo. */}
+<dialog
+  id="panel-modal"
+  data-estado="confirmar"
+  class="p-0 bg-transparent max-w-none max-h-none w-full h-full"
+  aria-labelledby="modal-titulo"
+>
+  <div class="min-h-full flex items-center justify-center p-6">
+    <div class="bg-mel-bg-primary border border-mel-border shadow-[var(--mel-shadow-xl)] flex flex-col lg:flex-row gap-10 p-10 max-w-[1000px] w-full max-h-[90vh] overflow-y-auto">
+
+      {/* Vista previa. Solo tiene sentido con UN cartel: en un lote no hay
+          "la" imagen, así que el cliente esconde esta columna entera. El fondo
+          de rayas dice "aquí hay transparencia" sin escribirlo. */}
+      {/* Ancho FIJO de 400 y alto el de la columna de al lado (Figma
+          1239:121505: `w-[400px]`, `self-stretch`). El cartel va en `contain`,
+          así que se ve entero y las rayas rellenan lo que sobra — que es
+          justamente para lo que están. Antes la caja tomaba la proporción del
+          cartel y se calculaba en JS; con un ancho fijo eso sobra y la columna
+          deja de cambiar de tamaño según el cartel que toque. */}
+      <div class="modal-img-caja self-stretch shrink-0 w-[400px] max-w-full max-h-[720px] striped-bg overflow-hidden flex items-center justify-center">
+        <img class="modal-img w-full h-full object-contain" src="" alt="" referrerpolicy="no-referrer" />
+      </div>
+
+      <div class="flex flex-col gap-10 flex-1 min-w-0">
+        <div class="flex flex-col gap-4">
+          <h2 id="modal-titulo" class="modal-titulo typo-h1 text-mel-text-primary"></h2>
+          <p class="modal-cuerpo typo-body-sans text-mel-text-primary"></p>
+        </div>
+
+        {/* Lo que va a cambiar, ANTES de tocar nada. Aquí solo entra lo que se
+            puede saber por adelantado: el formato lo decide la acción, el modo
+            de color sale del perfil que ya se leyó, y las dimensiones salen del
+            techo de 2400. El PESO no está, y no es un olvido — no se puede
+            saber sin procesar el fichero, así que aparece luego en el resumen,
+            ya medido. Prometer un peso aquí sería inventárselo. */}
+        {/* «Fix table resume» de Figma (1238:102590): una franja con filete
+            arriba y abajo, y dentro cada cambio como «de dónde → a dónde». El
+            destino va en VERDE (`banner-success-text`) y el origen en texto
+            secundario: de un vistazo se ve qué se gana sin leer la etiqueta.
+            Por eso la etiqueta ya no se pinta —«PNG → JPG» no necesita que le
+            pongan «Formato» delante— pero sigue en el `<dt>` para quien navegue
+            con lector de pantalla, donde sí hace falta.
+
+            Envuelve (`flex-wrap`) porque pueden entrar hasta tres cambios y en
+            fila serían 768px en una columna de 480. */}
+        <dl class="modal-cambios flex flex-col w-full border-t border-mel-border" hidden>
+          {['formato', 'color', 'dimensiones'].map((qué) => (
+            <div class={`cambio cambio-${qué} flex items-center justify-center border-b border-mel-border`} hidden>
+              <dt class="sr-only"></dt>
+              <dd class="flex items-center">
+                <span class="de typo-button text-mel-text-secondary min-w-[100px] h-16 px-4 flex items-center justify-center text-center"></span>
+                <span class="w-10 h-10 shrink-0 grid place-items-center text-mel-action-tertiary" aria-hidden="true">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12h14M13 6l6 6-6 6"></path>
+                  </svg>
+                </span>
+                <span class="a typo-button text-mel-banner-success-text min-w-[100px] h-16 px-4 flex items-center justify-center text-center"></span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+
+        {/* Varios ficheros: la lista de a cuáles afecta. Se desplaza a partir de
+            cierto alto en vez de estirar el modal fuera de la pantalla. La
+            vista previa de arriba se esconde en este caso — con veinte carteles
+            no hay "la" imagen que enseñar. */}
+        {/* Seis filas y un asomo de la séptima: el corte a media fila es lo que
+            dice «hay más» sin escribirlo. Cada fila mide 56 (40 de miniatura + 16
+            de aire), así que 6,5 filas son 364. */}
+        <ul class="modal-lista flex flex-col shrink-0 max-h-[364px] overflow-y-auto" hidden></ul>
+
+        {/* Las otras mejoras. Nace oculta: si el cartel no tiene ninguna más,
+            enseñar un rótulo con la lista vacía sería peor que no enseñarlo. */}
+        <div class="modal-mejoras flex flex-col gap-4" hidden>
+          <h3 class="typo-h3 text-mel-action-primary">Otras mejoras recomendadas</h3>
+          <p class="typo-body-sans text-mel-text-primary">
+            Para que la imagen no pierda calidad es mejor hacer todos los arreglos en una sola pasada:
+          </p>
+
+          <div class="flex flex-col">
+            {automaticas.map((r) => (
+              <div class="mejora border-b border-mel-border" data-clave={r.clave} hidden>
+                <div class="flex items-center h-12">
+                  <span class={`w-2 self-stretch shrink-0 ${FRANJA[r.nivel]}`} aria-hidden="true"></span>
+                  <span class="flex items-center px-4">
+                    <input type="checkbox" class="mejora-chk chk-fila" checked aria-label={r.accion ?? r.titulo} />
+                  </span>
+                  <span class="flex-1 min-w-0 flex items-center gap-4 pr-4">
+                    <span class="typo-lead text-mel-text-primary truncate">{r.accion}</span>
+                    <button type="button" class="mejora-info shrink-0 w-6 h-6 inline-flex items-center justify-center text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent" aria-expanded="false" aria-label={`Por qué: ${r.titulo}`}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <path d="M12 16v-4"></path><path d="M12 8h.01"></path>
+                      </svg>
+                    </button>
+                  </span>
+                </div>
+                {/* El porqué, con el texto de la propia regla — no una versión
+                    corta escrita aparte que acabaría diciendo otra cosa. */}
+                <div class="mejora-detalle pl-2 pb-4" hidden>
+                  <div class="bg-mel-bg-secondary border-b border-l border-r border-mel-border px-6 py-4">
+                    <p class="typo-caption text-mel-text-secondary" set:html={r.descripcion} />
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* La calidad NO es una regla de la auditoría: es la decisión que
+                obliga a tomar cualquier arreglo que reescriba el fichero. Va
+                aquí, entre las mejoras, porque es lo que el propietario tiene
+                que poder desmarcar — el banner de «Espacio de color» ya la
+                anuncia como recomendación, y una recomendación que se aplica
+                sola no es una recomendación.
+
+                Franja ÁMBAR como el resto: aunque no salga de un aviso, es una
+                recomendación de esta misma lista, y pintarla de otro color la
+                sacaba del grupo al que pertenece. */}
+            <div class="mejora mejora-calidad border-b border-mel-border" data-clave="calidad" hidden>
+              <div class="flex items-center h-12">
+                <span class="w-2 self-stretch shrink-0 bg-mel-banner-warning-border" aria-hidden="true"></span>
+                <span class="flex items-center px-4">
+                  <input type="checkbox" class="mejora-chk chk-fila" checked aria-label="Bajar a calidad 95" />
+                </span>
+                <span class="flex-1 min-w-0 flex items-center gap-4 pr-4">
+                  <span class="typo-lead text-mel-text-primary truncate">Bajar a calidad 95</span>
+                  <button type="button" class="mejora-info shrink-0 w-6 h-6 inline-flex items-center justify-center text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200 bg-transparent" aria-expanded="false" aria-label="Por qué: bajar a calidad 95">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M12 16v-4"></path><path d="M12 8h.01"></path>
+                    </svg>
+                  </button>
+                </span>
+              </div>
+              <div class="mejora-detalle pl-2 pb-4" hidden>
+                <div class="bg-mel-bg-secondary border-b border-l border-r border-mel-border px-6 py-4">
+                  <p class="typo-caption text-mel-text-secondary">
+                    Reducir la calidad a 95% durante el procesamiento. *No es posible
+                    calcular la compresión exacta de antemano.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* En curso. El contador es REAL: el cliente pide un fichero por
+            llamada, así que "12 de 33" es lo que de verdad ha terminado. El
+            spec de flujos descartaba el contador porque entonces la ruta
+            respondía una vez para N ficheros; se hizo de una en una
+            precisamente para poder contar sin mentir. */}
+        <div class="modal-progreso flex flex-col gap-4">
+          <p class="modal-progreso-texto typo-h4 text-mel-text-primary"></p>
+          <div class="h-2 w-full bg-mel-bg-tertiary overflow-hidden">
+            <div class="modal-barra h-full bg-mel-action-secondary transition-[width] duration-300" style="width:0%"></div>
+          </div>
+          <p class="modal-progreso-actual typo-caption text-mel-text-secondary"></p>
+        </div>
+
+        {/* Resumen: una línea por cartel, con el peso antes → después. Se
+            enseña el peso a propósito y no solo "hecho": reducir un PNG plano
+            puede ENGORDARLO (medido sobre MEL-00083, 400 KB → 581 KB), y eso
+            solo se ve si se enseña. Los que suben salen en ámbar. */}
+        {/* El resumen usa la MISMA forma que la confirmación —etiqueta, de,
+            flecha, a— para que se lea como la continuación de lo que se acaba
+            de aceptar y no como otra pantalla distinta. */}
+        <div class="modal-resumen flex flex-col gap-4">
+          <dl class="modal-resumen-lista flex flex-col max-h-[40vh] overflow-y-auto"></dl>
+        </div>
+
+        {/* Los botones se reparten el ancho a partes iguales (Figma
+            1215:216450: `flex-1`, alto 56, hueco 32). Los que no tocan en este
+            estado los esconde el CSS de abajo, así que el reparto es siempre
+            entre los que se ven. `flex-1` va aquí y no en las constantes de
+            botón: las comparten los de la tabla, que no deben estirarse. */}
+        <div class="flex items-center gap-8 w-full [&>*]:flex-1 [&>*]:h-14">
+          <button type="button" class={`${BTN_CONTORNO} modal-cancelar`}>Cancelar</button>
+          <button type="button" class={`${BTN_CONTORNO} modal-simular`}>Simular sin tocar nada</button>
+          <button type="button" class={`${BTN_SOLIDO} modal-aplicar`}>Aplicar</button>
+          <button type="button" class={`${BTN_CONTORNO} modal-finder`} hidden>Abrir en el Finder</button>
+          <button type="button" class={`${BTN_CONTORNO} modal-drive`} hidden>Abrir en Drive</button>
+          <button type="button" class={`${BTN_SOLIDO} modal-cerrar`}>Entendido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<style>
+  #panel-modal::backdrop {
+    background: var(--mel-dim);
+  }
+
+  /* Qué se ve en cada estado. Va por CSS y no quitando `hidden` desde el JS
+     para que el cliente solo tenga que cambiar UN atributo: si esto se
+     repartiera en seis `hidden`, olvidarse de uno deja el modal a medias.
+
+     Y por eso mismo NINGUNO de estos bloques lleva `hidden` en el marcado. Lo
+     llevaban, y era el peor de los dos mundos: el CSS escondía los que no
+     tocaban, pero nadie quitaba nunca el atributo de los que sí — así que el
+     progreso, el resumen y el botón Cerrar no aparecían en ningún estado. La
+     simulación corría entera y el modal se quedaba mudo. Dos dueños para lo
+     mismo, otra vez; aquí manda `data-estado` y punto. */
+  #panel-modal[data-estado="en-curso"] .modal-cambios,
+  #panel-modal[data-estado="resumen"] .modal-cambios,
+  #panel-modal[data-estado="en-curso"] .modal-lista,
+  #panel-modal[data-estado="resumen"] .modal-lista,
+  #panel-modal[data-estado="en-curso"] .modal-mejoras,
+  #panel-modal[data-estado="en-curso"] .modal-cancelar,
+  #panel-modal[data-estado="en-curso"] .modal-simular,
+  #panel-modal[data-estado="en-curso"] .modal-aplicar,
+  #panel-modal[data-estado="resumen"] .modal-mejoras,
+  #panel-modal[data-estado="resumen"] .modal-cancelar,
+  #panel-modal[data-estado="resumen"] .modal-simular,
+  #panel-modal[data-estado="resumen"] .modal-aplicar,
+  #panel-modal[data-estado="resumen"] .modal-progreso,
+  #panel-modal[data-estado="confirmar"] .modal-progreso,
+  #panel-modal[data-estado="confirmar"] .modal-resumen,
+  #panel-modal[data-estado="en-curso"] .modal-resumen,
+  #panel-modal[data-estado="confirmar"] .modal-cerrar,
+  #panel-modal[data-estado="confirmar"] .modal-finder,
+  #panel-modal[data-estado="confirmar"] .modal-drive,
+  #panel-modal[data-estado="en-curso"] .modal-finder,
+  #panel-modal[data-estado="en-curso"] .modal-drive,
+  #panel-modal[data-estado="en-curso"] .modal-cerrar {
+    display: none !important;
+  }
+
+</style>

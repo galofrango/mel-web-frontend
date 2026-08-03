@@ -4,8 +4,8 @@ import { auditar, estaVacio } from '../src/lib/auditoria.ts';
 
 const filaBase = {
   n: 2, idMel: 'MEL-00001', evento: 'Trip with us', urlDrive: 'https://drive.google.com/file/d/AAA/view',
-  lugar: 'El Gran Café', localidad: 'León', coordenadas: 'https://maps.google.com/…!3d42.5!4d-5.5',
-  artistas: 'DJ Uno', notasArchivo: '',
+  lugar: 'El Gran Café', localidad: 'León', coordenadas: 'https://www.google.es/maps/place/Calle+Cervantes,+9/@42.5990752,-5.5692811,17z/data=!3m1!4b1!8m2!3d42.5990752!4d-5.5692811',
+  artistas: 'DJ Uno', notasArchivo: '', notasOcultas: '',
 };
 const tecBase = { tipo: 'jpeg', px: [1600, 2000], comp: 3, noSrgb: false, alfa: false, bytes: 900000 };
 
@@ -54,6 +54,16 @@ test('"pesado" solo admite lo que ya está bien de todo lo demás', () => {
   }
   assert.ok(claves([filaBase], { AAA: { ...tecBase, bytes: gordo } }).includes('pesado'),
     'pero uno limpio y gordo sí');
+});
+
+test('un cartel sin medir se avisa, no se cuela en verde', () => {
+  // Es lo que le pasa a todo lo que se sube después de la última medición: sin
+  // datos técnicos, las comprobaciones de formato, tamaño y peso ni se aplican,
+  // y el cartel parecía impecable por no haber sido mirado.
+  const c = claves([filaBase], {});          // sin entrada en la caché técnica
+  assert.ok(c.includes('sin-medir'), 'debe avisar de que no se ha medido');
+  assert.ok(!c.includes('png') && !c.includes('pesado') && !c.includes('enorme'),
+    'y no inventarse defectos técnicos que no puede saber');
 });
 
 test('detecta los huecos de datos', () => {
@@ -148,11 +158,11 @@ test('dentro de cada grupo, lo peor primero', () => {
     'en baja resolución el peor es el más pequeño');
 });
 
-test('la marca en notasArchivo marca ese aviso como oculto, y solo ese', () => {
+test('la marca en la columna de ocultación marca ese aviso, y solo ese', () => {
   // El silenciado ya NO descarta el item: lo marca. El panel lo pinta escondido
-  // y el interruptor «Mostrar avisos ocultos» lo saca sin volver a pedir la hoja.
+  // y el interruptor «Ver ocultos» lo saca sin volver a pedir la hoja.
   const tec = { AAA: { ...tecBase, tipo: 'png', noSrgb: true } };
-  const conMarca = [{ ...filaBase, notasArchivo: 'Escaneo del propio autor. #acepta:png' }];
+  const conMarca = [{ ...filaBase, notasOcultas: '#oculto:png Escaneo del propio autor.' }];
   const g = auditar(conMarca, tec);
   assert.deepEqual(g.map(x => x.clave), ['png', 'no-srgb'], 'el grupo sigue viniendo');
   assert.equal(g.find(x => x.clave === 'png').items[0].oculto, true, 'el marcado va oculto');
@@ -163,17 +173,17 @@ test('un grupo en el que TODO está oculto sigue viniendo', () => {
   // Si no viniera, el interruptor global no tendría nada que enseñar y esa
   // sección desaparecería del panel para siempre.
   const tec = { AAA: { ...tecBase, tipo: 'png' } };
-  const g = auditar([{ ...filaBase, notasArchivo: '#acepta:png' }], tec);
+  const g = auditar([{ ...filaBase, notasOcultas: '#oculto:png' }], tec);
   assert.deepEqual(g.map(x => x.clave), ['png']);
   assert.equal(g[0].items.every(i => i.oculto), true);
 });
 
 test('el silenciado no confunde una clave con el prefijo de otra', () => {
   // "pesado2" no es una clave real, pero si el ancla del silenciado fallara
-  // (un `includes()` a secas), marcar "#acepta:pesado2" silenciaría también
+  // (un `includes()` a secas), marcar "#oculto:pesado2" silenciaría también
   // "pesado" por simple coincidencia de prefijo.
   const tec = { AAA: { ...tecBase, bytes: 3 * 1024 * 1024 } };
-  const conMarcaAjena = [{ ...filaBase, notasArchivo: '#acepta:pesado2' }];
+  const conMarcaAjena = [{ ...filaBase, notasOcultas: '#oculto:pesado2' }];
   assert.ok(claves(conMarcaAjena, tec).includes('pesado'), 'un prefijo parecido no debe silenciar la clave real');
 });
 
@@ -184,4 +194,24 @@ test('un grupo sin items no se devuelve', () => {
 test('una imagen que no está en la caché técnica no revienta', () => {
   const c = claves([filaBase], {});
   assert.ok(Array.isArray(c));
+});
+
+// --- Ocultar es por AVISO, no por archivo ------------------------------------
+// Invariantes que pidió el propietario el 03/08/2026. Los dos ya se cumplían;
+// esto es para que sigan cumpliéndose sin que nadie tenga que acordarse.
+test('ocultar en una sección NO oculta el mismo cartel en las demás', () => {
+  // Un PNG enorme cae en «png» y en «enorme». Marcado solo el primero.
+  const filas = [{ ...filaBase, notasOcultas: 'Es un vector, se queda. #oculto:png' }];
+  const tec = { AAA: { ...tecBase, tipo: 'png', px: [5000, 5000] } };
+  const grupos = auditar(filas, tec);
+  const de = (clave) => grupos.find((g) => g.clave === clave)?.items[0];
+  assert.equal(de('png').oculto, true, 'la regla marcada');
+  assert.equal(de('enorme').oculto, false, 'la otra sigue avisando');
+});
+
+test('la nota llega sin la marca delante', () => {
+  const filas = [{ ...filaBase, notasOcultas: '#oculto:png Escaneo único.' }];
+  const tec = { AAA: { ...tecBase, tipo: 'png' } };
+  const item = auditar(filas, tec).find((g) => g.clave === 'png').items[0];
+  assert.equal(item.notas, 'Escaneo único.', 'sin la marca: es plomería, no texto para leer');
 });

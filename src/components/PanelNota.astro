@@ -1,0 +1,78 @@
+---
+/**
+ * El modal que pregunta POR QUÉ se oculta un archivo, antes de ocultarlo.
+ *
+ * Va aparte de `PanelModal.astro` y no como un cuarto estado suyo: aquel gira
+ * entero alrededor de un encargo de arreglo (imagen, mejoras, progreso,
+ * resumen) y meterle un formulario de texto dentro habría sido un `if` grande
+ * cruzando las cuatro fases. Aquí no hay más que un campo y dos botones.
+ *
+ * Por qué se pregunta en vez de ocultar y ya: ocultar un aviso es meter un
+ * fallo debajo de la alfombra —por buenas razones, casi siempre— y lo único
+ * que hace que eso no sea una pérdida de información es que quede escrito
+ * POR QUÉ (criterio del propietario, 03/08/2026, ver D-187).
+ *
+ * El motivo viene ESCRITO de antemano, uno distinto por regla (`MOTIVOS` en
+ * panel.astro), y llega seleccionado entero. Un `placeholder` gris se lee como
+ * "esto es un ejemplo, ya escribiré algo" y acaba en notas vacías; una frase
+ * de verdad ya seleccionada se guarda de un clic si vale, y se sustituye
+ * tecleando encima si no.
+ */
+const BTN = 'transition-colors duration-200 typo-button px-6 h-14 flex-1 inline-flex items-center justify-center whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed';
+---
+
+<dialog
+  id="panel-nota"
+  class="backdrop:bg-[rgba(25,6,9,0.48)] bg-transparent p-0 m-auto max-w-[1100px] w-full"
+  aria-labelledby="nota-titulo"
+>
+  <form method="dialog" class="bg-mel-bg-primary border border-mel-border shadow-[var(--mel-shadow-xl)] flex flex-col lg:flex-row gap-10 p-10">
+
+    {/* Misma caja que el modal de confirmación: 400 fijos, rayas de fondo y el
+        cartel en `contain`. Con varios carteles no hay "la" imagen, así que el
+        cliente esconde la columna entera. */}
+    <div class="nota-img-caja self-stretch shrink-0 w-[400px] max-w-full max-h-[720px] striped-bg overflow-hidden flex items-center justify-center">
+      <img class="nota-img w-full h-full object-contain" src="" alt="" referrerpolicy="no-referrer" />
+    </div>
+
+    <div class="flex flex-col gap-8 flex-1 min-w-0">
+      <div class="flex flex-col gap-4">
+        <h2 id="nota-titulo" class="typo-h2 text-mel-text-primary">¿Quieres dejar una nota?</h2>
+        <p class="typo-body-sans text-mel-text-primary">
+          Podrás ver la nota al activar «Ver ocultos» con el interruptor de arriba
+          y también quedará escrita en la columna «Notas desde el panel» del spreadsheet.
+        </p>
+      </div>
+
+      <label class="flex flex-col gap-3">
+        <span class="typo-overline text-mel-text-secondary">Motivo de la ocultación</span>
+        <textarea class="nota-texto bg-mel-bg-secondary border border-mel-border text-mel-text-primary typo-body-sans px-6 py-4 min-h-[120px] resize-y"></textarea>
+      </label>
+
+      <p class="nota-error typo-caption text-mel-banner-error-border" hidden></p>
+
+      {/* Escribir 20 notas son 20 escrituras en la hoja, de una en una, y eso
+          tarda. Sin decirlo el modal se quedaba quieto y parecía colgado.
+          Mismo idioma que el progreso de las acciones —H4 y barra— porque es
+          lo mismo: una tanda larga de la que hay que saber por dónde va. */}
+      <div class="nota-progreso flex flex-col gap-4" hidden>
+        <p class="nota-progreso-texto typo-h4 text-mel-text-primary"></p>
+        <div class="h-2 w-full bg-mel-bg-tertiary overflow-hidden">
+          <div class="nota-barra h-full bg-mel-action-secondary transition-[width] duration-300" style="width:0%"></div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-8 w-full">
+        {/* `value` en vez de un `click` propio: un `<form method="dialog">` cierra
+            el diálogo solo y deja en `returnValue` el del botón pulsado. Menos
+            JavaScript, y Escape hace lo mismo que «Cancelar». */}
+        <button type="submit" value="cancelar" class={`nota-cancelar ${BTN} bg-transparent border border-mel-action-secondary text-mel-action-secondary hover:border-mel-action-primary hover:text-mel-action-primary`}>
+          Cancelar
+        </button>
+        <button type="submit" value="guardar" class={`nota-guardar ${BTN} bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary`}>
+          Guardar
+        </button>
+      </div>
+    </div>
+  </form>
+</dialog>

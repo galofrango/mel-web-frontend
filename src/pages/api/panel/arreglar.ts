@@ -32,7 +32,7 @@
 import type { APIRoute } from 'astro';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm, mkdir, readdir, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { leerCabecera, ladoMayor, type DatosImagen } from '../../../lib/imagen.ts';
@@ -56,9 +56,16 @@ const ACCIONES_VALIDAS = new Set(['png', 'no-srgb', 'enorme', 'pesado']);
 
 const PERFIL_SRGB = '/System/Library/ColorSync/Profiles/sRGB Profile.icc';
 const PERFIL_GRIS = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc';
-const CALIDAD_INICIAL = 85;   // el estándar del proyecto (imagenes.md)
+// 95, no 85 (criterio del propietario, 03/08/2026). Medido sobre el archivo:
+// subir de 85 a 95 solo engorda el fichero un 10% —un PNG de 3627 KB sale en
+// 956 a 85 y en 1048 a 95, cuando el original pesa tres veces eso— y la
+// diferencia de calidad sí se nota. Y sigue bastando para lo que hace falta:
+// los tres JPEG del archivo que pasan de 2 MB bajan por debajo YA en la
+// primera pasada a 95 (3385→1971, 2759→1916, 2668→1367 KB).
+const CALIDAD_MAXIMA = 100;   // «no añadas pérdida», aunque el fichero engorde
+const CALIDAD_ARCHIVO = 95;
 const CALIDAD_MINIMA = 30;    // no bajar de aquí: destruir el cartel no es "arreglarlo"
-const PASO_CALIDAD = 15;
+const PASO_CALIDAD = 5;    // de 5 en 5: para en cuanto entra, sin pasarse de largo
 const LIMITE_PESO = 2 * 1048576;  // 2 MB, el mismo umbral que auditoria.ts
 // Un solo número: se avisa por encima de 2400 y se reduce a 2400, así no queda
 // franja muerta (antes se avisaba a partir de 3000 y los de 2401–3000 no salían
@@ -71,7 +78,7 @@ export type Accion = 'png' | 'no-srgb' | 'enorme' | 'pesado';
 export type PlanArreglo =
   | { estado: 'rechazado'; motivo: string }
   | { estado: 'sin-cambios' }
-  | { estado: 'aplicar'; salida: 'jpeg' | 'png'; reduce: boolean; recomprime: boolean; perfil: string };
+  | { estado: 'aplicar'; salida: 'jpeg' | 'png'; reduce: boolean; recomprime: boolean; calidad: number; perfil: string };
 
 /** Si cada acción tiene algo que hacer en ESTE fichero. Pedir reducir un cartel
  *  que no pasa de 3000 px no es un error del que avisar: simplemente no aplica,
@@ -102,7 +109,7 @@ const APLICA: Record<Accion, (t: DatosImagen) => boolean> = {
  * La ÚNICA cosa que se hace siempre sin pedirla es `--matchTo` (ver
  * `argumentosSips`), y no es un extra: es lo que impide romper el fichero.
  */
-export function planificarArreglo(t: DatosImagen, acciones: readonly Accion[]): PlanArreglo {
+export function planificarArreglo(t: DatosImagen, acciones: readonly Accion[], calidadMaxima = false): PlanArreglo {
   if (t.tipo === 'gif') {
     return { estado: 'rechazado', motivo: 'GIF animado: no tiene arreglo automático, convertirlo destruiría la animación' };
   }
@@ -130,7 +137,25 @@ export function planificarArreglo(t: DatosImagen, acciones: readonly Accion[]): 
     };
   }
 
-  return { estado: 'aplicar', salida, reduce, recomprime, perfil: t.gris ? PERFIL_GRIS : PERFIL_SRGB };
+  // A qué calidad se vuelve a guardar.
+  //
+  // Cambiar de color, de formato o de tamaño obliga a reescribir el JPEG, y
+  // escribir un JPEG obliga a elegir una calidad: no existe un «déjalo como
+  // estaba». Lo único elegible es CUÁL, y solo hay dos respuestas razonables —
+  // 95, la norma del archivo, o la máxima.
+  //
+  // 95 es lo que se OFRECE marcado, no lo que se impone: el propietario lo pidió
+  // como opción explícita del modal (04/08/2026) porque el banner ya lo anuncia
+  // como recomendación, y una recomendación que se aplica sola no es una
+  // recomendación. Sin marcar se usa la máxima, que no añade pérdida pero deja
+  // el fichero pesando como el original o más (medido).
+  //
+  // «pesado» es la excepción y no pregunta: ahí la calidad ES el arreglo. Su
+  // ESCALERA (95 → 90 → 85…, de cinco en cinco) solo corre en ese caso, que es
+  // el único que persigue un peso concreto.
+  const calidad = recomprime || !calidadMaxima ? CALIDAD_ARCHIVO : CALIDAD_MAXIMA;
+
+  return { estado: 'aplicar', salida, reduce, recomprime, calidad, perfil: t.gris ? PERFIL_GRIS : PERFIL_SRGB };
 }
 
 /**
@@ -208,7 +233,7 @@ export const POST: APIRoute = async ({ request }) => {
   const host = request.headers.get('host') || '';
   if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(host)) return new Response(null, { status: 404 });
 
-  let cuerpo: { accion?: string; acciones?: string[]; idMel?: string };
+  let cuerpo: { accion?: string; acciones?: string[]; idMel?: string; simular?: boolean; limpiar?: boolean; abrirCarpeta?: boolean; calidadMaxima?: boolean };
   try {
     cuerpo = await request.json();
   } catch {
@@ -218,6 +243,21 @@ export const POST: APIRoute = async ({ request }) => {
   // Se aceptan las dos formas: `accion` (la del botón pulsado, a secas) y
   // `acciones` (esa más las que se marquen en el modal). Se normaliza a lista
   // porque el motor razona en plural desde que un botón hace solo lo suyo.
+  // Abrir la carpeta de simulaciones en el Finder. Va aquí y no en una ruta
+  // aparte porque los guardas que hacen esto aceptable —solo en desarrollo y
+  // solo desde localhost— ya están puestos arriba. La ruta es FIJA: no entra
+  // nada del cuerpo en el comando, así que no hay nada que inyectar.
+  if (cuerpo.abrirCarpeta) {
+    const dir = join(process.cwd(), 'simulacion');
+    await mkdir(dir, { recursive: true });
+    try {
+      await execFileP('open', [dir]);
+      return json({ ok: true, abierta: 'simulacion' });
+    } catch (e: any) {
+      return json({ ok: false, motivo: `no se pudo abrir la carpeta: ${e.message}` });
+    }
+  }
+
   const { idMel } = cuerpo;
   const acciones = cuerpo.acciones ?? (cuerpo.accion ? [cuerpo.accion] : []);
   if (!Array.isArray(acciones) || acciones.length === 0) {
@@ -258,7 +298,7 @@ export const POST: APIRoute = async ({ request }) => {
     // 3. Medir y decidir. Puro: nada de lo que sigue en este bloque puede
     //    cambiar el resultado de planificarArreglo.
     const estado = leerCabecera(original);
-    const plan = planificarArreglo(estado, acciones as Accion[]);
+    const plan = planificarArreglo(estado, acciones as Accion[], cuerpo.calidadMaxima === true);
 
     if (plan.estado === 'rechazado') {
       return json({ ok: false, idMel, acciones, motivo: plan.motivo, tecnico: estado });
@@ -283,7 +323,7 @@ export const POST: APIRoute = async ({ request }) => {
       // convertir: eso es perseguir un peso que nadie pidió arreglar, perdiendo
       // calidad por el camino. Un PNG que sigue siendo PNG nunca entra aquí —
       // no tiene calidad que bajar (`recomprime` es false por construcción).
-      let calidad = CALIDAD_INICIAL;
+      let calidad = plan.calidad;
       for (;;) {
         await execFileP('sips', argumentosSips(plan, calidad, entrada, salida));
         salidaBuf = await readFile(salida);
@@ -296,17 +336,95 @@ export const POST: APIRoute = async ({ request }) => {
       await rm(dirTmp, { recursive: true, force: true });
     }
 
-    // 5. Sustituir en Drive, conservando el id — no toca ni una celda de la hoja.
+    // 5a. SIMULACIÓN: el recorrido entero menos la última línea. Se ha
+    //     descargado el original de verdad, se ha medido de verdad y sips lo ha
+    //     procesado de verdad; lo único que no pasa es sustituirlo en Drive.
+    //
+    //     El resultado NO se tira: se deja en `simulacion/` junto al original,
+    //     con nombres que se emparejan (`-antes` / `-despues`), para poder
+    //     abrirlos y compararlos antes de dejar que esto toque el archivo. Es
+    //     petición del propietario, y es mejor que procesar a ciegas: los
+    //     números dicen que pesa menos, pero solo el ojo dice si sigue estando
+    //     bien.
+    if (cuerpo.simular) {
+      const dir = join(process.cwd(), 'simulacion');
+      await mkdir(dir, { recursive: true });
+      // El cliente marca `limpiar` en el PRIMER fichero de cada tanda: así la
+      // carpeta enseña solo lo que se acaba de probar, en vez de ir acumulando
+      // pruebas viejas hasta que no se sabe cuál es de cuándo. Se borra aquí y
+      // no al cerrar el modal porque cerrar no es "he terminado de mirar".
+      if (cuerpo.limpiar) {
+        for (const f of await readdir(dir)) {
+          if (/^MEL-[\w-]+\.(jpg|png|bin)$/.test(f) || /-(antes|despues)\./.test(f)) {
+            await unlink(join(dir, f)).catch(() => {});
+          }
+        }
+      }
+      const ext = (b: Buffer) => (b[0] === 0xFF && b[1] === 0xD8 ? 'jpg' : b[1] === 0x50 ? 'png' : 'bin');
+      const antes = join(dir, `${idMel}-antes.${ext(original)}`);
+      const despues = join(dir, `${idMel}-despues.${plan.salida === 'jpeg' ? 'jpg' : 'png'}`);
+      await writeFile(antes, original);
+      await writeFile(despues, salidaBuf);
+      return json({
+        ok: true, idMel, acciones, simulado: true, hecho: false,
+        antes: { bytes: original.length, tipo: estado.tipo, px: estado.px, perfil: estado.perfil, comp: estado.comp },
+        despues: { bytes: salidaBuf.length, ...leerCabecera(salidaBuf) },
+        // Rutas relativas: el panel las enseña para poder abrirlas, y no hay
+        // por qué publicar el árbol de directorios de la máquina.
+        ficheros: [`simulacion/${idMel}-antes.${ext(original)}`, `simulacion/${idMel}-despues.${plan.salida === 'jpeg' ? 'jpg' : 'png'}`],
+      });
+    }
+
+    // 5b. Sustituir en Drive, conservando el id — no toca ni una celda de la hoja.
     try {
       await sustituirFichero(idDrive, salidaBuf, plan.salida === 'jpeg' ? 'image/jpeg' : 'image/png', token);
     } catch (e: any) {
       return json({ ok: false, idMel, acciones, motivo: `no se pudo sustituir en Drive: ${e.message}` });
     }
 
-    // 6. Remedir el resultado. El panel recalcula TODAS las secciones con esto,
-    //    no solo la que se pulsó (una acción puede arreglar varios avisos).
+    // 6a. Actualizar la caché de medidas EN DISCO para este fichero. Sin esto
+    //     el panel mentiría justo después de arreglar: `flyer_tecnico.json` lo
+    //     escribe `scripts/medir-archivo.mjs`, así que un cartel recién
+    //     convertido seguiría saliendo como PNG hasta que alguien se acordara
+    //     de correr el script a mano. Se acaba de medir el resultado aquí
+    //     mismo; guardarlo es gratis y es la única forma de que recargar la
+    //     página diga la verdad.
+    try {
+      const ruta = join(process.cwd(), 'src', 'data', 'flyer_tecnico.json');
+      const cache = JSON.parse(await readFile(ruta, 'utf8'));
+      const destino = cache.imagenes ?? cache;
+      destino[idDrive] = leerCabecera(salidaBuf);
+      await writeFile(ruta, JSON.stringify(cache, null, 1));
+    } catch { /* la caché es una comodidad, no la verdad: si falla, se remide */ }
+
     const tecnicoNuevo = leerCabecera(salidaBuf);
-    return json({ ok: true, idMel, acciones, hecho: true, tecnico: tecnicoNuevo });
+
+    // 6a-bis. Anotar en el registro. Solo las pasadas REALES: una simulación no
+    //     toca nada y apuntarla inflaría el ahorro con trabajo que no se hizo.
+    //     Se anota DESPUÉS de sustituir en Drive, no antes: lo que se registra
+    //     es lo que pasó, no lo que se iba a intentar.
+    try {
+      const ruta = join(process.cwd(), 'src', 'data', 'panel_historial.json');
+      let apuntes: any[] = [];
+      try { apuntes = JSON.parse(await readFile(ruta, 'utf8')); } catch { /* aún no existe */ }
+      apuntes.push({
+        fecha: new Date().toISOString(),
+        idMel, acciones,
+        antes: { bytes: original.length, tipo: estado.tipo, perfil: estado.perfil },
+        despues: { bytes: salidaBuf.length, tipo: tecnicoNuevo.tipo, perfil: tecnicoNuevo.perfil },
+      });
+      await writeFile(ruta, JSON.stringify(apuntes, null, 1));
+    } catch { /* el registro es contabilidad, no el trabajo: no tumba el arreglo */ }
+
+    // 6b. Devolver el resultado. El panel recalcula TODAS las secciones con
+    //    esto, no solo la que se pulsó (una acción puede arreglar varios avisos).
+    return json({
+      ok: true, idMel, acciones, hecho: true, tecnico: tecnicoNuevo,
+      // Mismos campos que la simulación: así el resumen del modal es UNO solo y
+      // no dos que dicen lo mismo con formas distintas.
+      antes: { bytes: original.length, tipo: estado.tipo, px: estado.px, perfil: estado.perfil, comp: estado.comp },
+      despues: { bytes: salidaBuf.length, ...tecnicoNuevo },
+    });
   } catch (e: any) {
     // Cualquier fallo inesperado se convierte en un fallo de ESTE fichero, no
     // en un 500: el cliente pide de uno en uno y tiene que poder seguir con

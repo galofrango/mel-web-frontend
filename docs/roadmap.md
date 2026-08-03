@@ -138,6 +138,12 @@
 
 ## Deuda Técnica Registrada
 
+- **La caja de foto de la ficha debería ser un componente.** Hoy es marcado suelto dentro de `src/pages/event/[id].astro` (13 sitios): las líneas de fondo, la imagen a sangre y el alto medido por proporción real. El modal del panel la necesita y de momento la reproduce a mano, que es exactamente lo que avisa la regla 7. Extraerla es lo correcto; se aparca a propósito porque esa página es delicada (rompió producción el 02/08/2026 por un campo olvidado) y merece su propia pasada con las 51 fichas comprobadas después. Petición del propietario, 02/08/2026.
+- **Histórico de lo procesado por el panel, como sección propia** junto a «Preparación». Cada arreglo real deja una línea (fecha, cartel, antes, después, qué se hizo). Da la tarjeta de peso ahorrado y, sobre todo, el registro de qué tocó el panel y cuándo — que es lo primero que se querrá mirar el día que algo se vea raro.
+- **DESCARTADO — enseñar la calidad JPEG estimada.** Se probó y funciona (validado contra ficheros de calidad conocida: la calidad va escrita en las tablas de cuantización). Se descarta por decisión del propietario, 03/08/2026: **la escala de `sips` no coincide con la estándar** —su «85» sale como ~94—, así que enseñar ese número al lado de «calidad 85» confunde más de lo que aclara. El dato de fondo sí queda: los 50 JPEG del archivo están a 91 o más, **ninguno viene ya comprimido**, y por eso recomprimir aquí siempre cuesta algo.
+- **DESCARTADO — el highlight de «lo que tarda en cargar la galería».** Medido y calculable: 5,70 MB en las 32 miniaturas de la primera pantalla, 4,8 s en 4G media. Se descarta (propietario, 03/08/2026) porque **lo que se descarga no es el peso de los ficheros del archivo** —son miniaturas que genera Drive—, así que la cifra no se puede derivar de lo que el panel ya sabe y el cálculo no compensa. El dato queda escrito en `imagenes.md`.
+
+
 - **Índices de Columna de la Hoja Hardcodeados**: El parseador SSR depende de los índices absolutos de columna en el Google Sheet; reordenar columnas en la hoja rompería la extracción de datos.
 - **Clave de Google Maps en Frontend**: Incrustada en `Layout.astro` (pendiente de restringir por dominio autorizado en Google Cloud Console).
 - **Ausencia de Caché SSR**: Cada request ejecuta una petición HTTP en vivo a Google Sheets.
