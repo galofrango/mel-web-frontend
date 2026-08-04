@@ -74,8 +74,14 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
     onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);"
   />
 
-  <!-- Blending grid overlay (striped Figma style) -->
-  <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
+  <!-- RETIRADO (D-234): aquí había una capa de rayas diagonales (`striped-bg`)
+       que subía a `opacity-10` en hover. En escritorio se notaba poco, pero
+       en móvil el navegador simula el hover al tocar y, sumado al atenuado
+       táctil genérico de global.css, las rayas se veían claramente ENCIMA
+       del cartel mientras se mantenía pulsado. El propietario lo descartó:
+       un archivo de carteles no debe ensuciar el cartel.
+       Si algún día se recupera, va también en su gemela `buildGalleryCard()`
+       de index.astro (regla 7). -->
 
   <!-- Figma "Event Info" (node 481:238727): 32px bottom bar in action-secondary,
        title left / date right, justify-between. Title truncates first (min-w-0)

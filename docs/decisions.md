@@ -4260,3 +4260,31 @@ Cuatro fallos distintos, los cuatro medidos:
 4. **Elipsis en mitad del texto.** En la tag de varios promotores, la regla `:global(.filter-tag .mel-link-active > span)` le daba a CADA enlace su caja con recorte y puntos suspensivos propios. Excepción para `.tag-multi`: los enlaces vuelven a fluir como texto corrido y de recortar se encarga solo `.marquee-inner`, que es quien conoce el ancho de la celda. De paso, ahora sí sale la elipsis única al final, que antes no se pintaba porque el contenido eran cajas atómicas y no texto.
 
 Se añade `--marquee-gap` (8px) para que la última letra no acabe pegada al borde.
+
+## D-232 · En hover/activo, el marcador lleva una sola sombra y en LE-400
+
+En `:hover` se sumaba un `drop-shadow(0 6px 16px …)` al halo difuminado, además de la sombra plana nueva: dos sombras a la vez y el conjunto se ensuciaba. Se retira el halo y manda solo la plana, que en hover y en activo pasa a LE-400 (no Tinted). El `brightness` del cuerpo y del puntero no se toca: va en sus propios selectores y sí forma parte del estado activo.
+
+## D-233 · El marquee, componentizado de verdad
+
+**El CSS ya era único** (global.css) pero **la medición estaba copiada a mano** en `index.astro` y en `event/[id].astro`, con la trampa de siempre. Ahora vive una sola vez en `Layout.astro` como `window.melMedirMarquee(ámbito)`.
+
+**Por qué ahí sí se puede**: la regla 7 de AGENTS.md habla de los scripts con `define:vars`, que Astro sirve **en línea** y por eso no pasan por Vite ni pueden importar nada. El `<script>` de `Layout.astro` no lleva `define:vars`, así que sí se procesa y puede compartirse entre páginas dejando la función en `window`. Ambas páginas la llaman desde su propio `astro:page-load`, con guarda por si aún no ha corrido.
+
+Tres arreglos que entraron con la mudanza:
+
+- **No funcionaba al ENTRAR en Lista.** La tabla se construye con su panel todavía en `hidden`, así que al medir `clientWidth` es 0 y ninguna celda quedaba marcada. Sí funcionaba al volver desde una ficha, porque entonces el panel ya estaba visible. Se remide en `switchView('lista')`, en el fotograma siguiente. Medido: de 0 celdas marcadas a 59.
+- **El texto se pegaba al borde izquierdo.** `overflow: hidden` recorta en la caja de *padding*, así que el texto se deslizaba por debajo del padding y llegaba al borde de la celda. Ahora `overflow: clip` + `overflow-clip-margin: content-box`, que recorta donde empieza el contenido. En las celdas sin padding (tags de la ficha) las dos formas son idénticas.
+- **Umbral mínimo de 8px.** Celdas que desbordaban 3-4px hacían un tirón de una décima de segundo, que se ve como un temblor y no como una revelación.
+
+## D-234 · Fuera las rayas diagonales sobre el cartel en la galería
+
+`FlyerCard.astro` y su gemela `buildGalleryCard()` llevaban una capa de `striped-bg` que subía a `opacity-10` en hover. En escritorio se notaba poco; en móvil, donde el navegador simula el hover al tocar y encima se suma el atenuado táctil de global.css, las rayas se veían claramente **encima** del cartel mientras se mantenía pulsado. El propietario lo descartó: un archivo de carteles no debe ensuciar el cartel. Retirada en los dos sitios a la vez (regla 7).
+
+## D-235 · La animación del salto del slider, y por qué no existía
+
+Al pulsar la barra, el tirador saltaba de golpe mientras el relleno sí se deslizaba. **Causa medida**: `#slider-active-fill` se declara en `TimeSlider.astro` y recibe su atributo de ámbito, pero **los dos tiradores vienen de otro componente** (`SliderHandler.astro`) y por tanto no lo llevan — ninguna regla del `<style>` de TimeSlider les ha llegado nunca. Comprobado en el navegador: relleno `0.5s`, tiradores `0s`. La regla que "desactiva la transición al arrastrar" también estaba muerta por lo mismo (inofensiva, porque no había transición que desactivar).
+
+**Decisión**: `:global()` para cruzar la frontera de ámbito, pero acotado a una clase `.salto-animado` que solo existe durante el clic en la barra y se retira sola a los 550ms. El arrastre sigue siendo instantáneo (si no, el tirador va por detrás del dedo) y las escrituras programáticas —restaurar el rango al volver de una ficha— no se animan. Mismos 0.5s y misma curva que el relleno, para que tirador y barra viajen juntos.
+
+**No se han "arreglado" las reglas muertas** convirtiéndolas en globales: hacerlo cambiaría el arrastre, que el propietario marcó como delicado.

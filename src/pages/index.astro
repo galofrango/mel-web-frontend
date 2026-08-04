@@ -857,9 +857,24 @@ const tags = [
   @media (hover: hover) and (pointer: fine) {
     .mel-marker-wrapper:hover {
       transform: scale(1.05);
-      filter: drop-shadow(0px 6px 16px rgb(var(--mel-shadow-rgb) / 0.42));
       z-index: 99999 !important;
     }
+  }
+
+  /* En hover y en activo manda SOLO la sombra plana nueva, que además pasa a
+     LE-400 (D-232). El halo difuminado que se sumaba en `:hover`
+     —`drop-shadow(0 6px 16px …)`— se ha retirado de esa regla: eran dos
+     sombras a la vez y el conjunto se ensuciaba. El `filter: none` de aquí
+     es una guarda por si alguien vuelve a colgar un filtro del wrapper; no
+     toca el `brightness` del cuerpo ni del puntero, que van en sus propios
+     selectores y sí forman parte del estado activo. */
+  .mel-marker-wrapper:hover,
+  .mel-marker-wrapper.active {
+    filter: none;
+  }
+  .mel-marker-wrapper:hover .mel-marker-shadow,
+  .mel-marker-wrapper.active .mel-marker-shadow {
+    background-color: var(--mel-primitive-le-400);
   }
 
   .mel-marker-wrapper.active {
@@ -1317,33 +1332,14 @@ const tags = [
     return null;   // hay dato de verdad
   }
 
-  // Velocidad constante del deslizado, en píxeles por segundo (D-231). Antes
-  // la duración salía de una cuenta que no era una velocidad, y encima con
-  // una curva de aceleración: un texto corto y uno largo tardaban casi lo
-  // mismo y ninguno iba a ritmo parejo. Con px/s el recorrido manda, que es
-  // lo que pidió el propietario (teletipo de bolsa).
-  const MARQUEE_PX_POR_SEGUNDO = 55;
-
-  // Mide una celda y decide si su texto necesita deslizarse. Gemela de
-  // ajustarMarquee() en event/[id].astro (regla 7: no hay módulo compartido
-  // entre páginas — si tocas una, toca la otra).
-  //
-  // Se mide contra el ancho ÚTIL (sin el padding de la celda) y NO contra
-  // `clientWidth`: en la tabla el padding son 32px (`px-4`), y usar
-  // clientWidth dejaba justo esos 32px de texto sin llegar a verse nunca,
-  // además de no marcar como desbordadas celdas que sí se truncan.
-  function medirMarquee(cell) {
-    const inner = cell && cell.querySelector('.marquee-inner');
-    if (!inner) return;
-    const es = getComputedStyle(cell);
-    const util = cell.clientWidth - parseFloat(es.paddingLeft || 0) - parseFloat(es.paddingRight || 0);
-    inner.classList.remove('is-overflowing');
-    if (util > 0 && inner.scrollWidth > util) {
-      inner.classList.add('is-overflowing');
-      const recorrido = inner.scrollWidth - util;
-      cell.style.setProperty('--marquee-duration', (recorrido / MARQUEE_PX_POR_SEGUNDO) + 's');
-      cell.style.setProperty('--cell-width', util + 'px');
-    }
+  // La medición del marquee ya NO vive aquí (D-233): es una sola función
+  // compartida, `window.melMedirMarquee(ámbito)`, definida en Layout.astro —
+  // el único sitio de este proyecto donde un script NO es en línea y por
+  // tanto puede compartirse entre páginas. Antes estaba copiada a mano aquí
+  // y en event/[id].astro. El guard es por si se llama antes de que el
+  // script compartido haya corrido.
+  function medirMarquee(ambito) {
+    if (window.melMedirMarquee) window.melMedirMarquee(ambito || document);
   }
 
   // Los promotores pueden venir varios separados por comas (D-218), igual
@@ -1561,8 +1557,8 @@ const tags = [
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
       <img src="${imgSrc}"${srcsetAttr} alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);" />
 
-      <!-- Blending grid overlay (striped Figma style) -->
-      <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>
+      <!-- RETIRADO (D-234): capa de rayas diagonales en hover. Ver el porqué
+           en su gemela FlyerCard.astro (regla 7). -->
 
       <!-- Overlay info on hover (Figma "Event Info" 481:238727 — mirrors FlyerCard.astro, ver AGENTS.md regla 7) -->
       <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
@@ -2729,7 +2725,7 @@ const tags = [
           // short values like a date or "desconocido" get the hover-scroll
           // treatment.
           void listBody.offsetHeight;
-          listBody.querySelectorAll('.marquee-cell').forEach(cell => medirMarquee(cell));
+          medirMarquee(listBody);
         }
 
         // Móvil: mismo dataset paginado, tarjetas EventCardList compactas
@@ -3013,6 +3009,17 @@ const tags = [
         const colWidth = anyCard ? anyCard.clientWidth : 0;
         unsizedCards.forEach(card => sizeGalleryCard(card, colWidth));
       }
+    }
+
+    // Mismo problema que el de arriba, y por el mismo motivo (D-233): la
+    // tabla se construye mientras su panel sigue con `hidden`, así que al
+    // medir el marquee `clientWidth` es 0 y ninguna celda queda marcada como
+    // desbordada — de ahí que al ENTRAR en Lista el deslizado no funcionara
+    // en ningún enlace, y sí lo hiciera al volver desde una ficha (ahí el
+    // panel ya estaba visible al construirse). Se remide al mostrarla, en el
+    // fotograma siguiente para que el navegador ya le haya dado caja.
+    if (viewName === 'lista') {
+      requestAnimationFrame(() => medirMarquee(document.getElementById('list-table-body')));
     }
 
     // Solo la lista pagina (la galería usa scroll infinito desde D-015).

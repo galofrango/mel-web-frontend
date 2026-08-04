@@ -540,7 +540,15 @@ button:disabled { cursor: not-allowed; }
    duplicada en el JS de cada página — no hay módulo compartido (regla 7) —
    pero al menos el aspecto y la animación son una sola fuente. */
 .marquee-cell {
-  overflow: hidden;
+  /* `clip` + `content-box` y no `hidden` (D-233): `overflow:hidden` recorta
+     en la caja de PADDING, así que el texto al deslizarse se metía por
+     debajo del padding izquierdo y acababa pegado al borde de la celda, sin
+     respiro — en la tabla son 16px de `px-4` por lado. Con
+     `overflow-clip-margin: content-box` el recorte ocurre donde empieza el
+     contenido, que es lo que se ve como margen. En las celdas sin padding
+     (las tags de la ficha) las dos formas son idénticas. */
+  overflow: clip;
+  overflow-clip-margin: content-box;
   white-space: nowrap;
   position: relative;
 }
@@ -559,38 +567,49 @@ button:disabled { cursor: not-allowed; }
   text-overflow: ellipsis;
   white-space: nowrap;
   vertical-align: bottom;
-  transition: transform 0s linear;
   padding-right: 0;
   padding-bottom: 3px;
+  transform: translateX(0);
+  /* LA VUELTA (D-233). Se usa `transition` y no `animation` justamente por
+     esto: una animación con `forwards` se queda clavada en su último
+     fotograma y al quitar el ratón el texto volvía de un salto. Con
+     transición, el mismo cambio de `transform` se anima en los dos
+     sentidos. La vuelta va más rápida que la ida (`--marquee-return`, que
+     el JS calcula como una fracción de la ida) y con ease-out.
+
+     `max-width`/`width` cambian en 0s pero RETRASADOS hasta que la vuelta
+     termina: si revirtieran al instante, el texto se re-recortaría y
+     reaparecería la elipsis a mitad del regreso. */
+  transition:
+    transform var(--marquee-return, 0.4s) cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 0s linear var(--marquee-return, 0.4s),
+    width 0s linear var(--marquee-return, 0.4s);
 }
 .marquee-cell:hover .marquee-inner.is-overflowing {
   max-width: none;
   /* `width: max-content` es imprescindible, no un adorno (D-231): el
-     fotograma final mide `-100%` sobre el ancho de ESTE elemento, así que
-     tiene que valer lo que mide el texto. Si el padre es un contenedor flex
-     —la celda del título en la tabla, y antes también la de las tags— el
-     hijo se "blockifica" y pasa a ocupar el ancho de la celda, con lo que
+     desplazamiento final mide `-100%` sobre el ancho de ESTE elemento, así
+     que tiene que valer lo que mide el texto. Si el padre es un contenedor
+     flex —la celda del título en la tabla, y antes también la de las tags—
+     el hijo se "blockifica" y pasa a ocupar el ancho de la celda, con lo que
      `-100% + ancho` da 0 y no se movía nada. `max-content` lo ajusta al
      contenido pase lo que pase con el display. */
   width: max-content;
   overflow: visible;
-  /* Plays once and holds (no `infinite`) — looping used to snap back to the
-     start mid-hover as soon as one pass finished, which read as a reset
-     before the visitor had even finished reading the full name.
-     `linear` y no una curva de aceleración (D-231): el propietario lo quiere
-     como un teletipo de bolsa, a velocidad constante. La duración la fija el
-     JS a partir del recorrido real, así que un texto el doble de largo tarda
-     el doble en vez de acelerar. */
-  animation: marquee-scroll var(--marquee-duration, 2.2s) linear 0.25s 1 forwards;
-}
-/* `--cell-width` es el ancho ÚTIL de la celda (sin su padding), no su
-   `clientWidth` — lo fija el JS. Con `clientWidth` se quedaban ocultos
-   justo los píxeles del padding (32 en la tabla, que lleva `px-4`), que es
-   el trozo de texto que no llegaba a verse nunca. El `--marquee-gap` deja
-   un respiro al final para que la última letra no acabe pegada al borde. */
-@keyframes marquee-scroll {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(calc(-100% + var(--cell-width) - var(--marquee-gap, 8px))); }
+  /* `--cell-width` es el ancho ÚTIL de la celda (sin su padding), no su
+     `clientWidth` — lo fija el JS. Con `clientWidth` se quedaban ocultos
+     justo los píxeles del padding (32 en la tabla, que lleva `px-4`). El
+     `--marquee-gap` deja un respiro al final para que la última letra no
+     acabe pegada al borde. */
+  transform: translateX(calc(-100% + var(--cell-width) - var(--marquee-gap, 8px)));
+  /* Casi lineal —teletipo de bolsa, criterio del propietario— pero con una
+     micra de ease-out en el último tramo para que no frene en seco al
+     llegar al tope. La duración sale del recorrido real, así que la
+     velocidad es la misma mida lo que mida el texto. */
+  transition:
+    transform var(--marquee-duration, 2.2s) cubic-bezier(0.12, 0.12, 0.5, 1) 0.25s,
+    max-width 0s linear 0.25s,
+    width 0s linear 0.25s;
 }
 
 /* Custom styles for range slider and blending */

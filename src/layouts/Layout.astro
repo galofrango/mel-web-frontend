@@ -87,6 +87,65 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       (window as any).__melNavigate = navigate;
     </script>
 
+    <!-- Marquee compartido (D-233). Estaba duplicado a mano en el script de
+         index.astro y en el de event/[id].astro, con la trampa de siempre:
+         dos copias que se separan. Aquí NO aplica la regla 7 de AGENTS.md —
+         esa regla habla de los scripts con `define:vars`, que Astro sirve en
+         línea y por eso no pueden importar nada. Este `<script>` sí pasa por
+         Vite, así que puede vivir una sola vez y dejar la función colgada de
+         `window` para que ambas páginas la llamen desde su `astro:page-load`.
+         El CSS ya vivía en global.css; ahora la medición también es única. -->
+    <script>
+      // Velocidad constante del deslizado, en píxeles por segundo: el
+      // recorrido manda, así un texto el doble de largo tarda el doble
+      // (teletipo de bolsa, criterio del propietario).
+      const MARQUEE_PX_POR_SEGUNDO = 55;
+      // La vuelta es más rápida que la ida — proporción, no un fijo, para
+      // que un recorrido largo no vuelva en un parpadeo.
+      const MARQUEE_FACTOR_VUELTA = 0.55;
+      // Por debajo de esto no merece la pena deslizar nada: son sobras de
+      // redondeo o un par de píxeles que ya se leen. Sin el umbral, celdas
+      // que desbordan 3-4px hacían un tirón de una décima de segundo, que se
+      // ve como un temblor y no como una revelación.
+      const MARQUEE_MINIMO_PX = 8;
+
+      (window as any).melMedirMarquee = function (raiz?: Element | Document | null) {
+        const ambito: Element | Document = (raiz as any) || document;
+        ambito.querySelectorAll('.marquee-cell').forEach((cell) => {
+          const celda = cell as HTMLElement;
+          const inner = celda.querySelector('.marquee-inner') as HTMLElement | null;
+          if (!inner) return;
+
+          // Ancho ÚTIL (sin el padding de la celda) y NO `clientWidth`: en la
+          // tabla el padding son 32px (`px-4`), y medir con clientWidth dejaba
+          // justo esos 32px de texto sin llegar a verse, además de no marcar
+          // como desbordadas celdas que sí se truncan.
+          const es = getComputedStyle(celda);
+          const util = celda.clientWidth
+            - parseFloat(es.paddingLeft || '0')
+            - parseFloat(es.paddingRight || '0');
+
+          inner.classList.remove('is-overflowing');
+          // `util > 0` descarta las celdas que aún no tienen caja (vista
+          // oculta, primer render): ahí clientWidth es 0 y marcarlas daría
+          // un desbordamiento falso en todas.
+          const recorrido = inner.scrollWidth - util;
+          if (util > 0 && recorrido > MARQUEE_MINIMO_PX) {
+            inner.classList.add('is-overflowing');
+            const ida = recorrido / MARQUEE_PX_POR_SEGUNDO;
+            celda.style.setProperty('--marquee-duration', ida + 's');
+            celda.style.setProperty('--marquee-return', (ida * MARQUEE_FACTOR_VUELTA) + 's');
+            celda.style.setProperty('--cell-width', util + 'px');
+            // El recorte tiene que ocurrir en la caja de CONTENIDO, no en la
+            // de padding: si no, el texto se desliza por debajo del padding
+            // izquierdo y acaba pegado al borde de la celda, sin respiro.
+            celda.style.setProperty('--marquee-pad-l', (parseFloat(es.paddingLeft || '0')) + 'px');
+            celda.style.setProperty('--marquee-pad-r', (parseFloat(es.paddingRight || '0')) + 'px');
+          }
+        });
+      };
+    </script>
+
     <script is:inline>
       // Nada se ve pulsado mientras el dedo está desplazando. El navegador
       // enciende `:active` en cuanto tocas y lo mantiene durante todo el gesto,
