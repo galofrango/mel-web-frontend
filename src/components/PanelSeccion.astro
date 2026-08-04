@@ -60,6 +60,17 @@ interface Props {
 
 const { grupo, urlPorId, formatoPorId } = Astro.props;
 
+// Los GIF que pesan de más: se cuentan y se avisan, pero no se les ofrece
+// ningún botón (criterio del propietario, 04/08/2026). El chivato tiene que
+// contarlos —callarlos sería mentir sobre la calidad del archivo, que es lo
+// que llevamos toda la tarea evitando— pero comprimir un GIF animado sin
+// destruir la animación no es algo que esta herramienta pueda hacer. Se dicen
+// las dos cosas: que pesan, y que ahí hay que ir a mano.
+const gifsPesados = grupo.clave === 'pesado'
+  ? grupo.items.filter((it) => formatoPorId[it.idMel] === 'GIF')
+  : [];
+const esGif = (idMel: string) => grupo.clave === 'pesado' && formatoPorId[idMel] === 'GIF';
+
 // Cuántos avisos se ven de partida. Los silenciados con `#oculto:` en la hoja
 // vienen dentro del grupo igual (`item.oculto`), para que el interruptor de la
 // cabecera pueda sacarlos sin volver al servidor, pero ni cuentan aquí ni se
@@ -225,6 +236,20 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
         franja de la cabecera, no esto. Antes era rosa (`le-200` + texto
         `action-secondary`), un primitivo suelto que además chocaba con la franja
         roja de nivel 1. */}
+    {gifsPesados.length > 0 && (
+      <div class="mx-6 mt-5 bg-mel-banner-warning-bg text-mel-banner-warning-text flex items-center gap-6 py-4 px-8">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+          <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+          <path d="M12 9v4"></path><path d="M12 17h.01"></path>
+        </svg>
+        <p class="typo-body-sans">
+          {gifsPesados.length === 1
+            ? 'Hay 1 archivo GIF que supera el peso ideal y solo puede ser comprimido manualmente.'
+            : `Hay ${gifsPesados.length} archivos GIF que superan el peso ideal y solo pueden ser comprimidos manualmente.`}
+        </p>
+      </div>
+    )}
+
     {avisoHtml ? (
       <div class="mx-6 mt-5 bg-mel-banner-warning-bg text-mel-banner-warning-text flex items-center gap-6 py-4 px-8">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
@@ -329,6 +354,8 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
                 <span class="accion-normal contents">
                   {accionEsAbrirHoja ? (
                     <a href={hrefManual} target="_blank" rel="noopener" class={`${BTN_SOLIDO} ${EN_FILA}`}>Abrir en la hoja</a>
+                  ) : esGif(item.idMel) ? (
+                    <span class="typo-lead text-mel-text-tertiary">Solo a mano</span>
                   ) : grupo.accion ? (
                     <button type="button" class={`fila-accion ${BTN_SOLIDO} ${EN_FILA}`} disabled>{grupo.accion}</button>
                   ) : (

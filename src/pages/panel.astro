@@ -646,7 +646,10 @@ const tarjetas = [
     // fila oculta no se puede seleccionar ni procesar, solo volver a mostrar.
     filasDe(sec).filter((f) => !filaOculta(f)).forEach((fila) => {
       const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
-      if (chk) chk.checked = marcar;
+      // Las bloqueadas se quedan fuera: son filas sin acción posible (los GIF
+      // de «Peso superior»), y «seleccionar todos» no debe meterlas en un lote
+      // que el motor va a rechazar una por una.
+      if (chk && !chk.disabled) chk.checked = marcar;
     });
     actualizarAccionesBloque(sec);
   }
@@ -1405,8 +1408,16 @@ const tarjetas = [
       if (btn) btn.textContent = oculta ? 'Mostrar' : 'Ocultar';
       const accion = fila.querySelector('.fila-accion') as HTMLButtonElement | null;
       if (accion) accion.disabled = oculta;
+      // Una fila que no tiene botón de acción tampoco se puede seleccionar: es
+      // el caso de los GIF en «Peso superior», que se cuentan y se avisan pero
+      // no se pueden comprimir aquí. Sin esto entraban en la acción en bloque y
+      // el motor los rechazaba uno a uno.
+      const sinAccion = !accion;
       const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
-      if (chk) { chk.disabled = oculta; if (oculta) chk.checked = false; }
+      if (chk) {
+        chk.disabled = oculta || sinAccion;
+        if (chk.disabled) chk.checked = false;
+      }
     });
   }
 

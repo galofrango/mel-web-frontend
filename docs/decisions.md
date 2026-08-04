@@ -3557,3 +3557,25 @@ fichero se hornea en el build y no lo reescribe nadie.
 **La lección:** arreglar un síntoma tocando el andamiaje (el vigilante) en vez de
 la causa (cómo se lee el dato) mueve el problema de sitio. La causa era el
 `import`.
+
+---
+
+## D-200 · Los GIF pesados se cuentan, pero no se tocan
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Al admitir los PNG en «Peso superior» quedó a la vista un GIF de más de 2 MB con
+un botón «Comprimir» que el motor iba a rechazar — los GIF no tienen arreglo
+automático, convertirlos destruiría la animación.
+
+Se resuelve como pidió el propietario: **modo lectura**. La fila aparece —el
+chivato tiene que contarla, callarla sería mentir sobre la calidad del archivo—
+pero en lugar del botón pone «Solo a mano», su casilla está bloqueada y un banner
+dice cuántos hay: «Hay N archivos GIF que superan el peso ideal y solo pueden ser
+comprimidos manualmente».
+
+La regla general que sale de aquí, y que se implementa en el cliente en vez de
+como un caso particular del GIF: **una fila sin botón de acción tampoco se puede
+seleccionar**. Sin eso entraba en la acción en bloque —incluido «seleccionar
+todos»— y el motor la rechazaba una por una, llenando el resumen de fallos que
+no eran fallos.
