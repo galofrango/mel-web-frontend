@@ -97,7 +97,7 @@ const MB = (b: number) => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
 /** Comprobaciones que hoy dan cero. El panel las enseña igual: si no dice lo que
  *  miró y pasó, no sabes si llegó a mirarlo. */
 export const LIMPIO = ['Sin imagen', 'Fecha ilegible', 'ID duplicado', 'Fila fuera del archivo',
-  'Sin diseñador', 'Sin localidad', 'Proporción imposible'];
+  'Sin localidad', 'Proporción imposible'];
 
 type Criterio = 'bytes' | 'px-desc' | 'px-asc' | 'id';
 
@@ -111,8 +111,16 @@ type Regla = [
   descripcion: string,
   aviso: string | null,
   criterio: Criterio,
-  prueba: (f: FilaHoja, t: DatosImagen) => boolean,
+  /** `ctx` trae lo que no se puede saber mirando una fila sola. Hoy solo lo
+   *  usa «Imagen duplicada»: para saber si un archivo está repetido hay que
+   *  haber visto las 101 filas antes de juzgar la primera. */
+  prueba: (f: FilaHoja, t: DatosImagen, ctx: Contexto) => boolean,
 ];
+
+type Contexto = {
+  /** IDs de Drive que aparecen en más de una fila de la hoja. */
+  repetidos: Set<string>;
+};
 
 // Las descripciones y banners son texto de producto, copiado literal de
 // docs/superpowers/specs/2026-07-31-panel-control-archivo-design.md, sección
@@ -151,10 +159,38 @@ const REGLAS: Regla[] = [
   // distintas (nivel 1 y nivel 3) y el rótulo ya separaba una cosa de otra;
   // al fundirse en una sola, el rótulo dejó de distinguirlas — así que ahora
   // es el orden quien lo dice.
+  // Dos fichas distintas apuntando al MISMO fichero de Drive. Se coló en el
+  // archivo sin que nada avisara: la hoja tiene 101 filas con código MEL y
+  // todos distintos, pero solo 100 imágenes, porque MEL-00096 y MEL-00097
+  // comparten archivo (04/08/2026). Es de nivel 1 y no de rendimiento porque
+  // lo que falla es el DATO: una de las dos fichas está enseñando el cartel de
+  // la otra, y el panel no puede saber cuál.
+  //
+  // Va sin acción automática a propósito: arreglarlo es decidir cuál de las
+  // dos referencias está mal y buscar el archivo que falta, y eso no lo puede
+  // hacer una máquina.
+  ['ref-duplicada', 1, 'Imagen duplicada', 'Dos fichas enseñan el mismo cartel', 'Abrir en la hoja', false,
+   'Dos filas de la hoja apuntan al mismo archivo de Google Drive en la columna C de la [hoja→C1], así que una de las dos está enseñando un cartel que no es el suyo. Hay que localizar la imagen que falta y corregir el enlace de la ficha equivocada.',
+   null, 'id',
+   (f, t, ctx) => ctx.repetidos.has(idDeDrive(f.urlDrive))],
   ['sin-artistas', 1, 'Sin artistas', 'El archivo no sabe quién pinchó', 'Abrir en la hoja', false,
    'Aún no sabemos quién actuó en el evento o no hemos rellenado la columna H de la [hoja→H1] con los nombres de los artistas separados por comas.',
    'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la sección de artistas.', 'id',
    (f, t) => estaVacio(f.artistas)],
+  // «Desconocido» en Organiza y en Diseñador es un hueco del archivo, no un
+  // dato (aviso del propietario, 04/08/2026): `estaVacio` ya trata esa palabra
+  // como celda vacía, igual que en Artistas. Van detrás de «Sin artistas» por
+  // el mismo criterio que ordena todo el nivel 1: lo que ROMPE va antes que lo
+  // que FALTA, y estas tres son lagunas de catalogación que no impiden que el
+  // cartel se vea.
+  ['sin-organiza', 1, 'Sin promotores', 'El archivo no sabe quién lo montó', 'Abrir en la hoja', false,
+   'Aún no sabemos quién organizó el evento o no hemos rellenado la columna I de la [hoja→I1] con el nombre del promotor o del colectivo.',
+   'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la tag de Organiza.', 'id',
+   (f, t) => estaVacio(f.organiza)],
+  ['sin-disenador', 1, 'Sin diseñador', 'El archivo no sabe quién lo diseñó', 'Abrir en la hoja', false,
+   'Aún no sabemos quién firmó el cartel o no hemos rellenado la columna N de la [hoja→N1] con el nombre del autor del diseño.',
+   'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la tag de Diseño.', 'id',
+   (f, t) => estaVacio(f.disenador)],
   ['sin-medir', 1, 'Sin medir', 'Se le escapan los avisos de formato, tamaño y peso', null, false,
    '<b>El problema es que de este cartel no hay medidas</b>, así que las comprobaciones de formato, tamaño y peso ni siquiera se le aplican: pasa en verde por no haber sido mirado.<br><br>La forma de corregirlo es volver a medir el archivo:<br><code>node scripts/medir-archivo.mjs</code>',
    'Le pasa a todo lo que se sube después de la última medición. No es un defecto del cartel, es que aún no se ha mirado.', 'id',
@@ -172,7 +208,7 @@ const REGLAS: Regla[] = [
    'La reducción de tamaño implica necesariamente una reducción de peso.', 'px-desc',
    (f, t) => ladoMayor(t) > UMBRAL_LADO],
   ['pesado', 2, 'Peso superior a 2Mb', 'El original viaja entero en cada visita', 'Comprimir', true,
-   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.<br><br>La forma de corregirlo es bajar la calidad del archivo hasta que quede por debajo de 2 MB, empezando con una compresión al 95 de calidad para JPG y una reducción de paleta para PNG (sin pérdida de transparencia).',
+   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.<br><br>La forma de corregirlo es bajar la calidad del archivo hasta que quede por debajo de 2 MB, empezando con una compresión al 95 de calidad para JPG<span class="solo-png"> y una reducción de paleta para PNG (sin pérdida de transparencia)</span>.',
    null, 'bytes',
    // Aquí SOLO entra lo que ya está bien de todo lo demás (criterio del
    // propietario, 02/08/2026): así no se recomprime —perdiendo calidad— algo
@@ -257,12 +293,21 @@ function estaSilenciado(notas: unknown, clave: string): boolean {
 export function auditar(filas: FilaHoja[], tecnico: Record<string, DatosImagen>): Grupo[] {
   const grupos: Grupo[] = [];
 
+  // Los archivos de Drive que salen en más de una fila. Se cuenta antes de
+  // recorrer las reglas porque una fila sola no puede saber si está repetida.
+  const vistos = new Map<string, number>();
+  for (const fila of filas) {
+    const id = idDeDrive(fila.urlDrive);
+    if (id) vistos.set(id, (vistos.get(id) ?? 0) + 1);
+  }
+  const ctx: Contexto = { repetidos: new Set([...vistos].filter(([, n]) => n > 1).map(([id]) => id)) };
+
   for (const [clave, nivel, titulo, consecuencia, accion, auto, descripcion, aviso, criterio, prueba] of REGLAS) {
     const items: Item[] = [];
 
     for (const fila of filas) {
       const t = tecnico[idDeDrive(fila.urlDrive)] || VACIO;
-      if (!prueba(fila, t)) continue;
+      if (!prueba(fila, t, ctx)) continue;
 
       items.push({
         idMel: fila.idMel,

@@ -5,7 +5,8 @@ import { auditar, estaVacio } from '../src/lib/auditoria.ts';
 const filaBase = {
   n: 2, idMel: 'MEL-00001', evento: 'Trip with us', urlDrive: 'https://drive.google.com/file/d/AAA/view',
   lugar: 'El Gran Café', localidad: 'León', coordenadas: 'https://www.google.es/maps/place/Calle+Cervantes,+9/@42.5990752,-5.5692811,17z/data=!3m1!4b1!8m2!3d42.5990752!4d-5.5692811',
-  artistas: 'DJ Uno', fecha: '12/07/2013', notasArchivo: '', notasOcultas: '',
+  artistas: 'DJ Uno', organiza: 'Los del Café', disenador: 'Rotulista anónimo',
+  fecha: '12/07/2013', notasArchivo: '', notasOcultas: '',
 };
 const tecBase = { tipo: 'jpeg', px: [1600, 2000], comp: 3, noSrgb: false, alfa: false, bytes: 900000 };
 
@@ -74,6 +75,28 @@ test('detecta los huecos de datos', () => {
   assert.ok(claves([{ ...filaBase, lugar: 'Desconocido' }], { AAA: tecBase }).includes('sin-lugar'));
   assert.ok(claves([{ ...filaBase, coordenadas: 'Desconocido' }], { AAA: tecBase }).includes('sin-coordenadas'));
   assert.ok(claves([{ ...filaBase, artistas: '' }], { AAA: tecBase }).includes('sin-artistas'));
+  // «Desconocido» es un hueco, no un dato: vale para promotor y diseñador
+  // igual que para el resto (criterio del propietario, 04/08/2026).
+  assert.ok(claves([{ ...filaBase, organiza: 'Desconocido' }], { AAA: tecBase }).includes('sin-organiza'));
+  assert.ok(claves([{ ...filaBase, disenador: 'Desconocido' }], { AAA: tecBase }).includes('sin-disenador'));
+  assert.ok(claves([{ ...filaBase, disenador: '' }], { AAA: tecBase }).includes('sin-disenador'));
+});
+
+// La única regla que no puede juzgar una fila mirándola sola: para saber que un
+// archivo está repetido hay que haber visto las demás. Se comprueban los dos
+// lados —que salta con dos fichas al mismo archivo y que NO salta cuando cada
+// una tiene el suyo—, porque un `ctx` mal montado (por ejemplo contando los
+// IDs de otra columna) daría positivo siempre y el test de arriba no lo vería.
+test('imagen duplicada: salta cuando dos fichas comparten archivo de Drive', () => {
+  const dos = [
+    { ...filaBase, idMel: 'MEL-00096', urlDrive: 'https://drive.google.com/file/d/AAA/view' },
+    { ...filaBase, idMel: 'MEL-00097', urlDrive: 'https://drive.google.com/file/d/AAA/view' },
+  ];
+  const g = grupo(dos, { AAA: tecBase }, 'ref-duplicada');
+  assert.deepEqual(g.items.map((i) => i.idMel), ['MEL-00096', 'MEL-00097']);
+
+  const distintas = [dos[0], { ...dos[1], urlDrive: 'https://drive.google.com/file/d/BBB/view' }];
+  assert.equal(grupo(distintas, { AAA: tecBase, BBB: tecBase }, 'ref-duplicada'), undefined);
 });
 
 // Hacen falta DOS filas: "enorme" (>3000px) y "pequeno" (<1200px) se excluyen
@@ -103,7 +126,8 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
   // todo lo demás: la fila A dispara png/no-srgb/enorme pero por eso mismo YA NO
   // dispara pesado, así que hace falta una fila limpia y gorda solo para él.
   const filas = [
-    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '', artistas: '', fecha: '' },
+    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '', artistas: '',
+      organiza: '', disenador: 'Desconocido', fecha: '' },
     { ...filaBase, idMel: 'MEL-B', urlDrive: '.../d/B/view' },
     { ...filaBase, idMel: 'MEL-C', urlDrive: '.../d/C/view' },
   ];
@@ -115,11 +139,13 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
   const orden = claves(filas, tec);
   // Si el fixture deja de disparar alguno de los nueve, el deepEqual de abajo
   // fallaría igual, pero por la razón equivocada (fixture roto, no orden roto).
-  for (const c of ['sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'no-srgb', 'enorme', 'pesado', 'pequeno']) {
+  for (const c of ['sin-lugar', 'sin-coordenadas', 'sin-artistas', 'sin-organiza', 'sin-disenador',
+                   'png', 'no-srgb', 'enorme', 'pesado', 'pequeno']) {
     assert.ok(orden.includes(c), `el fixture debe disparar "${c}"`);
   }
   assert.deepEqual(orden, [
-    'sin-fecha', 'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'no-srgb', 'enorme', 'pesado', 'pequeno',
+    'sin-fecha', 'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'sin-organiza', 'sin-disenador',
+    'png', 'no-srgb', 'enorme', 'pesado', 'pequeno',
   ], 'el orden es de TRABAJO, no un ranking: arreglar los de arriba resuelve los de abajo');
 });
 

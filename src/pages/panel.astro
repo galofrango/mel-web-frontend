@@ -140,7 +140,12 @@ try {
 } catch { /* aún no se ha arreglado nada */ }
 const pesoActual = Object.values(tecnico).reduce((n: number, d: any) => n + (d?.bytes ?? 0), 0);
 const historial = resumirHistorial(apuntes, pesoActual);
-const totalCarteles = Object.keys(tecnico).length;
+// Las FICHAS de la hoja, no las entradas de la caché técnica. La caché va
+// indexada por archivo de Drive, y dos fichas pueden compartir archivo —pasa
+// hoy con MEL-00096 y MEL-00097—, así que contarla daba 100 donde el archivo
+// tiene 101 carteles (aviso del propietario, 04/08/2026). Los numeradores de
+// las tarjetas cuentan fichas; el denominador tenía que contar lo mismo.
+const totalCarteles = filas.length;
 const MB = (b: number) => Math.round(b / 1048576);
 
 const totalOcultos = grupos.reduce((n, g) => n + g.items.filter((it) => it.oculto).length, 0);
@@ -156,7 +161,7 @@ const totalOcultos = grupos.reduce((n, g) => n + g.items.filter((it) => it.ocult
 // la cascada existe para dar. Si sobra alguna cuarta y siguientes, se resumen
 // en una línea con el total de lo que no cupo — igual que hará la tarea 6 tras
 // cada recálculo (mismo cómputo, aquí solo en el primer pintado del servidor).
-type Linea = { titulo: string; cifra: number };
+type Linea = { clave: string; titulo: string; cifra: number; visible: boolean };
 
 function resumenNivel(nivel: 1 | 2) {
   const gruposNivel = grupos.filter((g) => g.nivel === nivel);
@@ -171,17 +176,31 @@ function resumenNivel(nivel: 1 | 2) {
   const idsUnicos = new Set<string>();
   gruposNivel.forEach((g) => visibles(g).forEach((it) => idsUnicos.add(it.idMel)));
 
-  // Solo las líneas que existen — nada de relleno cuando el nivel tiene menos
-  // de 3 secciones (corrección del propietario: "una tarjeta con menos de tres
-  // avisos no pinta guiones"). PanelTarjeta alinea `.lins` arriba, pegado a la
-  // cifra, para que las tarjetas compartan línea de base pese a tener listas
-  // de alto distinto.
-  const top3 = gruposNivel.slice(0, 3);
-  const lineas: Linea[] = top3.map((g) => ({ titulo: g.titulo, cifra: visibles(g).length }));
+  // Nada de relleno cuando el nivel tiene menos de 3 secciones (corrección del
+  // propietario: "una tarjeta con menos de tres avisos no pinta guiones").
+  // PanelTarjeta alinea `.lins` arriba, pegado a la cifra, para que las
+  // tarjetas compartan línea de base pese a tener listas de alto distinto.
+  //
+  // Se enseñan las TRES PRIMERAS QUE TENGAN AVISOS, no las tres primeras a
+  // secas (criterio del propietario, 04/08/2026): una sección que llega a cero
+  // ya no es noticia, así que cede su sitio a la siguiente y el desglose sigue
+  // diciendo tres cosas útiles en vez de dos y un cero. El orden entre las que
+  // sí tienen avisos no cambia nunca —es el de gravedad que trae `grupos`—,
+  // solo se saltan las vacías.
+  //
+  // Van TODAS al marcado, también las vacías: el cliente las enseña y las
+  // esconde con una transición de alto cuando la cuenta cambia (regla 7 — el
+  // marcado no se fabrica en el navegador), y una línea que no existiese en el
+  // HTML no podría aparecer sin construirla a mano.
+  const lineas: Linea[] = gruposNivel.map((g) => ({
+    clave: g.clave, titulo: g.titulo, cifra: visibles(g).length, visible: false,
+  }));
+  lineas.filter((l) => l.cifra > 0).slice(0, 3).forEach((l) => { l.visible = true; });
 
-  const restantes = gruposNivel.slice(3);
-  const desbordamiento = restantes.length > 0
-    ? restantes.reduce((suma, g) => suma + visibles(g).length, 0)
+  // La línea de sobrante solo existe si hay más de tres secciones en el nivel;
+  // su cuenta es la de todo lo que no ha entrado en las tres de arriba.
+  const desbordamiento = gruposNivel.length > 3
+    ? lineas.filter((l) => !l.visible).reduce((suma, l) => suma + l.cifra, 0)
     : null;
 
   return { cifra: idsUnicos.size, lineas, desbordamiento };
@@ -194,10 +213,29 @@ const tarjetas = [
 ---
 
 <Layout title="Panel de archivos">
-  <div class="w-full max-w-[1440px] min-h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-16">
+  {/* `data-total` es el único camino que tiene el cliente para saber cuántos
+      carteles hay en total: este script no lleva `define:vars` (regla 7) y el
+      porcentaje de las tarjetas hay que recalcularlo al encender «Ver
+      ocultos». */}
+  <div class="w-full max-w-[1440px] min-h-dvh mx-auto bg-mel-bg-primary px-6 sm:px-12 lg:px-[108px] pb-16" data-total={totalCarteles}>
 
-    <header class="pt-10 pb-6">
-      <div class="flex items-center justify-between gap-4 pb-6 border-b border-mel-border">
+    {/* La fila de título + menú es el propio <header>, y es hija DIRECTA del
+        contenedor de la página: `position: sticky` solo pega dentro de su
+        bloque contenedor, así que metida en un <header> que además envolvía la
+        introducción se despegaba en cuanto esa introducción terminaba de
+        pasar (unos 350px de scroll). El texto de introducción va detrás, como
+        hermano.
+
+        Los márgenes negativos estiran el FONDO hasta los bordes del
+        contenedor y devuelven el mismo valor como padding, para que el
+        contenido no se mueva: con el fondo acabando donde acaba el padding de
+        la página, por los lados asomaban las sombras de las tarjetas y las
+        franjas de color de las secciones al pasar por debajo. */}
+    <header class="sticky top-0 z-30 bg-mel-bg-primary -mx-6 px-6 sm:-mx-12 sm:px-12 lg:-mx-[108px] lg:px-[108px]">
+      {/* El FONDO llega hasta los bordes (los márgenes negativos de arriba),
+          pero el filete NO: se queda con el ancho del contenido, como el resto
+          de reglas de la página. Por eso va en un hijo y no en el <header>. */}
+      <div class="flex items-center justify-between gap-4 pt-10 pb-6 border-b border-mel-border">
         <h1 class="typo-h3 text-mel-text-primary">Panel de archivos M.E.L.</h1>
         {/* La navegación va en `typo-h3`, la misma escala que el título de la
               página: son dos cosas del mismo rango —dónde estás y a dónde puedes
@@ -209,10 +247,6 @@ const tarjetas = [
         </nav>
       </div>
 
-      <div class="flex flex-col gap-8 pt-6">
-        <p class="typo-lead text-mel-text-secondary">
-          Panel de control del archivo digital de Memoria Electrónica Leonesa. Permite controlar la calidad de los archivos y optimizar algunos de sus parámetros para garantizar el óptimo funcionamiento de la web.
-        </p>
         <!-- Los dos botones de cabecera (Figma 1229:101016: 320px cada uno,
              `px-32 py-16`, 24 de hueco; tipografía H4, no H3 como estaba). Van
              DEBAJO del texto de introducción y alineados a la izquierda, no a su
@@ -248,7 +282,7 @@ const tarjetas = [
             son accionables: no filtran, no abren nada. Son el marcador de lo
             hecho, y por eso el verde — la gravedad tiene sus propios colores
             justo debajo. */}
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-6 pb-6">
           <PanelCifra
             overline="Archivos procesados"
             porcentaje={totalCarteles ? Math.round((historial.carteles / totalCarteles) * 100) : 0}
@@ -260,7 +294,11 @@ const tarjetas = [
             detalle={`${MB(historial.ahorro)} de ${MB(pesoActual + historial.ahorro)} Mb`}
           />
           <div class="flex flex-col gap-4 items-stretch">
-          <button type="button" id="panel-releer" class="h-14 inline-flex items-center justify-center gap-4 w-full px-8 bg-mel-action-primary text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
+          {/* Sin `bg-` en el marcado: los tres estados de este botón (reposo, pulsado
+              y releyendo) van juntos en `#panel-releer`, en global.css. Repartir el
+              color entre una utilidad aquí y dos reglas allí obliga a mirar en dos
+              sitios para saber de qué color está el botón en cada momento. */}
+          <button type="button" id="panel-releer" class="h-14 inline-flex items-center justify-center gap-4 w-full px-8 text-mel-text-on-action typo-h4 whitespace-nowrap disabled:opacity-60 disabled:cursor-not-allowed" disabled>
             Releer el spreadsheet
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path>
@@ -293,7 +331,6 @@ const tarjetas = [
           </button>
         </div>
       </div>
-      </div>
     </header>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-8 pb-10">
@@ -310,7 +347,9 @@ const tarjetas = [
 
     </div>
 
-    <div class="flex flex-col gap-6 pb-16">
+    {/* `id` propio: el cambio de tarjeta anima el alto de ESTE contenedor
+        mientras las secciones se deslizan por los lados (ver `pulsarTarjeta`). */}
+    <div id="secciones" class="relative flex flex-col gap-6 pb-6">
       {grupos.map((grupo) => (
         <PanelSeccion grupo={grupo} urlPorId={urlPorId} formatoPorId={formatoPorId} />
       ))}
@@ -320,10 +359,17 @@ const tarjetas = [
          si el panel no dice lo que miró y pasó, no se sabe si llegó a
          mirarlo. Sin ganchos de la tarea 6 a propósito: no hay nada que
          recalcular aquí (no hay filas, ni ocultar, ni acción). -->
-    <div class="border-t border-mel-border pt-6">
-      <p class="typo-caption text-mel-text-tertiary">
-        Comprobaciones sin hallazgos hoy: {LIMPIO.join(' · ')}.
-      </p>
+    {/* Pegado al borde inferior de la ventana, como la cabecera al superior
+        (criterio del propietario, 04/08/2026). Lleva fondo propio porque las
+        secciones le pasan por debajo, y los márgenes negativos estiran ese
+        fondo hasta los bordes de la página mientras el filete se queda con el
+        ancho del contenido — misma pareja de reglas que la cabecera. */}
+    <div class="sticky bottom-0 z-30 bg-mel-bg-primary -mx-6 px-6 sm:-mx-12 sm:px-12 lg:-mx-[108px] lg:px-[108px]">
+      <div class="border-t border-mel-border py-10">
+        <p class="typo-caption text-mel-text-tertiary">
+          Comprobaciones sin hallazgos hoy: {LIMPIO.join(' · ')}.
+        </p>
+      </div>
     </div>
 
   </div>
@@ -497,6 +543,14 @@ const tarjetas = [
 
   function comparadorColumna(col: string, dir: 'asc' | 'desc') {
     return (a: HTMLElement, b: HTMLElement) => {
+      // Las filas con las que no se puede hacer nada van SIEMPRE al final,
+      // ordene por lo que ordene el rótulo (mismo criterio que el SSR, en
+      // PanelSeccion). Si no, al ordenar por peso el GIF de 15 MB se plantaba
+      // el primero con un «Solo a mano» donde va el botón.
+      const sa = a.dataset.sinAccion ? 1 : 0;
+      const sb = b.dataset.sinAccion ? 1 : 0;
+      if (sa !== sb) return sa - sb;
+
       const va = valorDeOrden(a, col);
       const vb = valorDeOrden(b, col);
       const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
@@ -591,15 +645,124 @@ const tarjetas = [
   // forma de apagar el filtro. Pulsar otra la activa a ella sola en
   // exclusiva, apagando las demás; `aria-pressed` (marcarTarjeta) sigue el
   // mismo criterio para quien usa lector de pantalla.
+  /** Lo que dura el viaje lateral de un bloque. Es el MISMO número que la
+   *  transición de `.sec-viajando` en global.css: si se cambia uno hay que
+   *  cambiar el otro, o el remate llega antes o después de tiempo. */
+  const DESLIZ = 260;
+  /** Cuándo entra el bloque nuevo, en tanto por uno del viaje del que se va.
+   *  Se probó a 1 —esperar a que saliera del todo— y quedaba un instante con la
+   *  pantalla vacía (aviso del propietario, 04/08/2026). */
+  const SOLAPE = 0.4;
+
+  /** El filtro por tarjeta, como dos bloques puestos uno al lado del otro: el
+   *  que estaba se va por SU lado (nivel 1 por la izquierda, nivel 2 por la
+   *  derecha) y el otro entra por el suyo antes de que aquel termine de salir.
+   *
+   *  Los dos bloques se mueven ENTEROS, de una pieza. Se probó escalonando las
+   *  secciones una tras otra y el propietario lo descartó: alargaba la
+   *  transición y obligaba a esperar a la última para poder traer nada.
+   *
+   *  Las secciones tampoco se pliegan —eso se leía como "se guardan arriba y
+   *  siguen ahí engordando el scroll"—: quien cambia de alto es el CONTENEDOR,
+   *  una sola vez y de un alto al otro, así que lo que se ve moverse es el
+   *  viaje lateral.
+   *
+   *  Todo el movimiento es `transform` y `opacity`, las dos propiedades que el
+   *  navegador anima sin recalcular el layout (regla 2), y el contenedor recorta
+   *  con `overflow: hidden` mientras dura: nada se sale de la página ni aparece
+   *  un scroll horizontal que no existía. */
   function pulsarTarjeta(tarj: HTMLElement) {
     if (tarj.dataset.activa === 'true') return;
     document.querySelectorAll('.tarj').forEach((t) => marcarTarjeta(t as HTMLElement, false));
     marcarTarjeta(tarj, true);
-    const nivel = tarj.dataset.nivel;
-    document.querySelectorAll('section[data-nivel]').forEach((el) => {
-      const sec = el as HTMLElement;
-      sec.hidden = sec.dataset.nivel !== nivel;
+    const nivel = tarj.dataset.nivel!;
+
+    const cont = document.getElementById('secciones');
+
+    // Rematar lo anterior es lo PRIMERO, antes incluso de mirar qué secciones
+    // hay que mover: a mitad de un cambio, las que se van todavía no están
+    // `hidden` —siguen viajando, fuera del flujo— y las que entran ya no lo
+    // están, así que las dos listas salían mal y el cambio acababa enseñando el
+    // nivel equivocado. Pasó pulsando la otra tarjeta a los 80ms.
+    (cont as any)?._rematarCarrusel?.();
+
+    const secciones = Array.from(document.querySelectorAll('section[data-nivel]')) as HTMLElement[];
+    const seVan = secciones.filter((sec) => sec.dataset.nivel !== nivel && !sec.hidden);
+    const vienen = secciones.filter((sec) => sec.dataset.nivel === nivel && sec.hidden);
+
+    // Sin nada que sacar no hay nada que cruzar: se enseña y ya (primer
+    // pintado, o si alguien llega con el filtro ya puesto).
+    if (!cont || seVan.length === 0) {
+      seVan.forEach((sec) => { sec.hidden = true; });
+      vienen.forEach((sec) => { sec.hidden = false; });
+      return;
+    }
+
+    const fuera = (sec: HTMLElement) => `translateX(${sec.dataset.nivel === '1' ? -100 : 100}%)`;
+    cont.style.height = `${cont.offsetHeight}px`;
+    cont.style.overflow = 'hidden';
+
+    seVan.forEach((sec) => {
+      sec.classList.add('sec-viajando');
+      sec.style.transform = fuera(sec);
+      sec.style.opacity = '0';
     });
+
+    // A mitad de la salida: las que se van dejan el flujo —siguen viajando,
+    // pero clavadas en el sitio que ocupaban— y el bloque nuevo ocupa su hueco
+    // mientras ellas terminan de salir.
+    const relevo = setTimeout(() => {
+      seVan.forEach((sec) => {
+        sec.style.top = `${sec.offsetTop}px`;
+        sec.style.position = 'absolute';
+        sec.style.left = '0';
+        sec.style.right = '0';
+      });
+      vienen.forEach((sec) => {
+        sec.hidden = false;
+        sec.classList.add('sec-viajando', 'sec-sin-animar');
+        sec.style.transform = fuera(sec);
+        sec.style.opacity = '0';
+      });
+      const altoDespues = cont.scrollHeight;
+      requestAnimationFrame(() => {
+        cont.style.transition = `height ${DESLIZ}ms ease`;
+        cont.style.height = `${altoDespues}px`;
+        vienen.forEach((sec) => {
+          sec.classList.remove('sec-sin-animar');
+          sec.style.transform = 'translateX(0)';
+          sec.style.opacity = '1';
+        });
+      });
+    }, Math.round(DESLIZ * SOLAPE));
+
+    // Un solo remate para todo, por temporizador: son muchas transiciones a la
+    // vez y esperar el `transitionend` de cada una es más frágil que contar el
+    // tiempo que ya se sabe que dura. Si se vuelve a pulsar antes de que acabe,
+    // se remata en el sitio y empieza el nuevo (arriba).
+    const rematar = () => {
+      clearTimeout(relevo);
+      clearTimeout(reloj);
+      (cont as any)._rematarCarrusel = null;
+      cont.style.height = '';
+      cont.style.overflow = '';
+      cont.style.transition = '';
+      [...seVan, ...vienen].forEach((sec) => {
+        sec.classList.remove('sec-viajando', 'sec-sin-animar');
+        sec.style.transform = '';
+        sec.style.opacity = '';
+        sec.style.position = '';
+        sec.style.top = '';
+        sec.style.left = '';
+        sec.style.right = '';
+      });
+      // El estado final se escribe SIEMPRE, aunque el remate llegue antes de
+      // tiempo: es lo único que no puede quedar a medias.
+      seVan.forEach((sec) => { sec.hidden = true; });
+      vienen.forEach((sec) => { sec.hidden = false; });
+    };
+    const reloj = setTimeout(rematar, Math.round(DESLIZ * (1 + SOLAPE)) + 60);
+    (cont as any)._rematarCarrusel = rematar;
   }
 
   // --- Cabecera de sección: plegar / desplegar ------------------------------
@@ -679,6 +842,62 @@ const tarjetas = [
       cuerpo.style.height = 'auto';
       cab.querySelector('.chevron svg')?.classList.add('rotate-180');
     }
+  }
+
+  /** Una sección entera entrando o saliendo del panel. Pasa al encender «Ver
+   *  ocultos»: una sección cuyos avisos estaban todos ocultos vuelve de golpe y
+   *  empuja al resto media pantalla hacia abajo sin avisar. Animada se entiende
+   *  de dónde ha salido (petición del propietario, 04/08/2026).
+   *
+   *  `data-vacia` (que es quien pone el `display:none`) se quita ANTES de medir
+   *  y se pone DESPUÉS de encoger: no se puede medir ni animar lo que no se
+   *  está pintando.
+   *
+   *  El margen negativo cancela el `gap-6` del contenedor mientras dura: el
+   *  hueco entre secciones aparece entero en cuanto la sección deja de estar en
+   *  `display:none`, así que sin esto la animación empieza con un salto de 24px
+   *  que es justo lo que se quería evitar. */
+  function plegarSeccion(sec: HTMLElement, cerrando: boolean) {
+    // Una animación anterior a medias se remata en el sitio antes de empezar
+    // otra: si no, su temporizador cae más tarde y limpia los estilos de ESTA.
+    (sec as any)._rematarSeccion?.();
+
+    if (!cerrando) delete sec.dataset.vacia;
+    const alto = sec.scrollHeight;
+    sec.classList.add('sec-moviendo');
+    sec.style.height = cerrando ? `${alto}px` : '0px';
+    sec.style.marginBottom = cerrando ? '0px' : '-24px';
+    requestAnimationFrame(() => {
+      sec.style.height = cerrando ? '0px' : `${alto}px`;
+      sec.style.marginBottom = cerrando ? '-24px' : '0px';
+    });
+
+    // El remate va por `transitionend` O por temporizador, lo que llegue antes.
+    // No es cinturón y tirantes: si la transición no llega a arrancar —la
+    // pestaña está en segundo plano y no hay fotogramas, el alto de partida y
+    // el de llegada coinciden— ese evento no se dispara NUNCA, y sin esta red
+    // la sección se queda clavada a 0 de alto con `overflow:hidden`, es decir,
+    // invisible y sin manera de recuperarla salvo recargando.
+    let rematado = false;
+    const rematar = () => {
+      if (rematado) return;
+      rematado = true;
+      clearTimeout(reloj);
+      sec.removeEventListener('transitionend', fin);
+      (sec as any)._finSeccion = null;
+      sec.classList.remove('sec-moviendo');
+      sec.style.height = '';
+      sec.style.marginBottom = '';
+      if (cerrando) sec.dataset.vacia = 'true';
+    };
+    const fin = (e: TransitionEvent) => {
+      if (e.propertyName !== 'height' || e.target !== sec) return;
+      rematar();
+    };
+    const reloj = setTimeout(rematar, 500);
+    (sec as any)._finSeccion = fin;
+    (sec as any)._rematarSeccion = rematar;
+    sec.addEventListener('transitionend', fin);
   }
 
   function pulsarCabeceraSeccion(cab: HTMLElement) {
@@ -785,7 +1004,10 @@ const tarjetas = [
     'sin-fecha': 'No se conserva la fecha exacta del evento y no hay forma de datarlo.',
     'sin-lugar': 'No consta en qué local se celebró y no hay forma de averiguarlo.',
     'sin-coordenadas': 'El local ya no existe y no se ha podido situar su dirección exacta.',
+    'ref-duplicada': 'Las dos fichas comparten cartel a propósito: es la misma pieza catalogada dos veces.',
     'sin-artistas': 'El cartel no nombra a ningún artista.',
+    'sin-organiza': 'El cartel no dice quién organizaba y no consta en ninguna otra fuente.',
+    'sin-disenador': 'El cartel no va firmado y no se sabe quién lo diseñó.',
     'sin-medir': 'Pendiente de medir; no afecta a cómo se ve en la web.',
     png: 'Es una pieza de color plano con transparencia: en JPG perdería el fondo.',
     'no-srgb': 'El color original forma parte del documento y se conserva tal cual.',
@@ -844,20 +1066,39 @@ const tarjetas = [
    *  Es lo que hace «Mostrar» en la fila y «Borrar» en el globo — el mismo acto
    *  visto desde dos sitios. */
   async function mostrarYBorrarNota(sec: HTMLElement, fila: HTMLElement) {
-    cambiarVisibilidad(sec, [fila], false);
-    const globo = fila.querySelector('.notas-texto');
-    if (globo) globo.textContent = '';
-    delete fila.dataset.notas;
+    // La hoja PRIMERO y la pantalla después, igual que `guardarNota()` y por el
+    // mismo motivo: el panel se reconstruye desde la hoja en cada visita, así
+    // que el único estado que dura es el de la celda. Al revés —como estaba— un
+    // fallo de red devolvía el aviso a la lista y le borraba la nota en
+    // pantalla mientras la marca `#oculto:` seguía escrita: a la primera
+    // recarga el aviso volvía a esconderse solo, con su nota otra vez puesta, y
+    // por el camino el globo se había quedado vacío (aviso del propietario,
+    // 04/08/2026).
+    const btn = fila.querySelector('.ocultar-aviso') as HTMLButtonElement | null;
+    if (btn) btn.disabled = true;   // la escritura tarda; sin esto parece que no hizo nada
+    let resultado: { ok?: boolean; motivo?: string };
     try {
       const r = await fetch('/api/panel/ocultar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fila: Number(fila.dataset.fila), clave: sec.dataset.clave, borrar: true }),
       });
-      const j = await r.json();
-      if (!j.ok) alert(`El aviso ha vuelto a la lista, pero no se pudo borrar su nota de la hoja: ${j.motivo}`);
+      resultado = await r.json();
     } catch (e: any) {
-      alert(`El aviso ha vuelto a la lista, pero no se pudo borrar su nota de la hoja: ${e.message}`);
+      resultado = { ok: false, motivo: e.message };
     }
+    if (btn) btn.disabled = false;
+
+    if (!resultado.ok) {
+      // Nada ha cambiado, y se dice así: prometer que el aviso "ha vuelto" y
+      // que solo falló un detalle era mentir sobre lo único que importa.
+      alert(`No se pudo borrar la nota de la hoja, así que el aviso sigue oculto: ${resultado.motivo}`);
+      return;
+    }
+
+    cambiarVisibilidad(sec, [fila], false);
+    const globo = fila.querySelector('.notas-texto');
+    if (globo) globo.textContent = '';
+    delete fila.dataset.notas;
   }
 
   async function borrarNota(pop: HTMLElement) {
@@ -1027,13 +1268,13 @@ const tarjetas = [
     document.querySelectorAll('section[data-clave]').forEach((sec) => {
       const clave = sec.dataset.clave;
       if (clave === claveActual) return;
-      // «Convertir a JPG» NUNCA se ofrece de propina desde otra sección
-      // (criterio del propietario, 04/08/2026). Cambiar de formato destruye la
-      // transparencia, y eso no es una mejora que se marque de paso mientras se
-      // arregla el peso o el color — y menos en un lote, donde se aceptaría de
-      // corrido para veinte carteles a la vez. Los PNG se convierten desde su
-      // propia sección, donde el botón dice exactamente lo que va a pasar.
-      if (clave === 'png') return;
+      // «Convertir a JPG» no se ofrece desde «Peso superior» (criterio del
+      // propietario, 04/08/2026). Ahí el PNG entra precisamente porque ya se
+      // puede adelgazar sin sacarlo de su formato, así que proponer de propina
+      // lo que destruiría su transparencia contradice el motivo por el que está
+      // en esa lista — y en un lote se aceptaría de corrido para veinte
+      // carteles. Desde las demás secciones se sigue ofreciendo con normalidad.
+      if (clave === 'png' && claveActual === 'pesado') return;
       if (!sec.querySelector('.accion-seleccionados')) return;   // no es automática
       const hay = ids.some((id) => sec.querySelector(`.fila[data-id="${CSS.escape(id)}"]`));
       if (hay) claves.push(clave);
@@ -1071,6 +1312,13 @@ const tarjetas = [
     // Las otras mejoras: se enseñan las que apliquen, marcadas de partida —
     // "Aplicar todas las mejoras" es la recomendación, no una trampa.
     const extras = otrasMejoras(ids, clave);
+
+    // Si lo que se está haciendo es CONVERTIR A JPG, el trozo de la ayuda de
+    // «Comprimir» que habla de reducir la paleta del PNG sobra: cuando le
+    // toque el turno ya no habrá PNG que reducir (aviso del propietario,
+    // 04/08/2026). El texto viene entero del servidor y aquí solo se esconde
+    // esa parte — la frase está escrita para que al quitarla siga cerrando.
+    m.querySelectorAll('.solo-png').forEach((e) => { (e as HTMLElement).hidden = clave === 'png'; });
     // La calidad solo es una decisión si el fichero se va a reescribir como
     // JPEG por algo que NO sea perseguir un peso: en «pesado» la calidad es el
     // arreglo, y ofrecer «no bajes la calidad» ahí sería ofrecer no hacer nada.
@@ -1101,6 +1349,13 @@ const tarjetas = [
     // arreglo, y ofrecer ahí «no bajes la calidad» sería ofrecer no hacer nada.
     const filaCalidad = m.querySelector('.mejora-calidad');
     filaCalidad.hidden = clave === 'pesado' || extras.includes('pesado');
+
+    // El aviso del peso imprevisible sale justo cuando esa fila NO está: ahí
+    // comprimir no es una opción que se pueda desmarcar, es el encargo, y el
+    // «por qué» que lo explicaba se iba con ella (aviso del propietario,
+    // 04/08/2026).
+    const avisoPeso = m.querySelector('.modal-aviso-peso') as HTMLElement | null;
+    if (avisoPeso) avisoPeso.hidden = !filaCalidad.hidden;
     filaCalidad.querySelector('.mejora-chk').checked = true;
     filaCalidad.querySelector('.mejora-detalle').hidden = true;
     filaCalidad.querySelector('.mejora-info').setAttribute('aria-expanded', 'false');
@@ -1436,7 +1691,7 @@ const tarjetas = [
       const visibles = filasContables(sec).length;
 
       const nn = sec.querySelector('.nn');
-      if (nn) nn.textContent = `[${visibles}]`;
+      if (nn) nn.textContent = `(${visibles})`;
 
       // Una sección sin nada que enseñar no se atenúa: se va. Volverá sola en
       // cuanto se encienda el interruptor, porque entonces sus avisos ocultos
@@ -1450,25 +1705,47 @@ const tarjetas = [
       // sobre el mismo atributo significa que el último en escribir gana, y el
       // filtro de nivel se perdía en cada recálculo. Un canal por concepto, y
       // que los combine el CSS.
-      if (visibles === 0) sec.dataset.vacia = 'true'; else delete sec.dataset.vacia;
+      const estabaVacia = sec.dataset.vacia === 'true';
+      if (visibles === 0 && !estabaVacia) plegarSeccion(sec, true);
+      else if (visibles > 0 && estabaVacia) plegarSeccion(sec, false);
+
+      // El banner de los GIF cuenta solo los que se ven: ocultar el último lo
+      // retira, y vuelve al encender «Ver ocultos». Las dos redacciones vienen
+      // del servidor y aquí solo se elige cuál se enseña.
+      const banner = sec.querySelector('.banner-gif') as HTMLElement | null;
+      if (banner) {
+        const gifs = filasContables(sec).filter((f) => f.dataset.gif).length;
+        banner.hidden = gifs === 0;
+        (banner.querySelector('.gif-uno') as HTMLElement).hidden = gifs !== 1;
+        (banner.querySelector('.gif-varios') as HTMLElement).hidden = gifs === 1;
+        const n = banner.querySelector('.gif-n');
+        if (n) n.textContent = String(gifs);
+      }
 
       actualizarAccionesBloque(sec); // ocultar una fila puede llevarse la única marca
     });
 
-    // El desglose de cada tarjeta mantiene el orden de trabajo que ya trae el
-    // servidor (gravedad, tarea 4): la línea N-ésima de `.lins` corresponde
-    // SIEMPRE a la sección N-ésima de ese nivel en el DOM — mismo criterio con
-    // el que `resumenNivel()` (frontmatter de esta página) construyó `lineas`
-    // a partir de `gruposNivel.slice(0,3)`. Solo se reescribe el NÚMERO de
-    // cada línea; nunca qué sección ocupa cada una (no se reordena por
-    // cantidad).
+    // El desglose de cada tarjeta mantiene el orden de trabajo que trae el
+    // servidor (gravedad, tarea 4) — nunca se reordena por cantidad—, pero SÍ
+    // se salta las secciones que se han quedado a cero: la línea vacía se
+    // pliega y la siguiente sube a su hueco (criterio del propietario,
+    // 04/08/2026). El desglose vale para decidir por dónde seguir, y un cero
+    // ocupando uno de los tres sitios no ayuda a decidir nada.
+    //
+    // Mismo criterio que `resumenNivel()` en el frontmatter, que es quien pinta
+    // el estado de partida; aquí solo se reescriben números y el atributo
+    // `data-oculta` — el marcado de todas las líneas ya viene del servidor
+    // (regla 7), incluidas las que ahora mismo no se ven.
+    const total = Number((document.querySelector('[data-total]') as HTMLElement | null)?.dataset.total || 0);
+
     NIVELES.forEach((nivel) => {
       const secciones = Array.from(document.querySelectorAll(`section[data-nivel="${nivel}"]`)) as HTMLElement[];
       const idsUnicos = new Set<string>();
-      const cuentaPorSeccion = secciones.map((sec) => {
+      const cuentaPorClave = new Map<string, number>();
+      secciones.forEach((sec) => {
         const visibles = filasContables(sec);
         visibles.forEach((f) => { if (f.dataset.id) idsUnicos.add(f.dataset.id); });
-        return visibles.length;
+        cuentaPorClave.set(sec.dataset.clave || '', visibles.length);
       });
 
       const tarj = document.querySelector(`.tarj[data-nivel="${nivel}"]`);
@@ -1477,21 +1754,39 @@ const tarjetas = [
       const cifraEl = tarj.querySelector('.cifra');
       if (cifraEl) cifraEl.textContent = String(idsUnicos.size);
 
-      const lineas = Array.from(tarj.querySelectorAll('.lins > span'));
-      const numLineas = Math.min(3, cuentaPorSeccion.length);
-      lineas.forEach((linea, i) => {
-        const valor = linea.lastElementChild;
-        if (!valor) return;
-        if (i < numLineas) {
-          valor.textContent = String(cuentaPorSeccion[i]);
-        } else {
-          // La única línea posible más allá de las tres primeras es la de
-          // desbordamiento ("Otras incidencias +N"): suma de las secciones 4ª
-          // en adelante de este nivel.
-          const resto = cuentaPorSeccion.slice(3).reduce((a, b) => a + b, 0);
-          valor.textContent = `+${resto}`;
-        }
+      // El porcentaje va DETRÁS de la cifra y se quedaba con el del servidor:
+      // al encender «Ver ocultos» la cifra subía y el paréntesis seguía
+      // diciendo lo de antes (aviso del propietario, 04/08/2026). Que con 100
+      // carteles en la hoja cifra y porcentaje coincidan es casualidad de la
+      // división, no un error de cuenta.
+      const pctEl = tarj.querySelector('.pct');
+      if (pctEl) pctEl.textContent = `(${total ? Math.round((idsUnicos.size / total) * 100) : 0}%)`;
+
+      // `aria-hidden` viaja con `data-oculta`: la tarjeta es un botón y el
+      // texto de una línea plegada seguiría formando parte de su nombre
+      // accesible, que anunciaría secciones que no se están enseñando.
+      const enseñar = (linea: Element, sí: boolean) => {
+        if (sí) { delete (linea as HTMLElement).dataset.oculta; linea.removeAttribute('aria-hidden'); }
+        else { (linea as HTMLElement).dataset.oculta = 'true'; linea.setAttribute('aria-hidden', 'true'); }
+      };
+
+      let sitios = 0;
+      let resto = 0;
+      tarj.querySelectorAll('.lin[data-clave]').forEach((linea) => {
+        const n = cuentaPorClave.get((linea as HTMLElement).dataset.clave || '') ?? 0;
+        if (linea.lastElementChild) linea.lastElementChild.textContent = String(n);
+        const cabe = n > 0 && sitios < 3;
+        if (cabe) sitios++; else resto += n;
+        enseñar(linea, cabe);
       });
+
+      // La línea de sobrante ("Otras incidencias +N") suma todo lo que no ha
+      // entrado arriba, y desaparece cuando esa suma es cero.
+      const desb = tarj.querySelector('.lin-desb');
+      if (desb) {
+        if (desb.lastElementChild) desb.lastElementChild.textContent = `+${resto}`;
+        enseñar(desb, resto > 0);
+      }
     });
 
     actualizarBotonOcultos();
@@ -1543,7 +1838,27 @@ const tarjetas = [
     const btnCol = target.closest('.cab-col') as HTMLElement | null;
     if (btnCol) { pulsarCabeceraColumna(btnCol); return; }
 
-    if (target.closest('#panel-releer')) { window.location.reload(); return; }
+    const btnReleerPulsado = target.closest('#panel-releer') as HTMLElement | null;
+    if (btnReleerPulsado) {
+      // La marca enciende el icono girando y el estado pulsado (global.css).
+      btnReleerPulsado.dataset.releyendo = 'true';
+
+      // Y ANTES de recargar, se pide la página nueva en segundo plano. Parece
+      // trabajo de más y es justo al revés: recargar de golpe apagaba la
+      // animación en el acto, porque el navegador deja de pintar un documento
+      // que se está yendo y lo único que se veía era la página atenuada (aviso
+      // del propietario, 04/08/2026).
+      //
+      // Pidiéndola por `fetch`, la parte lenta —leer la hoja entera y medir lo
+      // que haya nuevo, que son segundos— ocurre con esta página VIVA y el
+      // icono girando. Cuando la respuesta está, el servidor ya tiene todo
+      // hecho y la recarga es casi instantánea. El HTML se tira: lo que
+      // interesa es el trabajo que deja hecho, no la respuesta.
+      fetch(window.location.href, { cache: 'no-store' })
+        .catch(() => { /* si falla, se recarga igual y que lo cuente el servidor */ })
+        .then(() => window.location.reload());
+      return;
+    }
 
     // --- Modal --------------------------------------------------------------
     const btnFilaAccion = target.closest('.fila-accion');

@@ -23,16 +23,18 @@ const BTN = 'transition-colors duration-200 typo-button px-6 h-14 flex-1 inline-
 
 <dialog
   id="panel-nota"
-  class="backdrop:bg-[rgba(25,6,9,0.48)] bg-transparent p-0 m-auto max-w-[1100px] w-full"
+  class="backdrop:bg-[rgba(25,6,9,0.48)] bg-transparent p-0 m-auto max-w-[1100px] w-full max-h-none"
   aria-labelledby="nota-titulo"
 >
-  <form method="dialog" class="bg-mel-bg-primary border border-mel-border shadow-[var(--mel-shadow-xl)] flex flex-col lg:flex-row gap-10 p-10">
+  <form method="dialog" class="modal-caja bg-mel-bg-primary border border-mel-border shadow-[var(--mel-shadow-xl)] flex flex-col lg:flex-row gap-10 p-10">
 
     {/* Misma caja que el modal de confirmación: 400 fijos, rayas de fondo y el
         cartel en `contain`. Con varios carteles no hay "la" imagen, así que el
         cliente esconde la columna entera. */}
-    <div class="nota-img-caja self-stretch shrink-0 w-[400px] max-w-full max-h-[720px] striped-bg overflow-hidden flex items-center justify-center">
-      <img class="nota-img w-full h-full object-contain" src="" alt="" referrerpolicy="no-referrer" />
+    {/* Misma caja que el otro modal, y por el mismo motivo: la imagen en
+        `absolute` para que no sea ella quien decida el alto. */}
+    <div class="nota-img-caja relative self-stretch shrink-0 w-[400px] max-w-full min-h-0 striped-bg overflow-hidden">
+      <img class="nota-img absolute inset-0 w-full h-full object-contain" src="" alt="" referrerpolicy="no-referrer" />
     </div>
 
     <div class="flex flex-col gap-8 flex-1 min-w-0">
@@ -62,7 +64,8 @@ const BTN = 'transition-colors duration-200 typo-button px-6 h-14 flex-1 inline-
         </div>
       </div>
 
-      <div class="flex items-center gap-8 w-full">
+      {/* Abajo del todo, igual que en el otro modal. */}
+      <div class="mt-auto flex items-center gap-8 w-full">
         {/* `value` en vez de un `click` propio: un `<form method="dialog">` cierra
             el diálogo solo y deja en `returnValue` el del botón pulsado. Menos
             JavaScript, y Escape hace lo mismo que «Cancelar». */}

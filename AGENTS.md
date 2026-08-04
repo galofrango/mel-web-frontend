@@ -185,6 +185,8 @@ Si detectas discrepancias entre la documentación, el código o conversaciones p
 
    Duplicadas por la misma razón, en el script de `index.astro`: `extractDriveImage`, `escHtml`, `formatFechaDMY`, `getYear` y `parseDateToNumber`, cuya fuente de verdad es `src/lib/mel.ts`.
 
+   Y una pareja de NÚMEROS, no de marcado: `DESLIZ` en `panel.astro` tiene que valer lo mismo que la transición de `.sec-viajando` en `global.css` — el JavaScript cuenta el tiempo que el CSS tarda, y si se separan, el remate de la animación llega antes o después de tiempo. Está avisado en los dos sitios.
+
    Y el patrón que **sí** esquiva el problema, preferible siempre que se pueda: `AdaptiveTagsRow` renderiza el marcado en SSR y `updateAdaptiveTagsRow()` solo escribe los valores dentro. Así se retiró `makeTagHtml()`, y así se hizo con `EmptyState`.
 
    Lo que la historia de esta regla enseña: un componente que **no se importa en ningún sitio** y se anuncia como "la referencia" del marcado es peor que no tenerlo. Nada rompe cuando se desvía, así que se desvía. Pasó con `EventCardList.astro` (D-154).

@@ -52,7 +52,7 @@ const FRANJA: Record<1 | 2, string> = {
   aria-labelledby="modal-titulo"
 >
   <div class="min-h-full flex items-center justify-center p-6">
-    <div class="bg-mel-bg-primary border border-mel-border shadow-[var(--mel-shadow-xl)] flex flex-col lg:flex-row gap-10 p-10 max-w-[1000px] w-full max-h-[90vh] overflow-y-auto">
+    <div class="modal-caja bg-mel-bg-primary border border-mel-border shadow-[var(--mel-shadow-xl)] flex flex-col lg:flex-row gap-10 p-10">
 
       {/* Vista previa. Solo tiene sentido con UN cartel: en un lote no hay
           "la" imagen, así que el cliente esconde esta columna entera. El fondo
@@ -63,14 +63,47 @@ const FRANJA: Record<1 | 2, string> = {
           justamente para lo que están. Antes la caja tomaba la proporción del
           cartel y se calculaba en JS; con un ancho fijo eso sobra y la columna
           deja de cambiar de tamaño según el cartel que toque. */}
-      <div class="modal-img-caja self-stretch shrink-0 w-[400px] max-w-full max-h-[720px] striped-bg overflow-hidden flex items-center justify-center">
-        <img class="modal-img w-full h-full object-contain" src="" alt="" referrerpolicy="no-referrer" />
+      {/* La imagen NO decide el alto del modal (criterio del propietario,
+          04/08/2026): manda el contenido, y el cartel se adapta a lo que haya.
+          Por eso la imagen va en `absolute` — un <img> en flujo con `h-full`
+          dentro de una caja de alto automático se cae a su alto INTRÍNSECO
+          (400px de ancho por lo que mida de largo) y estiraba el modal hasta
+          el tope de la ventana. Fuera del flujo no aporta alto, la caja se
+          estira con la columna de al lado y el cartel se ajusta dentro. */}
+      <div class="modal-img-caja relative self-stretch shrink-0 w-[400px] max-w-full min-h-0 striped-bg overflow-hidden">
+        <img class="modal-img absolute inset-0 w-full h-full object-contain" src="" alt="" referrerpolicy="no-referrer" />
       </div>
 
       <div class="flex flex-col gap-10 flex-1 min-w-0">
         <div class="flex flex-col gap-4">
           <h2 id="modal-titulo" class="modal-titulo typo-h1 text-mel-text-primary"></h2>
           <p class="modal-cuerpo typo-body-sans text-mel-text-primary"></p>
+
+          {/* Cuando la acción va a recomprimir, el peso final no se puede
+              anunciar: hace falta procesar el fichero para saberlo, y por eso
+              la lista de cambios de más abajo dice formato, color y
+              dimensiones, pero nunca peso.
+
+              Va en banner ámbar y no en negrita dentro del párrafo porque es
+              como el panel avisa ya de las pegas de una acción (el de los GIF
+              en «Peso superior», el de las transparencias en «Archivo PNG»):
+              mismo aviso, mismo sitio, misma forma. Detrás del texto de «no se
+              puede deshacer» — primero lo que va a pasar, después el matiz.
+
+              Nace oculto y lo enseña el cliente; el marcado no se fabrica en el
+              navegador (regla 7). Sale cuando la fila «Bajar a calidad 95» NO
+              está, que es justo cuando comprimir no es una opción sino el
+              encargo: así el aviso está SIEMPRE en el modal, o en el «por qué»
+              de esa fila o aquí. */}
+          <div class="modal-aviso-peso bg-mel-banner-warning-bg text-mel-banner-warning-text flex items-center gap-6 py-4 px-8" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
+              <path d="M12 9v4"></path><path d="M12 17h.01"></path>
+            </svg>
+            <p class="typo-body-sans">
+              No es posible calcular de antemano el peso final del archivo: se sabrá al terminar la compresión.
+            </p>
+          </div>
         </div>
 
         {/* Lo que va a cambiar, ANTES de tocar nada. Aquí solo entra lo que se
@@ -218,7 +251,10 @@ const FRANJA: Record<1 | 2, string> = {
             estado los esconde el CSS de abajo, así que el reparto es siempre
             entre los que se ven. `flex-1` va aquí y no en las constantes de
             botón: las comparten los de la tabla, que no deben estirarse. */}
-        <div class="flex items-center gap-8 w-full [&>*]:flex-1 [&>*]:h-14">
+        {/* `mt-auto`: los botones se quedan pegados abajo pase lo que pase
+            dentro. Con el suelo de alto del modal, un resumen corto los dejaba
+            flotando a media caja y cambiaban de sitio según el estado. */}
+        <div class="mt-auto flex items-center gap-8 w-full [&>*]:flex-1 [&>*]:h-14">
           <button type="button" class={`${BTN_CONTORNO} modal-cancelar`}>Cancelar</button>
           <button type="button" class={`${BTN_SOLIDO} modal-aplicar`}>Aplicar</button>
           <button type="button" class={`${BTN_CONTORNO} modal-drive`} hidden>Abrir en Drive</button>

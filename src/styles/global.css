@@ -354,6 +354,21 @@ body {
   font-family: var(--font-sans);
 }
 
+/* El cursor tiene que decir qué se puede pulsar. Los enlaces y las casillas ya
+   lo hacían solos; los <button> no —Tailwind 4 dejó de ponerles `pointer` en su
+   `preflight`, al revés que la v3— y en todo el sitio (vistas, filtros, mapa,
+   panel) el ratón se quedaba en flecha sobre cosas que sí se pulsan. Va aquí,
+   una vez, y no botón a botón. `not-allowed` en los deshabilitados por lo
+   mismo: la forma del cursor es la primera pista de que algo no se puede
+   pulsar, antes de leer nada. */
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']),
+summary,
+label[for] {
+  cursor: pointer;
+}
+button:disabled { cursor: not-allowed; }
+
 /* Figma Typographic style sheets helper utilities (responsive Mobile vs Desktop) */
 .typo-lead {
   font-family: var(--font-sans);
@@ -779,6 +794,17 @@ body {
   transform: translateX(40px);
   background: var(--mel-action-secondary);
 }
+/* Al pasar el ratón, la manija se adelanta al estado al que va: `action-
+   secondary` cuando está apagado —el color de «encendido»— y `action-primary`
+   cuando ya está encendido. Es la misma idea que el resto de los botones del
+   panel: el hover no cambia lo que hace el control, dice que responde. */
+#panel-ver-ocultos:hover:not(:disabled) .sw-manija {
+  background: var(--mel-action-secondary);
+}
+#panel-ver-ocultos[aria-checked='true']:hover:not(:disabled) .sw-manija {
+  background: var(--mel-action-primary);
+}
+
 /* Apagado enseña la equis, encendido el check. Se cruzan de opacidad. */
 #panel-ver-ocultos .sw-icono { transition: opacity 200ms ease; }
 #panel-ver-ocultos .sw-check,
@@ -796,6 +822,96 @@ body {
 /* Arrastrar sobre las casillas no debe ir seleccionando el texto de las filas
    por el camino: el gesto es de marcado, no de copiar. */
 .tabla { user-select: none; }
+
+/* Una sección entrando o saliendo del panel (ver `plegarSeccion`). La clase
+   solo existe mientras dura el movimiento: `overflow:hidden` permanente
+   recortaría las sombras de las filas, y una `transition` permanente haría que
+   cualquier cambio de alto de la tabla se animase sin venir a cuento. */
+.sec-moviendo {
+  overflow: hidden;
+  transition: height 320ms ease, margin-bottom 320ms ease;
+}
+
+/* Una sección cruzando la pantalla al cambiar de tarjeta. Solo `transform` y
+   `opacity`: las dos propiedades que el navegador anima sin recalcular el
+   layout, que es lo que permite mover seis secciones a la vez sin tirones.
+   `sec-sin-animar` es el fotograma en el que se la coloca fuera de la pantalla
+   antes de traerla: sin él, entraría animándose desde donde estuviera. */
+.sec-viajando {
+  /* 260ms es el `DESLIZ` de panel.astro; van emparejados a mano (ver allí). */
+  transition: transform 260ms ease, opacity 200ms ease;
+  will-change: transform;
+}
+.sec-sin-animar { transition: none; }
+
+/* «Releer el spreadsheet»: al pasar por encima solo gana sombra, y al pulsarlo
+   pasa a `action-tertiary` sin sombra. El icono NO se mueve en ninguno de los
+   dos —se probó girándolo en hover y sobraba (criterio del propietario,
+   04/08/2026)—; gira solo mientras la página se está releyendo, que es cuando
+   hay algo que contar: el botón provoca una recarga dura que tarda lo que tarde
+   la hoja. */
+#panel-releer {
+  background: var(--mel-action-primary);
+  transition: background-color 200ms ease, box-shadow 200ms ease;
+}
+#panel-releer:hover:not(:disabled) { box-shadow: var(--mel-shadow-button); }
+#panel-releer:active:not(:disabled),
+#panel-releer[data-releyendo] {
+  background: var(--mel-action-tertiary);
+  box-shadow: none;
+}
+#panel-releer[data-releyendo] svg { animation: mel-girar 900ms linear infinite; }
+@keyframes mel-girar { to { transform: rotate(360deg); } }
+
+/* --- Caja de los modales del panel ---------------------------------------
+   Los dos modales (confirmar/progreso/resumen y la nota al ocultar) miden
+   IGUAL siempre: mismo ancho y mismo suelo de alto, pase lo que pase dentro
+   (criterio del propietario, 04/08/2026). Antes uno medía 1000 y otro 1100, y
+   el de acciones cambiaba de tamaño al pasar de confirmar a resumen: un
+   diálogo que se encoge bajo el cursor mueve los botones de sitio entre un
+   clic y el siguiente.
+
+   `min(800px, …)` y no 800 a secas: en una pantalla de portátil de 800 de alto
+   un suelo fijo dejaría el modal más alto que la ventana y los botones fuera.
+   Va en CSS y no en utilidades de Tailwind porque las clases con `calc()` de
+   varios términos han dado ya dos fallos silenciosos en este proyecto
+   (`max-w-[calc(100vw-32px)]` compilaba a `0px`, ver D-190). */
+.modal-caja {
+  width: 100%;
+  max-width: 1100px;
+  min-height: min(480px, calc(100dvh - 48px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+
+/* --- Desglose de las tarjetas de cabecera --------------------------------
+   Cada línea lleva DENTRO su separación (los 4px que antes eran `gap-1` del
+   contenedor), porque una línea que se pliega tiene que llevarse su hueco con
+   ella; con `gap` en el padre, la que quedaba a alto cero seguía dejando su
+   separación y el desglose se partía por la mitad.
+
+   Alto fijo en vez de medido: el contenido es una línea de `typo-caption` con
+   el título truncado, así que 20px (18 a partir de 768px) es exacto y ahorra
+   el baile de medir, guardar y limpiar alturas que sí hace falta en las
+   secciones plegables — aquellas tienen dentro una tabla de alto imprevisible.
+
+   Se anima el ALTO y no `grid-template-rows: 0fr/1fr`: esta segunda no anima
+   en este navegador y se queda clavada en el valor de partida (comprobado al
+   hacer el plegado de las secciones, D-201). */
+.lins .lin {
+  height: 24px;
+  padding-bottom: 4px;
+  overflow: hidden;
+  transition: height 260ms ease, opacity 200ms ease;
+}
+@media (min-width: 768px) {
+  .lins .lin { height: 22px; }
+}
+.lins .lin[data-oculta] {
+  height: 0;
+  padding-bottom: 0;
+  opacity: 0;
+}
 
 /* --- Casilla cuadrada del panel (dev) ------------------------------------
    Estaba en PanelSeccion.astro, pero el modal la necesita también y los

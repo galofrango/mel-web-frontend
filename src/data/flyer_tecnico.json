@@ -46,10 +46,10 @@
   ],
   "comp": 3,
   "noSrgb": false,
-  "perfil": "sRGB IEC61966-2.1",
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 2825284
+  "bytes": 1962730
  },
  "13W5CRrmetP6jDgO7GVhayF3aHxLZY0qv": {
   "tipo": "jpeg",
@@ -176,10 +176,10 @@
   ],
   "comp": 3,
   "noSrgb": false,
-  "perfil": "sRGB IEC61966-2.1",
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 3466608
+  "bytes": 2019308
  },
  "1BtIPDcR2i8i7IvHqaKReY0W_u-VJ3wxR": {
   "tipo": "jpeg",
@@ -244,7 +244,7 @@
   "perfil": null,
   "alfa": true,
   "gris": false,
-  "bytes": 2567521
+  "bytes": 1028835
  },
  "1FzlF5EqVNTmsbdQyZLEq0Sry0sh902Tb": {
   "tipo": "png",
@@ -257,7 +257,7 @@
   "perfil": null,
   "alfa": true,
   "gris": false,
-  "bytes": 2154866
+  "bytes": 1011785
  },
  "1GDMZEzNN7k9vENrOJEctIXOohiV0I7Q_": {
   "tipo": "jpeg",
@@ -335,7 +335,7 @@
   "perfil": null,
   "alfa": true,
   "gris": false,
-  "bytes": 2884614
+  "bytes": 1127366
  },
  "1KIez_veoLTOlQJ96ljLILFwZVrgUkqjH": {
   "tipo": "jpeg",
@@ -569,7 +569,7 @@
   "perfil": null,
   "alfa": true,
   "gris": false,
-  "bytes": 2628114
+  "bytes": 1067565
  },
  "1asPPzcApsqGRxlhW-W3OpoF7yEPMbOYV": {
   "tipo": "jpeg",
@@ -592,10 +592,10 @@
   ],
   "comp": 3,
   "noSrgb": false,
-  "perfil": "sRGB IEC61966-2.1",
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 2732814
+  "bytes": 1399999
  },
  "1btmjVLRdinnfJmasxW2u_LKgdlzkInwG": {
   "tipo": "jpeg",
@@ -972,7 +972,7 @@
   "perfil": null,
   "alfa": true,
   "gris": false,
-  "bytes": 2514502
+  "bytes": 959791
  },
  "1rmgdqlLfNy8dRhwpyuNxMnQvJ1xc3d-A": {
   "tipo": "jpeg",
@@ -1115,7 +1115,7 @@
   "perfil": null,
   "alfa": true,
   "gris": false,
-  "bytes": 2246675
+  "bytes": 838980
  },
  "1xIPBTnndq3pVhAM-j2sEb6kspcRLhqcM": {
   "tipo": "jpeg",
@@ -1298,5 +1298,18 @@
   "alfa": false,
   "gris": false,
   "bytes": 536382
+ },
+ "1PWyOLdku1WBiTaF4UimSzy1LharJNYZW": {
+  "tipo": "jpeg",
+  "px": [
+   684,
+   923
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": "sRGB",
+  "alfa": false,
+  "gris": false,
+  "bytes": 581783
  }
 }

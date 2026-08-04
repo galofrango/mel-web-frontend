@@ -31,7 +31,7 @@ const COLUMNA_NOTAS = 'AA';
 /** Las claves de auditoria.ts. Se valida contra una lista blanca porque esto
  *  acaba dentro de la celda: sin ella, cualquier cadena entraría en el archivo
  *  del propietario con aspecto de marca del panel. */
-const CLAVES = new Set(['sin-fecha', 'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'sin-medir',
+const CLAVES = new Set(['sin-fecha', 'sin-lugar', 'sin-coordenadas', 'ref-duplicada', 'sin-artistas', 'sin-organiza', 'sin-disenador', 'sin-medir',
   'png', 'no-srgb', 'enorme', 'pesado', 'pequeno', 'gif']);
 
 const json = (o: unknown, status = 200) =>

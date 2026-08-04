@@ -69,7 +69,25 @@ const { grupo, urlPorId, formatoPorId } = Astro.props;
 const gifsPesados = grupo.clave === 'pesado'
   ? grupo.items.filter((it) => formatoPorId[it.idMel] === 'GIF')
   : [];
+const accionEsAbrirHoja = grupo.accion === 'Abrir en la hoja';
+const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
+
 const esGif = (idMel: string) => grupo.clave === 'pesado' && formatoPorId[idMel] === 'GIF';
+
+/** Una fila con la que no se puede hacer NADA en esta sección: ni botón propio
+ *  ni casilla que sirva para la acción en bloque. Hoy solo son los GIF de
+ *  «Peso superior», pero se pregunta por la condición y no por el formato —
+ *  cualquier otro caso que aparezca tiene que caer aquí solo. */
+const sinAccion = (idMel: string) => mostrarAccionEnBloque && esGif(idMel);
+
+/** Las filas que no se pueden tocar van al FINAL de la tabla (criterio del
+ *  propietario, 04/08/2026): son las únicas de la lista con las que no se puede
+ *  seguir trabajando, y en medio parten la columna de botones en dos. El orden
+ *  de la regla (`ORDENA` en auditoria.ts) se conserva dentro de cada bloque
+ *  porque `sort` de JavaScript es estable. */
+const itemsOrdenados = [...grupo.items].sort(
+  (a, b) => Number(sinAccion(a.idMel)) - Number(sinAccion(b.idMel)),
+);
 
 // Cuántos avisos se ven de partida. Los silenciados con `#oculto:` en la hoja
 // vienen dentro del grupo igual (`item.oculto`), para que el interruptor de la
@@ -149,8 +167,6 @@ const EN_FILA = 'w-full';
 // "Abrir en la hoja" nunca es acción en bloque (spec): no se pueden abrir tres
 // celdas a la vez. El resto de acciones automáticas sí tienen su botón en
 // bloque, a la espera de la ruta de la tarea 7.
-const accionEsAbrirHoja = grupo.accion === 'Abrir en la hoja';
-const mostrarAccionEnBloque = grupo.accion !== null && !accionEsAbrirHoja;
 
 // casilla · miniatura+nombre · MEL · dimensiones · formato · peso · ocultar · acción
 // Ronda de arreglos 2: "Dimensiones" y "Formato" con el icono de dirección
@@ -205,7 +221,10 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
     aria-controls={`sec-cuerpo-${grupo.clave}`}
   >
     <span class="sec-titulo typo-h4 text-mel-text-primary">
-      {grupo.titulo} <span class="nn text-mel-text-secondary">[{visiblesDeEntrada}]</span>
+      {/* Paréntesis y no corchetes: es lo que usa el resto del sitio para los
+          contadores («Ver ocultos (17)», los marcadores del mapa) y se lee
+          mejor el número. Unificado el 04/08/2026. */}
+      {grupo.titulo} <span class="nn text-mel-text-secondary">({visiblesDeEntrada})</span>
     </span>
     <span class="chevron shrink-0 w-10 h-10 flex items-center justify-center text-mel-text-primary">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -237,16 +256,23 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
         franja de la cabecera, no esto. Antes era rosa (`le-200` + texto
         `action-secondary`), un primitivo suelto que además chocaba con la franja
         roja de nivel 1. */}
+    {/* El banner cuenta los GIF que se VEN: si se ocultan todos, sobra, y vuelve
+        al encender «Ver ocultos» (criterio del propietario, 04/08/2026). El
+        recuento lo rehace `recalcularTodo()` en panel.astro.
+
+        Las dos redacciones —una y varias— se pintan aquí, en SSR, y el cliente
+        enseña la que toque: la alternativa era que el JavaScript construyera la
+        frase, y entonces habría dos versiones del mismo texto en dos ficheros,
+        libres de decir cosas distintas (regla 7). */}
     {gifsPesados.length > 0 && (
-      <div class="mx-6 mt-5 bg-mel-banner-warning-bg text-mel-banner-warning-text flex items-center gap-6 py-4 px-8">
+      <div class="banner-gif mx-6 mt-5 bg-mel-banner-warning-bg text-mel-banner-warning-text flex items-center gap-6 py-4 px-8">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0">
           <path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path>
           <path d="M12 9v4"></path><path d="M12 17h.01"></path>
         </svg>
         <p class="typo-body-sans">
-          {gifsPesados.length === 1
-            ? 'Hay 1 archivo GIF que supera el peso ideal y solo puede ser comprimido manualmente.'
-            : `Hay ${gifsPesados.length} archivos GIF que superan el peso ideal y solo pueden ser comprimidos manualmente.`}
+          <span class="gif-uno" hidden={gifsPesados.length !== 1}>Hay 1 archivo GIF que supera el peso ideal y solo puede ser comprimido manualmente.</span>
+          <span class="gif-varios" hidden={gifsPesados.length === 1}>Hay <span class="gif-n">{gifsPesados.length}</span> archivos GIF que superan el peso ideal y solo pueden ser comprimidos manualmente.</span>
         </p>
       </div>
     )}
@@ -302,7 +328,7 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
           <div class="h-10 border-r border-mel-border bg-mel-bg-secondary"></div>
           <div class="h-10 bg-mel-bg-secondary"></div>
         </div>
-        {grupo.items.map((item) => {
+        {itemsOrdenados.map((item) => {
           const urlDrive = urlPorId[item.idMel];
           const thumb = extractDriveImage(urlDrive, 200);
           const hrefManual = accionEsAbrirHoja
@@ -322,7 +348,7 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
           // ver la nota recién escrita.
           const idNotas = `notas-${grupo.clave}-${item.fila}`;
           return (
-            <div class="fila contents" data-id={item.idMel} data-fila={item.fila} data-mayor={item.mayor} data-bytes={item.bytes} data-px={item.px} data-perfil={item.perfil ?? ''} data-oculta={item.oculto ? 'true' : undefined} data-notas={item.notas ? 'si' : undefined}>
+            <div class="fila contents" data-gif={formatoPorId[item.idMel] === 'GIF' ? 'true' : undefined} data-sin-accion={sinAccion(item.idMel) ? 'true' : undefined} data-id={item.idMel} data-fila={item.fila} data-mayor={item.mayor} data-bytes={item.bytes} data-px={item.px} data-perfil={item.perfil ?? ''} data-oculta={item.oculto ? 'true' : undefined} data-notas={item.notas ? 'si' : undefined}>
               <div class="flex items-center justify-center h-16">
                 <input type="checkbox" class="chk-fila" aria-label={`Seleccionar ${item.evento}`} />
               </div>

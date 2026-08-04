@@ -778,5 +778,158 @@
    "tipo": "jpeg",
    "perfil": null
   }
+ },
+ {
+  "fecha": "2026-08-04T15:54:47.055Z",
+  "idMel": "MEL-00054",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 3466608,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 2019308,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:54:51.703Z",
+  "idMel": "MEL-00053",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2884614,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1127366,
+   "tipo": "png",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:54:55.717Z",
+  "idMel": "MEL-00063",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2825284,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 1962730,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:54:59.616Z",
+  "idMel": "MEL-00028",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2732814,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 1399999,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:55:04.013Z",
+  "idMel": "MEL-00021",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2628114,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1067565,
+   "tipo": "png",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:55:08.657Z",
+  "idMel": "MEL-00044",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2567521,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1028835,
+   "tipo": "png",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:55:12.919Z",
+  "idMel": "MEL-00037",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2514502,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 959791,
+   "tipo": "png",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:55:22.003Z",
+  "idMel": "MEL-00029",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2246675,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 838980,
+   "tipo": "png",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T15:55:27.053Z",
+  "idMel": "MEL-00032",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2154866,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1011785,
+   "tipo": "png",
+   "perfil": null
+  }
  }
 ]

@@ -245,7 +245,8 @@ ficha, donde hay una sola.
 4. **Protección de Imágenes**: Atributo `select-none`, `-webkit-user-drag: none` y deshabilitación del menú contextual en toda la galería y visores.
 5. **Esquinas rectas (sin `border-radius`)**: **NADA en la web tiene bordes redondeados.** Botones, tarjetas, tiradores, sheets, badges, inputs… todo con esquinas rectas. El único recurso decorativo de borde es el **pliegue diagonal** del bottom sheet (`clip-path`, ver `BottomSheetHeader`). Si un mockup parece redondeado, es una ilusión del pliegue o un error de lectura.
 6. **Sombras y dims unificados**: Toda sombra/scrim usa el primitivo `--mel-shadow-rgb` (Tinted 950) vía los tokens de elevación; los dims llevan además `mix-blend-multiply` para notarse en oscuro (ver sección *Sombras, Dims y Elevaciones*).
-7. **Offset superior en móvil**: `pt-[10vh]` (header común de todas las páginas) se reduce 24px por debajo de `md` — `pt-[calc(10vh-24px)] md:pt-[10vh]` — para subir el contenido en pantallas pequeñas. El `SideMenu` ajusta su `min-h` en paralelo para alinear el botón de cerrar.
+7. **Contadores entre paréntesis, nunca entre corchetes**: cualquier número que acompaña a un rótulo y depende de él —«Sin diseñador (17)», «Ver ocultos (17)», el día del historial, los marcadores del mapa— va entre paréntesis. Se unificó el 04/08/2026: convivían las dos formas y el paréntesis es el que ya usaba la web y el que deja leer mejor la cifra.
+8. **Offset superior en móvil**: `pt-[10vh]` (header común de todas las páginas) se reduce 24px por debajo de `md` — `pt-[calc(10vh-24px)] md:pt-[10vh]` — para subir el contenido en pantallas pequeñas. El `SideMenu` ajusta su `min-h` en paralelo para alinear el botón de cerrar.
 
 ## Transiciones de Navegación
 

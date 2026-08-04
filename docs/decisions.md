@@ -3666,20 +3666,463 @@ La sección «Archivo PNG» **se queda como estaba**: salta con todo PNG y es do
 se convierten, con su botón diciendo exactamente lo que va a pasar y su banner
 avisando de que JPEG no admite transparencias.
 
-Lo que se retira es el **ofrecimiento cruzado**: cuando se arregla el peso o el
-color de un PNG desde otra sección, «Otras mejoras recomendadas» ya no propone
-convertirlo. Cambiar de formato destruye la transparencia, y eso no es una
-mejora que se marque de paso mientras se hace otra cosa — y menos en un lote,
-donde se aceptaría de corrido para veinte carteles a la vez.
+Lo que se retira es el ofrecimiento **desde «Peso superior», y solo desde ahí**:
+al comprimir un PNG, «Otras mejoras recomendadas» ya no propone convertirlo. Es
+la sección donde el PNG entra precisamente porque se puede adelgazar sin sacarlo
+de su formato (pngquant, D-200), así que ofrecer justo ahí lo que destruiría su
+transparencia contradice el motivo por el que está en esa lista — y en un lote se
+aceptaría de corrido para veinte carteles a la vez.
+
+Desde las demás secciones se sigue ofreciendo con normalidad: son otro contexto y
+el propietario no pidió tocarlas. En el panel de hoy ese caso no llega a darse
+—las únicas dos secciones automáticas son «Archivo PNG» y «Peso superior»— pero
+la condición está escrita por sección, no en general, para cuando vuelva a
+haber PNG en «Resolución mayor de 2400 px» o en el cambio de color.
 
 Comprobado además, y con test, que **comprimir o reducir un PNG nunca lo convierte
 a JPG**: la salida solo se mueve a JPEG si se pide `png` explícitamente.
 
-**Lo que NO había que hacer, y hice:** por el camino podé la regla para que solo
-avisara de los PNG sin canal alfa, y con eso la sección entera desapareció del
-panel —los 13 del archivo tienen transparencia—. El propietario no había pedido
-eso: había pedido quitar el ofrecimiento. Revertido.
+**Lo que NO había que hacer, y hice DOS veces:** primero podé la regla para que
+solo avisara de los PNG sin canal alfa, y con eso la sección entera desapareció
+del panel —los 13 del archivo tienen transparencia—. Y al revertir aquello,
+quité el ofrecimiento en TODAS las secciones cuando lo pedido era en una. Las dos
+veces el error es el mismo: ampliar el encargo por mi cuenta a lo que me parecía
+la conclusión lógica.
 
-El razonamiento que me llevó ahí no era malo (los 13 estaban ocultos con la misma
-nota, y un aviso que siempre se oculta por lo mismo suele estar mal planteado)
-pero era una propuesta que tocaba haber hecho, no ejecutado.
+El razonamiento no era malo (los 13 estaban ocultos con la misma nota, y un aviso
+que siempre se oculta por lo mismo suele estar mal planteado) pero era una
+propuesta que tocaba haber hecho, no ejecutado.
+
+---
+
+## D-205 · El desglose de las tarjetas cede el sitio, y el panel recuerda por dónde ibas
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Dos arreglos de la misma idea: que la cabecera del panel diga lo que hay que
+hacer ahora, no lo que había al abrirlo.
+
+**El desglose salta las secciones a cero.** Cada tarjeta enseña tres líneas, y
+hasta ahora eran las tres primeras por gravedad pasara lo que pasara: al dejar
+«Archivo PNG» a cero, la tarjeta gastaba una de sus tres líneas en anunciar un
+cero mientras «GIF animado» quedaba escondido en «Otras incidencias». Ahora se
+enseñan **las tres primeras que tengan avisos** — el orden entre ellas no cambia
+nunca, solo se saltan las vacías — y la línea de sobrante desaparece cuando su
+suma es cero.
+
+El relevo se anima: **todas** las líneas se pintan en SSR (regla 7, el marcado no
+se fabrica en el navegador) y las que no tocan van plegadas a alto cero. El
+cliente solo mueve `data-oculta`, y el CSS anima el alto. Alto fijo de 24px
+(22 a partir de 768px) en vez de medido, que es lo que sí hace falta en las
+secciones plegables: aquí dentro solo hay una línea de `typo-caption`. La
+separación entre líneas vive DENTRO de cada una (`padding-bottom`) y no como
+`gap` del contenedor, porque una línea plegada tiene que llevarse su hueco con
+ella.
+
+**Y la memoria de posición, que se probó y se retiró.** Se llegó a guardar
+`scrollY` en `sessionStorage` y a restaurarlo al volver; en el navegador de
+agente funcionaba (bajar a 1400, ir a Historial, volver, aterrizar en 1400) y
+en el uso real del propietario no, así que se ha quitado entera — código
+incluido. Lo que se recuerda al volver de Historial son **las secciones
+abiertas**, y nada más.
+
+Se deja apuntado por qué no se insiste: la posición exacta depende de que la
+página mida lo mismo al volver, y no mide lo mismo —las secciones se reabren
+después de pintar, el panel se remide, una sección puede haber desaparecido
+porque su aviso se arregló—. Restaurar un número de píxeles sobre una página
+que ha cambiado de alto deja al usuario en un sitio que no es el que dejó, que
+es peor que dejarlo arriba.
+
+**Nota de entorno:** ni las transiciones CSS ni los eventos `scroll` se
+despachan en una pestaña oculta (`visibilityState: 'hidden'`), que es como
+corre el navegador del agente. Las animaciones se quedan congeladas en
+`currentTime: 0` y `window.scrollTo()` cambia `scrollY` sin disparar el evento.
+Para comprobar cualquiera de las dos cosas desde un agente hay que forzarlas
+(`document.getAnimations().forEach(a => a.finish())`, `dispatchEvent(new
+Event('scroll'))`); leer alturas sin eso da números a medio camino que parecen
+un fallo del CSS y no lo son.
+
+---
+
+## D-206 · Cuatro ajustes de la cabecera del panel
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+**El porcentaje de las tarjetas se recalculaba… nunca.** Salía del servidor y se
+quedaba clavado: al encender «Ver ocultos» la cifra pasaba de 28 a 39 y el
+paréntesis seguía diciendo 28%. Ahora se rehace junto a la cifra en
+`recalcularTodo()`. El total viaja al cliente en `data-total` del contenedor de
+la página, porque este script no lleva `define:vars` y no tiene otra forma de
+saberlo (regla 7).
+
+Que con 100 carteles en la hoja cifra y porcentaje coincidieran —28 avisos,
+28%— era casualidad de la división, no un error de cuenta: el denominador
+(carteles medidos) siempre fue el correcto.
+
+**Los dos modales miden igual.** Uno tenía 1000px y otro 1100, y el de acciones
+además cambiaba de tamaño al pasar de confirmar a resumen: un diálogo que se
+encoge bajo el cursor mueve los botones de sitio entre un clic y el siguiente.
+Clase `.modal-caja` en `global.css`: 1100 de ancho y suelo de alto de
+`min(480px, 100dvh - 48px)` (se probó con 800 y el propietario lo bajó a 480:
+con contenidos cortos sobraba caja). Los botones van con `mt-auto`, pegados
+abajo, para que no floten a media altura cuando el contenido no llega al suelo
+ni cambien de sitio entre un estado y el siguiente. El `min()` no es adorno —
+con un valor fijo, en una pantalla más baja que ese suelo el modal saldría de la
+ventana con los botones fuera.
+Va en CSS y no en utilidades por el historial de fallos silenciosos de
+`calc()` dentro de clases arbitrarias (D-190).
+
+**Una sección que reaparece ya no da el salto.** Al encender «Ver ocultos», una
+sección con todos sus avisos ocultos volvía de golpe y empujaba media pantalla.
+Ahora entra y sale animando el alto (`plegarSeccion`), con un margen negativo
+que cancela el `gap-6` del contenedor mientras dura: sin él la animación
+arrancaba con un salto de 24px, que era justo lo que se quería quitar.
+
+Lleva **temporizador de remate** además del `transitionend`, y no por
+precaución: si la transición no llega a arrancar, ese evento no se dispara
+nunca y la sección se queda clavada a alto 0 con `overflow:hidden` —invisible,
+sin manera de recuperarla salvo recargando—. Pasó en la primera versión.
+
+**La cabecera se queda fija.** `position: sticky` en el `<header>`, que ahora
+contiene SOLO el título y el menú; la introducción salió fuera como hermana. El
+primer intento dejó la fila pegajosa dentro del `<header>` completo y se
+despegaba a los ~350px de scroll: un elemento `sticky` solo pega dentro de su
+bloque contenedor, así que su padre tiene que ser el contenedor que dura toda la
+página. En las dos pantallas del panel, Control e Historial.
+
+Y el fondo se estira hasta los bordes con márgenes negativos que devuelven el
+mismo valor como padding (`-mx-6 px-6 … lg:-mx-[108px] lg:px-[108px]`). Sin eso
+el fondo acababa donde acaba el padding de la página y por los lados asomaban
+las sombras de las tarjetas y las franjas de color de las secciones al pasar por
+debajo — un par de píxeles, pero se veían.
+
+El **filete inferior no** se estira: se quedó cruzando la pantalla de lado a
+lado y no venía a cuento. Va en un hijo del `<header>`, con el ancho del
+contenido como el resto de reglas de la página; el fondo a sangre y la línea
+alineada con todo lo demás.
+
+---
+
+## D-207 · Dos fichas con el mismo cartel, y el denominador que lo tapaba
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+El propietario contó **101 filas** en la hoja y el panel decía 100. La sospecha
+era una referencia MEL repetida. No lo era: las 101 filas tienen código MEL y
+los 101 son distintos.
+
+Lo que hay es **una imagen repetida**: `MEL-00096` y `MEL-00097` apuntan al
+mismo archivo de Google Drive. Y como la caché técnica
+(`flyer_tecnico.json`) va indexada **por ID de Drive** —una imagen, una
+medición—, dos fichas que comparten archivo ocupan una sola entrada. De ahí el
+100.
+
+**Dos consecuencias, dos arreglos:**
+
+1. **El denominador de las tarjetas pasa a ser las fichas de la hoja**
+   (`filas.length`), no las entradas de la caché. Los numeradores cuentan
+   fichas; el denominador tenía que contar lo mismo. Que el porcentaje
+   coincidiera con la cifra —28 avisos, 28%— era casualidad de tener casi
+   exactamente 100 carteles, y tapaba el desfase.
+
+2. **Sección nueva «Imagen duplicada»**, en «Falta información». Es de nivel 1
+   y no de rendimiento porque lo que falla es el DATO: una de las dos fichas
+   está enseñando el cartel de la otra, y el panel no puede saber cuál. Sin
+   acción automática a propósito — arreglarlo es decidir qué referencia está
+   mal y buscar el archivo que falta, y eso no lo hace una máquina.
+
+Es la primera regla que necesita mirar TODAS las filas antes de juzgar una: una
+fila sola no puede saber que está repetida. `auditar()` calcula los IDs de Drive
+que salen más de una vez y se los pasa a las pruebas en un tercer argumento
+(`ctx`). Las demás reglas lo ignoran.
+
+El nombre que pidió el propietario era «Referencia duplicada»; se cambió a
+«Imagen duplicada» al ver el dato, porque la referencia es justo lo único que no
+está duplicado. `LIMPIO` sigue listando «ID duplicado» entre las comprobaciones
+que salen limpias, y sigue siendo verdad.
+
+---
+
+## D-208 · «Desconocido» es un hueco, y la imagen no manda en el modal
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+**Dos comprobaciones nuevas: «Sin promotores» y «Sin diseñador».** El panel
+presumía abajo de haber mirado «Sin diseñador» y salir limpio, y era falso: 17
+carteles llevan «Desconocido» en esa columna, y 4 en «Organiza». `estaVacio()`
+ya trataba esa palabra como celda vacía —igual que en Artistas—, así que lo
+único que faltaba era la regla. «Sin diseñador» sale de la lista `LIMPIO`, donde
+no le tocaba estar.
+
+Van detrás de «Sin artistas» por el mismo criterio que ordena todo el nivel 1:
+lo que ROMPE va antes que lo que FALTA, y las tres son lagunas de catalogación
+que no impiden que el cartel se vea.
+
+**La imagen ya no decide el alto del modal.** Un `<img>` en flujo con `h-full`
+dentro de una caja de alto automático se cae a su alto INTRÍNSECO —400px de
+ancho por lo que mida de largo— y estiraba el modal hasta el tope de la ventana
+por el simple hecho de que el cartel fuera grande. Ahora la imagen va en
+`position: absolute` dentro de su caja: fuera del flujo no aporta alto, la caja
+se estira con la columna de texto y el cartel se ajusta dentro con
+`object-contain`. Manda el contenido, que es lo que pidió el propietario.
+
+**Los estados de «Releer».** Al pasar por encima solo gana sombra; pulsado —y
+mientras relee— pasa a `action-tertiary` sin sombra. El icono **no** se mueve en
+hover: se probó girándolo y sobraba. Gira solo mientras la página se relee de
+verdad (`data-releyendo` + `@keyframes mel-girar`), que es cuando hay algo que
+contar. No es una animación recuperada: nunca estuvo en el código —el SVG ha
+sido estático desde la primera versión, comprobado en el historial—, se añade
+ahora.
+
+Los tres estados viven juntos en `#panel-releer` (global.css) y el botón ya no
+lleva `bg-` en el marcado: repartir el color entre una utilidad y dos reglas
+obliga a mirar en dos sitios para saber de qué color está el botón.
+
+**Y el giro no se veía**, porque `location.reload()` a secas apaga la animación
+en el acto: el navegador deja de pintar un documento que se está yendo y lo
+único que quedaba era la página atenuada. Ahora el botón pide antes la página
+nueva por `fetch` y recarga cuando llega. La parte lenta —leer la hoja entera y
+medir lo que haya nuevo— ocurre con la página VIVA y el icono girando; cuando la
+respuesta está, el servidor ya tiene el trabajo hecho y la recarga es casi
+instantánea. El HTML de esa petición se tira: lo que interesa es lo que deja
+hecho, no la respuesta.
+
+---
+
+## D-209 · Los porcentajes no llevan decimales, y por eso a veces no se mueven
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+22 avisos sobre 101 carteles es 21,78 %, que redondeado es 22 %. De ahí que la
+cifra y el porcentaje se parezcan tanto y que arreglar el denominador (100 →
+101, D-207) no moviera ningún porcentaje visible: el redondeo se come la
+diferencia.
+
+**Se queda así, sin decimales** (criterio del propietario). Un «21,8 %» en una
+tarjeta de un panel de control no ayuda a decidir nada y ensucia una cifra que
+se lee de un vistazo. Queda escrito para que dentro de un año nadie lo tome por
+un error de cálculo: no lo es.
+
+---
+
+## D-210 · El cursor, la ayuda que sobra y las filas que no se pueden tocar
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+**El cursor dice qué se puede pulsar.** En TODO el sitio, no solo en el panel:
+Tailwind 4 dejó de poner `cursor: pointer` a los `<button>` en su *preflight*
+—al revés que la v3—, así que el ratón se quedaba en flecha sobre vistas,
+filtros, tarjetas del mapa y todos los controles del panel. Una regla en
+`global.css` para `button:not(:disabled)`, `[role=button]`, `summary` y
+`label[for]`, más `not-allowed` en los deshabilitados. Comprobado: en la home
+los cinco botones visibles pasan a `pointer`.
+
+**La ayuda de «Comprimir» no habla de PNG cuando ya no va a haber PNG.** Al
+convertir un cartel a JPG, el texto de la mejora «Comprimir» seguía explicando
+la reducción de paleta del PNG, que para cuando le tocara el turno ya no existe.
+El trozo va ahora en un `<span class="solo-png">` dentro de la propia
+descripción de la regla, y el modal lo esconde cuando la acción es «Convertir a
+JPG». La frase está escrita para que al quitarlo siga cerrando: «…empezando con
+una compresión al 95 de calidad para JPG.»
+
+**Las filas con las que no se puede hacer nada van al final.** Hoy son los GIF
+de «Peso superior» —se cuentan y se avisan, pero no tienen botón ni sirve
+seleccionarlos—, y en medio de la tabla partían la columna de botones en dos.
+Ahora se ordenan al final en SSR (`sinAccion()` en PanelSeccion, con `sort`
+estable para no tocar el orden de la regla dentro de cada bloque) y siguen al
+final al ordenar por cualquier columna, porque el comparador del cliente los usa
+como clave primaria. Sin esto, ordenar «Peso superior» por peso ponía primero un
+GIF de 15 MB con un «Solo a mano» donde va el botón.
+
+La condición se pregunta por lo que importa —ni botón propio ni casilla útil—,
+no por el formato: cualquier caso nuevo que cumpla eso cae al final solo.
+
+---
+
+## D-211 · El aviso del peso imprevisible, donde se lee
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+El modal de confirmación anuncia lo que va a cambiar —formato, color,
+dimensiones— y **nunca el peso**, porque hace falta procesar el fichero para
+saberlo (D-193). Eso estaba escrito, pero solo en el «por qué» de la mejora
+«Bajar a calidad 95»… que se esconde precisamente cuando la acción ES comprimir:
+ahí la calidad no es una opción que se pueda desmarcar, es el encargo. Al
+esconder la fila se escondía el aviso, y el propietario lo echó de menos justo
+donde más falta hace.
+
+Ahora sale un banner ámbar bajo el texto de «esta acción no se puede deshacer»:
+
+> No es posible calcular de antemano el peso final del archivo: se sabrá al
+> terminar la compresión.
+
+**Ámbar y no negrita dentro del párrafo** porque es como el panel avisa ya de
+las pegas de una acción —el de los GIF en «Peso superior», el de las
+transparencias en «Archivo PNG»—; el mismo aviso merece la misma forma, y una
+negrita suelta habría inventado un segundo idioma para lo mismo. Detrás del
+texto, no delante: primero lo que va a pasar, después el matiz.
+
+Aparece exactamente cuando la fila de calidad NO está, así que el aviso está
+siempre en el modal: o desplegable en esa fila, o a la vista en el banner.
+Comprobado los tres casos — comprimir desde «Peso superior» (banner),
+convertir un PNG que además pesa (banner), y convertir un PNG que no pesa (fila
+de calidad con su «por qué»).
+
+---
+
+## D-212 · Mostrar un aviso oculto: la hoja primero, la pantalla después
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Con el servidor de desarrollo caído, pulsar «Mostrar aviso» soltaba este aviso
+del navegador:
+
+> El aviso ha vuelto a la lista, pero no se pudo borrar su nota de la hoja:
+> Failed to fetch
+
+El `Failed to fetch` era el servidor apagado, sí. El fallo es lo que decía la
+frase: **el aviso NO había vuelto a ningún sitio que durase**. `mostrarYBorrarNota()`
+cambiaba la pantalla primero —sacaba la fila de los ocultos, vaciaba el globo y
+le quitaba `data-notas`— y escribía en la hoja después, sin deshacer nada si la
+escritura fallaba. Resultado: la marca `#oculto:` seguía escrita, así que a la
+primera recarga el aviso se escondía solo otra vez con su nota puesta, y
+mientras tanto el globo se había quedado vacío en pantalla. De ahí lo de «copio
+la nota y me aparece una cosa y luego otra».
+
+Ahora escribe primero y solo toca la pantalla si la hoja confirma. Si falla, no
+cambia nada y lo dice tal cual: «No se pudo borrar la nota de la hoja, así que
+el aviso sigue oculto». Es exactamente el criterio que ya seguía su gemela
+`guardarNota()` —escribir y solo entonces ocultar— y por el mismo motivo: **el
+panel se reconstruye desde la hoja en cada visita, así que el único estado que
+dura es el de la celda.** Cualquier ruta que las desincronice acaba mintiendo.
+
+De paso, el botón se desactiva mientras dura la escritura: son unos cientos de
+milisegundos en los que antes no pasaba nada y parecía que el clic se había
+perdido.
+
+**Comprobado en el navegador las dos ramas**, interceptando `fetch`: con la
+escritura fallando la fila sigue oculta, conserva su nota y el botón vuelve a
+estar activo; con respuesta correcta la fila sale de los ocultos, el globo se
+vacía y el botón vuelve a decir «Ocultar». No hay test automático porque este
+código vive en el script en línea de `panel.astro`, que no se puede importar
+desde `node --test` (regla 7).
+
+---
+
+## D-213 · El banner cuenta lo que se ve, y dos estados de hover
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+**El banner de los GIF sigue al interruptor.** Ocultar el único GIF de «Peso
+superior» dejaba el aviso ámbar en su sitio anunciando un archivo que ya no
+estaba en la lista. Ahora `recalcularTodo()` cuenta los GIF VISIBLES de la
+sección y esconde el banner cuando no queda ninguno; vuelve al encender «Ver
+ocultos». Mismo criterio que el resto de cifras del panel: lo que se enseña
+cuenta, lo oculto no.
+
+Las dos redacciones —«Hay 1 archivo GIF que supera…» y «Hay N archivos GIF que
+superan…»— se pintan las dos en SSR y el cliente enseña la que toque, en vez de
+construir la frase en JavaScript. Es la regla 7 aplicada al texto: una frase
+escrita en dos ficheros son dos frases, y acaban diciendo cosas distintas.
+
+Comprobado el ciclo entero: GIF oculto → sin banner; mostrarlo → banner;
+ocultarlo → sin banner; «Ver ocultos» ON → banner; OFF → sin banner.
+
+**Hover de las tarjetas de resumen:** solo sombra, y exactamente la misma que
+lleva la tarjeta activa (`--mel-shadow-button`). Son la misma pieza en dos
+momentos; dos sombras distintas para lo mismo se notan al pasar de una a la
+otra. La de «Peso ahorrado» no la lleva porque no se pulsa.
+
+**Hover del interruptor:** la manija se adelanta al estado al que va —
+`action-secondary` cuando está apagado (el color de «encendido») y
+`action-primary` cuando ya está encendido. El hover no cambia lo que hace el
+control, dice que responde.
+
+---
+
+## D-214 · La cabecera lleva el marcador y los mandos, y el filtro entra en cascada
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+**Fuera el párrafo de introducción.** Explicaba a quién abre el panel qué es el
+panel, y a estas alturas lo abre una sola persona que lo sabe. Ese hueco lo
+ocupan ahora las dos cifras verdes («Archivos procesados», «Optimización
+total») y los dos mandos («Releer el spreadsheet» y «Ver ocultos»), que se han
+mudado **dentro de la cabecera pegajosa**, tal cual estaban.
+
+El motivo es de uso: en un panel donde se baja y se sube todo el rato, el
+marcador de lo hecho y el interruptor de los ocultos son justo lo que hace falta
+tener a mano sin volver arriba.
+
+Cuesta alto: la cabecera pasa de 93 a **269px**, que en una ventana de 720
+son algo más de un tercio de la pantalla. Es una decisión consciente del
+propietario; si un día molesta, la salida evidente es encoger las cifras cuando
+la cabecera está pegada, no volver a bajarlas.
+
+**El filtro por tarjeta, como dos bloques que se relevan.** Pulsar «Falta
+información» o «Bajo rendimiento» cambiaba las secciones de golpe. Ahora el
+bloque que estaba sale por SU lado —nivel 1 por la izquierda, nivel 2 por la
+derecha— y el otro entra por el suyo antes de que aquel termine de salir.
+
+**Los dos bloques se mueven enteros, de una pieza.** Se probó escalonando las
+secciones una tras otra (45 ms de desfase) y el propietario lo descartó: alarga
+la transición y obliga a esperar a la última para poder traer nada. Sin
+escalonar, el viaje dura 260 ms, el bloque nuevo entra a los 104 (40 % del
+viaje) y todo ha terminado a los 364.
+
+**Las secciones no se pliegan.** La primera versión las recogía de alto además
+de moverlas, y el propietario lo leyó como «se guardan arriba y se quedan ahí
+engordando el scroll»: el movimiento vertical se comía el lateral, que era el
+gesto que se buscaba. Quien cambia de alto ahora es el CONTENEDOR, una sola vez
+y de un alto al otro, mientras las secciones solo viajan de lado.
+
+Todo el viaje es `transform` y `opacity` —las dos propiedades que el navegador
+anima sin recalcular el layout (regla 2)—, y el contenedor recorta con
+`overflow: hidden` mientras dura: nada se sale de la página ni aparece un scroll
+horizontal que no existía. No hay scroll de verdad en ningún momento; es una
+apariencia, que es exactamente lo que se pidió.
+
+**Los dos bloques se cruzan.** La primera versión esperaba a que saliera el
+viejo para traer el nuevo, y quedaba un instante con la pantalla vacía. Ahora,
+al 40 % de la salida (`SOLAPE`), las secciones que se van **dejan el flujo**
+—pasan a `position: absolute` clavadas en el sitio que ocupaban, con su `top`
+medido— y siguen saliendo mientras el bloque nuevo ya ocupa su hueco.
+
+El remate va por temporizador y no por `transitionend`: son varias transiciones
+a la vez y contar el tiempo que ya se sabe que dura es más robusto que esperar
+un evento por sección.
+
+**Y rematar lo anterior es lo PRIMERO que hace un cambio de tarjeta**, antes
+incluso de mirar qué secciones hay que mover. A mitad de un cambio, las que se
+van todavía no están `hidden` —siguen viajando, fuera del flujo— y las que
+entran ya no lo están: calcular las listas sobre ese DOM daba dos listas
+equivocadas y el panel acababa enseñando el nivel contrario al de la tarjeta
+pulsada. Se coló en la primera versión y lo cazó la prueba de interrumpir a los
+80 ms; ahora se comprueban seis cortes (0, 40, 80, 130, 200 y 300 ms) y los seis
+acaban en el nivel correcto y sin un solo estilo residual.
+
+Comprobado: ida y vuelta dejan el contenedor con su alto correcto y sin estilos
+en línea, ninguna sección se queda con transform ni con la clase de viaje, y
+tres cambios de tarjeta encadenados a 150 ms —interrumpiendo la animación dos
+veces— acaban en el estado correcto.
+
+---
+
+## D-215 · «Comprobaciones sin hallazgos», pegado abajo
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+La línea que enumera lo que el panel miró y salió limpio vivía al final de la
+página, donde solo se leía si se bajaba del todo — justo lo contrario de lo que
+está para hacer: recordar en todo momento qué está vigilado. Ahora va `sticky
+bottom-0`, pegada al borde inferior de la ventana, con 40px de aire arriba y
+abajo.
+
+Misma pareja de reglas que la cabecera y por lo mismo: fondo propio (las
+secciones le pasan por debajo), márgenes negativos que estiran ese fondo hasta
+los bordes de la página, y el filete con el ancho del contenido.
+
+Entre las dos barras —269px arriba y 99 abajo— quedan unos 350px de ventana para
+la lista en una pantalla de 720. Es mucho marco para poco cuadro; si al usarlo
+aprieta, lo primero que debería encoger son las cifras de la cabecera cuando
+está pegada, no esta línea.

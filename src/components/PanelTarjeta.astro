@@ -45,6 +45,11 @@
  * nada — pero la prop existe porque el propio componente define los dos
  * estados (spec, sección Interfaz), y la tarea 6 conmutará la misma clase.
  *
+ * Al pasar el ratón gana SOLO sombra, y exactamente la misma que lleva la
+ * tarjeta activa (`--mel-shadow-button`): son la misma pieza en dos momentos, y
+ * dos sombras distintas para lo mismo se notan al pasar de una a la otra. La de
+ * «Peso ahorrado» no la lleva porque no se pulsa (`filtra: false`).
+ *
  * `aria-pressed` viaja con la misma prop. Ajuste del propietario tras usar el
  * panel: la tarjeta activa representa el filtro EN CURSO, no un interruptor
  * — pulsarla de nuevo no hace nada (ver `pulsarTarjeta` en panel.astro), así
@@ -52,17 +57,24 @@
  * apaga pulsándolo otra vez".
  */
 interface Linea {
+  clave: string;
   titulo: string;
   cifra: number;
+  /** Si ocupa uno de los tres sitios del desglose. Las que no, van al marcado
+   *  igual pero plegadas a alto cero: cuando otra sección llega a cero, el
+   *  cliente las despliega y ocupan su hueco. */
+  visible: boolean;
 }
 
 interface Props {
   nivel: 1 | 2;
   overline: string;
   cifra: number;
-  /** Solo las líneas reales que hay, 0 a 3 — sin relleno. */
+  /** TODAS las secciones del nivel, en orden de gravedad. Se pintan las que
+   *  traen `visible`; las demás quedan plegadas, listas para tomar el relevo. */
   lineas: Linea[];
-  /** Suma de las secciones que no caben en las 3 líneas. `null` = sin sobrante. */
+  /** Suma de las secciones que no caben en las 3 líneas. `null` = el nivel no
+   *  tiene más de tres secciones y esa línea no existe. */
   desbordamiento: number | null;
   activa?: boolean;
   /**
@@ -109,7 +121,7 @@ const Etiqueta = filtra ? 'button' : 'div';
 
 <Etiqueta
   type={filtra ? 'button' : undefined}
-  class={`${filtra ? 'tarj ' : ''}group relative flex flex-col items-start gap-4 text-left border pl-8 pr-6 py-6 min-h-[206px] transition-colors duration-200 w-full ${estadoClase}`}
+  class={`${filtra ? 'tarj hover:shadow-[var(--mel-shadow-button)] ' : ''}group relative flex flex-col items-start gap-4 text-left border pl-8 pr-6 py-6 min-h-[206px] transition-[color,background-color,border-color,box-shadow] duration-200 w-full ${estadoClase}`}
   data-nivel={filtra ? nivel : undefined}
   data-activa={filtra ? (activa ? 'true' : 'false') : undefined}
   aria-pressed={filtra ? (activa ? 'true' : 'false') : undefined}
@@ -121,15 +133,24 @@ const Etiqueta = filtra ? 'button' : 'div';
     {porcentaje !== null && <span class="pct typo-h3 text-mel-text-secondary">({porcentaje}%)</span>}
   </span>
 
-  <span class="lins flex flex-col w-full gap-1">
+  {/* Sin `gap`: el hueco entre líneas va DENTRO de cada una (`.lin` en
+      global.css), que es lo que permite que una línea se pliegue del todo. Con
+      `gap` en el contenedor, una línea a alto cero seguiría dejando su
+      separación y el desglose se quedaría con un escalón en medio. */}
+  <span class="lins flex flex-col w-full">
     {lineas.map((linea) => (
-      <span class="flex items-baseline justify-between gap-4 w-full">
+      <span class="lin flex items-baseline justify-between gap-4 w-full"
+            data-clave={linea.clave}
+            data-oculta={linea.visible ? undefined : 'true'}
+            aria-hidden={linea.visible ? undefined : 'true'}>
         <span class="typo-caption text-mel-text-primary truncate">{linea.titulo}</span>
         <span class="typo-caption text-mel-text-primary shrink-0">{linea.cifra}</span>
       </span>
     ))}
     {desbordamiento !== null && (
-      <span class="flex items-baseline justify-between gap-4 w-full">
+      <span class="lin lin-desb flex items-baseline justify-between gap-4 w-full"
+            data-oculta={desbordamiento > 0 ? undefined : 'true'}
+            aria-hidden={desbordamiento > 0 ? undefined : 'true'}>
         <span class="typo-caption text-mel-text-secondary truncate">Otras incidencias</span>
         <span class="typo-caption text-mel-text-secondary shrink-0">+{desbordamiento}</span>
       </span>
