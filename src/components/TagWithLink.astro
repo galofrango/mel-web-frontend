@@ -77,7 +77,7 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
        resto en vez de quedarse cortado en seco contra el borde. -->
   <div class={`marquee-cell flex h-[24px] items-center relative shrink-0 w-full min-w-0 overflow-hidden ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
     {multi && multi.length ? (
-      <div class="tag-multi marquee-inner flex items-center min-w-0 max-w-full whitespace-nowrap">
+      <div class="tag-multi marquee-inner min-w-0 max-w-full">
         {multi.map((m, idx) => (
           <span class="inline-flex items-center shrink-0">
             {m.href ? (
@@ -94,7 +94,7 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
         <span class="tag-count-val marquee-inner">{count}</span>
       </Link>
     ) : (
-      <span class={`tag-count-val marquee-inner block w-full typo-body-roman ${state === 'Disabled' ? "text-mel-text-tertiary select-text" : "text-mel-text-secondary select-text"}`}>
+      <span class={`tag-count-val marquee-inner w-full typo-body-roman ${state === 'Disabled' ? "text-mel-text-tertiary select-text" : "text-mel-text-secondary select-text"}`}>
         {count}
       </span>
     )}
@@ -108,7 +108,11 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
      child Link component's own markup needs :global() since Astro's scoped
      styles don't cross component boundaries. */
   .tag-count-val {
-    display: block;
+    /* `display` ya no va aquí (D-220): esta clase convive siempre con
+       `.marquee-inner` (global.css), que pone `inline-block` — un
+       `display:block` aquí empataba en especificidad con esa regla y
+       ganaba por orden de carga, dejando el valor sin el modo de scroll
+       al pasar el ratón aunque desbordara de verdad. */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

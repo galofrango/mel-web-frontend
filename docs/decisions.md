@@ -4197,3 +4197,35 @@ Petición del propietario: `#side-panel-title` pasa de `typo-h2` (28px móvil / 
 **Contexto**: D-216 añadió el cero al día en `formatFechaDMY()`, pero la ficha de evento (`event/[id].astro`) nunca pasaba `e.fecha` por esa función — el mapeo `evento()` la asignaba tal cual (`date: e.fecha`), a diferencia de la home/lista, que sí llaman a `formatFechaDMY()`. El propietario lo notó al ver que la tag "Fecha" de la ficha seguía sin el cero.
 
 **Decisión**: `date: formatFechaDMY(e.fecha)` en el mapeo `evento()`. Alcance: solo esa línea; el resto de la ficha no tenía este problema.
+
+## D-225 · Corrección de D-223: sin código postal reconocible, se descarta "León" si es el último trozo
+
+**Contexto**: "Delfos" seguía mostrando "LE-158/26, Dehesas, León" — el propietario esperaba solo "LE-158/26, Dehesas". Su `/place/` de Google no lleva código postal en el texto legible (el código postal existe, pero solo en el parámetro de datos de la URL, no en el segmento que se muestra): `"LE-158/26, Dehesas, León"`. Sin ningún trozo con dígitos, D-223 no encontraba el patrón "código postal + nombre" y devolvía la dirección sin tocar.
+
+**Decisión**: caso de respaldo cuando no hay código postal reconocible — si el ÚLTIMO trozo es exactamente "León" (la provincia; este archivo solo cubre la provincia de León, así que ese nombre ahí nunca es información nueva sobre el trozo anterior, que ya es la localidad real), se descarta y se conserva el resto tal cual.
+
+- "LE-158/26, Dehesas, León" → "LE-158/26, Dehesas"
+
+**Un poco frágil a propósito**: es una comparación literal con "león", no una heurística general (no hay forma fiable de adivinar "esto es una provincia redundante" sin conocer el dominio). Si aparece un caso real con una provincia distinta de León al final, esta regla no lo cubre y quedaría sin tocar — mejor eso que arriesgarse a cortar mal.
+
+## D-226 · Corrección de D-222: el `isolation: isolate` va en el mapa, no en cada marcador
+
+**Contexto**: el propietario probó la sombra nueva en un mapa real y, con dos marcadores cerca (un cluster "+36" y "La Estrella"), la sombra de uno se pintaba COMO UN BLOQUE SÓLIDO por encima del otro en vez de oscurecerlo — el `mix-blend-mode: multiply` no se estaba mezclando con nada.
+
+**Causa**: D-222 puso `isolation: isolate` en `.mel-marker-wrapper`, siguiendo al pie de la letra la regla 12 de AGENTS.md ("todo blend mode necesita su contexto de apilamiento propio"). Pero eso AÍSLA la sombra DENTRO de su propio marcador: cuando dos marcadores se solapan en pantalla, cada uno es su propio contexto de apilamiento independiente, así que el multiply de uno no puede ver ni mezclarse con los píxeles del otro — se pinta encima con compositing normal (opaco), no con blend.
+
+**Decisión**: el `isolation: isolate` se mueve a `#map-container` (el contenedor que envuelve a TODOS los marcadores) y se quita de `.mel-marker-wrapper`. Así el multiply sigue sin escapar al resto de la página (la regla 12 se sigue cumpliendo, con el límite en el mapa en vez de en cada pin), pero SÍ puede mezclarse con lo que haya detrás DENTRO del mapa — tiles y otros marcadores incluidos.
+
+**Sigue habiendo un límite**: si un marcador con sombra está VISUALMENTE por delante de otro (por su z-index/orden, que decide Google Maps y no controlamos directamente), la sombra seguirá pintándose por delante de ese otro marcador — ahora mezclada correctamente (oscureciéndolo) en vez de como bloque sólido, pero no "por detrás de todos los marcadores siempre". Conseguir eso de verdad exigiría una capa de sombras separada, por debajo de la capa de marcadores, sincronizada a mano con la posición de cada uno — un cambio de más alcance, aparcado a menos que el propietario lo pida tras ver si el arreglo de blending ya es suficiente.
+
+**Sin verificar en un mapa real por el agente**: seguimos sin poder cargar tiles en este entorno; el propietario es quien lo ha probado y reportado.
+
+## D-227 · Corrección de D-220: dos clases sobrantes rompían el marquee de las tags de la ficha
+
+**Contexto**: el propietario reportó que las tags de la ficha ni truncaban con puntos suspensivos ni deslizaban al pasar el ratón — es decir, D-220 no funcionaba en absoluto en su versión inicial.
+
+**Causa, dos capas**:
+1. `TagWithLink.astro` ya tenía su propia regla `.tag-count-val { display: block; ... }` en su `<style>` — al añadirle también la clase `marquee-inner` (que pide `display: inline-block`), las dos reglas empataban en especificidad (una clase cada una) y ganaba la que cargara después. Se quita el `display` de `.tag-count-val`, que ya no hace falta —siempre convive con `marquee-inner`, que pone el suyo.
+2. La fila de "Organiza" con varios promotores (`.tag-multi`) llevaba además la utilidad `flex` de Tailwind en el mismo elemento que `marquee-inner`. Y por separado, la CAJA que envuelve el valor de cualquier tag (`.marquee-cell`) YA es `flex` (por la alineación derecha/centro de `alignment`) — y por especificación CSS, **cualquier hijo directo de un contenedor flex "blockifica" su display** (un `inline-block` se convierte en `block` porque sí, sea cual sea la regla CSS que lo pida). Esto no tiene arreglo quitando clases: es cómo funciona flex.
+
+**Verificado que la blockificación no rompe el mecanismo**: con `display:block` forzado por el padre flex, la detección de desbordamiento (`scrollWidth`/`clientWidth`) y la animación de deslizamiento (`getAnimations()`) siguen funcionando igual — comprobado forzando el estado a mano, ya que este entorno no simula un `:hover` real de forma fiable (limitación de la herramienta del agente, no del sitio). El único cambio de comportamiento honesto que queda pendiente de confirmar en un dispositivo real es el propio gesto de hover, que aquí no se puede reproducir.

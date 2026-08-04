@@ -798,15 +798,24 @@ const tags = [
     }
   }
 
+  /* Contexto de apilamiento del blend mode de la sombra (regla 12 de
+     AGENTS.md) a nivel del MAPA, no de cada marcador (D-226, corrige
+     D-222): puesto en el propio `.mel-marker-wrapper`, aislaba la sombra
+     DENTRO de su propio marcador — cuando dos marcadores quedaban cerca, la
+     sombra del que estaba encima no llegaba a mezclarse con el de abajo, se
+     pintaba como un bloque sólido tapándolo en vez de oscurecerlo. Puesto
+     aquí, en el contenedor que envuelve a TODOS los marcadores, el multiply
+     sí ve lo que hay detrás dentro del mapa —tiles y otros marcadores— y
+     sigue sin escapar al resto de la página. */
+  #map-container {
+    isolation: isolate;
+  }
+
   .mel-marker-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
     position: relative;
-    /* Contexto de apilamiento propio para el blend mode de la sombra de abajo
-       (regla 12 de AGENTS.md): sin esto, mix-blend-mode: multiply interactúa
-       de forma impredecible con lo que haya debajo en el mapa. */
-    isolation: isolate;
     cursor: pointer;
     transition: transform 0.15s ease-out;
     animation: marker-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -3053,12 +3062,28 @@ const tags = [
   function truncarDireccion(direccion) {
     const partes = direccion.split(',').map(p => p.trim()).filter(Boolean);
     if (partes.length < 2) return direccion;
+
     const idxLocalidad = partes.findIndex(p => /^\d{4,5}\s+\S/.test(p));
-    if (idxLocalidad === -1) return direccion;   // patrón no reconocido: se deja tal cual
-    const antes = partes.slice(0, idxLocalidad);
-    const localidad = partes[idxLocalidad].replace(/^\d[\d\s-]*\s*/, '').trim();
-    const resultado = localidad ? [...antes, localidad] : antes;
-    return resultado.length ? resultado.join(', ') : direccion;
+    if (idxLocalidad !== -1) {
+      const antes = partes.slice(0, idxLocalidad);
+      const localidad = partes[idxLocalidad].replace(/^\d[\d\s-]*\s*/, '').trim();
+      const resultado = localidad ? [...antes, localidad] : antes;
+      return resultado.length ? resultado.join(', ') : direccion;
+    }
+
+    // D-225: sin código postal reconocible en el segmento legible (pasa en
+    // direcciones de Google que lo llevan solo en el parámetro de datos de
+    // la URL, no en el nombre de calle — caso real "Delfos": el /place/ es
+    // literalmente "LE-158/26, Dehesas, León", sin ningún dígito). Si el
+    // ÚLTIMO trozo es exactamente "León" —la provincia, que en este archivo
+    // (solo cubre la provincia de León) nunca añade nada sobre el trozo de
+    // antes, que ya es la localidad real— se descarta y se conserva el
+    // resto tal cual: "LE-158/26, Dehesas, León" → "LE-158/26, Dehesas".
+    if (partes[partes.length - 1].toLowerCase() === 'león') {
+      return partes.slice(0, -1).join(', ');
+    }
+
+    return direccion;   // ningún patrón reconocido: se deja tal cual
   }
 
   function extractAddressLabel(coordStr) {
