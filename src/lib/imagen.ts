@@ -104,6 +104,22 @@ function noEsSrgb(perfil: Buffer): boolean {
   return Math.abs(rojo - X_SRGB.rojo) > TOLERANCIA || Math.abs(verde - X_SRGB.verde) > TOLERANCIA;
 }
 
+/** Si un PNG lleva el trozo `tRNS`, que es donde una imagen de paleta guarda su
+ *  transparencia. Se recorren los trozos hasta `IDAT`: los de metadatos van
+ *  siempre delante de los datos, así que si no ha aparecido para entonces, no
+ *  está. */
+function tieneTRNS(buf: Buffer): boolean {
+  let p = 8;
+  while (p + 12 <= buf.length) {
+    const largo = buf.readUInt32BE(p);
+    const tipo = buf.toString('ascii', p + 4, p + 8);
+    if (tipo === 'tRNS') return true;
+    if (tipo === 'IDAT') return false;
+    p += 12 + largo;
+  }
+  return false;
+}
+
 export function leerCabecera(buf: Buffer): DatosImagen {
   const d: DatosImagen = { tipo: 'desconocido', px: null, comp: null, noSrgb: false, perfil: null, alfa: false, gris: false, bytes: buf.length };
 
@@ -118,11 +134,20 @@ export function leerCabecera(buf: Buffer): DatosImagen {
   // dispara la regla "png" y se convierte a JPEG con `--matchTo`, que le arregla
   // el color de paso. Mirarlo sería avisar dos veces del mismo cartel, y encima
   // obligaría a descomprimir el bloque iCCP para leerlo.
+  //
+  // Medido el 04/08/2026: los 13 PNG del archivo no llevan NINGÚN trozo de
+  // color —ni `iCCP` ni `sRGB`—, y un PNG sin etiqueta se lee como sRGB en todos
+  // los navegadores. Así que no es un punto ciego con consecuencias.
   if (buf.length >= 26 && buf[0] === 0x89 && buf[1] === 0x50) {
     d.tipo = 'png';
     d.px = [buf.readUInt32BE(16), buf.readUInt32BE(20)];
-    d.alfa = buf[25] === 4 || buf[25] === 6;
-    d.gris = buf[25] === 0 || buf[25] === 4;
+    const tipoColor = buf[25];
+    // Un PNG de PALETA (tipo 3) también puede tener transparencia: la guarda en
+    // el trozo `tRNS`, no en un canal. Es exactamente lo que produce `pngquant`,
+    // así que sin esto un cartel comprimido pasaba a figurar como si hubiera
+    // perdido el alfa que acabábamos de conservar.
+    d.alfa = tipoColor === 4 || tipoColor === 6 || (tipoColor === 3 && tieneTRNS(buf));
+    d.gris = tipoColor === 0 || tipoColor === 4;
     return d;
   }
 

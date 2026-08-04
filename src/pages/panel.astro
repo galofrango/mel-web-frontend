@@ -34,11 +34,28 @@ import { resumirHistorial, type Apunte } from '../lib/historial';
 import { auditar, AUTOMATICAS, LIMPIO, type FilaHoja } from '../lib/auditoria';
 import { fetchSheetRows, mapSheetRow } from '../lib/mel';
 import { medirDeDrive } from '../lib/imagen.ts';
-import flyerTecnico from '../data/flyer_tecnico.json';
 // Lectura de disco y no `import`: el registro puede no existir todavía, y un
 // import de un fichero ausente tumba el build. Es de la ruta de arreglos, que
 // lo va escribiendo — no es un dato del repositorio.
 import { readFileSync, writeFileSync } from 'node:fs';
+
+// La caché de medidas también se lee DEL DISCO en cada petición, y no con un
+// `import`. El motivo es una cadena de dos eslabones que costó encontrarla:
+//
+//   1. La ruta de arreglos reescribe este fichero tras cada pasada.
+//   2. Para que eso no dispare una recarga en caliente a mitad de faena, el
+//      fichero está excluido del vigilante de Vite (D-196).
+//
+// Con un `import`, Vite se queda con la copia que leyó al arrancar y —al estar
+// fuera del vigilante— ya nunca la refresca: los carteles arreglados seguían
+// saliendo en su sección después de convertirlos, aunque el disco y el historial
+// dijeran lo contrario. Un `readFileSync` por petición cuesta nada (100 entradas)
+// y siempre dice la verdad.
+//
+// La ficha de evento SÍ usa `import`, y hace bien: en producción este fichero se
+// hornea en el build y no lo reescribe nadie.
+const RUTA_TECNICO = new URL('../data/flyer_tecnico.json', import.meta.url);
+const flyerTecnico: Record<string, any> = JSON.parse(readFileSync(RUTA_TECNICO, 'utf8'));
 
 // Misma hoja que el resto del sitio, leída en vivo (mel.ts, sin caché propia).
 // Los datos técnicos (dimensiones, formato, peso, perfil) SÍ están cacheados
@@ -85,8 +102,7 @@ const ROTULO_FORMATO: Record<string, string> = { jpeg: 'JPG', png: 'PNG', gif: '
 // inaceptable en cada visita; medir los 11 que faltan, no.
 //
 // Solo en desarrollo, que es lo único que existe de esta página.
-const tecnico: Record<string, any> = { ...(flyerTecnico as any) };
-const RUTA_TECNICO = new URL('../data/flyer_tecnico.json', import.meta.url);
+const tecnico: Record<string, any> = { ...flyerTecnico };
 const porMedir = [...new Set(filas.map((f) => idDeDrive(f.urlDrive)).filter((id) => id && !tecnico[id]))];
 if (import.meta.env.DEV && porMedir.length) {
   for (let i = 0; i < porMedir.length; i += 8) {
@@ -122,9 +138,9 @@ let apuntes: Apunte[] = [];
 try {
   apuntes = JSON.parse(readFileSync(new URL('../data/panel_historial.json', import.meta.url), 'utf8'));
 } catch { /* aún no se ha arreglado nada */ }
-const pesoActual = Object.values(flyerTecnico as Record<string, any>).reduce((n, d) => n + (d?.bytes ?? 0), 0);
+const pesoActual = Object.values(tecnico).reduce((n: number, d: any) => n + (d?.bytes ?? 0), 0);
 const historial = resumirHistorial(apuntes, pesoActual);
-const totalCarteles = Object.keys(flyerTecnico as Record<string, any>).length;
+const totalCarteles = Object.keys(tecnico).length;
 const MB = (b: number) => Math.round(b / 1048576);
 
 const totalOcultos = grupos.reduce((n, g) => n + g.items.filter((it) => it.oculto).length, 0);

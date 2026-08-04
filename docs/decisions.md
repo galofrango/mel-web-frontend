@@ -3484,3 +3484,76 @@ dos que hacen casi lo mismo.
 
 Lo que NO se va: Drive guarda la versión anterior de cada fichero durante 30
 días, que es la red de seguridad de verdad.
+
+---
+
+## D-198 · Un PNG sí se puede adelgazar sin sacarlo de PNG: `pngquant`
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+«Peso superior a 2 MB» excluía los PNG con un argumento que era cierto: un PNG
+no tiene calidad que bajar, así que `sips` no podía hacer nada y el botón habría
+mentido. La consecuencia, en cambio, no era aceptable — desde que se decidió
+conservar los PNG con transparencia, esos ficheros quedaban en un **punto ciego**:
+6 de los 13 del archivo pesaban más de 2 MB y el panel no lo decía en ninguna
+parte. El propietario lo detectó usándolo.
+
+`pngquant` sí puede: reduce la imagen a una paleta de 256 colores **conservando
+la transparencia** (la guarda en el trozo `tRNS` en vez de en un canal).
+
+**Medido sobre los 13 PNG del archivo, 04/08/2026:**
+
+| perfil | resultado | |
+|---|---|---|
+| `--quality=80-98` (elegido) | 24 MB → **10 MB** | −56% |
+| `--quality=60-85` | 24 MB → 6 MB | −72% |
+
+El rango es un suelo de calidad en la escala propia de `pngquant` (0–100, cuánto
+se parece la paleta al original), **no un porcentaje del peso**. Si un cartel no
+se puede reducir sin bajar del suelo, la herramienta no escribe nada y el fichero
+se queda como estaba. Ninguno de los 13 abortó.
+
+Sin escalera, a diferencia del JPEG: una pasada, y si con eso no entra en 2 MB,
+no entra. Los 6 pesados quedan todos holgadamente por debajo.
+
+**`pngquant` NO es una dependencia del proyecto.** No está en `package.json`, no
+viaja a Vercel, no toca la web: es una herramienta del ordenador, la misma
+categoría que `sips`. La diferencia es que `sips` viene con macOS y esta no, así
+que si falta, `comprimirPng` devuelve el fichero sin tocar y el resumen enseña
+que no adelgazó — nunca un cartel estropeado.
+
+**Dos cosas que aparecieron al hacerlo:**
+
+- `leerCabecera` daba `alfa: false` en un PNG de paleta, porque solo miraba el
+  tipo de color (4 y 6). Un tipo 3 con `tRNS` también tiene transparencia — y es
+  exactamente lo que produce `pngquant`, así que cada cartel comprimido habría
+  figurado como si hubiera perdido el alfa que acabábamos de conservar.
+- El plan rechazaba «pasar a sRGB» sobre un PNG que seguía siendo PNG, y eso sí
+  se puede: `--matchTo` funciona igual con salida PNG. Lo destapó un test.
+
+Comprobado también que **reducir la resolución con `sips` conserva el alfa**: un
+PNG RGBA sigue siendo RGBA después de `--resampleHeightWidthMax`.
+
+---
+
+## D-199 · El panel lee su caché del disco, no por `import`
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Tras arreglar veinte carteles, seguían apareciendo en su sección aunque el disco
+y el historial dijeran que ya estaban hechos. Cadena de dos eslabones, y el
+segundo lo puse yo el día anterior:
+
+1. La ruta de arreglos reescribe `flyer_tecnico.json` tras cada pasada.
+2. Ese fichero está fuera del vigilante de Vite para que no dispare una recarga
+   en caliente a mitad de faena (D-196).
+
+Con `import`, Vite se queda con la copia que leyó al arrancar y —al estar fuera
+del vigilante— ya no la refresca nunca. `panel.astro` pasa a leerla con
+`readFileSync` en cada petición: cien entradas, coste nulo, y siempre dice la
+verdad. La ficha de evento sigue con `import`, y hace bien: en producción ese
+fichero se hornea en el build y no lo reescribe nadie.
+
+**La lección:** arreglar un síntoma tocando el andamiaje (el vigilante) en vez de
+la causa (cómo se lee el dato) mueve el problema de sitio. La causa era el
+`import`.

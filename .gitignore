@@ -27,3 +27,4 @@ pnpm-debug.log*
 # Andamiaje del proceso de subagentes (no es código del proyecto)
 .superpowers/
 
+pruebas-png/

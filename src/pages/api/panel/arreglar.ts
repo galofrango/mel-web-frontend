@@ -125,15 +125,28 @@ export function planificarArreglo(t: DatosImagen, acciones: readonly Accion[], c
   const salida: 'jpeg' | 'png' = pedidas.has('png') || t.tipo === 'jpeg' ? 'jpeg' : 'png';
   const reduce = pedidas.has('enorme');
 
-  // Un PNG es sin pérdida: no tiene calidad que bajar, así que la escalera de
-  // recompresión solo existe si la salida es JPEG. Si eso deja el plan sin nada
-  // que hacer, se dice — antes esto se "arreglaba" convirtiéndolo a JPEG por su
-  // cuenta, que es justo lo que ya no se hace.
-  const recomprime = pedidas.has('pesado') && salida === 'jpeg';
-  if (!recomprime && !reduce && salida === 'png') {
+  // Adelgazar sin cambiar de formato. Cada uno con su herramienta, y no son
+  // intercambiables:
+  //
+  //   JPEG → `sips` baja la calidad, y si no basta se baja otra vez (la
+  //          escalera de 5 en 5 desde 95).
+  //   PNG  → `pngquant` reduce a paleta de 256 colores CONSERVANDO la
+  //          transparencia (la guarda en el trozo `tRNS`). Sin escalera: una
+  //          pasada con suelo de calidad, y si con eso no entra, no entra.
+  //
+  // Hasta el 04/08/2026 un PNG que seguía siendo PNG se rechazaba aquí, porque
+  // «no tiene calidad que bajar». Era cierto con solo `sips`, y dejaba sin
+  // salida a los carteles que se conservan en PNG por su transparencia: 6 de
+  // los 13 del archivo pesaban más de 2 MB y el panel no lo decía.
+  const recomprime = pedidas.has('pesado');
+  // Se rechaza solo si de verdad no queda nada que hacer sin sacarlo de PNG.
+  // Las TRES cosas se pueden: comprimir (pngquant), reducir y pasar a sRGB
+  // (`--matchTo` funciona igual con salida PNG). Lo único imposible es bajar la
+  // calidad de un PNG con `sips`, y de eso ya se encarga pngquant.
+  if (!recomprime && !reduce && !pedidas.has('no-srgb') && salida === 'png') {
     return {
       estado: 'rechazado',
-      motivo: 'Un PNG que sigue siendo PNG no adelgaza recomprimiendo: no tiene calidad que bajar. Redúcelo de tamaño o conviértelo a JPG.',
+      motivo: 'A este PNG no se le ha pedido nada que se pueda hacer sin sacarlo de PNG.',
     };
   }
 
@@ -190,6 +203,30 @@ export function argumentosSips(plan: Extract<PlanArreglo, { estado: 'aplicar' }>
 /** La siguiente calidad a probar si el resultado sigue pesando más de 2 MB,
  *  o `null` si ya se ha tocado el suelo — no tiene sentido seguir bajando
  *  calidad para perseguir un peso que a lo mejor ni se alcanza. */
+/** Calidad de `pngquant`: apunta a 98 y ABORTA si no llega a 80.
+ *
+ *  Ese 80 no es un porcentaje del peso: es la escala propia de `pngquant`
+ *  (0–100) que mide cuánto se parece la paleta de 256 colores al original. El
+ *  suelo es la red de seguridad — si un cartel no se puede reducir sin bajar de
+ *  ahí, la herramienta no escribe nada y el fichero se queda como estaba.
+ *
+ *  Medido sobre los 13 PNG del archivo el 04/08/2026: ninguno abortó, y el
+ *  conjunto pasó de 24 MB a 10 MB (−56%). El perfil agresivo (60-85) daba −72%,
+ *  y el propietario eligió el conservador. */
+const CALIDAD_PNG = '80-98';
+
+/** Comprime un PNG EN SU SITIO y devuelve el resultado.
+ *
+ *  Si `pngquant` no está instalado, o aborta por no alcanzar el suelo de
+ *  calidad, se devuelve el fichero tal cual: es preferible un cartel que sigue
+ *  pesando a un cartel estropeado. El resumen enseñará que no adelgazó. */
+async function comprimirPng(ruta: string): Promise<Buffer> {
+  try {
+    await execFileP('pngquant', ['--quality=' + CALIDAD_PNG, '--speed', '1', '--strip', '--force', '--output', ruta, '--', ruta]);
+  } catch { /* sin pngquant, o no llega al suelo de calidad: se deja como está */ }
+  return readFile(ruta);
+}
+
 export function siguienteCalidad(actual: number): number | null {
   const siguiente = actual - PASO_CALIDAD;
   return siguiente >= CALIDAD_MINIMA ? siguiente : null;
@@ -313,6 +350,12 @@ export const POST: APIRoute = async ({ request }) => {
       for (;;) {
         await execFileP('sips', argumentosSips(plan, calidad, entrada, salida));
         salidaBuf = await readFile(salida);
+        // Un PNG que sigue siendo PNG lo adelgaza `pngquant`, no `sips`: se pasa
+        // DESPUÉS, sobre lo que sips ya redimensionó y pasó a sRGB.
+        if (plan.recomprime && plan.salida === 'png') {
+          salidaBuf = await comprimirPng(salida);
+          break;   // sin escalera: `pngquant` ya trae su propio suelo de calidad
+        }
         if (!plan.recomprime || salidaBuf.length <= LIMITE_PESO) break;
         const siguiente = siguienteCalidad(calidad);
         if (siguiente === null) break;

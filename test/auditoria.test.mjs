@@ -44,7 +44,6 @@ test('"pesado" solo admite lo que ya está bien de todo lo demás', () => {
   // el panel proponía recomprimir 25 carteles de los que 21 iban a bajar solos.
   const gordo = 3 * 1024 * 1024;
   const noEntra = {
-    'siendo PNG': { ...tecBase, tipo: 'png', bytes: gordo },
     'pasando de 2400 px': { ...tecBase, px: [2600, 1200], bytes: gordo },
     'con perfil raro': { ...tecBase, noSrgb: true, bytes: gordo },
     'en CMYK': { ...tecBase, comp: 4, bytes: gordo },
@@ -52,6 +51,11 @@ test('"pesado" solo admite lo que ya está bien de todo lo demás', () => {
   for (const [motivo, tec] of Object.entries(noEntra)) {
     assert.ok(!claves([filaBase], { AAA: tec }).includes('pesado'), `no debería entrar ${motivo}`);
   }
+  // Un PNG gordo SÍ entra desde el 04/08/2026: `pngquant` lo comprime como PNG,
+  // conservando la transparencia, así que el botón ya puede hacer algo.
+  assert.ok(claves([filaBase], { AAA: { ...tecBase, tipo: 'png', bytes: gordo } }).includes('pesado'),
+    'un PNG pesado entra: pngquant puede comprimirlo sin sacarlo de PNG');
+
   assert.ok(claves([filaBase], { AAA: { ...tecBase, bytes: gordo } }).includes('pesado'),
     'pero uno limpio y gordo sí');
 });

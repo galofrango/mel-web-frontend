@@ -1,16 +1,16 @@
 {
  "1-Y6boLIQSOLOfOahnlmeyUhagOqvyP_3": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1460,
    2067
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 3105399
+  "bytes": 889072
  },
  "10EIQpW-pLXvCL1fTcczbAWx6hLBKiGaf": {
   "tipo": "png",
@@ -58,24 +58,24 @@
    2268
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1264240
+  "bytes": 837865
  },
  "15KB7rD7qrlvQsLNHmVJl9I-s58TJUDQ_": {
   "tipo": "jpeg",
   "px": [
-   1772,
-   2504
+   1698,
+   2400
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 814552
+  "bytes": 958706
  },
  "15o7cXX-2J5v_paSB4aoYPo_ygHMludA0": {
   "tipo": "jpeg",
@@ -97,11 +97,11 @@
    1393
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Display",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 669726
+  "bytes": 376294
  },
  "185EH5typYUMdkE-HRA7a3FF8Z9ZEpaVv": {
   "tipo": "jpeg",
@@ -143,30 +143,30 @@
   "bytes": 1580317
  },
  "19RDXS_1ZTH0tibXqIONXof7ZV-yh1-Q4": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    859,
    1697
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 798007
+  "bytes": 329010
  },
  "1AP3g6qliroiEYTAkWax50p7w81fGN10f": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1476,
    2089
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 2772887
+  "bytes": 921479
  },
  "1B7icE8DZJIHxOpcb4C817O7Ytqy81nh5": {
   "tipo": "jpeg",
@@ -195,30 +195,30 @@
   "bytes": 1019661
  },
  "1DE-xbvVO3D0lfq-eRcu5kW7ncLHS6LB_": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
-   1772,
-   2507
+   1696,
+   2400
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 3267939
+  "bytes": 908124
  },
  "1Em8wnNwe2wzbCZbGYEUh2QP4_s5uRj_S": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1500,
    2121
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 216316
+  "bytes": 454108
  },
  "1EqBr1D0zPNas-KeEtUTkyGE4Qqz_B8wm": {
   "tipo": "png",
@@ -338,30 +338,30 @@
   "bytes": 2884614
  },
  "1KIez_veoLTOlQJ96ljLILFwZVrgUkqjH": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    2268,
    1021
   ],
-  "comp": null,
-  "noSrgb": false,
-  "perfil": null,
-  "alfa": true,
-  "gris": false,
-  "bytes": 1139097
- },
- "1KnscBQ5XmvVDW5BEvp-4W95U06XKgdVP": {
-  "tipo": "png",
-  "px": [
-   1500,
-   2121
-  ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 207247
+  "bytes": 419756
+ },
+ "1KnscBQ5XmvVDW5BEvp-4W95U06XKgdVP": {
+  "tipo": "jpeg",
+  "px": [
+   1500,
+   2121
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 411712
  },
  "1L3PFQbZM2-pY-ocSf-hyBEqgSCh_0xFD": {
   "tipo": "jpeg",
@@ -396,24 +396,24 @@
    2004
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
-  "alfa": false,
-  "gris": false,
-  "bytes": 2638893
- },
- "1QutpleRAdvyazIWatiUtWI2NoWpuc3P6": {
-  "tipo": "png",
-  "px": [
-   1460,
-   2067
-  ],
-  "comp": null,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 2575242
+  "bytes": 1460676
+ },
+ "1QutpleRAdvyazIWatiUtWI2NoWpuc3P6": {
+  "tipo": "jpeg",
+  "px": [
+   1460,
+   2067
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 767152
  },
  "1RthTluhE4Wg5JeeydUrSyHLCe00H58gM": {
   "tipo": "gif",
@@ -434,12 +434,12 @@
    1788,
    827
   ],
-  "comp": 4,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 816844
+  "bytes": 313209
  },
  "1SDn68EAyjTvNZ_uLFz2Q38R1iWClE4E7": {
   "tipo": "jpeg",
@@ -474,11 +474,11 @@
    1403
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Generic RGB Profile",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1665937
+  "bytes": 775123
  },
  "1Tji1zPj6ajqAKNpMwRPX1wOIgZD4wvJ0": {
   "tipo": "jpeg",
@@ -578,11 +578,11 @@
    2006
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1438791
+  "bytes": 847468
  },
  "1bsfcpRcunl6JjffkuNvQVKYHTnOn51cD": {
   "tipo": "jpeg",
@@ -600,15 +600,15 @@
  "1btmjVLRdinnfJmasxW2u_LKgdlzkInwG": {
   "tipo": "jpeg",
   "px": [
-   2586,
-   1575
+   2400,
+   1461
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1552276
+  "bytes": 677725
  },
  "1bvbttkkpUkPHNCRjWxFEGot4KVk0I9ES": {
   "tipo": "jpeg",
@@ -689,69 +689,69 @@
   "bytes": 159235
  },
  "1fHTbXPui4CPyioF9VtpDN2yUAJCI4xw3": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    865,
    2382
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
-  "alfa": true,
+  "alfa": false,
   "gris": false,
-  "bytes": 330874
+  "bytes": 552075
  },
  "1fhk1RN6p05NkfS60NRPYlyx-g1iADoOG": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    865,
    2382
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
-  "alfa": true,
+  "alfa": false,
   "gris": false,
-  "bytes": 299281
+  "bytes": 506065
  },
  "1fr-sC3sHZDehjQGy6G6zKlBpjsXd8jwN": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1134,
    2054
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 3007216
+  "bytes": 970941
  },
  "1fshRaYm9PfM3WqXdUArI9rZPv81IiUhr": {
   "tipo": "jpeg",
   "px": [
-   1772,
-   2506
+   1697,
+   2400
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1423009
+  "bytes": 634990
  },
  "1g8HznRjYYnv8LLJXBE-f88K9Td7ECQwH": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    866,
    2382
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
-  "alfa": true,
+  "alfa": false,
   "gris": false,
-  "bytes": 311034
+  "bytes": 525538
  },
  "1h9oOEgUHegXqBVatsmDTi6UX7EE0FWS-": {
   "tipo": "jpeg",
@@ -773,11 +773,11 @@
    1215
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 917259
+  "bytes": 525666
  },
  "1jBgHh3qQxEblOruMaG8-32fIkKe2vlIr": {
   "tipo": "jpeg",
@@ -819,17 +819,17 @@
   "bytes": 322890
  },
  "1kETG_MQlzvDR2guV8_s9FhBHA8FjwqNl": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    866,
    2382
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
-  "alfa": true,
+  "alfa": false,
   "gris": false,
-  "bytes": 274781
+  "bytes": 469023
  },
  "1ktOvrZP1yPfg9nt6cSniTm6eg0jg4HJw": {
   "tipo": "jpeg",
@@ -858,30 +858,30 @@
   "bytes": 595962
  },
  "1lCriJhTq27hGHTwsziktclRf9LgdcAhD": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    859,
    1697
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 933160
+  "bytes": 474110
  },
  "1m0MzvwmRBUuJ363JFgcyVkoKX_kUiT90": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1720,
    688
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1444224
+  "bytes": 457815
  },
  "1nOAB_172gtmUBjOSppN-H-Hola62x4lq": {
   "tipo": "jpeg",
@@ -916,11 +916,11 @@
    510
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Display",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 104959
+  "bytes": 36906
  },
  "1nccCCn0bz7xeF-V5E3rf0turLiaA4rqg": {
   "tipo": "jpeg",
@@ -1046,11 +1046,11 @@
    2004
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Adobe RGB (1998)",
+  "noSrgb": false,
+  "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 1156592
+  "bytes": 709047
  },
  "1uyk3WfEkoyhZom8j-yK9ScEvFExanEqm": {
   "tipo": "jpeg",
@@ -1072,37 +1072,37 @@
    1402
   ],
   "comp": 3,
-  "noSrgb": true,
-  "perfil": "Generic RGB Profile",
-  "alfa": false,
-  "gris": false,
-  "bytes": 1130721
- },
- "1v2PepLgfIoeoe1e4OlUlGRCOiEbbtyzW": {
-  "tipo": "png",
-  "px": [
-   3509,
-   4962
-  ],
-  "comp": null,
   "noSrgb": false,
   "perfil": null,
-  "alfa": true,
+  "alfa": false,
   "gris": false,
-  "bytes": 410013
+  "bytes": 853462
+ },
+ "1v2PepLgfIoeoe1e4OlUlGRCOiEbbtyzW": {
+  "tipo": "jpeg",
+  "px": [
+   1697,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 419608
  },
  "1wGKjHCRdCeRFdacJK26HjOsQ6KLZTZEP": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1276,
    1019
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
-  "alfa": true,
+  "alfa": false,
   "gris": false,
-  "bytes": 1125634
+  "bytes": 404390
  },
  "1wZWXEremCGIsp14rnbi17KHi0wr-qC4D": {
   "tipo": "png",
@@ -1118,17 +1118,17 @@
   "bytes": 2246675
  },
  "1xIPBTnndq3pVhAM-j2sEb6kspcRLhqcM": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1460,
    2067
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 2752858
+  "bytes": 815052
  },
  "1y4PXS3M0BAymv7V4HAJnX8Jw3ue71a-m": {
   "tipo": "jpeg",
@@ -1157,17 +1157,17 @@
   "bytes": 692901
  },
  "1ytwSck3nUkPEsacv4LFxOw_l7giNg4yL": {
-  "tipo": "png",
+  "tipo": "jpeg",
   "px": [
    1460,
    2067
   ],
-  "comp": null,
+  "comp": 3,
   "noSrgb": false,
   "perfil": null,
   "alfa": false,
   "gris": false,
-  "bytes": 3016519
+  "bytes": 881097
  },
  "1B64o-Qcsesv77gS3KHq6TEIiVQcKbPp8": {
   "tipo": "jpeg",

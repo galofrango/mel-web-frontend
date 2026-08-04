@@ -168,15 +168,19 @@ const REGLAS: Regla[] = [
    'La reducción de tamaño implica necesariamente una reducción de peso.', 'px-desc',
    (f, t) => ladoMayor(t) > UMBRAL_LADO],
   ['pesado', 2, 'Peso superior a 2Mb', 'El original viaja entero en cada visita', 'Comprimir', true,
-   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.<br><br>La forma de corregirlo es bajar la calidad del archivo hasta que quede por debajo de 2 MB, empezando con una compresión al 95 de calidad.',
+   '<b>El exceso de peso se paga en cada visita.</b> El archivo original siempre viaja entero desde Google Drive.<br><br>La forma de corregirlo es bajar la calidad del archivo hasta que quede por debajo de 2 MB, empezando con una compresión al 95 de calidad para JPG y una reducción de paleta para PNG (sin pérdida de transparencia).',
    null, 'bytes',
    // Aquí SOLO entra lo que ya está bien de todo lo demás (criterio del
    // propietario, 02/08/2026): así no se recomprime —perdiendo calidad— algo
-   // que iba a adelgazar solo al convertirlo, reducirlo o pasarlo a sRGB. El
-   // PNG se excluye por la misma razón y por una más dura: un PNG no tiene
-   // calidad que bajar, así que el botón «Recomprimir» no podría hacer nada
-   // (el motor lo rechaza, ver arreglar.ts).
-   (f, t) => t.bytes > 2 * 1048576 && t.tipo !== 'png' && ladoMayor(t) <= UMBRAL_LADO && !t.noSrgb && t.comp !== 4],
+   // que iba a adelgazar solo al convertirlo, reducirlo o pasarlo a sRGB.
+   //
+   // El PNG SÍ entra desde el 04/08/2026. Estaba excluido porque un PNG no
+   // tiene calidad que bajar y el botón no habría podido hacer nada; con
+   // `pngquant` sí puede —reduce a paleta CONSERVANDO la transparencia— así que
+   // la exclusión ya no describe la realidad. Y mientras estuvo, los PNG que se
+   // quedan en PNG por su transparencia eran un punto ciego: el panel no decía
+   // que pesaran de más (6 de los 13 del archivo).
+   (f, t) => t.bytes > 2 * 1048576 && ladoMayor(t) <= UMBRAL_LADO && !t.noSrgb && t.comp !== 4],
   ['pequeno', 2, 'Baja resolución', 'Por debajo de 1200 px: no se estira, se ve pequeño', null, false,
    '<b>La imagen original no alcanza la resolución óptima de 2400 px de lado largo para la página.</b> La imagen se verá pequeña en algunas ocasiones ya que la página nunca la ampliará por encima de su tamaño real para no distorsionarla.<br><br>La única forma de corregirlo es conseguir un original de mayor resolución.',
    null, 'px-asc',

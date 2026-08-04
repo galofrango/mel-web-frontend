@@ -58,12 +58,20 @@ test('CMYK entra por la acción "no-srgb": es el mismo defecto', () => {
   assert.match(plan.perfil, /sRGB/);
 });
 
-test('PNG + solo "pesado": se rechaza en vez de convertirlo a escondidas', () => {
-  // Un PNG es sin pérdida: no hay calidad que bajar. Antes esto se "arreglaba"
-  // convirtiéndolo a JPEG sin decirlo. Ahora se dice.
+test('PNG + solo "pesado": adelgaza SIN salir de PNG', () => {
+  // Desde el 04/08/2026 lo comprime `pngquant`, que reduce a paleta conservando
+  // la transparencia. Antes se rechazaba —con solo `sips` era cierto que un PNG
+  // no tiene calidad que bajar— y eso dejaba sin salida a los carteles que se
+  // conservan en PNG justamente por su transparencia.
   const plan = planificarArreglo({ ...limpio, tipo: 'png', comp: null, alfa: true, bytes: 3 * 1048576 }, ['pesado']);
-  assert.equal(plan.estado, 'rechazado');
-  assert.match(plan.motivo, /PNG/);
+  assert.equal(plan.estado, 'aplicar');
+  assert.equal(plan.salida, 'png', 'no se convierte a escondidas');
+  assert.equal(plan.recomprime, true);
+});
+
+test('pasar a sRGB SÍ se puede sin sacar el fichero de PNG', () => {
+  const plan = planificarArreglo({ ...limpio, tipo: 'png', comp: null, alfa: true, noSrgb: true }, ['no-srgb']);
+  assert.equal(plan.estado, 'aplicar', 'pasar a sRGB sí se puede sin salir de PNG');
 });
 
 test('PNG + "pesado" + "enorme": adelgaza reduciendo, sin tocar el formato', () => {
@@ -74,7 +82,7 @@ test('PNG + "pesado" + "enorme": adelgaza reduciendo, sin tocar el formato', () 
   assert.equal(plan.estado, 'aplicar');
   assert.equal(plan.salida, 'png');
   assert.equal(plan.reduce, true);
-  assert.equal(plan.recomprime, false, 'no hay escalera de calidad en PNG');
+  assert.equal(plan.recomprime, true, 'ahora también comprime, con pngquant');
 });
 
 test('GRIS: el perfil que se aplica es el de gris, no sRGB', () => {
