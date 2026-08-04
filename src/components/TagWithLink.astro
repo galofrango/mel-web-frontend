@@ -74,14 +74,24 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
        con puntos suspensivos igual que antes; al pasar el ratón, si de
        verdad desborda (`.is-overflowing`, lo decide el JS de cada página
        porque no hay módulo compartido — regla 7), desliza para dejar ver el
-       resto en vez de quedarse cortado en seco contra el borde. -->
-  <div class={`marquee-cell flex h-[24px] items-center relative shrink-0 w-full min-w-0 overflow-hidden ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
+       resto en vez de quedarse cortado en seco contra el borde.
+
+       Esta caja NO puede ser `flex` (D-228): el fotograma final del marquee
+       es `translateX(calc(-100% + var(--cell-width)))`, y ese `-100%` se
+       mide sobre el ANCHO DEL PROPIO `.marquee-inner`. Un contenedor flex
+       "blockifica" a su hijo (lo pasa a `display:block`), y un bloque ocupa
+       todo el ancho disponible —los 157px de la celda— en vez de ajustarse
+       a su contenido (224px). Con eso `-100% + 157px` sale 0 y el valor no
+       se movía ni un píxel al pasar el ratón. En la tabla de Lista funciona
+       porque allí la celda es un `<td>`, que no blockifica nada. Así que
+       aquí se centra con `leading`/`text-align` en vez de con flex. -->
+  <div class={`marquee-cell h-[24px] leading-[24px] relative shrink-0 w-full min-w-0 ${isRight ? "text-right" : isCenter ? "text-center" : "text-left"}`}>
     {multi && multi.length ? (
       <div class="tag-multi marquee-inner min-w-0 max-w-full">
         {multi.map((m, idx) => (
-          <span class="inline-flex items-center shrink-0">
+          <span class="whitespace-nowrap">
             {m.href ? (
-              <Link href={m.href} state={state} ariaLabel={m.ariaLabel} hideChevron={true} class="shrink-0">{m.texto}</Link>
+              <Link href={m.href} state={state} ariaLabel={m.ariaLabel} hideChevron={true}>{m.texto}</Link>
             ) : (
               <span class="text-mel-text-secondary">{m.texto}</span>
             )}
