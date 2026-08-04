@@ -139,4 +139,19 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
     text-overflow: ellipsis;
     display: block;
   }
+
+  /* Excepción para la tag de VARIOS valores (D-231): ahí cada nombre es su
+     propio enlace, y las tres reglas de arriba le daban a CADA UNO su caja
+     con recorte y puntos suspensivos propios. El resultado era una elipsis
+     apareciendo en mitad de la fila, entre un promotor y el siguiente, en
+     vez de una sola al final de todo. Aquí los enlaces vuelven a fluir como
+     texto corrido y de recortar se encarga únicamente `.marquee-inner`, que
+     es quien conoce el ancho real de la celda. */
+  :global(.tag-multi .mel-link-active),
+  :global(.tag-multi .mel-link-active > span) {
+    display: inline;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+  }
 </style>

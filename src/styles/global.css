@@ -565,15 +565,32 @@ button:disabled { cursor: not-allowed; }
 }
 .marquee-cell:hover .marquee-inner.is-overflowing {
   max-width: none;
+  /* `width: max-content` es imprescindible, no un adorno (D-231): el
+     fotograma final mide `-100%` sobre el ancho de ESTE elemento, así que
+     tiene que valer lo que mide el texto. Si el padre es un contenedor flex
+     —la celda del título en la tabla, y antes también la de las tags— el
+     hijo se "blockifica" y pasa a ocupar el ancho de la celda, con lo que
+     `-100% + ancho` da 0 y no se movía nada. `max-content` lo ajusta al
+     contenido pase lo que pase con el display. */
+  width: max-content;
   overflow: visible;
   /* Plays once and holds (no `infinite`) — looping used to snap back to the
      start mid-hover as soon as one pass finished, which read as a reset
-     before the visitor had even finished reading the full name. */
-  animation: marquee-scroll var(--marquee-duration, 2.2s) cubic-bezier(0.16, 1, 0.3, 1) 0.25s 1 forwards;
+     before the visitor had even finished reading the full name.
+     `linear` y no una curva de aceleración (D-231): el propietario lo quiere
+     como un teletipo de bolsa, a velocidad constante. La duración la fija el
+     JS a partir del recorrido real, así que un texto el doble de largo tarda
+     el doble en vez de acelerar. */
+  animation: marquee-scroll var(--marquee-duration, 2.2s) linear 0.25s 1 forwards;
 }
+/* `--cell-width` es el ancho ÚTIL de la celda (sin su padding), no su
+   `clientWidth` — lo fija el JS. Con `clientWidth` se quedaban ocultos
+   justo los píxeles del padding (32 en la tabla, que lleva `px-4`), que es
+   el trozo de texto que no llegaba a verse nunca. El `--marquee-gap` deja
+   un respiro al final para que la última letra no acabe pegada al borde. */
 @keyframes marquee-scroll {
   0%   { transform: translateX(0); }
-  100% { transform: translateX(calc(-100% + var(--cell-width))); }
+  100% { transform: translateX(calc(-100% + var(--cell-width) - var(--marquee-gap, 8px))); }
 }
 
 /* Custom styles for range slider and blending */

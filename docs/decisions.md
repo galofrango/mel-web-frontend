@@ -4229,3 +4229,34 @@ Petición del propietario: `#side-panel-title` pasa de `typo-h2` (28px móvil / 
 2. La fila de "Organiza" con varios promotores (`.tag-multi`) llevaba además la utilidad `flex` de Tailwind en el mismo elemento que `marquee-inner`. Y por separado, la CAJA que envuelve el valor de cualquier tag (`.marquee-cell`) YA es `flex` (por la alineación derecha/centro de `alignment`) — y por especificación CSS, **cualquier hijo directo de un contenedor flex "blockifica" su display** (un `inline-block` se convierte en `block` porque sí, sea cual sea la regla CSS que lo pida). Esto no tiene arreglo quitando clases: es cómo funciona flex.
 
 **Verificado que la blockificación no rompe el mecanismo**: con `display:block` forzado por el padre flex, la detección de desbordamiento (`scrollWidth`/`clientWidth`) y la animación de deslizamiento (`getAnimations()`) siguen funcionando igual — comprobado forzando el estado a mano, ya que este entorno no simula un `:hover` real de forma fiable (limitación de la herramienta del agente, no del sitio). El único cambio de comportamiento honesto que queda pendiente de confirmar en un dispositivo real es el propio gesto de hover, que aquí no se puede reproducir.
+
+## D-229 · La sombra del marcador NO puede llevar `mix-blend-mode: multiply`
+
+**Comprobado en el navegador, no deducido.** Google posiciona cada marcador con un `transform` en línea sobre `<gmp-advanced-marker>`, y un `transform` distinto de `none` crea un contexto de apilamiento, que aísla la mezcla. La sombra solo puede mezclarse con lo que haya dentro de SU marcador —nada— así que se pinta como color plano.
+
+Dos pruebas: (1) con la sombra en rojo saturado y agrandada sobre el mapa no se transparentaba ni una carretera; (2) forzar `will-change: auto` sobre `gmp-advanced-marker` no cambió nada, porque el `transform` basta por sí solo.
+
+**Ojo con una prueba que engaña**: poner la sombra en blanco y ver que "desaparece" NO demuestra que el multiply funcione — el mapa es casi blanco, así que un blanco plano también desaparece. Ese falso positivo costó una ronda entera.
+
+**Descartado** aislar `#map-container`: el contexto que estorba es el de cada marcador, no el del mapa.
+
+**Decisión**: relleno Tinted-400 al 40% (criterio del propietario). Sobre el fondo claro del mapa da un gris parecido al que daría el multiply y, al ser semitransparente, no tapa en bloque lo que quede debajo.
+
+## D-230 · Una sola regla de apilamiento en el mapa: el de más abajo, encima
+
+Antes había tres escalas distintas y no comparables: los pines sueltos en `null` (Google los ordena por posición), los clusters en `MAX_ZINDEX + count` (≈1.000.000) y el activo en `MAX_ZINDEX + 1000000` (≈2.000.000). Con la sombra dentro del marcador, esos dos saltos hacían que la sombra de un cluster —o del marcador activo— se pintara por encima de pines que estaban más abajo en la pantalla. Medido: `sombra "Voloko"(z=2000000)` tapaba `"+3"(z=1000002)`.
+
+**Decisión**: `zIndexPorLatitud()` para todos. Menor latitud (más al sur, más abajo en pantalla) → mayor zIndex. Verificado: el orden por z coincide exactamente con el orden en pantalla y no queda ningún solape incorrecto.
+
+**Consecuencia aceptada**: el marcador activo ya no está por encima de todo. Si molesta, la salida acordada con el propietario NO es volver a subirle el zIndex, sino distinguirlo de otra forma (tamaño, zoom). Los que se van sí conservan un zIndex alto durante los 150ms de su desvanecido, que es un estado transitorio.
+
+## D-231 · El marquee: velocidad constante, ancho útil y una sola elipsis
+
+Cuatro fallos distintos, los cuatro medidos:
+
+1. **No se movía donde el padre es flex.** El fotograma final mide `-100%` sobre el ancho del propio elemento; un contenedor flex "blockifica" al hijo y este pasa a ocupar el ancho de la celda, con lo que `-100% + ancho` da 0. Pasaba en las tags de la ficha y en la celda del título de la tabla (`.event-title-link` es `inline-flex`). Se arregla con `width: max-content` en el estado de hover, que ajusta al contenido pase lo que pase con el display. Medido: de `-0,33px` a `-67px` en la tag, y `-80px` en el título.
+2. **Se quedaba texto oculto.** `--cell-width` usaba `clientWidth`, que en la tabla incluye los 32px de `px-4`, así que faltaban justo esos 32px por recorrer. Ahora se usa el ancho ÚTIL (sin padding), y ese mismo ancho se usa para DECIDIR si desborda — antes celdas que sí se truncaban no se marcaban.
+3. **Iba a saltos.** `cubic-bezier(0.16,1,0.3,1)` es una curva de aceleración fuerte, y la duración salía de una cuenta que no era una velocidad. Ahora `linear` y `55px/s`: el recorrido manda, un texto el doble de largo tarda el doble. Petición del propietario: teletipo de bolsa.
+4. **Elipsis en mitad del texto.** En la tag de varios promotores, la regla `:global(.filter-tag .mel-link-active > span)` le daba a CADA enlace su caja con recorte y puntos suspensivos propios. Excepción para `.tag-multi`: los enlaces vuelven a fluir como texto corrido y de recortar se encarga solo `.marquee-inner`, que es quien conoce el ancho de la celda. De paso, ahora sí sale la elipsis única al final, que antes no se pintaba porque el contenido eran cajas atómicas y no texto.
+
+Se añade `--marquee-gap` (8px) para que la última letra no acabe pegada al borde.

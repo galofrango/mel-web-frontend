@@ -798,19 +798,6 @@ const tags = [
     }
   }
 
-  /* Contexto de apilamiento del blend mode de la sombra (regla 12 de
-     AGENTS.md) a nivel del MAPA, no de cada marcador (D-226, corrige
-     D-222): puesto en el propio `.mel-marker-wrapper`, aislaba la sombra
-     DENTRO de su propio marcador — cuando dos marcadores quedaban cerca, la
-     sombra del que estaba encima no llegaba a mezclarse con el de abajo, se
-     pintaba como un bloque sólido tapándolo en vez de oscurecerlo. Puesto
-     aquí, en el contenedor que envuelve a TODOS los marcadores, el multiply
-     sí ve lo que hay detrás dentro del mapa —tiles y otros marcadores— y
-     sigue sin escapar al resto de la página. */
-  #map-container {
-    isolation: isolate;
-  }
-
   .mel-marker-wrapper {
     display: flex;
     flex-direction: column;
@@ -827,15 +814,31 @@ const tags = [
      del puntero, en vez de un halo difuminado siguiendo el contorno.
      Proporcional al ancho del propio marcador (78%/11% de margen cada
      lado) y no a un ancho fijo, porque aquí los marcadores no son un pin de
-     tamaño fijo: se ensanchan según el texto de la etiqueta. */
+     tamaño fijo: se ensanchan según el texto de la etiqueta.
+
+     SIN `mix-blend-mode: multiply`, y no por olvido (D-229): es IMPOSIBLE
+     aquí. Google posiciona cada marcador con un `transform` en línea, y un
+     `transform` distinto de `none` crea un contexto de apilamiento — que
+     aísla la mezcla. La sombra solo puede mezclarse con lo que haya dentro
+     de SU marcador, que es transparente, así que se pinta como color plano.
+     Comprobado en el navegador dos veces: con la sombra en rojo saturado y
+     agrandada no se transparentaba ni una carretera del mapa, y forzar
+     `will-change: auto` sobre `gmp-advanced-marker` tampoco cambió nada
+     porque el `transform` basta por sí solo. Tampoco se arregla aislando
+     `#map-container`: el contexto que estorba es el de cada marcador, no el
+     del mapa.
+
+     Se sustituye por Tinted-400 al 40% (criterio del propietario), que
+     sobre el fondo claro del mapa da un gris muy parecido al que daría el
+     multiply, y al ser semitransparente no tapa en bloque lo que quede
+     debajo. */
   .mel-marker-shadow {
     position: absolute;
     left: 11%;
     right: 11%;
     bottom: -4px;
     height: 8px;
-    background-color: var(--mel-primitive-tinted-200);
-    mix-blend-mode: multiply;
+    background-color: color-mix(in srgb, var(--mel-primitive-tinted-400) 40%, transparent);
     clip-path: polygon(10% 0, 90% 0, 100% 100%, 0% 100%);
     pointer-events: none;
   }
@@ -1312,6 +1315,35 @@ const tags = [
     if (!limpio || bajo === 'desconocido' || bajo === 'sin fecha') return 'desconocido';
     if (CENTINELAS_SIN_DATO.includes(bajo)) return limpio;
     return null;   // hay dato de verdad
+  }
+
+  // Velocidad constante del deslizado, en píxeles por segundo (D-231). Antes
+  // la duración salía de una cuenta que no era una velocidad, y encima con
+  // una curva de aceleración: un texto corto y uno largo tardaban casi lo
+  // mismo y ninguno iba a ritmo parejo. Con px/s el recorrido manda, que es
+  // lo que pidió el propietario (teletipo de bolsa).
+  const MARQUEE_PX_POR_SEGUNDO = 55;
+
+  // Mide una celda y decide si su texto necesita deslizarse. Gemela de
+  // ajustarMarquee() en event/[id].astro (regla 7: no hay módulo compartido
+  // entre páginas — si tocas una, toca la otra).
+  //
+  // Se mide contra el ancho ÚTIL (sin el padding de la celda) y NO contra
+  // `clientWidth`: en la tabla el padding son 32px (`px-4`), y usar
+  // clientWidth dejaba justo esos 32px de texto sin llegar a verse nunca,
+  // además de no marcar como desbordadas celdas que sí se truncan.
+  function medirMarquee(cell) {
+    const inner = cell && cell.querySelector('.marquee-inner');
+    if (!inner) return;
+    const es = getComputedStyle(cell);
+    const util = cell.clientWidth - parseFloat(es.paddingLeft || 0) - parseFloat(es.paddingRight || 0);
+    inner.classList.remove('is-overflowing');
+    if (util > 0 && inner.scrollWidth > util) {
+      inner.classList.add('is-overflowing');
+      const recorrido = inner.scrollWidth - util;
+      cell.style.setProperty('--marquee-duration', (recorrido / MARQUEE_PX_POR_SEGUNDO) + 's');
+      cell.style.setProperty('--cell-width', util + 'px');
+    }
   }
 
   // Los promotores pueden venir varios separados por comas (D-218), igual
@@ -2697,16 +2729,7 @@ const tags = [
           // short values like a date or "desconocido" get the hover-scroll
           // treatment.
           void listBody.offsetHeight;
-          listBody.querySelectorAll('.marquee-cell').forEach(cell => {
-            const inner = cell.querySelector('.marquee-inner');
-            if (inner && inner.scrollWidth > cell.clientWidth) {
-              inner.classList.add('is-overflowing');
-              const overflow = inner.scrollWidth - cell.clientWidth + 32;
-              const duration = Math.max(1, overflow / 85);
-              cell.style.setProperty('--marquee-duration', duration + 's');
-              cell.style.setProperty('--cell-width', cell.clientWidth + 'px');
-            }
-          });
+          listBody.querySelectorAll('.marquee-cell').forEach(cell => medirMarquee(cell));
         }
 
         // Móvil: mismo dataset paginado, tarjetas EventCardList compactas
@@ -3157,6 +3180,26 @@ const tags = [
     return null;
   }
 
+  // Orden de apilamiento de TODOS los marcadores, con una sola regla
+  // (D-230): el que está más abajo en la pantalla va por encima. En este
+  // mapa "más abajo" es "más al sur", o sea menor latitud, así que se
+  // invierte la latitud para que a menor latitud le toque mayor zIndex.
+  //
+  // Antes no había una regla, había tres: los pines sueltos se dejaban en
+  // `null` (Google los ordena por posición, que ya era esto), los clusters
+  // saltaban a `MAX_ZINDEX + count` y el activo a `MAX_ZINDEX + 1000000`.
+  // Con la sombra dentro del marcador, esos dos saltos hacían que la sombra
+  // de un cluster —o del marcador activo— se pintara por encima de pines
+  // que estaban más abajo en la pantalla.
+  //
+  // El x10000 conserva ~4 decimales de latitud, de sobra para que dos
+  // locales distintos no empaten. El +900000 lo deja siempre positivo.
+  function zIndexPorLatitud(pos) {
+    const lat = typeof pos?.lat === 'function' ? pos.lat() : pos?.lat;
+    if (typeof lat !== 'number' || Number.isNaN(lat)) return null;
+    return Math.round((90 - lat) * 10000);
+  }
+
   // Renders a cluster bubble. Defined once at module scope (not nested
   // inside initGoogleMap) since it only touches markerLib/googleMap, which
   // are already shared top-level state — that lets createGoogleMapInstance()
@@ -3185,7 +3228,11 @@ const tags = [
       const clusterMarker = new markerLib.AdvancedMarkerElement({
         position,
         content: clusterContent,
-        zIndex: Number(google.maps.Marker.MAX_ZINDEX) + count,
+        // Misma regla que cualquier otro marcador: manda la posición en
+        // pantalla, no el tipo (D-230). Antes los clusters se colaban en
+        // `MAX_ZINDEX + count` (≈1.000.000), muy por encima de todo, así que
+        // su sombra tapaba pines que estaban más abajo en la pantalla.
+        zIndex: zIndexPorLatitud(position),
       });
 
       clusterMarker.addListener('click', () => {
@@ -3809,7 +3856,12 @@ const tags = [
         }
         activeEntries.push(entry);
       } else if (!entry.inClusterer) {
-        entry.marker.zIndex = null;
+        // Explícito y no `null` (D-230): dejarlo en null delega el orden en
+        // Google —que de hecho ya ordena por posición— pero entonces conviven
+        // dos escalas distintas, la suya y la nuestra para clusters/activo, y
+        // no son comparables entre sí. Con la misma función para todos, el
+        // orden es uno solo y predecible.
+        entry.marker.zIndex = zIndexPorLatitud(entry.marker.position);
         entry.marker.map = null;
         toAddToClusterer.push(entry.marker);
         entry.inClusterer = true;
@@ -3851,7 +3903,12 @@ const tags = [
     }
 
     activeEntries.forEach(entry => {
-      entry.marker.zIndex = ACTIVE_MARKER_ZINDEX;
+      // Misma regla que el resto (D-230): manda la posición en pantalla. El
+      // marcador activo ya no se sube por encima de todo — su sombra tapaba
+      // pines más al sur. Si al usarlo resulta que el activo se queda tapado
+      // y molesta, la salida acordada con el propietario NO es volver a
+      // subirle el zIndex, sino distinguirlo de otra forma (tamaño, zoom).
+      entry.marker.zIndex = zIndexPorLatitud(entry.marker.position);
       entry.marker.map = googleMap;
     });
 
@@ -3861,6 +3918,8 @@ const tags = [
     // their own fade-out animation (the .exiting class) actually gets to play
     // before they're removed from the map for good.
     toExit.forEach(entry => {
+      // Los que se van sí se dejan por encima mientras dura su desvanecido
+      // (150ms): es un estado transitorio, no compite por el orden estable.
       entry.marker.zIndex = ACTIVE_MARKER_ZINDEX;
       entry.marker.map = googleMap;
       entry.marker.content.classList.add('exiting');

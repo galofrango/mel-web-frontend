@@ -976,17 +976,23 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // llevaban `.marquee-cell`/`.marquee-inner`. Cubre las dos réplicas de
     // marcado (fila móvil y columna de escritorio): ambas usan TagWithLink,
     // así que las dos llevan ya las clases, solo falta medir.
+    //
+    // Velocidad constante en px/s y ancho ÚTIL (sin padding) en vez de
+    // `clientWidth` — gemela de medirMarquee() en index.astro (D-231). Si
+    // tocas una, toca la otra.
+    const MARQUEE_PX_POR_SEGUNDO = 55;
     function ajustarMarquee() {
       document.querySelectorAll('#detail-tags-fixed-row .marquee-cell, .event-tags-row .marquee-cell').forEach(cell => {
         const inner = cell.querySelector('.marquee-inner');
         if (!inner) return;
+        const es = getComputedStyle(cell);
+        const util = cell.clientWidth - parseFloat(es.paddingLeft || 0) - parseFloat(es.paddingRight || 0);
         inner.classList.remove('is-overflowing');
-        if (inner.scrollWidth > cell.clientWidth) {
+        if (util > 0 && inner.scrollWidth > util) {
           inner.classList.add('is-overflowing');
-          const overflow = inner.scrollWidth - cell.clientWidth + 32;
-          const duration = Math.max(1, overflow / 85);
-          cell.style.setProperty('--marquee-duration', duration + 's');
-          cell.style.setProperty('--cell-width', cell.clientWidth + 'px');
+          const recorrido = inner.scrollWidth - util;
+          cell.style.setProperty('--marquee-duration', (recorrido / MARQUEE_PX_POR_SEGUNDO) + 's');
+          cell.style.setProperty('--cell-width', util + 'px');
         }
       });
     }
