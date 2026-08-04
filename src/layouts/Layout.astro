@@ -100,9 +100,12 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       // recorrido manda, así un texto el doble de largo tarda el doble
       // (teletipo de bolsa, criterio del propietario).
       const MARQUEE_PX_POR_SEGUNDO = 55;
-      // La vuelta es más rápida que la ida — proporción, no un fijo, para
-      // que un recorrido largo no vuelva en un parpadeo.
-      const MARQUEE_FACTOR_VUELTA = 0.55;
+      // La vuelta sigue siendo más rápida que la ida, pero menos que antes
+      // (era 0.55): el propietario pidió que su frenada "durase más". Va como
+      // proporción y no como un fijo para que un recorrido largo no vuelva de
+      // un parpadeo. La curva de la vuelta también decelera durante más
+      // tramo que la de ida — ver global.css.
+      const MARQUEE_FACTOR_VUELTA = 0.7;
       // Por debajo de esto no merece la pena deslizar nada: son sobras de
       // redondeo o un par de píxeles que ya se leen. Sin el umbral, celdas
       // que desbordan 3-4px hacían un tirón de una décima de segundo, que se

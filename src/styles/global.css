@@ -581,7 +581,7 @@ button:disabled { cursor: not-allowed; }
      termina: si revirtieran al instante, el texto se re-recortaría y
      reaparecería la elipsis a mitad del regreso. */
   transition:
-    transform var(--marquee-return, 0.4s) cubic-bezier(0.22, 1, 0.36, 1),
+    transform var(--marquee-return, 0.4s) cubic-bezier(0.16, 1, 0.24, 1),
     max-width 0s linear var(--marquee-return, 0.4s),
     width 0s linear var(--marquee-return, 0.4s);
 }
@@ -607,7 +607,7 @@ button:disabled { cursor: not-allowed; }
      llegar al tope. La duración sale del recorrido real, así que la
      velocidad es la misma mida lo que mida el texto. */
   transition:
-    transform var(--marquee-duration, 2.2s) cubic-bezier(0.12, 0.12, 0.5, 1) 0.25s,
+    transform var(--marquee-duration, 2.2s) cubic-bezier(0.12, 0.12, 0.74, 1) 0.25s,
     max-width 0s linear 0.25s,
     width 0s linear 0.25s;
 }

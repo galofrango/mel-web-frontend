@@ -4288,3 +4288,33 @@ Al pulsar la barra, el tirador saltaba de golpe mientras el relleno sí se desli
 **Decisión**: `:global()` para cruzar la frontera de ámbito, pero acotado a una clase `.salto-animado` que solo existe durante el clic en la barra y se retira sola a los 550ms. El arrastre sigue siendo instantáneo (si no, el tirador va por detrás del dedo) y las escrituras programáticas —restaurar el rango al volver de una ficha— no se animan. Mismos 0.5s y misma curva que el relleno, para que tirador y barra viajen juntos.
 
 **No se han "arreglado" las reglas muertas** convirtiéndolas en globales: hacerlo cambiaría el arrastre, que el propietario marcó como delicado.
+
+## D-236 · Norma de columnas de la tabla de Lista
+
+**Criterio del propietario**: el ancho mínimo de una celda es el que le cabe a "¿Nos ayudas?" sin truncarse. Cuando cualquier columna llegaría a ese mínimo, se van retirando columnas en este orden: **Localidad, Organiza, Diseño**.
+
+**El mínimo, medido**: 130px (96 de texto + 32 de padding + 2 de bordes). Se redondea a los **136** que el proyecto ya usaba en `min-w-[136px]` y en el `min-w-[816px]` de la tabla (816 = 6 × 136). La norma no introduce un número nuevo: formaliza el que ya estaba.
+
+**Fecha queda fuera del reparto** — tiene su propia norma (136px fijos, ver el comentario del colgroup) porque su contenido no se puede truncar sin quedar ilegible. Evento y Lugar no se retiran nunca.
+
+Tramos resultantes, verificados en el navegador:
+
+| disponible | columnas | `min-width` |
+|---|---|---|
+| ≥ 816 | las seis | 816 |
+| ≥ 680 | sin Localidad | 680 |
+| ≥ 544 | sin Localidad ni Organiza | 544 |
+| < 544 | Evento, Fecha, Lugar | 408 |
+
+**Dos trampas que costaron una pasada cada una:**
+
+1. **Dónde se mide el ancho disponible.** En el PADRE (`#view-lista`), no en `#list-table-wrapper`. La envoltura lleva `overflow-x-auto` pero es un elemento flex sin `min-width:0`, así que en vez de limitar y hacer scroll se estira con su contenido: medido, con la ventana en 850 la envoltura decía 900 y el padre 754. Preguntándole a ella, la respuesta era siempre "cabe todo" y la norma no se disparaba nunca.
+2. **No basta con ocultar las celdas.** Con `table-layout:fixed` manda el `<colgroup>`, así que una columna con sus `th`/`td` en `display:none` seguiría ocupando su sitio. Hay que poner además su `<col>` a 0 y repartir de nuevo los porcentajes entre las que quedan (Evento conserva su tercio, el resto se divide a partes iguales) — dejar los 16,75% fijos hacía que, con columnas fuera, ya no sumaran 100 y el navegador repartiera el sobrante a su manera.
+
+## D-237 · Las rayas diagonales de la galería eran un accidente de julio
+
+Ampliación de D-234. El propietario preguntó de dónde salían: `git log -S` las sitúa en el commit `3a28693` ("15 de julio"), no en ninguna decisión de diseño posterior. Nunca fueron intencionadas. Retiradas.
+
+## D-238 · Ajuste fino de las curvas del marquee
+
+Sobre D-233, a petición del propietario: la frenada de la IDA dura menos (`cubic-bezier(0.12, 0.12, 0.5, 1)` → `(0.12, 0.12, 0.74, 1)`: el tramo lineal se alarga y la deceleración se concentra al final) y la de la VUELTA dura más — curva más tendida (`(0.22, 1, 0.36, 1)` → `(0.16, 1, 0.24, 1)`) y factor de duración de 0.55 a 0.7 sobre la ida. La vuelta sigue siendo más rápida que la ida, como se pidió en su momento.

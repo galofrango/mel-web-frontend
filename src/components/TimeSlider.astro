@@ -330,15 +330,6 @@ const { min = 2004, max = 2019 } = Astro.props;
       const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
       const clickedYear = Math.round((pct / 100) * RANGE + MIN_YEAR);
 
-      // Solo AQUÍ se anima el desplazamiento del tirador (D-235), y por eso
-      // va con una clase puesta a mano en vez de una regla permanente: el
-      // arrastre tiene que seguir siendo instantáneo (si no, el tirador va
-      // por detrás del dedo) y las escrituras programáticas —restaurar el
-      // rango al volver de una ficha, por ejemplo— no deben animarse.
-      // La clase se retira sola al terminar.
-      trackWrapper.classList.add('salto-animado');
-      window.setTimeout(() => trackWrapper.classList.remove('salto-animado'), 550);
-
       const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);
       const val2 = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
 
@@ -376,23 +367,5 @@ const { min = 2004, max = 2019 } = Astro.props;
   #slider-track-wrapper.dragging #min-handle,
   #slider-track-wrapper.dragging #max-handle {
     transition: none !important;
-  }
-
-  /* Los DOS tiradores vienen de otro componente (`SliderHandler.astro`), así
-     que NO llevan el atributo de ámbito de este archivo y ninguna regla de
-     este bloque les ha llegado nunca — comprobado en el navegador: la barra
-     (`#slider-active-fill`, que sí es de aquí) transiciona 0.5s y los
-     tiradores estaban a 0s. Por eso al pulsar la barra el relleno se
-     deslizaba y el tirador aparecía de golpe en su sitio.
-     Hace falta `:global()` para cruzar esa frontera (D-235).
-
-     Se limita a `.salto-animado`, que solo existe durante el clic en la
-     barra: el arrastre debe seguir siendo instantáneo y las escrituras
-     programáticas no deben animarse. Mismos 0.5s y misma curva que la barra
-     para que tirador y relleno viajen juntos. */
-  :global(#slider-track-wrapper.salto-animado #min-handle),
-  :global(#slider-track-wrapper.salto-animado #max-handle) {
-    transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1),
-                right 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   }
 </style>
