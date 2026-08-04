@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { visiblesDelCarrusel } from '../src/lib/mel.ts';
+import { visiblesDelCarrusel, fechaValida } from '../src/lib/mel.ts';
 
 const img = (carruselOrder, idMel) => ({ carruselOrder, idMel });
 
@@ -73,4 +73,16 @@ test('un enlace CORTO de Maps no cuenta: el sitio no lo resuelve', () => {
   // Resolverlo pediría una petición de red por visita, y el sitio se renderiza
   // en cada carga. Si su texto no trae coordenadas, no hay ubicación.
   assert.equal(tieneUbicacion('https://maps.app.goo.gl/QJchRLb7EhZTKsuAA'), false);
+});
+
+test('un cartel sin fecha válida no se publica', () => {
+  // Estar a medias es peor que no estar: aparecía en la galería y desaparecía
+  // en cuanto se tocaba el deslizador de años, sin que nadie supiera por qué.
+  assert.equal(fechaValida('12/07/2013'), true);
+  assert.equal(fechaValida('1/7/2013'), true, 'sin cero delante también vale');
+  assert.equal(fechaValida('SIN FECHA'), false);
+  assert.equal(fechaValida(''), false);
+  assert.equal(fechaValida(undefined), false);
+  assert.equal(fechaValida('2013'), false, 'solo el año no da orden');
+  assert.equal(fechaValida('12-07-2013'), false, 'con guiones se leería como el año 12');
 });

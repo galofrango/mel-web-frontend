@@ -224,12 +224,26 @@ export function tieneUbicacion(coordenadas?: unknown): boolean {
   return /-?\d+\.\d+\s*,\s*-?\d+\.\d+/.test(s);
 }
 
+/** El formato que la web sabe leer: DD/MM/AAAA. No es un capricho — de una
+ *  fecha con otro formato no se saca ni el año (y sin año el cartel se cae de
+ *  cualquier filtro) ni un orden fiable. Un `12-07-2013` se lee como ISO, o sea
+ *  como el año 12, y se ordena antes que todo lo demás. */
+export function fechaValida(fecha?: unknown): boolean {
+  return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(fecha ?? '').trim());
+}
+
 export async function fetchEvents() {
   const rows = await fetchSheetRows();
   const rawItems = rows
     .map((row: any) => mapSheetRow(row.c))
     .filter((item): item is NonNullable<typeof item> =>
-      !!item && !!item.idMel && item.idMel.startsWith('MEL-'));
+      !!item && !!item.idMel && item.idMel.startsWith('MEL-'))
+    // Sin fecha válida NO SE PUBLICA (criterio del propietario, 04/08/2026).
+    // Un cartel así ya era medio invisible —desaparecía en cuanto se tocaba el
+    // deslizador de años— y estar a medias es peor que no estar: se ve en la
+    // galería, se pierde al filtrar, y nadie sabe por qué. El panel lo avisa
+    // como error de nivel 1, que es donde hay que ir a arreglarlo.
+    .filter((item) => fechaValida(item.fecha));
 
   const groups: Record<string, any> = {};
   rawItems.forEach(item => {

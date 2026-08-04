@@ -199,10 +199,13 @@ const tarjetas = [
     <header class="pt-10 pb-6">
       <div class="flex items-center justify-between gap-4 pb-6 border-b border-mel-border">
         <h1 class="typo-h3 text-mel-text-primary">Panel de archivos M.E.L.</h1>
+        {/* La navegación va en `typo-h3`, la misma escala que el título de la
+              página: son dos cosas del mismo rango —dónde estás y a dónde puedes
+              ir— y con `typo-button` la segunda parecía subordinada. */}
         <nav class="flex items-center gap-6" aria-label="Secciones del panel">
-          <span class="typo-button text-mel-text-primary" aria-current="page">Control</span>
-          <a href="/panel/historial" class="typo-button text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200">Historial</a>
-          <span class="typo-button text-mel-text-tertiary" title="Todavía no existe: ingesta de material nuevo">Preparación</span>
+          <span class="typo-h3 text-mel-text-primary" aria-current="page">Control</span>
+          <a href="/panel/historial" class="typo-h3 text-mel-text-secondary hover:text-mel-action-primary transition-colors duration-200">Historial</a>
+          <span class="typo-h3 text-mel-text-tertiary" title="Todavía no existe: ingesta de material nuevo">Preparación</span>
         </nav>
       </div>
 

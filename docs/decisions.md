@@ -3582,7 +3582,7 @@ no eran fallos.
 
 ---
 
-## D-201 · Una fecha mal escrita hace desaparecer el cartel
+## D-201 · Sin fecha válida, el cartel no se publica
 
 **Fecha:** 2026-08-04 · **Estado:** vigente
 
@@ -3597,12 +3597,17 @@ web con cada caso:
 | vacía | 0 | vacío | **ninguno** |
 | `12-07-2013` | **negativo** | 2013/07/12 | **año 12** |
 
-Un cartel sin año **desaparece en cuanto se toca el deslizador**, y uno con
-guiones se va al año 12 y se ordena antes que todo lo demás. Por eso es nivel 1
-y va la primera de las cuatro de «Falta información»: es la que más daño hace
-sin que se note.
+(Lo de los guiones no es un fallo de `getYear`: interpreta `2013-07-12` como ISO,
+que es correcto. Solo se tuerce si alguien escribe el día delante.)
 
-En el archivo hoy: 1 de 101 (MEL-00095, con el texto «SIN FECHA»).
+Un cartel sin año **desaparecía en cuanto se tocaba el deslizador**, así que
+estaba a medias: se veía en la galería, se perdía al filtrar, y nadie sabía por
+qué. **Estar a medias es peor que no estar**, así que `fetchEvents` deja de
+publicarlo (criterio del propietario, 04/08/2026) y el panel lo avisa como error
+de nivel 1, que es donde hay que ir a arreglarlo.
+
+Es la primera de las cuatro de «Falta información»: la que más daño hace sin que
+se note. En el archivo hoy: 1 de 101 (MEL-00095, con el texto «SIN FECHA»).
 
 ---
 
