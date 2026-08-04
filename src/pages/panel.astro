@@ -1027,6 +1027,13 @@ const tarjetas = [
     document.querySelectorAll('section[data-clave]').forEach((sec) => {
       const clave = sec.dataset.clave;
       if (clave === claveActual) return;
+      // «Convertir a JPG» NUNCA se ofrece de propina desde otra sección
+      // (criterio del propietario, 04/08/2026). Cambiar de formato destruye la
+      // transparencia, y eso no es una mejora que se marque de paso mientras se
+      // arregla el peso o el color — y menos en un lote, donde se aceptaría de
+      // corrido para veinte carteles a la vez. Los PNG se convierten desde su
+      // propia sección, donde el botón dice exactamente lo que va a pasar.
+      if (clave === 'png') return;
       if (!sec.querySelector('.accion-seleccionados')) return;   // no es automática
       const hay = ids.some((id) => sec.querySelector(`.fila[data-id="${CSS.escape(id)}"]`));
       if (hay) claves.push(clave);

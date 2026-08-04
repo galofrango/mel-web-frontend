@@ -3658,32 +3658,28 @@ Dicho de otra forma: la densidad es información de imprenta. Para la web, el
 
 ---
 
-## D-204 · «Archivo PNG» solo avisa si el PNG no usa la transparencia
+## D-204 · «Convertir a JPG» no se ofrece de propina
 
 **Fecha:** 2026-08-04 · **Estado:** vigente
 
-La regla saltaba con **todo** PNG, porque en su día un PNG solo se podía
-adelgazar sacándolo de PNG. Desde que `pngquant` lo comprime conservando la
-transparencia (D-198) eso dejó de ser cierto: el peso se arregla en «Peso
-superior a 2Mb», donde ahora entran, y el formato en sí ya no es un defecto.
+La sección «Archivo PNG» **se queda como estaba**: salta con todo PNG y es donde
+se convierten, con su botón diciendo exactamente lo que va a pasar y su banner
+avisando de que JPEG no admite transparencias.
 
-Ahora solo entra un PNG **sin canal alfa**: uno que no usa la transparencia y por
-tanto no gana nada siendo PNG. En el archivo hoy eso son **cero de trece**, así
-que la sección desaparece.
-
-**La señal que lo delató:** el propietario había ocultado los 13 PNG uno a uno, y
-los 13 con la misma nota —«lo guardamos en png para conservar la transparencia»—.
-Cuando un aviso se oculta siempre por la misma razón, el que está mal es el
-aviso, no el archivo.
+Lo que se retira es el **ofrecimiento cruzado**: cuando se arregla el peso o el
+color de un PNG desde otra sección, «Otras mejoras recomendadas» ya no propone
+convertirlo. Cambiar de formato destruye la transparencia, y eso no es una
+mejora que se marque de paso mientras se hace otra cosa — y menos en un lote,
+donde se aceptaría de corrido para veinte carteles a la vez.
 
 Comprobado además, y con test, que **comprimir o reducir un PNG nunca lo convierte
-a JPG**: la salida solo se mueve a JPEG si se pide `png` explícitamente. Un botón
-de peso que además cambiara el formato sería justo lo que este panel lleva toda la
-tarea evitando.
+a JPG**: la salida solo se mueve a JPEG si se pide `png` explícitamente.
 
-Límite conocido: `alfa` se lee del tipo de color de la cabecera, así que un PNG
-con canal alfa **enteramente opaco** —que no necesitaría ser PNG— no se detecta.
-Saberlo exigiría descomprimir los píxeles y no compensa.
+**Lo que NO había que hacer, y hice:** por el camino podé la regla para que solo
+avisara de los PNG sin canal alfa, y con eso la sección entera desapareció del
+panel —los 13 del archivo tienen transparencia—. El propietario no había pedido
+eso: había pedido quitar el ofrecimiento. Revertido.
 
-Quedan 13 marcas `#oculto:png` en la columna AA que ya no apuntan a ningún aviso.
-Son inertes —solo casan con esa clave— pero se pueden borrar cuando se quiera.
+El razonamiento que me llevó ahí no era malo (los 13 estaban ocultos con la misma
+nota, y un aviso que siempre se oculta por lo mismo suele estar mal planteado)
+pero era una propuesta que tocaba haber hecho, no ejecutado.

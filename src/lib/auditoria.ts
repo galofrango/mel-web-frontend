@@ -159,23 +159,10 @@ const REGLAS: Regla[] = [
    '<b>El problema es que de este cartel no hay medidas</b>, así que las comprobaciones de formato, tamaño y peso ni siquiera se le aplican: pasa en verde por no haber sido mirado.<br><br>La forma de corregirlo es volver a medir el archivo:<br><code>node scripts/medir-archivo.mjs</code>',
    'Le pasa a todo lo que se sube después de la última medición. No es un defecto del cartel, es que aún no se ha mirado.', 'id',
    (f, t) => t.tipo === 'desconocido'],
-  // Solo los PNG SIN transparencia. Un PNG con canal alfa se conserva en PNG y
-  // punto: desde que `pngquant` puede adelgazarlo sin tocar la transparencia
-  // (D-198), su peso ya no es un motivo para sacarlo de su formato — se arregla
-  // en «Peso superior a 2Mb», donde ahora entra.
-  //
-  // Antes entraba TODO PNG, y eso obligaba al propietario a ocultar uno por uno
-  // los 13 del archivo con una nota que decía siempre lo mismo: «lo guardamos en
-  // png para conservar la transparencia». Cuando un aviso se oculta siempre por
-  // la misma razón, el que está mal es el aviso.
-  //
-  // Ojo con el límite de esto: `alfa` mira el tipo de color de la cabecera, así
-  // que un PNG con canal alfa enteramente opaco —que no necesita ser PNG— no se
-  // detecta. Saberlo exigiría descomprimir los píxeles, y no compensa.
-  ['png', 2, 'Archivo PNG sin transparencia', 'Pesa más que el mismo cartel en JPG sin ganar nada', 'Convertir a JPG', true,
-   '<b>El problema es el peso</b>: a tamaño de miniatura un PNG pesa más que el mismo cartel en JPG, y la galería carga 32 de golpe. Este no usa la transparencia, así que el formato no le aporta nada.<br><br>La forma de corregirlo es convertir a JPG (calidad 95) y pasar el color a sRGB en la misma pasada.',
-   null, 'bytes',
-   (f, t) => t.tipo === 'png' && !t.alfa],
+  ['png', 2, 'Archivo PNG', 'Pesa unas dos veces y media más que el mismo cartel en JPEG', 'Convertir a JPG', true,
+   '<b>El problema es el peso</b>: a tamaño de miniatura un PNG pesa unas dos veces y media más que el mismo cartel en JPEG, y la galería carga 32 de golpe.<br><br>La forma de corregirlo es convertir a JPEG (calidad 95) y pasar el color a sRGB en la misma pasada.',
+   'JPEG no admite transparencias. No proceses aquellos archivos que necesiten conservarla.', 'bytes',
+   (f, t) => t.tipo === 'png'],
   ['no-srgb', 2, 'Espacio de color diferente a sRGB', 'Los colores pueden verse apagados', 'Pasar a sRGB', true,
    '<b>sRGB es el único espacio que todos los navegadores tratan igual.</b> Con otros espacios de color, los colores podrían verse apagados.<br><br>La forma de corregirlo es pasarlo a sRGB.',
    'Con el cambio a sRGB puede que el archivo gane peso. Es recomendable bajarlo a calidad 95 en la misma pasada para evitar ese aumento en el procesamiento del archivo.', 'bytes',
