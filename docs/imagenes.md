@@ -83,6 +83,56 @@ Las cajas reales, medidas:
 
 Por encima de ~3000px ya no lo muestra nada.
 
+### Los ppp no sirven para nada aquí (y qué sirve en su lugar)
+
+Es la duda que más cuesta quitarse de encima, así que va con detalle.
+
+**Un navegador ignora los ppp de un fichero.** Una imagen de 500×500 a 300 ppp y
+esa misma a 72 ppp se ven **exactamente igual**: el navegador solo cuenta
+píxeles. Los ppp son una nota para la imprenta —«esto está pensado para salir a
+tantas pulgadas»— y ningún `<img>` la mira. Medido en este archivo: los carteles
+declaran 200 y 300 ppp indistintamente, y da lo mismo.
+
+Lo que sí manda son **tres cantidades distintas** que se confunden todo el rato:
+
+| | qué es |
+|---|---|
+| **Píxeles de imagen** | los que tiene el fichero. Es lo que enseña el panel |
+| **Píxeles CSS** | el hueco que ocupa en la maquetación. Una tarjeta de galería son ~390 |
+| **Píxeles de pantalla** | los de verdad. En una Retina hay **2 o 3 por cada píxel CSS** |
+
+De ahí sale la única regla que importa:
+
+> Una imagen se ve nítida si tiene **al menos tantos píxeles de imagen como
+> píxeles CSS ocupa, multiplicado por la densidad de la pantalla.**
+
+Una tarjeta de 390 CSS en una pantalla Retina de 2× necesita **780 píxeles de
+imagen**. Si el fichero tiene 500, el navegador lo estira: no se pixela a
+cuadros, se ve **blando**, como una foto ligeramente desenfocada. Y un cartel de
+500 px a 300 ppp está igual de blando que uno de 500 px a 72 — porque son los
+mismos 500 píxeles.
+
+**Lo de @2x y @3x de Figma es exactamente esto.** No es una propiedad mágica: es
+exportar el mismo diseño con el doble o el triple de píxeles. Un marco de 500×500
+exportado @2x da un PNG de 1000×1000. El nombre viene de la densidad de pantalla
+para la que se piensa, pero **lo único que cambia en el fichero es el recuento de
+píxeles**. Así que en vez de pensar «lo exporto a @2x», piensa «necesito que el
+lado largo tenga 2000–2400».
+
+**En este sitio, además, tú no sirves el original.** Todo pasa por el
+redimensionador de Drive, que sirve el ancho que se le pida en la URL:
+
+| dónde | se pide | hueco en pantalla |
+|---|---|---|
+| Tarjeta de galería | `sz=w700` | ~390 CSS → sobra para 1,8× |
+| Miniatura de lista | `sz=w200` | 56 CSS → de sobra |
+| Ficha y visor | `sz=w1000` | hasta 496 CSS → 2× justo |
+
+Por eso el original tiene que ser grande aunque el visitante nunca lo descargue:
+**Drive no puede servir píxeles que el original no tenga.** Si subes 800, la
+tarjeta pedirá 700 y los tendrá, pero la ficha pedirá 1000 y recibirá 800
+estirados.
+
 ### Por qué el mínimo de 1200
 
 **Nunca se amplía una imagen por encima de su tamaño real.** Si un cartel no da
