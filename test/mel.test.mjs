@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { visiblesDelCarrusel, fechaValida } from '../src/lib/mel.ts';
+import { visiblesDelCarrusel, fechaValida, srcSetDrive } from '../src/lib/mel.ts';
 
 const img = (carruselOrder, idMel) => ({ carruselOrder, idMel });
 
@@ -95,4 +95,14 @@ test('un año imposible también invalida la fecha', () => {
   assert.equal(fechaValida('12/07/1899'), false);
   assert.equal(fechaValida('12/07/1960'), true, 'el suelo entra');
   assert.equal(fechaValida('12/07/2003'), true);
+});
+
+test('el srcset ofrece la misma imagen a varios anchos', () => {
+  const s = srcSetDrive('https://drive.google.com/file/d/ABC/view', [700, 1400]);
+  assert.equal(s, 'https://drive.google.com/thumbnail?id=ABC&sz=w700 700w, https://drive.google.com/thumbnail?id=ABC&sz=w1400 1400w');
+});
+
+test('sin URL de Drive no se inventa un srcset', () => {
+  assert.equal(srcSetDrive(''), '');
+  assert.equal(srcSetDrive(undefined), '');
 });

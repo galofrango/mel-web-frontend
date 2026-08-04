@@ -6,7 +6,7 @@ import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
-import { fetchEvents, extractDriveImage } from '../../lib/mel';
+import { fetchEvents, extractDriveImage, srcSetDrive } from '../../lib/mel';
 import flyerTecnico from '../../data/flyer_tecnico.json';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
@@ -82,6 +82,14 @@ const allEvents = eventsList.map((e: any) => ({
 // hace de portada ligera — ver `visiblesDelCarrusel` en mel.ts). La PORTADA
 // sigue saliendo de `carruselItems[0]`, unas líneas más arriba.
 const imageUrls = eventData.carruselVisibles.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
+// Aquí se llega hasta 2000: es UNA imagen, no 32 como en la galería, así que el
+// coste de servir la grande solo a quien la aprovecha es asumible (medido el
+// 04/08/2026: 161 KB de media a w1000, 421 KB a w2000). La caja de la ficha son
+// 496 px CSS en escritorio y el ancho completo en móvil; el visor, unos 684.
+const ANCHOS_FICHA = [1000, 1400, 2000];
+const TAMANOS_FICHA = '(min-width: 1024px) 496px, 100vw';
+const TAMANOS_VISOR = '(min-width: 1024px) 684px, 92vw';
+const imageSrcsets = eventData.carruselVisibles.map(i => srcSetDrive(i.urlDrive, ANCHOS_FICHA));
 
 // Dimensiones reales de cada cartel, medidas offline por
 // `scripts/medir-archivo.mjs`. Sirven para dar a la caja de imagen el alto que
@@ -377,6 +385,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                     <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
                       <img
                         src={img}
+                        srcset={imageSrcsets[idx] || undefined}
+                        sizes={imageSrcsets[idx] ? TAMANOS_FICHA : undefined}
                         alt={eventData.title}
                         referrerpolicy="no-referrer"
                         class="w-full h-full object-contain"
@@ -606,10 +616,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
             class="flex w-full h-full transition-transform duration-500 ease-out z-10"
             style="transform: translate3d(0, 0, 0);"
           >
-            {imageUrls.map((img) => (
+            {imageUrls.map((img, idx) => (
               <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
                 <img
                   src={img}
+                  srcset={imageSrcsets[idx] || undefined}
+                  sizes={imageSrcsets[idx] ? TAMANOS_VISOR : undefined}
                   alt={eventData.title}
                   referrerpolicy="no-referrer"
                   class="w-full h-full object-contain"

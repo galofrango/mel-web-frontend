@@ -26,10 +26,21 @@ interface Props {
   title: string;
   date: string;
   image: string;
+  /** La misma imagen a varios anchos, para que el navegador elija según la
+   *  pantalla. Ver `srcSetDrive` en mel.ts. Vacío = solo `src`, que es lo que
+   *  pasa con las imágenes de relleno locales. */
+  srcset?: string;
   id: string;
 }
 
-const { title, date, image, id } = Astro.props;
+const { title, date, image, srcset = '', id } = Astro.props;
+
+/** Cuánto ocupa esta tarjeta en pantalla, por tramos. Es lo que el navegador
+ *  necesita para elegir del `srcset` ANTES de maquetar: sin esto supone que la
+ *  imagen ocupa el ancho completo de la ventana y se baja la más grande
+ *  siempre. La rejilla es de 2 columnas, 3 a partir de `md` y 4 a partir de
+ *  `lg`, dentro de un contenedor que no pasa de 1440. */
+const TAMANOS = '(min-width: 1024px) 320px, (min-width: 768px) 33vw, 50vw';
 ---
 <!-- El `view-transition-name` va en LA TARJETA, no en la imagen de dentro.
      Estuvo en la `<img>` y eso hacía que al reordenar volase solo la foto: la
@@ -52,6 +63,8 @@ const { title, date, image, id } = Astro.props;
        (initHomePage repesca las imágenes ya completas). -->
   <img
     src={image}
+    srcset={srcset || undefined}
+    sizes={srcset ? TAMANOS : undefined}
     alt={title}
     loading="lazy"
     decoding="async"

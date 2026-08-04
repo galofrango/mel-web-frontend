@@ -14,11 +14,16 @@ import IconButton from '../components/IconButton.astro';
 import IntroAnimation from '../components/IntroAnimation.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
 import EmptyState from '../components/EmptyState.astro';
-import { fetchEvents, rangoDeAnios, extractDriveImage, formatFechaDMY } from '../lib/mel';
+import { fetchEvents, rangoDeAnios, extractDriveImage, srcSetDrive, formatFechaDMY } from '../lib/mel';
 
 // Anchos por contexto, medidos en navegador: la tarjeta de galería se pinta a
 // 342px (684 con densidad 2) y la miniatura de la lista en una caja de 40px.
 const ANCHO_TARJETA = 700;
+// Los anchos que se le ofrecen al navegador para la tarjeta. Techo en 1400: la
+// galería carga 32 de golpe y saltar a 2000 llevaría la primera pantalla de
+// 5 MB a 13 (medido el 04/08/2026). A 1400 una tarjeta de ~320 CSS se ve
+// nítida hasta en pantallas de 3x.
+const ANCHOS_TARJETA = [700, 1000, 1400];
 const ANCHO_MINIATURA = 200;
 
 // El archivo entero, ya agrupado por evento y en orden cronológico ascendente.
@@ -278,12 +283,14 @@ const tags = [
         <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-m auto-rows-[4px] w-full pb-[13vh]">
           {initialArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+            const imgSrcset = srcSetDrive(item.carruselItems[0]?.urlDrive, ANCHOS_TARJETA);
             return (
               <FlyerCard
                 id={item.idMel}
                 title={item.evento}
                 date={formatFechaDMY(item.fecha)}
                 image={imgSrc}
+                srcset={imgSrcset}
               />
             );
           })}
@@ -1247,7 +1254,18 @@ const tags = [
   // llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
   // valor por defecto porque es el que necesita la ficha del evento.
   const ANCHO_TARJETA = 700;
+  const ANCHOS_TARJETA = [700, 1000, 1400];
   const ANCHO_MINIATURA = 200;
+  // Gemelo de `srcSetDrive` en mel.ts (regla 7: este script lleva `define:vars`,
+  // así que es inline y no puede importar nada). Si se toca allí, aquí también.
+  const TAMANOS_TARJETA = '(min-width: 1024px) 320px, (min-width: 768px) 33vw, 50vw';
+  const srcSetDrive = (url, anchos = ANCHOS_TARJETA) =>
+    anchos.map((a) => `${extractDriveImage(url, a)} ${a}w`).filter((par) => !par.startsWith(' ')).join(', ');
+  /** Si el visitante ha pedido a su navegador que ahorre datos, se le sirve la
+   *  pequeña y punto. Solo funciona donde el navegador lo cuenta —Chrome y
+   *  Android— y solo para las tarjetas que construye este script; las que vienen
+   *  del servidor ya las eligió el navegador antes de que corriera nada. */
+  const ahorrandoDatos = () => !!(navigator.connection && navigator.connection.saveData);
 
   function extractDriveImage(url, ancho = 1000) {
     if (!url) return '';
@@ -1446,6 +1464,8 @@ const tags = [
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
     const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
+    const conjunto = ahorrandoDatos() ? '' : srcSetDrive(item.carruselItems[0]?.urlDrive);
+    const srcsetAttr = conjunto ? ` srcset="${conjunto}" sizes="${TAMANOS_TARJETA}"` : '';
     // Copiada LITERAL de FlyerCard.astro, en el mismo orden, para que un `diff`
     // entre las dos cante en cuanto se separen. Ya lo hicieron: aquí estaba la
     // sombra del DS y allí no, así que la galería cambiaba de aspecto en cuanto
@@ -1463,7 +1483,7 @@ const tags = [
     card.style.viewTransitionName = `flyer-img-${item.idMel}`;
     card.innerHTML = `
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
-      <img src="${imgSrc}" alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);" />
+      <img src="${imgSrc}"${srcsetAttr} alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);" />
 
       <!-- Blending grid overlay (striped Figma style) -->
       <div class="absolute inset-0 striped-bg opacity-0 group-hover:opacity-10 transition-opacity duration-300 z-10 pointer-events-none"></div>

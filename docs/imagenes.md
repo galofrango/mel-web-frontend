@@ -134,13 +134,29 @@ Por eso el original tiene que ser grande aunque el visitante nunca lo descargue:
 tarjeta pedirá 700 y los tendrá, pero la ficha pedirá 1000 y recibirá 800
 estirados.
 
-**Y de ahí sale un techo que conviene tener presente:** lo que se pide a Drive
-es el límite real de nitidez, no lo que mida el original. En un móvil de 3× con
-el cartel a sangre —hasta 1023 píxeles CSS— harían falta unos 3000 píxeles de
-imagen, y la ficha pide 1000. Ahí el cartel se ve blando **por mucho que el
-original tenga 2400**. Si algún día se quiere apretar eso, se sube el ancho que
-se le pide a Drive (`extractDriveImage`, por defecto 1000), no el mínimo del
-archivo. El precio es peso de descarga, así que es una decisión, no un olvido.
+**El techo de nitidez lo pone lo que se le pide a Drive, no el original.** Desde
+el 04/08/2026 no se le pide un ancho fijo: se le ofrecen varios y **elige el
+navegador**, que es el único que sabe qué pantalla tiene delante (`srcSetDrive`
+en `mel.ts`).
+
+| dónde | anchos ofrecidos | caja en pantalla |
+|---|---|---|
+| Tarjeta de galería | 700 · 1000 · 1400 | ~320 CSS |
+| Ficha y visor | 1000 · 1400 · 2000 | 496 CSS en escritorio |
+
+Los topes salen de medir, no de intuir. Cinco carteles, peso medio por ancho:
+
+| | w700 | w1000 | w1400 | w2000 |
+|---|---|---|---|---|
+| una imagen | 120 KB | 161 KB | 222 KB | 421 KB |
+| la galería entera (32) | 3,7 MB | 5 MB | 7 MB | **13,2 MB** |
+
+Por eso la galería se queda en 1400 —a 2000 la primera pantalla se iría a 13 MB
+para nadie— y la ficha, que es UNA imagen, llega a 2000.
+
+Y una cosa que se ve en esa tabla: **hay carteles a los que esto no les cambia
+nada**. Un original de 600px devuelve lo mismo a w700 que a w2000, porque Drive
+no puede servir píxeles que no existen. Otro motivo para el mínimo de 1200.
 
 ### Por qué el mínimo de 1200
 
