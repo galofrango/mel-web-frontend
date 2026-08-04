@@ -141,7 +141,7 @@ en `mel.ts`).
 
 | dónde | anchos ofrecidos | caja en pantalla |
 |---|---|---|
-| Tarjeta de galería | 700 · 1000 · 1400 | ~320 CSS |
+| Tarjeta de galería | 700 · 1000 | 288 CSS |
 | Ficha y visor | 1000 · 1400 · 2000 | 496 CSS en escritorio |
 
 Los topes salen de medir, no de intuir. Cinco carteles, peso medio por ancho:
@@ -151,8 +151,22 @@ Los topes salen de medir, no de intuir. Cinco carteles, peso medio por ancho:
 | una imagen | 120 KB | 161 KB | 222 KB | 421 KB |
 | la galería entera (32) | 3,7 MB | 5 MB | 7 MB | **13,2 MB** |
 
-Por eso la galería se queda en 1400 —a 2000 la primera pantalla se iría a 13 MB
-para nadie— y la ficha, que es UNA imagen, llega a 2000.
+**En la galería manda la velocidad**, porque carga 32 de golpe, así que se queda
+en dos anchos. Con la tarjeta midiendo 288 px CSS:
+
+| pantalla | píxeles que necesita | se lleva |
+|---|---|---|
+| normal (1×) | 288 | w700 |
+| Retina 2× | 576 | w700 ← la mayoría |
+| Retina 3× | 864 | w1000 |
+| móvil 3× | 477 | w700 |
+
+O sea: casi todo el mundo se baja **exactamente lo mismo que antes** (3,7 MB la
+primera pantalla) y solo las pantallas de 3× pagan los 5 MB, a cambio de ver los
+carteles nítidos. Un w1400 no lo pediría nadie —haría falta una pantalla de 5×—
+así que ofrecerlo era peso muerto en el HTML.
+
+La ficha es otra historia: es UNA imagen, no 32, así que llega a 2000.
 
 Y una cosa que se ve en esa tabla: **hay carteles a los que esto no les cambia
 nada**. Un original de 600px devuelve lo mismo a w700 que a w2000, porque Drive

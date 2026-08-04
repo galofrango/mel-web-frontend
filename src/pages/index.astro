@@ -19,11 +19,22 @@ import { fetchEvents, rangoDeAnios, extractDriveImage, srcSetDrive, formatFechaD
 // Anchos por contexto, medidos en navegador: la tarjeta de galería se pinta a
 // 342px (684 con densidad 2) y la miniatura de la lista en una caja de 40px.
 const ANCHO_TARJETA = 700;
-// Los anchos que se le ofrecen al navegador para la tarjeta. Techo en 1400: la
-// galería carga 32 de golpe y saltar a 2000 llevaría la primera pantalla de
-// 5 MB a 13 (medido el 04/08/2026). A 1400 una tarjeta de ~320 CSS se ve
-// nítida hasta en pantallas de 3x.
-const ANCHOS_TARJETA = [700, 1000, 1400];
+// Los dos anchos que se le ofrecen al navegador para la tarjeta, y no más: en
+// la galería la velocidad manda, porque carga 32 de golpe.
+//
+// La cuenta, con la tarjeta midiendo 288 px CSS (contenedor de 1224, cuatro
+// columnas, 24 de hueco):
+//
+//   pantalla normal  288 × 1 = 288  → se lleva w700
+//   Retina 2×        288 × 2 = 576  → se lleva w700   ← la mayoría
+//   Retina 3×        288 × 3 = 864  → se lleva w1000
+//   móvil 3×         159 × 3 = 477  → se lleva w700
+//
+// O sea: casi todo el mundo se sigue bajando exactamente lo mismo que antes
+// (3,7 MB la primera pantalla) y solo las de 3× pagan los 5 MB a cambio de ver
+// los carteles nítidos. Un w1400 no lo pediría nadie — haría falta una pantalla
+// de 5× — así que ofrecerlo era peso muerto en el HTML.
+const ANCHOS_TARJETA = [700, 1000];
 const ANCHO_MINIATURA = 200;
 
 // El archivo entero, ya agrupado por evento y en orden cronológico ascendente.
@@ -1254,18 +1265,13 @@ const tags = [
   // llamada pide ahora el tamaño que de verdad va a usar; 1000 sigue siendo el
   // valor por defecto porque es el que necesita la ficha del evento.
   const ANCHO_TARJETA = 700;
-  const ANCHOS_TARJETA = [700, 1000, 1400];
+  const ANCHOS_TARJETA = [700, 1000];   // gemelo del de arriba
   const ANCHO_MINIATURA = 200;
   // Gemelo de `srcSetDrive` en mel.ts (regla 7: este script lleva `define:vars`,
   // así que es inline y no puede importar nada). Si se toca allí, aquí también.
-  const TAMANOS_TARJETA = '(min-width: 1024px) 320px, (min-width: 768px) 33vw, 50vw';
+  const TAMANOS_TARJETA = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
   const srcSetDrive = (url, anchos = ANCHOS_TARJETA) =>
     anchos.map((a) => `${extractDriveImage(url, a)} ${a}w`).filter((par) => !par.startsWith(' ')).join(', ');
-  /** Si el visitante ha pedido a su navegador que ahorre datos, se le sirve la
-   *  pequeña y punto. Solo funciona donde el navegador lo cuenta —Chrome y
-   *  Android— y solo para las tarjetas que construye este script; las que vienen
-   *  del servidor ya las eligió el navegador antes de que corriera nada. */
-  const ahorrandoDatos = () => !!(navigator.connection && navigator.connection.saveData);
 
   function extractDriveImage(url, ancho = 1000) {
     if (!url) return '';
@@ -1464,7 +1470,7 @@ const tags = [
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
     const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
-    const conjunto = ahorrandoDatos() ? '' : srcSetDrive(item.carruselItems[0]?.urlDrive);
+    const conjunto = srcSetDrive(item.carruselItems[0]?.urlDrive);
     const srcsetAttr = conjunto ? ` srcset="${conjunto}" sizes="${TAMANOS_TARJETA}"` : '';
     // Copiada LITERAL de FlyerCard.astro, en el mismo orden, para que un `diff`
     // entre las dos cante en cuanto se separen. Ya lo hicieron: aquí estaba la
