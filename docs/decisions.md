@@ -4126,3 +4126,37 @@ Entre las dos barras —269px arriba y 99 abajo— quedan unos 350px de ventana 
 la lista en una pantalla de 720. Es mucho marco para poco cuadro; si al usarlo
 aprieta, lo primero que debería encoger son las cifras de la cabecera cuando
 está pegada, no esta línea.
+
+## D-216 · Las fechas llevan cero delante del día de una sola cifra
+
+**Contexto**: `formatFechaDMY()` (`mel.ts`) llevaba un comentario explícito documentando lo contrario — "Reordena y no normaliza, a propósito: la hoja rellena los ceros de forma irregular... Meter un `parseInt` por pieza cambiaría fechas ya validadas por el propietario, así que se deja tal cual." Esa fue una decisión real, no un descuido.
+
+**Decisión**: el propietario pide ahora justo lo contrario — anteponer un cero al día de una sola cifra ("9/10/2004" → "09/10/2004"), para que la columna de fecha de la tabla no salte visualmente entre cifras de una y dos posiciones. Sustituye a la decisión anterior.
+
+**Alcance**: solo el día. El mes se deja tal cual llega de la hoja — no se ha pedido lo mismo para él, y unificar los dos habría sido una interpretación no pedida.
+
+**Consecuencias**: cambiado en `mel.ts` (SSR) y en su réplica de `index.astro` (cliente, regla 7 de AGENTS.md) — hay que mantener las dos en el mismo estado si esto se vuelve a tocar.
+
+## D-217 · "¿Nos ayudas?" en action-primary desde el reposo, y también en la tabla de Lista
+
+**Contexto**: el enlace de colaboración que sustituye un dato que falta (`AYUDA_TEXTO`/`AYUDA_HREF`, `event/[id].astro`) usaba el color normal de enlace (`text-mel-text-secondary`, pasa a `action-primary` solo al pasar el ratón) — igual que cualquier otro dato, sin destacar como invitación. Y en la tabla de Lista, una celda sin dato se pintaba inerte (gris, sin enlace): el "¿Nos ayudas?" solo existía en la ficha de evento.
+
+**Decisión**: estos enlaces van ahora en `action-primary` desde el reposo, no solo al pasar el ratón — para que se lean como invitación y no como un dato más. Se añade `state="Primary"` a `Link.astro`/`TagWithLink.astro` (color fijo, sin tocar el resto de estados) y una clase paralela `.cell-ayuda` para la tabla de Lista, que no pasa por esos componentes (usa HTML a mano por rendimiento en listas grandes).
+
+**Alcance**: las cuatro columnas de la tabla que pueden faltar (Lugar, Localidad, Organiza, Diseño) pasan de inerte a "¿Nos ayudas?" enlazado a `/info#contacto`, igual que ya hacía la ficha. Implementado como `<a href>` real y no como `data-search` — ese atributo dispara una búsqueda literal por el texto, y aquí lo que hace falta es navegar.
+
+## D-218 · Los promotores separados por comas son un enlace cada uno
+
+**Contexto**: "Organiza" podía llevar varios nombres en la misma celda de la hoja, separados por comas (p. ej. "Ravers 7.5, Colectivo X"), pero se enlazaba como una sola búsqueda de la cadena completa — que no encontraba nada, porque ningún evento tiene ese texto literal en su campo `organiza`. Los artistas ya resolvían este mismo problema (`ARTISTAS`, un enlace por nombre); "Organiza" no.
+
+**Decisión**: mismo tratamiento que los artistas. `TagWithLink.astro` gana una prop `multi` (lista de `{texto, href}`) que sustituye a `count`/`href` cuando se pasa — cada nombre es su propio enlace, separados por comas en texto plano. Reutilizable por cualquier tag futura que necesite lo mismo, no solo "Organiza".
+
+**Alcance**: la ficha de evento (`TAGS_EVENTO`, tanto la fila móvil como la columna de escritorio) y la tabla de Lista. En la tabla, cada nombre lleva su propia `.search-cell-link` con su propio `data-search`, sin el subrayado compartido de celda (`.table-link-underline`) que asumía un solo enlace por celda — se pierde ese detalle visual en las celdas con más de un promotor, a cambio de que cada nombre busque lo suyo. El color al pasar el ratón sí lo conserva cada nombre.
+
+## D-219 · La dirección del panel del mapa se corta en el número de calle
+
+**Contexto**: `extractAddressLabel()` (`index.astro`) muestra la dirección legible sacada del enlace de Google Maps compartido (columna G de la hoja), completa: "Av. Lancia, 9, 24004 León". El código postal y la localidad ya se leen en la tag "Localidad" de al lado, en el mismo panel.
+
+**Decisión**: cortar justo después del número de calle — "Av. Lancia, 9". Nueva función `truncarEnNumeroCalle()`: separa por comas, busca el primer trozo que sea solo un número (con sufijo de letra suelto tipo "9B") y corta ahí. Si no encuentra ninguno —direcciones sin número, texto libre, DMS— la deja tal cual en vez de arriesgarse a cortar donde no toca.
+
+**Alcance**: solo el panel lateral del mapa (`side-panel-address`), que es el único sitio donde se muestra esta dirección larga. No afecta a las coordenadas de posicionamiento del marcador, que se siguen leyendo del mismo campo sin tocar.
