@@ -214,7 +214,7 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
     </span>
   </button>
 
-  <div id={`sec-cuerpo-${grupo.clave}`} class="sec-cuerpo" hidden>
+  <div id={`sec-cuerpo-${grupo.clave}`} class="sec-cuerpo" style="height:0"><div>
     <p class="typo-lead text-mel-text-primary px-6 pt-6" set:html={descripcionHtml} />
 
     {/* Texto literal del propietario (spec, "Correcciones tras la primera
@@ -385,6 +385,7 @@ const FRANJA_CABECERA: Record<1 | 2, string> = {
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   </div>

@@ -16,7 +16,7 @@
  * trece pasa de 2 MB y baja solo al convertirse.
  */
 import { ladoMayor, type DatosImagen } from './imagen.ts';
-import { tieneUbicacion } from './mel.ts';
+import { tieneUbicacion, fechaValida } from './mel.ts';
 
 /** Lado mayor a partir del cual una imagen sobra de tamaño, y al que se reduce.
  *  Un solo número para las dos cosas: si se avisa por encima de 2400 y se
@@ -134,7 +134,7 @@ const REGLAS: Regla[] = [
   ['sin-fecha', 1, 'Sin fecha', 'El evento no aparece en la web', 'Abrir en la hoja', false,
    'El evento no aparecerá en la web si la fecha no se ha introducido con el formato correcto en la columna D de la [hoja→D1].',
    null, 'id',
-   (f, t) => !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(f.fecha ?? '').trim())],
+   (f, t) => !fechaValida(f.fecha)],
   ['sin-lugar', 1, 'Sin lugar', 'No hay local que situar en el mapa', 'Abrir en la hoja', false,
    'Sin la información de lugar no se puede agrupar el evento en el mapa. Hay que escribir el nombre del local en la columna E de la [hoja→E1].',
    'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la tag de Lugar.', 'id',

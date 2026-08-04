@@ -3631,3 +3631,27 @@ cosas fuera de la pantalla.
   10 casillas se quedaba en indeterminado para siempre. Y un indeterminado más
   un clic resuelve a MARCAR, por especificación: no había forma de vaciar la
   selección en «Peso superior». Ahora solo cuenta las seleccionables.
+
+---
+
+## D-203 · Densidad de píxeles: el panel hace bien en ignorarla
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Pregunta del propietario: si un cartel de 500×500 está guardado a 300 ppp, ¿el
+panel lo enseña como 500×500?
+
+Sí, y es lo correcto. El panel lee las dimensiones del propio encabezado del
+fichero (IHDR en PNG, SOF en JPEG), que es el **número de píxeles reales**. La
+densidad (`pHYs` en PNG, la cabecera JFIF en JPEG) describe a qué tamaño físico
+se pensó imprimir, y **el navegador la ignora por completo** al pintar un
+`<img>`: 500 píxeles son 500 píxeles de CSS, se declaren 72 o 300 ppp.
+
+Medido en el archivo el 04/08/2026: los ficheros SÍ declaran densidad —200 y 300
+ppp, según el que toque— y hay un caso que ilustra el riesgo de fiarse de ella:
+**MEL-00031 declara 300 ppp y mide 560×560 píxeles**. Impreso serían 1,9
+pulgadas; en la web son 560 píxeles y por eso está —con razón— en «Baja
+resolución».
+
+Dicho de otra forma: la densidad es información de imprenta. Para la web, el
+único dato es el recuento de píxeles, que es justo el que se usa.

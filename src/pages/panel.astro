@@ -603,12 +603,58 @@ const tarjetas = [
   }
 
   // --- Cabecera de sección: plegar / desplegar ------------------------------
+  /** Anima el plegado de una sección midiendo su alto de verdad.
+   *
+   *  `height: auto` no se puede transicionar, así que hay que darle números
+   *  concretos a los dos extremos: se fija el alto actual, se deja pasar un
+   *  fotograma para que el navegador lo tome como punto de partida, y se cambia.
+   *  Al terminar de abrir se devuelve a `auto`, o la sección se quedaría clavada
+   *  a la altura que tenía y no crecería si su contenido cambia — que pasa cada
+   *  vez que se oculta una fila.
+   *
+   *  Se intentó antes con el truco de la rejilla `0fr → 1fr`, que no hace falta
+   *  medir nada, y aquí no funciona: la transición se queda colgada en el valor
+   *  de partida y la sección no llega a abrirse. */
+  function plegar(cuerpo: HTMLElement, cerrando: boolean) {
+    // Cancelar el remate pendiente de una animación anterior. Sin esto, el
+    // oyente que devuelve el alto a `auto` al terminar de ABRIR se quedaba vivo
+    // si esa apertura no llegó a animarse, y saltaba al final del CIERRE:
+    // la sección se cerraba y volvía a abrirse sola.
+    const pendiente = (cuerpo as any)._finPlegado;
+    if (pendiente) {
+      cuerpo.removeEventListener('transitionend', pendiente);
+      (cuerpo as any)._finPlegado = null;
+    }
+
+    const alto = cuerpo.scrollHeight;
+    // Los dos extremos con números concretos: `height: auto` no se puede
+    // transicionar. Y un fotograma de por medio para que el navegador tome el
+    // primero como punto de partida en vez de fundir los dos cambios en uno.
+    cuerpo.style.height = cerrando ? `${alto}px` : '0px';
+    requestAnimationFrame(() => {
+      cuerpo.style.height = cerrando ? '0px' : `${alto}px`;
+    });
+
+    if (cerrando) return;
+    // Al acabar de abrir, `auto`: si se quedara clavada al alto medido, no
+    // crecería cuando cambie su contenido — y cambia cada vez que se oculta
+    // una fila.
+    const fin = (e: TransitionEvent) => {
+      if (e.propertyName !== 'height') return;
+      cuerpo.removeEventListener('transitionend', fin);
+      (cuerpo as any)._finPlegado = null;
+      cuerpo.style.height = 'auto';
+    };
+    (cuerpo as any)._finPlegado = fin;
+    cuerpo.addEventListener('transitionend', fin);
+  }
+
   function pulsarCabeceraSeccion(cab: HTMLElement) {
     const expandido = cab.getAttribute('aria-expanded') === 'true';
     cab.setAttribute('aria-expanded', expandido ? 'false' : 'true');
     const cuerpoId = cab.getAttribute('aria-controls');
     const cuerpo = cuerpoId ? document.getElementById(cuerpoId) : null;
-    if (cuerpo) cuerpo.hidden = expandido;
+    if (cuerpo) plegar(cuerpo, expandido);
     const chevronSvg = cab.querySelector('.chevron svg');
     // Cerrado apunta ABAJO —el icono base—, que es la invitación a abrir;
     // abierto apunta arriba. Estaba justo al revés.

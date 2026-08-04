@@ -86,3 +86,13 @@ test('un cartel sin fecha válida no se publica', () => {
   assert.equal(fechaValida('2013'), false, 'solo el año no da orden');
   assert.equal(fechaValida('12-07-2013'), false, 'con guiones se leería como el año 12');
 });
+
+test('un año imposible también invalida la fecha', () => {
+  // Red de seguridad: la escena que documenta MEL empieza en 2003, así que un
+  // año de dos cifras o un 1899 es una errata, no un dato antiguo. Y una errata
+  // así estira el deslizador de años hasta lo absurdo.
+  assert.equal(fechaValida('12/07/0012'), false, 'el año 12 llega bien formateado y aun así es una errata');
+  assert.equal(fechaValida('12/07/1899'), false);
+  assert.equal(fechaValida('12/07/1960'), true, 'el suelo entra');
+  assert.equal(fechaValida('12/07/2003'), true);
+});

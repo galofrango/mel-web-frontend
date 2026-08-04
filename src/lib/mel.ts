@@ -224,12 +224,24 @@ export function tieneUbicacion(coordenadas?: unknown): boolean {
   return /-?\d+\.\d+\s*,\s*-?\d+\.\d+/.test(s);
 }
 
-/** El formato que la web sabe leer: DD/MM/AAAA. No es un capricho — de una
- *  fecha con otro formato no se saca ni el año (y sin año el cartel se cae de
- *  cualquier filtro) ni un orden fiable. Un `12-07-2013` se lee como ISO, o sea
- *  como el año 12, y se ordena antes que todo lo demás. */
+/** El primer año que este archivo puede tener. No es una fecha bonita: es una
+ *  RED DE SEGURIDAD. La escena que documenta MEL empieza en 2003, así que un
+ *  1899 o un año de dos cifras no es un dato antiguo, es una errata — y una
+ *  errata así estira el deslizador de años hasta lo absurdo y deja la escala
+ *  del archivo real aplastada en el último centímetro. */
+const PRIMER_ANIO = 1960;
+
+/** El formato que la web sabe leer: DD/MM/AAAA, con un año verosímil.
+ *
+ *  No es un capricho — de una fecha con otro formato no se saca ni el año (y sin
+ *  año el cartel se cae de cualquier filtro) ni un orden fiable. Un `12-07-2013`
+ *  se lee como ISO, o sea como el año 12, y se ordena antes que todo lo demás.
+ *  El suelo de año caza justo ese caso aunque llegue bien formateado. */
 export function fechaValida(fecha?: unknown): boolean {
-  return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(fecha ?? '').trim());
+  const texto = String(fecha ?? '').trim();
+  const partes = texto.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!partes) return false;
+  return Number(partes[3]) >= PRIMER_ANIO;
 }
 
 export async function fetchEvents() {
