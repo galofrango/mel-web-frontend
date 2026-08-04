@@ -219,3 +219,15 @@ test('la nota llega sin la marca delante', () => {
   const item = auditar(filas, tec).find((g) => g.clave === 'png').items[0];
   assert.equal(item.notas, 'Escaneo único.', 'sin la marca: es plomería, no texto para leer');
 });
+
+test('un PNG con transparencia ya no se avisa por ser PNG', () => {
+  // Se adelgaza en «Peso superior» sin salir de PNG (D-198), así que su formato
+  // dejó de ser un defecto. Antes había que ocultar los 13 del archivo uno a uno
+  // con la misma nota — y cuando un aviso se oculta siempre por lo mismo, el que
+  // está mal es el aviso.
+  const conAlfa = { AAA: { ...tecBase, tipo: 'png', alfa: true } };
+  assert.ok(!claves([filaBase], conAlfa).includes('png'), 'con transparencia, no se avisa');
+
+  const sinAlfa = { AAA: { ...tecBase, tipo: 'png', alfa: false } };
+  assert.ok(claves([filaBase], sinAlfa).includes('png'), 'sin transparencia, el PNG no aporta nada y sí se avisa');
+});

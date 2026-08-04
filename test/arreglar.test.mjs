@@ -228,3 +228,15 @@ test('«pesado» no pregunta: ahí la calidad ES el arreglo', () => {
   assert.equal(planificarArreglo(gordo, ['pesado'], true).calidad, 95,
     'ni desmarcando: perseguir 2 MB a calidad máxima es un imposible');
 });
+
+test('comprimir o reducir un PNG NUNCA lo convierte a JPG', () => {
+  // El propietario conserva PNG por su transparencia: que una acción de peso lo
+  // sacara del formato por su cuenta sería justo lo que se lleva toda la tarea
+  // evitando — un botón que hace más de lo que dice.
+  const png = { ...limpio, tipo: 'png', comp: null, alfa: true, bytes: 3 * 1048576 };
+  assert.equal(planificarArreglo(png, ['pesado']).salida, 'png');
+  assert.equal(planificarArreglo({ ...png, px: [4000, 3000] }, ['enorme']).salida, 'png');
+  assert.equal(planificarArreglo({ ...png, noSrgb: true }, ['no-srgb']).salida, 'png');
+  // Solo se convierte si se pide EXPLÍCITAMENTE convertir.
+  assert.equal(planificarArreglo(png, ['png']).salida, 'jpeg');
+});

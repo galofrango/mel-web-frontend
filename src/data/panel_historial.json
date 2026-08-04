@@ -591,5 +591,192 @@
    "tipo": "jpeg",
    "perfil": null
   }
+ },
+ {
+  "fecha": "2026-08-04T11:04:40.880Z",
+  "idMel": "MEL-00027",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2242986,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 334794,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:04:44.236Z",
+  "idMel": "MEL-00030",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2815565,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 337699,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:04:47.760Z",
+  "idMel": "MEL-00025",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 1164929,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 350283,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:04:51.197Z",
+  "idMel": "MEL-00015",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2653801,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 762042,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:04:54.950Z",
+  "idMel": "MEL-00019",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 1620624,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 589972,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:04:58.254Z",
+  "idMel": "MEL-00043",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 1251119,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 639739,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:05:01.795Z",
+  "idMel": "MEL-00017",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 1085570,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 617092,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:05:05.404Z",
+  "idMel": "MEL-00078",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2900968,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 1491832,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:05:10.398Z",
+  "idMel": "MEL-00005",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 1019661,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 579820,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:05:14.010Z",
+  "idMel": "MEL-00068",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2458343,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1505574,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-08-04T11:05:17.879Z",
+  "idMel": "MEL-00072",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2106221,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 1851642,
+   "tipo": "jpeg",
+   "perfil": null
+  }
  }
 ]

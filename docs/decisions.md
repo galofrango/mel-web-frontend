@@ -3655,3 +3655,35 @@ resolución».
 
 Dicho de otra forma: la densidad es información de imprenta. Para la web, el
 único dato es el recuento de píxeles, que es justo el que se usa.
+
+---
+
+## D-204 · «Archivo PNG» solo avisa si el PNG no usa la transparencia
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+La regla saltaba con **todo** PNG, porque en su día un PNG solo se podía
+adelgazar sacándolo de PNG. Desde que `pngquant` lo comprime conservando la
+transparencia (D-198) eso dejó de ser cierto: el peso se arregla en «Peso
+superior a 2Mb», donde ahora entran, y el formato en sí ya no es un defecto.
+
+Ahora solo entra un PNG **sin canal alfa**: uno que no usa la transparencia y por
+tanto no gana nada siendo PNG. En el archivo hoy eso son **cero de trece**, así
+que la sección desaparece.
+
+**La señal que lo delató:** el propietario había ocultado los 13 PNG uno a uno, y
+los 13 con la misma nota —«lo guardamos en png para conservar la transparencia»—.
+Cuando un aviso se oculta siempre por la misma razón, el que está mal es el
+aviso, no el archivo.
+
+Comprobado además, y con test, que **comprimir o reducir un PNG nunca lo convierte
+a JPG**: la salida solo se mueve a JPEG si se pide `png` explícitamente. Un botón
+de peso que además cambiara el formato sería justo lo que este panel lleva toda la
+tarea evitando.
+
+Límite conocido: `alfa` se lee del tipo de color de la cabecera, así que un PNG
+con canal alfa **enteramente opaco** —que no necesitaría ser PNG— no se detecta.
+Saberlo exigiría descomprimir los píxeles y no compensa.
+
+Quedan 13 marcas `#oculto:png` en la columna AA que ya no apuntan a ningún aviso.
+Son inertes —solo casan con esa clave— pero se pueden borrar cuando se quiera.
