@@ -16,10 +16,11 @@ import TagWithLink from './TagWithLink.astro';
 
 interface Tag {
   label: string;
-  count: number | string;
+  count?: number | string;
   href?: string;
-  state?: 'Default' | 'Disabled';
+  state?: 'Default' | 'Disabled' | 'Primary';
   ariaLabel?: string;
+  multi?: { texto: string; href?: string; ariaLabel?: string }[];
 }
 
 interface Props {
@@ -51,6 +52,7 @@ const { id, tags, class: className = '' } = Astro.props;
         count={tag.count}
         href={tag.href}
         state={tag.state}
+        multi={tag.multi}
         ariaLabel={tag.ariaLabel}
         class="min-w-0 w-auto"
         hideBorder={true}

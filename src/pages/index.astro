@@ -1044,6 +1044,11 @@ const tags = [
   .search-cell-link:hover {
     color: var(--mel-action-primary);
   }
+  /* "¿Nos ayudas?" (D-217): ya en action-primary en reposo, para que destaque
+     como invitación en vez de leerse como un dato más entre las demás celdas. */
+  .search-cell-link.cell-ayuda {
+    color: var(--mel-action-primary);
+  }
 
   /* Panel del mapa — se comporta como el ToggleSelector (D-026): a partir de
      `lg` (≥1024px, donde el toggle ocupa 4 de 12 columnas) es un panel lateral
@@ -1294,12 +1299,38 @@ const tags = [
   // se unifica bajo "desconocido".
   const CENTINELAS_SIN_DATO = ['desconocido', 'sin fecha', 'no detallados', 'varios'];
 
+  // Mismo enlace de colaboración que la ficha de evento (event/[id].astro,
+  // AYUDA_TEXTO/AYUDA_HREF) para cuando una celda de la tabla no tiene dato:
+  // antes se pintaba inerte ("Desconocido" en gris), ahora invita a rellenarlo,
+  // igual que ya hacía la ficha (D-217).
+  const AYUDA_TEXTO = '¿Nos ayudas?';
+  const AYUDA_HREF = '/info#contacto';
+
   function celdaSinDato(valor) {
     const limpio = valor ? String(valor).trim() : '';
     const bajo = limpio.toLowerCase();
     if (!limpio || bajo === 'desconocido' || bajo === 'sin fecha') return 'desconocido';
     if (CENTINELAS_SIN_DATO.includes(bajo)) return limpio;
     return null;   // hay dato de verdad
+  }
+
+  // Los promotores pueden venir varios separados por comas (D-218), igual
+  // que los artistas — cada uno con su propio enlace de búsqueda, no uno
+  // solo para la cadena completa (que no encontraba nada porque esa cadena
+  // literal no coincide con ningún evento). Sin el subrayado compartido de
+  // celda que llevan las demás columnas (asumía un solo enlace por celda);
+  // el color al pasar el ratón sí lo hereda cada nombre vía .search-cell-link.
+  function celdaPromotores(valor) {
+    const sd = celdaSinDato(valor);
+    if (sd) return `<a href="${AYUDA_HREF}" class="marquee-inner search-cell-link cell-ayuda">${AYUDA_TEXTO}<span class="table-link-underline"></span></a>`;
+    const nombres = String(valor).split(/,+/).map(n => n.trim()).filter(Boolean);
+    const partes = nombres.map(nombre => {
+      const esCentinela = CENTINELAS_SIN_DATO.includes(nombre.toLowerCase());
+      return esCentinela
+        ? escHtml(nombre)
+        : `<span class="search-cell-link" data-search="${escHtml(nombre)}">${escHtml(nombre)}</span>`;
+    });
+    return `<span class="marquee-inner">${partes.join(', ')}</span>`;
   }
 
   function escHtml(s) {
@@ -1312,6 +1343,13 @@ const tags = [
     if (formatted && formatted.includes('-')) {
       const parts = formatted.split('-');
       if (parts.length === 3) formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    // Antepone un cero al día de una sola cifra (D-216) — réplica de
+    // formatFechaDMY() en mel.ts, ver ese comentario para el motivo.
+    const piezas = formatted.split('/');
+    if (piezas.length === 3 && piezas[0].length === 1) {
+      piezas[0] = '0' + piezas[0];
+      formatted = piezas.join('/');
     }
     return formatted;
   }
@@ -2623,22 +2661,20 @@ const tags = [
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.lugar); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
+                  ? `<a href="${AYUDA_HREF}" class="marquee-inner search-cell-link cell-ayuda">${AYUDA_TEXTO}<span class="table-link-underline"></span></a>`
                   : `<span class="marquee-inner search-cell-link location-cell-link" data-location="${escHtml(item.lugar)}">${escHtml(item.lugar)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.localidad); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
+                  ? `<a href="${AYUDA_HREF}" class="marquee-inner search-cell-link cell-ayuda">${AYUDA_TEXTO}<span class="table-link-underline"></span></a>`
                   : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.localidad)}">${escHtml(item.localidad)}<span class="table-link-underline"></span></span>`; })()}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
-                ${(() => { const sd = celdaSinDato(item.organiza); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
-                  : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.organiza)}">${escHtml(item.organiza)}<span class="table-link-underline"></span></span>`; })()}
+                ${celdaPromotores(item.organiza)}
               </td>
               <td class="border-l border-r border-mel-border bg-mel-bg-primary px-4 py-2 typo-body-roman text-mel-text-secondary marquee-cell min-w-[136px]">
                 ${(() => { const sd = celdaSinDato(item.disenador); return sd
-                  ? `<span class="marquee-inner text-mel-text-tertiary">${escHtml(sd)}</span>`
+                  ? `<a href="${AYUDA_HREF}" class="marquee-inner search-cell-link cell-ayuda">${AYUDA_TEXTO}<span class="table-link-underline"></span></a>`
                   : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}<span class="table-link-underline"></span></span>`; })()}
               </td>
             `;
@@ -3007,15 +3043,31 @@ const tags = [
   // segment for display (e.g. in the map side panel). Falls back to the
   // raw string unchanged for anything that isn't a Maps link (DMS text,
   // a plain address someone typed by hand, etc.).
+  // Corta la dirección justo después del número de calle (D-219): lo que
+  // viene detrás —código postal y localidad— ya se lee en la tag
+  // "Localidad" de al lado, y aquí solo añadía ruido ("Av. Lancia, 9, 24004
+  // León" pasa a "Av. Lancia, 9"). Busca el primer trozo que sea SOLO un
+  // número (con sufijo de letra suelto, "9B") entre las comas y corta ahí;
+  // si no encuentra ninguno (direcciones sin número, DMS, texto libre), la
+  // deja tal cual en vez de arriesgarse a cortar donde no toca.
+  function truncarEnNumeroCalle(direccion) {
+    const partes = direccion.split(',').map(p => p.trim());
+    const idxNumero = partes.findIndex(p => /^\d+\s*\w?$/.test(p));
+    if (idxNumero === -1) return direccion;
+    return partes.slice(0, idxNumero + 1).join(', ');
+  }
+
   function extractAddressLabel(coordStr) {
     if (!coordStr || !GOOGLE_MAPS_URL_RE.test(coordStr)) return coordStr;
     const placeMatch = coordStr.match(/\/maps\/place\/([^/]+)/);
     if (placeMatch) {
+      let legible;
       try {
-        return decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
+        legible = decodeURIComponent(placeMatch[1].replace(/\+/g, ' '));
       } catch (e) {
-        return placeMatch[1].replace(/\+/g, ' ');
+        legible = placeMatch[1].replace(/\+/g, ' ');
       }
+      return truncarEnNumeroCalle(legible);
     }
     return coordStr;
   }
@@ -4450,6 +4502,13 @@ const tags = [
           if (lugar) {
             window.location.href = `/?view=mapa&location=${encodeURIComponent(lugar)}`;
           }
+          return;
+        }
+
+        // "¿Nos ayudas?" es un <a href> normal (D-217): se deja navegar tal
+        // cual, no es una búsqueda — comprobado antes que el genérico de abajo
+        // porque también lleva la clase .search-cell-link (comparte estilo).
+        if (target.classList.contains('cell-ayuda') || target.closest('.cell-ayuda')) {
           return;
         }
 

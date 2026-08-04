@@ -3,7 +3,7 @@ interface Props {
   href?: string;
   class?: string;
   alignment?: 'Left' | 'Center' | 'Right';
-  state?: 'Default' | 'Hover' | 'Disabled';
+  state?: 'Default' | 'Hover' | 'Disabled' | 'Primary';
   id?: string;
   hideChevron?: boolean;
   reload?: boolean;
@@ -28,7 +28,7 @@ const isDisabled = state === "Disabled";
   <a
     href={href}
     aria-label={ariaLabel}
-    class={`group relative inline-flex items-center gap-1 no-underline mel-link-active typo-body-roman ${expandHitArea ? "mel-link-hit-expand" : ""} ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
+    class={`group relative inline-flex items-center gap-1 no-underline mel-link-active ${state === 'Primary' ? "mel-link-primary" : ""} typo-body-roman ${expandHitArea ? "mel-link-hit-expand" : ""} ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
     id={id}
     data-astro-reload={reload}
   >
@@ -92,6 +92,13 @@ const isDisabled = state === "Disabled";
 
   .mel-link-active:hover {
     /* Action Primary color in Hover state for ALL nested elements (inheriting bg/color) */
+    color: var(--mel-action-primary);
+  }
+
+  /* state="Primary" (D-217): ya en action-primary en reposo, no solo al pasar
+     el ratón — para las invitaciones "¿Nos ayudas?", que deben destacar como
+     tales en vez de leerse como un dato más. */
+  .mel-link-primary {
     color: var(--mel-action-primary);
   }
 

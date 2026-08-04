@@ -339,6 +339,14 @@ export function formatFechaDMY(fecha?: string): string {
     const parts = formatted.split('-');
     if (parts.length === 3) formatted = `${parts[2]}/${parts[1]}/${parts[0]}`;
   }
+  // Antepone un cero al día de una sola cifra (petición del propietario,
+  // D-216): sustituye la decisión anterior de dejar el formato tal cual
+  // venía de la hoja. Solo el día — el mes se deja como llega.
+  const piezas = formatted.split('/');
+  if (piezas.length === 3 && piezas[0].length === 1) {
+    piezas[0] = '0' + piezas[0];
+    formatted = piezas.join('/');
+  }
   return formatted;
 }
 

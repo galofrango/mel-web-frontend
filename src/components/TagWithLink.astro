@@ -1,17 +1,27 @@
 ---
 import Link from './Link.astro';
 
+interface TagMultiItem {
+  texto: string;
+  href?: string;
+  ariaLabel?: string;
+}
+
 interface Props {
   label: string;
-  count: number | string;
+  count?: number | string;
   alignment?: 'Left' | 'Center' | 'Right';
   titleIcon?: boolean;
   class?: string;
   href?: string;
-  state?: 'Default' | 'Hover' | 'Disabled';
+  state?: 'Default' | 'Hover' | 'Disabled' | 'Primary';
   hideBorder?: boolean;
   reload?: boolean;
   ariaLabel?: string;
+  // Varios valores en la misma tag, cada uno con su propio enlace (D-218:
+  // los promotores pueden venir separados por comas, y cada uno debe buscar
+  // el suyo, no la cadena completa). Cuando se pasa, sustituye a count/href.
+  multi?: TagMultiItem[];
 }
 
 const {
@@ -24,7 +34,8 @@ const {
   state = "Default",
   hideBorder = false,
   reload = false,
-  ariaLabel
+  ariaLabel,
+  multi
 } = Astro.props;
 
 const isRight = alignment === "Right";
@@ -59,8 +70,21 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
     </span>
   </div>
 
-  <div class={`flex h-[24px] items-center relative shrink-0 w-full min-w-0 ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
-    {href ? (
+  <div class={`flex h-[24px] items-center relative shrink-0 w-full min-w-0 overflow-hidden ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
+    {multi && multi.length ? (
+      <div class="tag-multi flex items-center min-w-0 max-w-full overflow-hidden whitespace-nowrap">
+        {multi.map((m, idx) => (
+          <span class="inline-flex items-center shrink-0">
+            {m.href ? (
+              <Link href={m.href} state={state} ariaLabel={m.ariaLabel} hideChevron={true} class="shrink-0">{m.texto}</Link>
+            ) : (
+              <span class="text-mel-text-secondary">{m.texto}</span>
+            )}
+            {idx < multi.length - 1 && <span class="text-mel-text-secondary mr-1">,</span>}
+          </span>
+        ))}
+      </div>
+    ) : href ? (
       <Link alignment={alignment} href={href} state={state} reload={reload} ariaLabel={ariaLabel} expandHitArea={true} class="min-w-0 max-w-full">
         <span class="tag-count-val">{count}</span>
       </Link>

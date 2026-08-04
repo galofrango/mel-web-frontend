@@ -151,17 +151,35 @@ function getTagDisplay(val) {
 const dateDisplay = getTagDisplay(eventData.date);
 const locationDisplay = getTagDisplay(eventData.location);
 const localityDisplay = getTagDisplay(eventData.locality);
-const organizerDisplay = getTagDisplay(eventData.organizer);
 const designerDisplay = getTagDisplay(eventData.designer);
 
-// Las cinco tags se definen UNA vez y se pintan dos veces: la fila horizontal
-// de móvil/tablet y la columna de escritorio. Antes eran dos listas paralelas
-// escritas a mano, que es justo donde se cuelan las divergencias.
+// Los promotores pueden venir varios en la misma celda, separados por comas
+// (D-218) — igual que los artistas. Cada uno busca el suyo, no la cadena
+// completa: antes "Ravers 7.5, Colectivo X" era un único enlace que no
+// encontraba nada porque esa cadena literal no coincide con ningún evento.
+const nombresPromotores = (eventData.organizer || '')
+  .split(/,+/)
+  .map(o => o.trim())
+  .filter(Boolean);
+const sinPromotor = !nombresPromotores.length
+  || nombresPromotores.every(n => CENTINELAS_SIN_DATO.includes(n.toLowerCase()));
+const PROMOTORES = sinPromotor
+  ? [{ texto: AYUDA_TEXTO, href: AYUDA_HREF, ariaLabel: `${AYUDA_TEXTO} Falta el dato de organiza` }]
+  : nombresPromotores.map(nombre => {
+      // "Varios"/"No detallados" sueltos entre nombres reales se muestran
+      // tal cual, sin enlace — igual que en cualquier otra tag (D-064).
+      const esCentinela = CENTINELAS_SIN_DATO.includes(nombre.toLowerCase());
+      return { texto: nombre, href: esCentinela ? undefined : `/?search=${encodeURIComponent(nombre)}` };
+    });
+
+// Las tags se definen UNA vez y se pintan dos veces: la fila horizontal de
+// móvil/tablet y la columna de escritorio. Antes eran dos listas paralelas
+// escritas a mano, que es justo donde se cuelan las divergencias. "Organiza"
+// se construye aparte porque puede llevar varios enlaces (multi), no uno.
 const TAGS_EVENTO = [
   { label: 'Fecha',     display: dateDisplay,      buscar: null },
   { label: 'Lugar',     display: locationDisplay,  buscar: `/?view=mapa&location=${encodeURIComponent(eventData.location)}` },
   { label: 'Localidad', display: localityDisplay,  buscar: `/?search=${encodeURIComponent(eventData.locality)}` },
-  { label: 'Organiza',  display: organizerDisplay, buscar: `/?search=${encodeURIComponent(eventData.organizer)}` },
   { label: 'Diseño',    display: designerDisplay,  buscar: `/?search=${encodeURIComponent(eventData.designer)}` },
 ].map(t => ({
   label: t.label,
@@ -171,7 +189,15 @@ const TAGS_EVENTO = [
   // listado de enlaces de un lector de pantalla. El campo que falta va en el
   // nombre accesible, no solo en la etiqueta visual de al lado.
   ariaLabel: t.display.href ? `${AYUDA_TEXTO} Falta el dato de ${t.label.toLowerCase()}` : undefined,
+  // "¿Nos ayudas?" ya en action-primary en reposo (D-217), para que destaque
+  // como invitación en vez de leerse como un dato más.
+  state: t.display.href ? 'Primary' : undefined,
 }));
+TAGS_EVENTO.splice(3, 0, {
+  label: 'Organiza',
+  multi: PROMOTORES,
+  state: sinPromotor ? 'Primary' : 'Default',
+});
 
 // Los artistas se pintan como lista de enlaces. Campo vacío y campo con
 // centinela son el mismo hueco, así que reciben el mismo trato: el bloque NO se
@@ -435,6 +461,8 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                 label={tag.label}
                 count={tag.count}
                 href={tag.href}
+                state={tag.state}
+                multi={tag.multi}
                 ariaLabel={tag.ariaLabel}
                 hideBorder={true}
                 class="w-full"
