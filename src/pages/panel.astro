@@ -649,6 +649,38 @@ const tarjetas = [
     cuerpo.addEventListener('transitionend', fin);
   }
 
+  /** Qué secciones deja abiertas el propietario, para que al volver de Historial
+   *  siga donde estaba. En `sessionStorage` y no en `localStorage`: es el estado
+   *  de UNA sesión de trabajo, no una preferencia. Al cerrar la pestaña se va.
+   *
+   *  Se guarda la lista de abiertas y no un «recuerda la última»: en el panel se
+   *  trabaja con dos o tres secciones a la vez. */
+  const LLAVE_ABIERTAS = 'mel-panel-secciones-abiertas';
+
+  function recordarAbiertas() {
+    const abiertas = Array.from(document.querySelectorAll('.sec-cab[aria-expanded="true"]'))
+      .map((c) => (c.closest('section[data-clave]') as HTMLElement)?.dataset.clave)
+      .filter(Boolean);
+    try { sessionStorage.setItem(LLAVE_ABIERTAS, JSON.stringify(abiertas)); } catch { /* sin sessionStorage, sin memoria */ }
+  }
+
+  /** Reabre lo que estuviera abierto, SIN animación: al entrar en la página no
+   *  hay nada que animar —no se ha pulsado nada— y ver seis secciones
+   *  desplegándose solas parece un fallo. */
+  function restaurarAbiertas() {
+    let abiertas: string[] = [];
+    try { abiertas = JSON.parse(sessionStorage.getItem(LLAVE_ABIERTAS) || '[]'); } catch { return; }
+    for (const clave of abiertas) {
+      const sec = document.querySelector(`section[data-clave="${CSS.escape(clave)}"]`) as HTMLElement | null;
+      const cab = sec?.querySelector('.sec-cab') as HTMLElement | null;
+      const cuerpo = sec?.querySelector('.sec-cuerpo') as HTMLElement | null;
+      if (!cab || !cuerpo || cab.getAttribute('aria-expanded') === 'true') continue;
+      cab.setAttribute('aria-expanded', 'true');
+      cuerpo.style.height = 'auto';
+      cab.querySelector('.chevron svg')?.classList.add('rotate-180');
+    }
+  }
+
   function pulsarCabeceraSeccion(cab: HTMLElement) {
     const expandido = cab.getAttribute('aria-expanded') === 'true';
     cab.setAttribute('aria-expanded', expandido ? 'false' : 'true');
@@ -659,6 +691,7 @@ const tarjetas = [
     // Cerrado apunta ABAJO —el icono base—, que es la invitación a abrir;
     // abierto apunta arriba. Estaba justo al revés.
     if (chevronSvg) chevronSvg.classList.toggle('rotate-180', !expandido);
+    recordarAbiertas();
   }
 
   // --- Selección y acciones en bloque ----------------------------------------
@@ -1268,6 +1301,13 @@ const tarjetas = [
    *  sirve el tamaño que se le pida en la URL, así que basta con cambiarlo. */
   const enGrande = (src) => String(src || '').replace(/([?&]sz=w)\d+/, '$11000');
 
+  /** «JPG» y «jpeg» son lo mismo —la extensión de tres letras viene de cuando
+   *  los nombres de fichero no admitían más— pero enseñar las dos formas en la
+   *  misma pantalla hace dudar de si son cosas distintas. Un solo rótulo: el
+   *  que ya usa la columna «Formato» de la tabla. */
+  const ROTULO_TIPO = { jpeg: 'JPG', png: 'PNG', gif: 'GIF' };
+  const rotuloTipo = (t) => ROTULO_TIPO[t] ?? String(t ?? '').toUpperCase();
+
   const kb = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.round(b / 1024) + ' KB');
 
   /**
@@ -1361,7 +1401,7 @@ const tarjetas = [
         // Hueco entero vacío donde ESTE cartel no cambió esa columna: dejar
         // solo el destino diría «→ jpeg» de un fichero que ya era jpeg.
         const cambióTipo = r.antes.tipo !== r.despues.tipo;
-        if (hayFormato) celdasDeCambio(cambióTipo ? r.antes.tipo : null, cambióTipo ? r.despues.tipo : null).forEach((c) => li.appendChild(c));
+        if (hayFormato) celdasDeCambio(cambióTipo ? rotuloTipo(r.antes.tipo) : null, cambióTipo ? rotuloTipo(r.despues.tipo) : null).forEach((c) => li.appendChild(c));
         if (hayColor) celdasDeCambio(cambióColor(r) ? colorDe(r) : null, cambióColor(r) ? (r.despues.perfil ?? 'sRGB') : null).forEach((c) => li.appendChild(c));
         // El peso SIEMPRE, y en rojo si subió — reducir un PNG plano puede
         // engordarlo (medido: 400 KB → 581 KB), y eso solo se ve si se dice.
@@ -1610,6 +1650,9 @@ const tarjetas = [
     // registrado, el oyente de astro:page-load se dispara en TODAS las
     // navegaciones, no solo en las que vuelven a /panel.
     if (!document.querySelector('.tarj')) return;
+
+    // Lo que estuviera abierto antes de irse a Historial, abierto otra vez.
+    restaurarAbiertas();
 
     // `.ocultar-aviso` y "Releer el archivo" nacen `disabled` en el SSR de la
     // tarea 5 (sin JS no había nada honesto que hacer al pulsarlos). Se

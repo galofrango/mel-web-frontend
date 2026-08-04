@@ -66,8 +66,9 @@ colores. Un cartel escaneado o fotografiado nunca lo es.
 
 ### Por qué 2000–2400px
 
-Es el tamaño más grande al que se llega a mostrar un cartel, más margen para
-ampliar. El sitio deja el pellizco de zoom habilitado a propósito, y en un
+**No es «×3 de 800».** Sale de la caja más grande en la que se llega a ver un
+cartel —a sangre en móvil, hasta 1023 píxeles CSS— por la densidad de una
+pantalla Retina (×2), que da ~2050; más margen para ampliar. El sitio deja el pellizco de zoom habilitado a propósito, y en un
 archivo de carteles la gente amplía para leer la letra pequeña: ahí ese margen no
 es desperdicio, es la función.
 
@@ -132,6 +133,14 @@ Por eso el original tiene que ser grande aunque el visitante nunca lo descargue:
 **Drive no puede servir píxeles que el original no tenga.** Si subes 800, la
 tarjeta pedirá 700 y los tendrá, pero la ficha pedirá 1000 y recibirá 800
 estirados.
+
+**Y de ahí sale un techo que conviene tener presente:** lo que se pide a Drive
+es el límite real de nitidez, no lo que mida el original. En un móvil de 3× con
+el cartel a sangre —hasta 1023 píxeles CSS— harían falta unos 3000 píxeles de
+imagen, y la ficha pide 1000. Ahí el cartel se ve blando **por mucho que el
+original tenga 2400**. Si algún día se quiere apretar eso, se sube el ancho que
+se le pide a Drive (`extractDriveImage`, por defecto 1000), no el mínimo del
+archivo. El precio es peso de descarga, así que es una decisión, no un olvido.
 
 ### Por qué el mínimo de 1200
 
