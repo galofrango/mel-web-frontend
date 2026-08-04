@@ -466,7 +466,7 @@ const tags = [
           </div>
         </div>
         <div id="list-table-wrapper" class="hidden min-[440px]:block overflow-x-auto w-full flex-1 overflow-y-auto">
-          <table id="list-table" class="w-full text-left text-sm border-collapse border-t border-b border-mel-border min-w-[816px]" style="table-layout:fixed;">
+          <table class="w-full text-left text-sm border-collapse border-t border-b border-mel-border min-w-[816px]" style="table-layout:fixed;">
             <!-- Evento gets 2 "shares" of the space, Lugar/Localidad/Organiza/Diseño get 1 share
                  each (6 shares total), Fecha gets just enough for a date. calc() inside <col>
                  width doesn't reliably resolve per-column here (tested: every calc() column came
@@ -482,18 +482,13 @@ const tags = [
                  32px de padding y 2px de bordes = 126px mínimo. El resto
                  reparte el espacio restante manteniendo la proporción de antes
                  (evento : resto = 29 : 14.75 ⇒ 33 : 16.75). -->
-            <!-- Los anchos de las columnas flexibles y el `min-width` de la
-                 tabla los reescribe `ajustarColumnasLista()` cuando alguna
-                 columna cae al mínimo y hay que ir retirando columnas
-                 (D-236). Estos valores son el punto de partida, con las seis
-                 visibles. -->
-            <colgroup id="list-colgroup">
-              <col data-col="evento" style="width:33%;" />
-              <col data-col="fecha" style="width:136px;" />
-              <col data-col="lugar" style="width:16.75%;" />
-              <col data-col="localidad" style="width:16.75%;" />
-              <col data-col="organiza" style="width:16.75%;" />
-              <col data-col="disenador" style="width:16.75%;" />
+            <colgroup>
+              <col style="width:33%;" />
+              <col style="width:136px;" />
+              <col style="width:16.75%;" />
+              <col style="width:16.75%;" />
+              <col style="width:16.75%;" />
+              <col style="width:16.75%;" />
             </colgroup>
             <thead class="sticky top-[-1px] z-[2] bg-mel-bg-secondary isolate">
               <tr class="h-[40px]">
@@ -864,6 +859,18 @@ const tags = [
       transform: scale(1.05);
       z-index: 99999 !important;
     }
+    /* El marcador se DESPEGA de su sombra al pasar el ratón (D-239, Figma
+       261:10331). En el componente de Figma esto es un margen negativo de
+       4px que el puntero lleva en reposo y que la variante Hover quita: en
+       reposo la punta pisa la sombra, en hover se separa de ella.
+       Aquí se traduce en subir cuerpo y puntero 4px y dejar la sombra
+       quieta — por eso NO se hace en el wrapper, que arrastraría también a
+       la sombra y no habría separación ninguna. `.active` no lo lleva:
+       en Figma esa variante conserva el margen negativo. */
+    .mel-marker-wrapper:hover .mel-marker-body,
+    .mel-marker-wrapper:hover .mel-marker-pointer {
+      transform: translateY(-4px);
+    }
   }
 
   /* En hover y en activo manda SOLO la sombra plana nueva, que además pasa a
@@ -922,7 +929,7 @@ const tags = [
     height: 40px;
     background-color: var(--mel-action-secondary);
     border: none;
-    transition: background-color 0.15s ease-out, filter 0.15s ease-out;
+    transition: background-color 0.15s ease-out, filter 0.15s ease-out, transform 0.15s ease-out;
     box-sizing: border-box;
   }
 
@@ -963,7 +970,7 @@ const tags = [
     border-right: 8px solid transparent;
     border-top: 10px solid var(--mel-action-secondary);
     margin-top: -1px;
-    transition: border-top-color 0.15s ease-out, filter 0.15s ease-out;
+    transition: border-top-color 0.15s ease-out, filter 0.15s ease-out, transform 0.15s ease-out;
   }
 
   /* Mismo acotado que el resto de `:hover` del marcador — ver más arriba. */
@@ -1046,18 +1053,6 @@ const tags = [
   .event-title-link:hover .title-chevron {
     opacity: 1;
     transform: translateX(0);
-  }
-
-  /* Columnas que se retiran cuando la tabla llega a su mínimo (D-236). El
-     orden de las columnas es fijo, así que se identifican por posición:
-     1 evento · 2 fecha · 3 lugar · 4 localidad · 5 organiza · 6 diseño.
-     Se oculta la celda Y se pone su `<col>` a 0 desde el JS — con
-     `table-layout:fixed` manda el colgroup, así que ocultar solo las celdas
-     dejaría la columna ocupando su sitio igual. */
-  #list-table.sin-localidad :is(th, td):nth-child(4),
-  #list-table.sin-organiza  :is(th, td):nth-child(5),
-  #list-table.sin-disenador :is(th, td):nth-child(6) {
-    display: none;
   }
 
   /* Search link cells */
@@ -1358,77 +1353,6 @@ const tags = [
   // script compartido haya corrido.
   function medirMarquee(ambito) {
     if (window.melMedirMarquee) window.melMedirMarquee(ambito || document);
-  }
-
-  // NORMA DE COLUMNAS DE LA TABLA (D-236, criterio del propietario).
-  //
-  // El ancho mínimo de una celda es el que le cabe a "¿Nos ayudas?" sin
-  // truncarse: medido, 130px (96 de texto + 32 de padding + 2 de bordes).
-  // Se redondea a los 136 que el proyecto ya usaba en `min-w-[136px]` y en
-  // el `min-w-[816px]` de la tabla (816 = 6 × 136), así que la norma no
-  // introduce un número nuevo, formaliza el que ya había.
-  //
-  // Cuando cualquier columna llegaría a ese mínimo, se van retirando
-  // columnas en el orden que fijó el propietario: Localidad, Organiza,
-  // Diseño. Fecha NO entra en el reparto: tiene su propia norma (136px
-  // fijos, ver el comentario del colgroup) porque su contenido no se puede
-  // truncar sin quedar ilegible. Evento y Lugar no se retiran nunca.
-  const COL_MIN = 136;
-  const COLUMNAS_PRESCINDIBLES = ['localidad', 'organiza', 'disenador'];
-
-  function ajustarColumnasLista() {
-    const tabla = document.getElementById('list-table');
-    const envoltura = document.getElementById('list-table-wrapper');
-    const colgroup = document.getElementById('list-colgroup');
-    if (!tabla || !envoltura || !colgroup) return;
-
-    // El ancho disponible se mide en el PADRE, no en la propia envoltura: la
-    // envoltura lleva `overflow-x-auto` pero es un elemento flex sin
-    // `min-width:0`, así que en vez de limitar y hacer scroll se estira con
-    // su contenido — medido, con la ventana en 850 la envoltura decía 900 y
-    // el padre 754. Preguntarle a ella daba siempre "cabe todo" y la norma
-    // no se disparaba nunca.
-    const disponible = (envoltura.parentElement || envoltura).clientWidth;
-    // Si la vista está oculta mide 0 y no se decide nada: se volverá a
-    // llamar al mostrarla (mismo cuidado que el marquee).
-    if (disponible <= 0) return;
-
-    // Se retiran de una en una, en orden, hasta que quepan las que quedan.
-    // `flexibles` cuenta Lugar (que nunca se va) más las prescindibles que
-    // sigan puestas; el 2 son Evento y Fecha.
-    let retiradas = 0;
-    while (retiradas < COLUMNAS_PRESCINDIBLES.length) {
-      const flexibles = 1 + (COLUMNAS_PRESCINDIBLES.length - retiradas);
-      if (disponible >= COL_MIN * (2 + flexibles)) break;
-      retiradas++;
-    }
-
-    const visiblesFlexibles = 1 + (COLUMNAS_PRESCINDIBLES.length - retiradas);
-
-    // Se retiran DESDE EL PRINCIPIO del array, que está en el orden que pidió
-    // el propietario: primero Localidad, luego Organiza, luego Diseño.
-    COLUMNAS_PRESCINDIBLES.forEach((col, i) => {
-      const fuera = i < retiradas;
-      tabla.classList.toggle('sin-' + col, fuera);
-      const colEl = colgroup.querySelector(`col[data-col="${col}"]`);
-      if (colEl) colEl.style.width = fuera ? '0' : '';
-    });
-
-    // Reparto del ancho entre las que quedan. Evento conserva su tercio y el
-    // resto se divide a partes iguales, en vez de dejar los 16,75% fijos:
-    // con columnas fuera, esos porcentajes ya no suman 100 y el navegador
-    // repartía el sobrante a su manera.
-    const pctFlexible = 67 / visiblesFlexibles;
-    ['lugar', ...COLUMNAS_PRESCINDIBLES].forEach((col, i) => {
-      const fuera = i > 0 && (i - 1) < retiradas;
-      if (fuera) return;
-      const colEl = colgroup.querySelector(`col[data-col="${col}"]`);
-      if (colEl) colEl.style.width = pctFlexible + '%';
-    });
-
-    // El mínimo de la tabla acompaña: si no, seguiría reservando los 816px
-    // de las seis columnas y el scroll horizontal no desaparecería nunca.
-    tabla.style.minWidth = (COL_MIN * (2 + visiblesFlexibles)) + 'px';
   }
 
   // Los promotores pueden venir varios separados por comas (D-218), igual
@@ -2814,7 +2738,6 @@ const tags = [
           // short values like a date or "desconocido" get the hover-scroll
           // treatment.
           void listBody.offsetHeight;
-          ajustarColumnasLista();
           medirMarquee(listBody);
         }
 
@@ -3109,13 +3032,7 @@ const tags = [
     // panel ya estaba visible al construirse). Se remide al mostrarla, en el
     // fotograma siguiente para que el navegador ya le haya dado caja.
     if (viewName === 'lista') {
-      requestAnimationFrame(() => {
-        // El orden importa: primero se decide qué columnas se quedan, porque
-        // eso cambia el ancho de cada celda, y solo después se mide qué
-        // textos desbordan.
-        ajustarColumnasLista();
-        medirMarquee(document.getElementById('list-table-body'));
-      });
+      requestAnimationFrame(() => medirMarquee(document.getElementById('list-table-body')));
     }
 
     // Solo la lista pagina (la galería usa scroll infinito desde D-015).
@@ -4345,10 +4262,8 @@ const tags = [
       requestAnimationFrame(() => {
         highlightsResizePending = false;
         updateHomeToolbarLayout();
-        // La tabla se estrecha con la ventana: hay que rehacer la decisión de
-        // qué columnas caben (D-236) y volver a medir los truncados, porque
-        // el ancho de cada celda acaba de cambiar.
-        ajustarColumnasLista();
+        // La tabla se estrecha con la ventana, así que hay que volver a medir
+        // qué textos desbordan: el ancho de cada celda acaba de cambiar.
         medirMarquee(document.getElementById('list-table-body'));
       });
     }, { signal: wSig });

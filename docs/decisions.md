@@ -4318,3 +4318,21 @@ Ampliación de D-234. El propietario preguntó de dónde salían: `git log -S` l
 ## D-238 · Ajuste fino de las curvas del marquee
 
 Sobre D-233, a petición del propietario: la frenada de la IDA dura menos (`cubic-bezier(0.12, 0.12, 0.5, 1)` → `(0.12, 0.12, 0.74, 1)`: el tramo lineal se alarga y la deceleración se concentra al final) y la de la VUELTA dura más — curva más tendida (`(0.22, 1, 0.36, 1)` → `(0.16, 1, 0.24, 1)`) y factor de duración de 0.55 a 0.7 sobre la ida. La vuelta sigue siendo más rápida que la ida, como se pidió en su momento.
+
+## D-239 · REVERTIDA la norma de columnas de D-236 (y por qué falló)
+
+D-236 se implementó y **se retiró en la misma sesión** a petición del propietario, que vio la tabla rota: las cabeceras se solapaban unas con otras ("DISEÑO" y "ORGANIZA" impresas encima). La entrada D-236 se conserva —este registro no borra decisiones, las marca como revertidas— porque la NORMA sigue siendo válida; lo que falló fue la implementación.
+
+**La causa, para quien lo retome**: la regla que ocultaba las celdas vivía en el `<style>` de `index.astro`, que **Astro convierte en un estilo con ámbito**. Astro añade el atributo de ámbito al último compuesto del selector, así que `:is(th, td):nth-child(n)` solo casaba con elementos que llevaran ese atributo. Los `<th>` están en la plantilla SSR y sí lo llevan; los `<td>` **los genera el JS con `innerHTML` y no lo llevan**. Resultado: se ocultaban las cabeceras pero no las celdas, y con los `<col>` puestos a 0 el contenido de las columnas colapsadas se amontonaba encima del resto.
+
+Es la misma trampa de la regla 7 de AGENTS.md vista desde el otro lado: el marcado que fabrica el JS no recibe el ámbito de Astro. **Si se reintenta**, la regla tiene que ir en `:global()` (o en `global.css`), y conviene comprobar en el navegador que las celdas se ocultan de verdad, no solo las cabeceras.
+
+Lo que sí sobrevive de aquella pasada, porque es útil y no depende de la norma: la remedición del marquee al redimensionar la ventana.
+
+## D-240 · El marcador se despega de su sombra al pasar el ratón
+
+Figma 261:10331. En el componente, el puntero lleva `margin-bottom: -4px` en Resting y Active —la punta pisa la sombra— y la variante **Hover quita ese margen**, con lo que el marcador se separa de ella.
+
+Traducido aquí: en `:hover` se suben 4px **el cuerpo y el puntero**, no el wrapper. Subir el wrapper arrastraría también a la sombra (va posicionada dentro de él) y no habría separación ninguna. Medido: reposo −4px de solape → hover 0. `.active` no lo lleva, igual que en Figma.
+
+Va dentro del `@media (hover: hover) and (pointer: fine)` que ya envolvía el realce del marcador, por el motivo de siempre: en táctil el navegador simula el hover al tocar y no lo suelta.
