@@ -6,7 +6,7 @@ import PaginationDot from '../../components/PaginationDot.astro';
 import LikeButton from '../../components/LikeButton.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
-import { fetchEvents, extractDriveImage, srcSetDrive } from '../../lib/mel';
+import { fetchEvents, extractDriveImage, srcSetDrive, formatFechaDMY } from '../../lib/mel';
 import flyerTecnico from '../../data/flyer_tecnico.json';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
@@ -34,7 +34,10 @@ if (eventIndex === -1) {
 const evento = (e: any) => ({
   idMel: e.idMel,
   title: e.evento,
-  date: e.fecha,
+  // formatFechaDMY reordena si viene en ISO y antepone el cero al día
+  // (D-216) — se saltaba aquí porque la ficha nunca pasaba `fecha` por esa
+  // función, a diferencia de la home/lista, que sí.
+  date: formatFechaDMY(e.fecha),
   location: e.lugar,
   locality: e.localidad,
   description: e.descripcion,
@@ -965,18 +968,42 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }
     }
 
+    // Desliza al pasar el ratón el valor de una tag que no cabe entero
+    // (D-220, mismo mecanismo que la tabla de Lista — CSS compartido en
+    // global.css, detección duplicada aquí porque no hay módulo común entre
+    // páginas, regla 7 de AGENTS.md). Antes estas tags solo recortaban en
+    // seco contra el borde, sin ni siquiera puntos suspensivos, porque nunca
+    // llevaban `.marquee-cell`/`.marquee-inner`. Cubre las dos réplicas de
+    // marcado (fila móvil y columna de escritorio): ambas usan TagWithLink,
+    // así que las dos llevan ya las clases, solo falta medir.
+    function ajustarMarquee() {
+      document.querySelectorAll('#detail-tags-fixed-row .marquee-cell, .event-tags-row .marquee-cell').forEach(cell => {
+        const inner = cell.querySelector('.marquee-inner');
+        if (!inner) return;
+        inner.classList.remove('is-overflowing');
+        if (inner.scrollWidth > cell.clientWidth) {
+          inner.classList.add('is-overflowing');
+          const overflow = inner.scrollWidth - cell.clientWidth + 32;
+          const duration = Math.max(1, overflow / 85);
+          cell.style.setProperty('--marquee-duration', duration + 's');
+          cell.style.setProperty('--cell-width', cell.clientWidth + 'px');
+        }
+      });
+    }
+
     medirCabecera();
     ajustarFilaTags();
     alDesplazar();
+    ajustarMarquee();
     raizPagina.addEventListener('scroll', alDesplazar, { passive: true, signal: wSig });
     let resizeRaf = null;
     window.addEventListener('resize', () => {
       if (resizeRaf) cancelAnimationFrame(resizeRaf);
-      resizeRaf = requestAnimationFrame(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); });
+      resizeRaf = requestAnimationFrame(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); ajustarMarquee(); });
     }, { signal: wSig });
 
     if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); });
+      document.fonts.ready.then(() => { medirCabecera(); ajustarFilaTags(); alDesplazar(); ajustarMarquee(); });
     }
 
     // Read active navigation vector from sessionStorage.

@@ -529,6 +529,53 @@ button:disabled { cursor: not-allowed; }
   }
 }
 
+/* Texto truncado que se revela deslizando al pasar el ratón (D-220). Nació
+   en la tabla de Lista (index.astro) y se comparte aquí para que la ficha de
+   evento pueda reutilizarlo en sus tags — antes esas tags solo recortaban en
+   seco, sin ni siquiera puntos suspensivos. Vive en global.css y no en el
+   `<style>` de una página concreta precisamente para que un cambio aquí
+   afecte a las dos a la vez, en vez de mantener dos copias que acaban
+   divergiendo. La detección de desbordamiento (medir scrollWidth, añadir
+   `.is-overflowing`, fijar `--marquee-duration`/`--cell-width`) SÍ sigue
+   duplicada en el JS de cada página — no hay módulo compartido (regla 7) —
+   pero al menos el aspecto y la animación son una sola fuente. */
+.marquee-cell {
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+}
+/* text-overflow:ellipsis lives on the inline-block itself, not just the
+   parent .marquee-cell — a parent's ellipsis doesn't reliably truncate an
+   atomic inline-block child (the overflowing content isn't a text run the
+   browser can cut mid-way through, just one opaque box), which is why
+   resting cells were showing raw clipped text with no "…" at all instead
+   of a proper ellipsis. max-width caps it to the cell's own width at rest;
+   the :hover override below lifts that cap so the slide reveal can work. */
+.marquee-cell .marquee-inner {
+  display: inline-block;
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+  transition: transform 0s linear;
+  padding-right: 0;
+  padding-bottom: 3px;
+}
+.marquee-cell:hover .marquee-inner.is-overflowing {
+  max-width: none;
+  overflow: visible;
+  /* Plays once and holds (no `infinite`) — looping used to snap back to the
+     start mid-hover as soon as one pass finished, which read as a reset
+     before the visitor had even finished reading the full name. */
+  animation: marquee-scroll var(--marquee-duration, 2.2s) cubic-bezier(0.16, 1, 0.3, 1) 0.25s 1 forwards;
+}
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(calc(-100% + var(--cell-width))); }
+}
+
 /* Custom styles for range slider and blending */
 .multiply-blend {
   mix-blend-mode: multiply;

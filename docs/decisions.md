@@ -4160,3 +4160,40 @@ está pegada, no esta línea.
 **Decisión**: cortar justo después del número de calle — "Av. Lancia, 9". Nueva función `truncarEnNumeroCalle()`: separa por comas, busca el primer trozo que sea solo un número (con sufijo de letra suelto tipo "9B") y corta ahí. Si no encuentra ninguno —direcciones sin número, texto libre, DMS— la deja tal cual en vez de arriesgarse a cortar donde no toca.
 
 **Alcance**: solo el panel lateral del mapa (`side-panel-address`), que es el único sitio donde se muestra esta dirección larga. No afecta a las coordenadas de posicionamiento del marcador, que se siguen leyendo del mismo campo sin tocar.
+
+## D-220 · El marquee de la tabla de Lista se comparte con las tags de la ficha
+
+**Contexto**: las tags de la ficha de evento (Fecha/Lugar/Localidad/Organiza/Diseño) recortaban un valor largo en seco contra el borde de la caja, sin puntos suspensivos ni forma de leer el resto — a diferencia de la tabla de Lista, que desliza el texto al pasar el ratón cuando de verdad desborda (`.marquee-cell`/`.marquee-inner`, con detección de solapamiento por JS).
+
+**Decisión**: el sistema de CSS (clases + `@keyframes marquee-scroll`) se traslada de `index.astro` a `global.css`, para que sea una sola fuente compartida entre página y componente en vez de dos copias que acaban divergiendo — pedido explícito del propietario ("reaprovecha algo de ese componente... para que los cambios que hagamos sobre eso estén unidos"). `TagWithLink.astro` lleva ahora `marquee-cell`/`marquee-inner` en su valor (las tres variantes: enlace simple, `multi` y texto plano).
+
+**Lo que NO se comparte**: la detección de desbordamiento en sí (medir `scrollWidth` vs `clientWidth`, añadir `.is-overflowing`, fijar las variables CSS de duración/ancho) sigue duplicada a mano entre `index.astro` y `event/[id].astro` — no hay módulo de JS compartido entre páginas en este proyecto (regla 7 de AGENTS.md), solo el aspecto/animación viven en un sitio único.
+
+## D-221 · Título del panel del mapa, un escalón menor solo en escritorio
+
+Petición del propietario: `#side-panel-title` pasa de `typo-h2` (28px móvil / 31px escritorio) a los valores de `typo-h3` (22/28, sin escalado) **solo a partir de `lg` (1024px)**, dentro del mismo bloque de overrides de escritorio que ya tiene el panel. En móvil (bottom sheet) se queda en `typo-h2` sin tocar — no se cambia la clase entera precisamente para no arrastrar el cambio a donde no se pidió.
+
+## D-222 · Sombra plana del marcador del mapa (Figma 341:26188)
+
+**Contexto**: Figma rediseñó el marcador con una sombra plana (un trapecio que se ensancha desde la punta del puntero hacia abajo, color Tinted-200, `mix-blend-mode: multiply`) en vez del halo difuminado que llevaba el sitio (`filter: drop-shadow(...)` sobre `.mel-marker-wrapper` entero).
+
+**Decisión**: se sustituye el `filter: drop-shadow` en reposo por un nuevo `<div class="mel-marker-shadow">`, proporcional al ancho del propio marcador (11% de margen a cada lado) en vez de un ancho fijo — los marcadores de este sitio no son un pin de tamaño constante, se ensanchan según el texto de la etiqueta, a diferencia del frame fijo de 82px de Figma. Añadido `isolation: isolate` en `.mel-marker-wrapper` (regla 12 de AGENTS.md, obligatorio para cualquier `mix-blend-mode`).
+
+**Sin verificar visualmente**: el mapa no carga tiles en el entorno del agente (sin clave de API), así que esto no se ha podido comprobar en un mapa real — solo revisado por código y aplicado con cautela. Pendiente de que el propietario lo vea en su navegador/móvil.
+
+**No tocado**: el realce de `hover`/`.active` (escala 1.05 + sombra más intensa) sigue igual — es una respuesta a la interacción, no el aspecto en reposo que rediseñó Figma.
+
+## D-223 · Corrección de D-219: la dirección busca "código postal + localidad", no "número de calle"
+
+**Contexto**: D-219 buscaba un trozo que fuera SOLO un número (el de la calle) y cortaba ahí. Fallaba en direcciones de carretera sin número de calle propiamente dicho — reportado por el propietario con "Voloko": `"N-6, Km 400, 24540 Cacabelos, León"` no tiene ningún trozo que sea un número suelto ("Km 400" no cuenta), así que la función no encontraba nada y devolvía la dirección completa, código postal incluido.
+
+**Decisión**: buscar en su lugar el trozo con el patrón "código postal + nombre" (dígitos seguidos de texto) y cortar ahí — todo lo anterior se conserva tal cual (calle, número, "Km 400"...), y al nombre de esa localidad se le quitan los dígitos y se añade al final. De paso resuelve otra petición del propietario: que el nombre de la localidad SÍ aparezca al final (antes se tiraba entero). "Solo el primero": cualquier cosa después de ese trozo (en Voloko, "León" de provincia) se descarta.
+
+- "Av. Lancia, 9, 24004 León" → "Av. Lancia, 9, León"
+- "N-6, Km 400, 24540 Cacabelos, León" → "N-6, Km 400, Cacabelos"
+
+## D-224 · La fecha de la ficha de evento también lleva el cero del día
+
+**Contexto**: D-216 añadió el cero al día en `formatFechaDMY()`, pero la ficha de evento (`event/[id].astro`) nunca pasaba `e.fecha` por esa función — el mapeo `evento()` la asignaba tal cual (`date: e.fecha`), a diferencia de la home/lista, que sí llaman a `formatFechaDMY()`. El propietario lo notó al ver que la tag "Fecha" de la ficha seguía sin el cero.
+
+**Decisión**: `date: formatFechaDMY(e.fecha)` en el mapeo `evento()`. Alcance: solo esa línea; el resto de la ficha no tenía este problema.

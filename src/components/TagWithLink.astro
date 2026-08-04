@@ -70,9 +70,14 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
     </span>
   </div>
 
-  <div class={`flex h-[24px] items-center relative shrink-0 w-full min-w-0 overflow-hidden ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
+  <!-- `marquee-cell`/`marquee-inner` (D-220, global.css): en reposo trunca
+       con puntos suspensivos igual que antes; al pasar el ratón, si de
+       verdad desborda (`.is-overflowing`, lo decide el JS de cada página
+       porque no hay módulo compartido — regla 7), desliza para dejar ver el
+       resto en vez de quedarse cortado en seco contra el borde. -->
+  <div class={`marquee-cell flex h-[24px] items-center relative shrink-0 w-full min-w-0 overflow-hidden ${isRight ? "justify-end" : isCenter ? "justify-center" : ""}`}>
     {multi && multi.length ? (
-      <div class="tag-multi flex items-center min-w-0 max-w-full overflow-hidden whitespace-nowrap">
+      <div class="tag-multi marquee-inner flex items-center min-w-0 max-w-full whitespace-nowrap">
         {multi.map((m, idx) => (
           <span class="inline-flex items-center shrink-0">
             {m.href ? (
@@ -86,10 +91,10 @@ const borderClass = hideBorder ? 'px-0 py-0' : 'border-l border-mel-border px-8 
       </div>
     ) : href ? (
       <Link alignment={alignment} href={href} state={state} reload={reload} ariaLabel={ariaLabel} expandHitArea={true} class="min-w-0 max-w-full">
-        <span class="tag-count-val">{count}</span>
+        <span class="tag-count-val marquee-inner">{count}</span>
       </Link>
     ) : (
-      <span class={`tag-count-val block w-full typo-body-roman ${state === 'Disabled' ? "text-mel-text-tertiary select-text" : "text-mel-text-secondary select-text"}`}>
+      <span class={`tag-count-val marquee-inner block w-full typo-body-roman ${state === 'Disabled' ? "text-mel-text-tertiary select-text" : "text-mel-text-secondary select-text"}`}>
         {count}
       </span>
     )}

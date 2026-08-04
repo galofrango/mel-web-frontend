@@ -802,10 +802,33 @@ const tags = [
     display: flex;
     flex-direction: column;
     align-items: center;
-    filter: drop-shadow(0px 4px 8px rgb(var(--mel-shadow-rgb) / 0.32));
+    position: relative;
+    /* Contexto de apilamiento propio para el blend mode de la sombra de abajo
+       (regla 12 de AGENTS.md): sin esto, mix-blend-mode: multiply interactúa
+       de forma impredecible con lo que haya debajo en el mapa. */
+    isolation: isolate;
     cursor: pointer;
     transition: transform 0.15s ease-out;
     animation: marker-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* Sombra plana bajo el marcador (Figma 341:26188, D-222) — sustituye al
+     `filter: drop-shadow` que llevaba antes el wrapper entero en reposo. Es
+     un trapecio (más ancho abajo que arriba) que se ensancha desde la punta
+     del puntero, en vez de un halo difuminado siguiendo el contorno.
+     Proporcional al ancho del propio marcador (78%/11% de margen cada
+     lado) y no a un ancho fijo, porque aquí los marcadores no son un pin de
+     tamaño fijo: se ensanchan según el texto de la etiqueta. */
+  .mel-marker-shadow {
+    position: absolute;
+    left: 11%;
+    right: 11%;
+    bottom: -4px;
+    height: 8px;
+    background-color: var(--mel-primitive-tinted-200);
+    mix-blend-mode: multiply;
+    clip-path: polygon(10% 0, 90% 0, 100% 100%, 0% 100%);
+    pointer-events: none;
   }
 
   .mel-marker-wrapper.exiting {
@@ -953,37 +976,6 @@ const tags = [
     animation: tableBounceUpdate 480ms cubic-bezier(0.25, 1.15, 0.45, 1) forwards;
   }
 
-  /* --- List view: marquee-on-hover for truncated cell text --- */
-  .marquee-cell {
-    overflow: hidden;
-    white-space: nowrap;
-    position: relative;
-  }
-  /* text-overflow:ellipsis lives on the inline-block itself, not just the
-     parent .marquee-cell — a parent's ellipsis doesn't reliably truncate an
-     atomic inline-block child (the overflowing content isn't a text run the
-     browser can cut mid-way through, just one opaque box), which is why
-     resting cells were showing raw clipped text with no "…" at all instead
-     of a proper ellipsis. max-width caps it to the cell's own width at rest;
-     the :hover override below lifts that cap so the slide reveal can work. */
-  .marquee-cell .marquee-inner {
-    display: inline-block;
-    position: relative;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: bottom;
-    transition: transform 0s linear;
-    padding-right: 0;
-    /* Room for the underline below the text — it has to live *inside* this
-       box (not offset outside it) since marquee-inner's own overflow:hidden
-       above, needed for the ellipsis, would otherwise clip it invisible.
-       3px: a midpoint between Link.astro's own bottom-0 (touching the text)
-       and the 6px this had before, which read as too far. */
-    padding-bottom: 3px;
-  }
-
   /* Table link cells (event title, lugar/localidad/organiza/diseño search
      links): same animated underline as the Link.astro component — a
      scaleX(0 -> 1) line from the left, instead of the browser's native
@@ -1003,18 +995,6 @@ const tags = [
   .event-title-link:hover .table-link-underline,
   .search-cell-link:hover .table-link-underline {
     transform: scaleX(1);
-  }
-  .marquee-cell:hover .marquee-inner.is-overflowing {
-    max-width: none;
-    overflow: visible;
-    /* Plays once and holds (no `infinite`) — looping used to snap back to the
-       start mid-hover as soon as one pass finished, which read as a reset
-       before the visitor had even finished reading the full name. */
-    animation: marquee-scroll var(--marquee-duration, 2.2s) cubic-bezier(0.16, 1, 0.3, 1) 0.25s 1 forwards;
-  }
-  @keyframes marquee-scroll {
-    0%   { transform: translateX(0); }
-    100% { transform: translateX(calc(-100% + var(--cell-width))); }
   }
 
   /* Event title: show chevron on hover */
@@ -1068,6 +1048,17 @@ const tags = [
     /* Ocultar el primer divisor vertical solo en el panel lateral de escritorio */
     #side-panel-tags-container .highlight-unit:first-child > .bg-mel-border {
       display: none !important;
+    }
+    /* Título del panel un escalón más pequeño, SOLO en escritorio (D-221):
+       en móvil (bottom sheet) se queda en typo-h2 tal cual. Valores de
+       typo-h3 a mano en vez de la clase —cambiar la clase entera también
+       habría afectado a móvil, que typo-h2 sí escala en `md` pero typo-h3
+       no escala en absoluto (decisión aparte, ver el comentario de
+       typo-h3 en global.css): no son la misma cosa por debajo de `lg`. */
+    #side-panel-title {
+      font-size: 22px;
+      line-height: 28px;
+      letter-spacing: -0.02em;
     }
   }
 
@@ -3043,18 +3034,31 @@ const tags = [
   // segment for display (e.g. in the map side panel). Falls back to the
   // raw string unchanged for anything that isn't a Maps link (DMS text,
   // a plain address someone typed by hand, etc.).
-  // Corta la dirección justo después del número de calle (D-219): lo que
-  // viene detrás —código postal y localidad— ya se lee en la tag
-  // "Localidad" de al lado, y aquí solo añadía ruido ("Av. Lancia, 9, 24004
-  // León" pasa a "Av. Lancia, 9"). Busca el primer trozo que sea SOLO un
-  // número (con sufijo de letra suelto, "9B") entre las comas y corta ahí;
-  // si no encuentra ninguno (direcciones sin número, DMS, texto libre), la
-  // deja tal cual en vez de arriesgarse a cortar donde no toca.
-  function truncarEnNumeroCalle(direccion) {
-    const partes = direccion.split(',').map(p => p.trim());
-    const idxNumero = partes.findIndex(p => /^\d+\s*\w?$/.test(p));
-    if (idxNumero === -1) return direccion;
-    return partes.slice(0, idxNumero + 1).join(', ');
+  // Corta el código postal y se queda con el nombre de la localidad detrás
+  // (D-219/D-220): "Av. Lancia, 9, 24004 León" pasa a "Av. Lancia, 9, León".
+  // La primera versión buscaba un trozo que fuera SOLO un número (el de la
+  // calle) y cortaba justo ahí, tirando la localidad entera — pero fallaba
+  // en direcciones de carretera sin número de calle propiamente dicho, como
+  // "N-6, Km 400, 24540 Cacabelos, León" (ningún trozo es un número suelto,
+  // así que no encontraba nada y lo dejaba TODO, código postal incluido:
+  // el bug que reportó el propietario con Voloko).
+  //
+  // Ahora se busca el trozo con el patrón "código postal + nombre" (dígitos
+  // seguidos de texto, sin más suposiciones sobre qué hay antes) y se corta
+  // ahí: todo lo anterior se conserva tal cual (calle, número, "Km 400"...),
+  // se le quitan los dígitos del código postal a ese trozo y el resultado
+  // se añade al final. Cualquier cosa después de ese trozo (en Voloko,
+  // "León" de provincia) se descarta — "solo el primero" de los nombres de
+  // localidad, no los dos.
+  function truncarDireccion(direccion) {
+    const partes = direccion.split(',').map(p => p.trim()).filter(Boolean);
+    if (partes.length < 2) return direccion;
+    const idxLocalidad = partes.findIndex(p => /^\d{4,5}\s+\S/.test(p));
+    if (idxLocalidad === -1) return direccion;   // patrón no reconocido: se deja tal cual
+    const antes = partes.slice(0, idxLocalidad);
+    const localidad = partes[idxLocalidad].replace(/^\d[\d\s-]*\s*/, '').trim();
+    const resultado = localidad ? [...antes, localidad] : antes;
+    return resultado.length ? resultado.join(', ') : direccion;
   }
 
   function extractAddressLabel(coordStr) {
@@ -3067,7 +3071,7 @@ const tags = [
       } catch (e) {
         legible = placeMatch[1].replace(/\+/g, ' ');
       }
-      return truncarEnNumeroCalle(legible);
+      return truncarDireccion(legible);
     }
     return coordStr;
   }
@@ -3150,6 +3154,7 @@ const tags = [
           <span class="mel-marker-label">+${eventCount}</span>
         </div>
         <div class="mel-marker-pointer"></div>
+        <div class="mel-marker-shadow"></div>
       `;
 
       const clusterMarker = new markerLib.AdvancedMarkerElement({
@@ -3728,6 +3733,7 @@ const tags = [
             <span class="mel-marker-label"></span>
           </div>
           <div class="mel-marker-pointer"></div>
+          <div class="mel-marker-shadow"></div>
         `;
 
         const marker = new markerLib.AdvancedMarkerElement({
