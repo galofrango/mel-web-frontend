@@ -83,6 +83,7 @@ const sheetBase = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit?gid=0
 // Columna real de la hoja que corrige cada acción manual (AGENTS.md, columnas
 // de Flyers). Solo las tres reglas con accion === 'Abrir en la hoja' la usan.
 const COLUMNA_MANUAL: Record<string, string> = {
+  'sin-fecha': 'D',
   'sin-lugar': 'E',
   'sin-coordenadas': 'G',
   'sin-artistas': 'H',

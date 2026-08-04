@@ -762,6 +762,10 @@ body {
 #panel-ver-ocultos:disabled .sw-carril { background: var(--mel-bg-tertiary); }
 #panel-ver-ocultos:disabled .sw-manija { background: var(--mel-text-tertiary); }
 
+/* Arrastrar sobre las casillas no debe ir seleccionando el texto de las filas
+   por el camino: el gesto es de marcado, no de copiar. */
+.tabla { user-select: none; }
+
 /* --- Casilla cuadrada del panel (dev) ------------------------------------
    Estaba en PanelSeccion.astro, pero el modal la necesita también y los
    estilos `scoped` de Astro no cruzan entre componentes. */

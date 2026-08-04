@@ -622,7 +622,11 @@ const tarjetas = [
     const chks = filasDe(sec)
       .filter((f) => !filaOculta(f))
       .map((f) => f.querySelector('.chk-fila') as HTMLInputElement | null)
-      .filter((c): c is HTMLInputElement => !!c);
+      // Solo las SELECCIONABLES. Contar las bloqueadas dejaba el check de
+      // cabecera en indeterminado para siempre (9 marcadas de 10 casillas), y
+      // un indeterminado + clic resuelve a MARCAR: no había forma de vaciar la
+      // selección en «Peso superior».
+      .filter((c): c is HTMLInputElement => !!c && !c.disabled);
     const marcados = chks.filter((c) => c.checked).length;
     const haySeleccion = marcados > 0;
 
@@ -696,6 +700,7 @@ const tarjetas = [
    *  encajan y se sustituyen tecleando encima si no. Un `placeholder` gris se
    *  lee como «ya escribiré algo» y acaba en notas vacías. */
   const MOTIVOS = {
+    'sin-fecha': 'No se conserva la fecha exacta del evento y no hay forma de datarlo.',
     'sin-lugar': 'No consta en qué local se celebró y no hay forma de averiguarlo.',
     'sin-coordenadas': 'El local ya no existe y no se ha podido situar su dirección exacta.',
     'sin-artistas': 'El cartel no nombra a ningún artista.',
@@ -1408,11 +1413,15 @@ const tarjetas = [
       if (btn) btn.textContent = oculta ? 'Mostrar' : 'Ocultar';
       const accion = fila.querySelector('.fila-accion') as HTMLButtonElement | null;
       if (accion) accion.disabled = oculta;
-      // Una fila que no tiene botón de acción tampoco se puede seleccionar: es
-      // el caso de los GIF en «Peso superior», que se cuentan y se avisan pero
-      // no se pueden comprimir aquí. Sin esto entraban en la acción en bloque y
-      // el motor los rechazaba uno a uno.
-      const sinAccion = !accion;
+      // Una fila se bloquea si la SECCIÓN ofrece una acción en bloque y ESTA
+      // fila no puede usarla: es el caso de los GIF en «Peso superior», que se
+      // cuentan y se avisan pero no se pueden comprimir. Sin esto entraban en
+      // el lote y el motor los rechazaba uno a uno.
+      //
+      // Ojo con la condición: «no tiene botón» a secas bloqueaba TODAS las filas
+      // de «Baja resolución», que no tiene acción automática ninguna — y ahí las
+      // casillas sí sirven, para «Ocultar seleccionados».
+      const sinAccion = !accion && !!sec.querySelector('.accion-seleccionados');
       const chk = fila.querySelector('.chk-fila') as HTMLInputElement | null;
       if (chk) {
         chk.disabled = oculta || sinAccion;
@@ -1599,6 +1608,36 @@ const tarjetas = [
     const abortCtrl = new AbortController();
     (window as any)._melPanelAbortCtrl = abortCtrl;
     const sig = abortCtrl.signal;
+
+    // --- Seleccionar arrastrando ---------------------------------------------
+    // Con 24 filas, marcar de una en una son 24 clics. Se pulsa sobre una
+    // casilla y, sin soltar, se pasa por encima de las demás: todas toman el
+    // MISMO estado que la primera (el que tenga tras el clic nativo), así que
+    // el gesto sirve igual para marcar en bloque que para desmarcar.
+    //
+    // Solo dentro de la misma sección: un arrastre que cruzara de «Archivo PNG»
+    // a «Peso superior» marcaría cosas que no se ven en pantalla.
+    let arrastre: { estado: boolean; sec: Element } | null = null;
+
+    document.addEventListener('mousedown', (e) => {
+      const chk = (e.target as HTMLElement)?.closest?.('.chk-fila') as HTMLInputElement | null;
+      if (!chk || chk.disabled) return;
+      const sec = chk.closest('section[data-clave]');
+      if (sec) arrastre = { estado: !chk.checked, sec };   // el estado QUE TENDRÁ tras el clic
+    }, { signal: sig });
+
+    document.addEventListener('mouseover', (e) => {
+      if (!arrastre) return;
+      const chk = (e.target as HTMLElement)?.closest?.('.chk-fila') as HTMLInputElement | null;
+      if (!chk || chk.disabled || chk.checked === arrastre.estado) return;
+      if (chk.closest('section[data-clave]') !== arrastre.sec) return;
+      chk.checked = arrastre.estado;
+      actualizarAccionesBloque(arrastre.sec as HTMLElement);
+    }, { signal: sig });
+
+    // En `window` y no en el documento: si se suelta el botón fuera de la
+    // ventana, el arrastre tiene que terminar igual.
+    window.addEventListener('mouseup', () => { arrastre = null; }, { signal: sig });
 
     document.addEventListener('click', alPulsar, { signal: sig });
     document.addEventListener('change', alCambiar, { signal: sig });

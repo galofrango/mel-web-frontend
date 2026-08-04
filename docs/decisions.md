@@ -3579,3 +3579,50 @@ como un caso particular del GIF: **una fila sin botón de acción tampoco se pue
 seleccionar**. Sin eso entraba en la acción en bloque —incluido «seleccionar
 todos»— y el motor la rechazaba una por una, llenando el resumen de fallos que
 no eran fallos.
+
+---
+
+## D-201 · Una fecha mal escrita hace desaparecer el cartel
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Regla nueva **«Sin fecha válida»**, nivel 1. No basta con que la celda esté
+rellena: tiene que ser `DD/MM/AAAA`. Medido el 04/08/2026 sobre lo que hace la
+web con cada caso:
+
+| valor | orden | se pinta | año para el filtro |
+|---|---|---|---|
+| `12/07/2013` | correcto | 12/07/2013 | 2013 |
+| `SIN FECHA` | 0 | «SIN FECHA» | **ninguno** |
+| vacía | 0 | vacío | **ninguno** |
+| `12-07-2013` | **negativo** | 2013/07/12 | **año 12** |
+
+Un cartel sin año **desaparece en cuanto se toca el deslizador**, y uno con
+guiones se va al año 12 y se ordena antes que todo lo demás. Por eso es nivel 1
+y va la primera de las cuatro de «Falta información»: es la que más daño hace
+sin que se note.
+
+En el archivo hoy: 1 de 101 (MEL-00095, con el texto «SIN FECHA»).
+
+---
+
+## D-202 · Seleccionar arrastrando, y quién puede seleccionarse
+
+**Fecha:** 2026-08-04 · **Estado:** vigente
+
+Con 24 filas, marcar de una en una son 24 clics. Se pulsa sobre una casilla y,
+sin soltar, se pasa por encima de las demás: todas toman el MISMO estado que la
+primera, así que el gesto sirve igual para marcar que para desmarcar. Solo
+dentro de la misma sección — un arrastre que cruzara de una a otra marcaría
+cosas fuera de la pantalla.
+
+**Dos bugs de selección, uno de ellos recién introducido:**
+
+- «Una fila sin botón de acción no se puede seleccionar» (D-200) bloqueó TODAS
+  las de «Baja resolución», que no tiene acción automática ninguna — y ahí las
+  casillas sí sirven, para «Ocultar seleccionados». La condición correcta es:
+  la sección ofrece acción en bloque Y esta fila no puede usarla.
+- El check de cabecera contaba las filas bloqueadas, así que con 9 marcadas de
+  10 casillas se quedaba en indeterminado para siempre. Y un indeterminado más
+  un clic resuelve a MARCAR, por especificación: no había forma de vaciar la
+  selección en «Peso superior». Ahora solo cuenta las seleccionables.

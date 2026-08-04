@@ -5,7 +5,7 @@ import { auditar, estaVacio } from '../src/lib/auditoria.ts';
 const filaBase = {
   n: 2, idMel: 'MEL-00001', evento: 'Trip with us', urlDrive: 'https://drive.google.com/file/d/AAA/view',
   lugar: 'El Gran Café', localidad: 'León', coordenadas: 'https://www.google.es/maps/place/Calle+Cervantes,+9/@42.5990752,-5.5692811,17z/data=!3m1!4b1!8m2!3d42.5990752!4d-5.5692811',
-  artistas: 'DJ Uno', notasArchivo: '', notasOcultas: '',
+  artistas: 'DJ Uno', fecha: '12/07/2013', notasArchivo: '', notasOcultas: '',
 };
 const tecBase = { tipo: 'jpeg', px: [1600, 2000], comp: 3, noSrgb: false, alfa: false, bytes: 900000 };
 
@@ -103,7 +103,7 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
   // todo lo demás: la fila A dispara png/no-srgb/enorme pero por eso mismo YA NO
   // dispara pesado, así que hace falta una fila limpia y gorda solo para él.
   const filas = [
-    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '', artistas: '' },
+    { ...filaBase, idMel: 'MEL-A', urlDrive: '.../d/A/view', lugar: '', coordenadas: '', artistas: '', fecha: '' },
     { ...filaBase, idMel: 'MEL-B', urlDrive: '.../d/B/view' },
     { ...filaBase, idMel: 'MEL-C', urlDrive: '.../d/C/view' },
   ];
@@ -119,7 +119,7 @@ test('el orden es el de trabajo: lo que arrastra a lo demás va primero', () => 
     assert.ok(orden.includes(c), `el fixture debe disparar "${c}"`);
   }
   assert.deepEqual(orden, [
-    'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'no-srgb', 'enorme', 'pesado', 'pequeno',
+    'sin-fecha', 'sin-lugar', 'sin-coordenadas', 'sin-artistas', 'png', 'no-srgb', 'enorme', 'pesado', 'pequeno',
   ], 'el orden es de TRABAJO, no un ranking: arreglar los de arriba resuelve los de abajo');
 });
 

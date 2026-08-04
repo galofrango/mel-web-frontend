@@ -131,6 +131,10 @@ type Regla = [
 
 // clave, nivel, título, consecuencia, acción, auto, descripción, banner, criterio, prueba
 const REGLAS: Regla[] = [
+  ['sin-fecha', 1, 'Sin fecha válida', 'El cartel desaparece al filtrar por años', 'Abrir en la hoja', false,
+   'Sin una fecha en formato DD/MM/AAAA el cartel se cae del filtro de años y se ordena mal. Hay que escribirla en la columna D de la [hoja→D1].',
+   'Ojo con el formato, no solo con que esté rellena: medido el 04/08/2026, una fecha con guiones («12-07-2013») se interpreta como el año 12 y manda el cartel al principio de todo. Una celda con texto («SIN FECHA») o vacía lo deja fuera del filtro, pero al menos no lo coloca donde no es.', 'id',
+   (f, t) => !/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(String(f.fecha ?? '').trim())],
   ['sin-lugar', 1, 'Sin lugar', 'No hay local que situar en el mapa', 'Abrir en la hoja', false,
    'Sin la información de lugar no se puede agrupar el evento en el mapa. Hay que escribir el nombre del local en la columna E de la [hoja→E1].',
    'En el spreadsheet «Desconocido» o celda vacía mostrarán el link «¿Nos ayudas?» en la tag de Lugar.', 'id',
