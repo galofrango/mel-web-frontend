@@ -841,6 +841,11 @@ const tags = [
     background-color: color-mix(in srgb, var(--mel-primitive-tinted-400) 40%, transparent);
     clip-path: polygon(10% 0, 90% 0, 100% 100%, 0% 100%);
     pointer-events: none;
+    /* Acompaña al despegue del marcador (D-240) con la misma duración y
+       curva, para que encoger, aclararse y elevarse se lean como un solo
+       gesto y no como tres cosas sueltas. */
+    transition: left 0.15s ease-out, right 0.15s ease-out,
+                background-color 0.15s ease-out;
   }
 
   .mel-marker-wrapper.exiting {
@@ -871,6 +876,20 @@ const tags = [
     .mel-marker-wrapper:hover .mel-marker-pointer {
       transform: translateY(-4px);
     }
+
+    /* Y la sombra ENCOGE mientras el marcador sube: 4px menos por cada lado
+       y 16 puntos menos de opacidad (40% → 24%), para que se lea como que
+       queda más lejos y más pequeña. Va aquí dentro, con el resto del
+       realce de ratón: fuera del media query, el "hover" que el móvil
+       simula al tocar la dejaría encogida y clara hasta el siguiente toque
+       en otro sitio (la misma trampa de D-232). El estado `.active` no
+       entra: ese lo gobierna el JS y conserva su sombra a tamaño y opacidad
+       completos. */
+    .mel-marker-wrapper:hover .mel-marker-shadow {
+      left: calc(11% + 4px);
+      right: calc(11% + 4px);
+      background-color: color-mix(in srgb, var(--mel-primitive-le-400) 24%, transparent);
+    }
   }
 
   /* En hover y en activo manda SOLO la sombra plana nueva, que además pasa a
@@ -884,9 +903,10 @@ const tags = [
   .mel-marker-wrapper.active {
     filter: none;
   }
-  .mel-marker-wrapper:hover .mel-marker-shadow,
+  /* Activo: solo cambia el COLOR (mismo 40% que en reposo). No encoge ni se
+     aclara — eso es propio del hover, que es un realce de paso; el activo es
+     un estado que se queda. El hover vive en el media query de arriba. */
   .mel-marker-wrapper.active .mel-marker-shadow {
-    /* Mismo 40% que en reposo — solo cambia el color, no la opacidad. */
     background-color: color-mix(in srgb, var(--mel-primitive-le-400) 40%, transparent);
   }
 

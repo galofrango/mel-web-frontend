@@ -4336,3 +4336,12 @@ Figma 261:10331. En el componente, el puntero lleva `margin-bottom: -4px` en Res
 Traducido aquí: en `:hover` se suben 4px **el cuerpo y el puntero**, no el wrapper. Subir el wrapper arrastraría también a la sombra (va posicionada dentro de él) y no habría separación ninguna. Medido: reposo −4px de solape → hover 0. `.active` no lo lleva, igual que en Figma.
 
 Va dentro del `@media (hover: hover) and (pointer: fine)` que ya envolvía el realce del marcador, por el motivo de siempre: en táctil el navegador simula el hover al tocar y no lo suelta.
+
+## D-241 · La sombra encoge y se aclara mientras el marcador se despega
+
+Remate de D-240, criterio del propietario: al pasar el ratón la sombra pierde **4px por cada lado** y baja **16 puntos de opacidad** (40% → 24%), de modo que parece quedarse más pequeña y más lejos según el marcador se eleva. Medido: 31,2px → 23,2px de ancho, y de Tinted-400 al 40% a LE-400 al 24%. Comparte duración y curva con el despegue (0,15s ease-out) para que las tres cosas se lean como un solo gesto.
+
+**Dos cosas que se colocaron de paso:**
+
+- **El realce de hover de la sombra pasa DENTRO del `@media (hover: hover) and (pointer: fine)`.** Estaba fuera desde D-232, así que en un móvil el "hover" que el navegador simula al tocar habría dejado la sombra encogida y clara hasta el siguiente toque en otro sitio — exactamente la trampa que D-232 documenta para el botón "Me presta" y los marcadores.
+- **`.active` se separa del `:hover`.** Antes compartían la regla de color. Ahora el activo solo cambia el color (LE-400 al 40%, tamaño completo) y no encoge ni se aclara: el hover es un realce de paso y el activo un estado que se queda. Además `.active` lo pone el JS, así que no puede vivir dentro de un media query de puntero.
