@@ -21,6 +21,28 @@ verdad, y qué técnicas de diagnóstico funcionan aquí y cuáles engañan.
 
 Volver a un punto estable: `git checkout estados-pressed-v2.3`.
 
+### Sesión del 5 de agosto de 2026 — cerrada y en producción
+
+Todo lo de esa sesión está en `main` (`c3a3952`) y desplegado. Resumen de lo
+que cambió, por si algo se ve raro y hay que saber dónde mirar:
+
+- **Marcadores del mapa**: sombra plana nueva (D-222), despegue de la sombra
+  al pasar el ratón (D-240/D-241), apilamiento por posición en pantalla en vez
+  de por latitud (D-242), y aspecto propio en modo oscuro (D-243).
+- **Marquee de textos truncados**: compartido de verdad entre la tabla de
+  Lista y las tags de la ficha, con la medición única en `Layout.astro`
+  (D-233), vuelta animada y curvas afinadas (D-238).
+- **Datos**: ceros en el día (D-216/D-224), direcciones recortadas por norma
+  (D-219/D-223), promotores como enlaces sueltos (D-218), "¿Nos ayudas?" en
+  primary y también en la tabla (D-217).
+
+**Lo que se intentó y se retiró, para no repetirlo a ciegas**: la norma de
+colapso de columnas de la tabla (D-236, revertida en D-239 — falló por el
+ámbito de los estilos de Astro, la causa está escrita) y la entrada animada
+del mapa (D-244). Y un caso **sin resolver, aparcado por el propietario**: al
+mantener pulsado un marcador en móvil, su cuerpo desaparece y quedan el
+puntero y la sombra (D-245).
+
 ---
 
 ## 2. `feat/volver-al-flyer` — terminada y en producción
@@ -125,7 +147,7 @@ a mano desde la web.
 
 ## 4. Lo que este entorno NO puede reproducir
 
-Cuatro cosas, y las cuatro han costado horas por darlas por buenas:
+Seis cosas, y todas han costado horas por darlas por buenas:
 
 1. **La barra de URL que se repliega** (Chrome/Safari móvil). Es la causa de que
    los elementos `position: fixed` se descoloquen al desplazar. Aquí no existe.
@@ -144,6 +166,15 @@ Cuatro cosas, y las cuatro han costado horas por darlas por buenas:
    pantalla fuerza un fotograma y desbloquea lo pendiente, así que una prueba de
    este tipo se conduce alternando `screenshot` y comprobación. `setInterval` sí
    corre — por eso `restoreScroll()` lo usa a propósito (ver su comentario).
+
+6. **El mapa de Google puede comportarse distinto aquí que en el dispositivo
+   real.** Caso vivido (D-244): una entrada animada que giraba la cámara
+   funcionaba aquí y está MEDIDA —`heading` de 0 a 30 y vuelta, captura del
+   mapa a medio girar, con la ventana a 375px— y el propietario no la vio
+   nunca, ni en móvil ni en escritorio. Se retiró. La hipótesis sin confirmar
+   es que el dispositivo caiga al render ráster, donde `setHeading()` se
+   ignora **en silencio**. Antes de invertir en cualquier animación de cámara,
+   comprobar primero si un `map.setHeading(45)` a pelo hace algo allí.
 
 **Corolario**: si una prueba sintética dice que algo funciona y el propietario
 dice que no, **tiene razón él**. Y al revés: que aquí no se reproduzca un fallo
