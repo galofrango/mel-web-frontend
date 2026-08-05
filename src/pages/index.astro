@@ -619,6 +619,19 @@ const tags = [
     z-index: 102;
   }
 
+  /* El slider NUNCA participa del crossfade (D-248). Con el reordenado en
+     vivo, cada cruce de año durante el arrastre arranca una transición, y el
+     crossfade de la raíz pintaba un fantasma del tirador en su posición
+     vieja disolviéndose 320ms — el "halo" que se veía al arrastrar rápido.
+     El nombre (mel-slider) lo pone TimeSlider.astro; aquí su grupo entero va
+     a 0s: la imagen vieja desaparece en el acto y la "nueva" es viva, así
+     que el tirador sigue al dedo nítido mientras la galería anima debajo. */
+  html::view-transition-group(mel-slider),
+  html::view-transition-old(mel-slider),
+  html::view-transition-new(mel-slider) {
+    animation-duration: 0s;
+  }
+
   /* Reordenado venido del botón: más lento y con entrada y salida suaves. Los
      valores los publica JS al arrancar la transición (duracionOrden y
      ORDEN_ANIM_EASE), para no tener la misma duración escrita en la hoja y en
@@ -644,6 +657,27 @@ const tags = [
   html.orden-cambiando::view-transition-new(mel-whisper) {
     animation-duration: 500ms;
     animation-timing-function: ease-in-out;
+  }
+  /* Durante el reordenado lento del botón, el slider PIERDE su nombre y
+     vuelve a viajar dentro de la foto de la raíz — exactamente como viajó
+     siempre hasta D-248, sin desaparecer jamás (el sort no mueve el slider,
+     y el crossfade de la raíz sobre píxeles idénticos es invisible). El
+     nombre solo existe para el halo del ARRASTRE, y el arrastre no lleva
+     esta clase. Se llegó aquí después de que un intento con `0s` en las
+     tres piezas del grupo midiera bien en Chrome de escritorio y aun así
+     el slider siguiera desapareciendo en el móvil (Chrome Y Safari) — los
+     pseudo-elementos de view transition no se componen igual allí, y este
+     entorno no puede medirlos; mejor no tener grupo que tener un grupo con
+     reglas peleadas. La clase se pone ANTES de arrancar la transición y se
+     retira en `finished`, así que las DOS capturas la ven. */
+  /* `:global()` obligatorio (la trampa de D-239 en su variante fina): este
+     bloque tiene ámbito, pero las reglas vecinas de pseudo-elementos
+     (`html::view-transition-…`) se libran porque Astro no puede colgarle el
+     cid a un pseudo-elemento — a esta, con un compound normal al final, SÍ
+     se lo colgó (el de index, que el wrapper, nacido en TimeSlider, no
+     lleva). Regla muerta sin esto, comprobado en el navegador. */
+  :global(html.orden-cambiando #slider-track-wrapper) {
+    view-transition-name: none;
   }
 
   /* Custom CSS for Range Slider */
@@ -1735,6 +1769,14 @@ const tags = [
   let sliderLastFilterAt = 0;
   let sliderTrailingTimer = null;
   const SLIDER_DRAG_FILTER_THROTTLE_MS = 120;
+  // Último rango (min-max) que llegó a programar un filtrado. Con él,
+  // updateSlider() ignora los `input` de un arrastre que no cruzan de año.
+  let ultimoRangoSlider = null;
+  // Serialización de transiciones durante el arrastre (regla 3): mientras una
+  // esté en vuelo, los cruces de año nuevos se aplazan (no se apilan) y se
+  // resuelven de una sola vez al terminar, con el rango vigente.
+  let transicionFiltroViva = false;
+  let filtroSliderDiferido = false;
 
   function scheduleFilterArchives() {
     if (sliderUpdateScheduled) return;
@@ -1759,10 +1801,20 @@ const tags = [
     minYear = val1;
     maxYear = val2;
 
-    reiniciarPosicion();
-
     const trackWrapper = document.getElementById('slider-track-wrapper');
     const isDragging = trackWrapper && trackWrapper.classList.contains('dragging');
+
+    // TimeSlider dispara `input` en CADA movimiento del puntero, cambie o no
+    // el año — durante un arrastre eso era refiltrar decenas de veces por
+    // segundo el mismo rango. Si el rango no ha cruzado de año, no hay nada
+    // que hacer. Solo durante el arrastre: los caminos discretos (init,
+    // restauración al volver de una ficha, clic en barra, teclado) conservan
+    // su comportamiento exacto, que hay flujos delicados apoyados en él.
+    const rango = val1 + '-' + val2;
+    if (isDragging && rango === ultimoRangoSlider) return;
+    ultimoRangoSlider = rango;
+
+    reiniciarPosicion();
     // D-086 ronda 6: this throttle exists for touch's high event rate +
     // weaker mobile CPUs (see the comment above SLIDER_DRAG_FILTER_THROTTLE_MS) —
     // it was applying to ANY drag regardless of input device, including a
@@ -2857,14 +2909,22 @@ const tags = [
 
     // Durante el arrastre del slider NO se envuelve en una view transition: el
     // arrastre dispara un re-render cada pocos milisegundos y cada transición
-    // anima el reordenado de filas/tarjetas, así que se encadenan varias por
-    // segundo y los elementos se ven "rebotando buscando sitio" — se percibe
-    // como que algo está roto, sobre todo en móvil. La transición aporta
-    // cuando el cambio es discreto (un click, un filtro, ordenar una columna),
-    // no mientras el dedo sigue moviendo el tirador. Al soltar, el evento
-    // `change` fuerza un render final que sí la lleva.
+    // anima el reordenado de filas/tarjetas, así que encadenarlas sin control
+    // hacía que los elementos se vieran "rebotando buscando sitio" — durante
+    // una época el arrastre del slider directamente NO animaba por esto (se
+    // saltaba la transición entera y el DOM cambiaba a pelo). El arreglo de
+    // verdad no era apagar la animación sino no APILAR transiciones (regla 3):
+    // updateSlider() ya solo llama aquí al cruzar de año, y si al llegar un
+    // cruce hay una transición aún en vuelo, el refiltrado entero se aplaza a
+    // que termine — leerá entonces el rango vigente, así que ningún cruce se
+    // pierde, solo se agrupan. La galería persigue al slider con animaciones
+    // que siempre llegan a completarse.
     const trackWrapper = document.getElementById('slider-track-wrapper');
     const arrastrandoSlider = trackWrapper && trackWrapper.classList.contains('dragging');
+    if (arrastrandoSlider && transicionFiltroViva && document.startViewTransition && !restaurandoVuelta()) {
+      filtroSliderDiferido = true;
+      return;
+    }
 
     // Volviendo de una ficha NO se arranca transición aquí: la del ClientRouter
     // sigue viva y apilar una encima la supersede (regla 3 de AGENTS.md, escrita
@@ -2884,7 +2944,7 @@ const tags = [
     const listaEl = document.getElementById('view-lista');
     const ordenandoEnLista = animacionOrdenLenta && listaEl && !listaEl.classList.contains('hidden');
 
-    if (document.startViewTransition && !arrastrandoSlider && !restaurandoVuelta() && !ordenandoEnLista) {
+    if (document.startViewTransition && !restaurandoVuelta() && !ordenandoEnLista) {
       try {
         // Si el reordenado viene del botón de ordenación, la transición se
         // alarga. La clase se pone ANTES de arrancarla porque las animaciones de
@@ -2900,7 +2960,9 @@ const tags = [
           nombrarHuecos(true);
         }
         const transition = document.startViewTransition(performDOMUpdates);
+        transicionFiltroViva = true;
         transition.finished.catch(() => {}).finally(() => {
+          transicionFiltroViva = false;
           if (lenta) {
             document.documentElement.classList.remove('orden-cambiando');
             // Devuelve el nombre de contenido: es el que empareja la tarjeta con
@@ -2909,6 +2971,12 @@ const tags = [
             // La bandera se apaga AQUÍ y no al arrancar: el FLIP de la lista la
             // lee dentro de performDOMUpdates, que corre después.
             animacionOrdenLenta = false;
+          }
+          // Cruces de año que llegaron con esta transición en vuelo: se
+          // agruparon en uno y se resuelve ahora, con el rango vigente.
+          if (filtroSliderDiferido) {
+            filtroSliderDiferido = false;
+            filterArchives();
           }
         });
       } catch (err) {

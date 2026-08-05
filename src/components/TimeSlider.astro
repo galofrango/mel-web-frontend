@@ -218,7 +218,26 @@ const { min = 2004, max = 2019 } = Astro.props;
     let isTouchDrag = false;
     const POINTER_SMOOTHING = 0.55; // lower = smoother/more lag, higher = snappier/less filtering — touch only
 
+    // El salto animado del clic en barra (D-235, reimplantado a petición del
+    // propietario). La clase solo existe durante el clic y se retira sola;
+    // así el arrastre sigue siendo instantáneo (el tirador no puede ir por
+    // detrás del dedo) y las escrituras programáticas —restaurar el rango al
+    // volver de una ficha— tampoco se animan.
+    let saltoTimer = null;
+    const animarSalto = () => {
+      if (saltoTimer) clearTimeout(saltoTimer);
+      trackWrapper.classList.add('salto-animado');
+      saltoTimer = setTimeout(() => {
+        trackWrapper.classList.remove('salto-animado');
+        saltoTimer = null;
+      }, 550);
+    };
+
     const beginDrag = (e, which) => {
+      // Si se agarra un tirador a mitad de salto, el salto se corta aquí:
+      // con la clase puesta, el arrastre iría con 0.5s de retraso.
+      if (saltoTimer) { clearTimeout(saltoTimer); saltoTimer = null; }
+      trackWrapper.classList.remove('salto-animado');
       setDraggingClass(true);
       isDraggingMin = which === 'min';
       isDraggingMax = which === 'max';
@@ -333,6 +352,9 @@ const { min = 2004, max = 2019 } = Astro.props;
       const val1 = Math.round((minPct / 100) * RANGE + MIN_YEAR);
       const val2 = Math.round((maxPct / 100) * RANGE + MIN_YEAR);
 
+      // Solo el clic en barra viaja animado — ver animarSalto() arriba.
+      animarSalto();
+
       if (Math.abs(clickedYear - val1) < Math.abs(clickedYear - val2)) {
         // Move min handle — but clamp so it never exceeds max
         const clampedYear = Math.min(clickedYear, val2);
@@ -357,7 +379,25 @@ const { min = 2004, max = 2019 } = Astro.props;
 </script>
 
 <style>
-  /* Smooth snapping transitions */
+  /* El slider entero sale de la foto de la raíz de las view transitions
+     (D-248). Con el reordenado en vivo durante el arrastre, cada cruce de
+     año arranca una transición cuyo crossfade incluía TODA la página — el
+     tirador aparecía dos veces: el vivo bajo el dedo y el fantasma de donde
+     estaba al arrancar la foto, disolviéndose 320ms (el "halo" grabado por
+     el propietario). Nombre propio + grupo a 0s en index.astro (mismo
+     remedio que el botón de orden, D-131): la imagen "nueva" de un grupo es
+     VIVA, así que el slider se pinta siempre nítido y al día. */
+  #slider-track-wrapper {
+    view-transition-name: mel-slider;
+  }
+
+  /* Smooth snapping transitions.
+     OJO (D-235): las menciones a #min-handle/#max-handle de estas dos reglas
+     están MUERTAS — los tiradores los pinta SliderHandler.astro, otro
+     componente, y el ámbito de Astro no les añade el atributo de este
+     archivo. Solo #slider-active-fill (que sí es de esta plantilla) las
+     recibe. No se "arreglan" volviéndolas globales: eso daría transición al
+     arrastre entero, que el propietario marcó como delicado. */
   #slider-active-fill, #min-handle, #max-handle {
     transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1), right 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   }
@@ -367,5 +407,15 @@ const { min = 2004, max = 2019 } = Astro.props;
   #slider-track-wrapper.dragging #min-handle,
   #slider-track-wrapper.dragging #max-handle {
     transition: none !important;
+  }
+
+  /* El salto del clic en barra, y SOLO él, anima también los tiradores
+     (D-235). `:global()` para cruzar la frontera de ámbito hasta
+     SliderHandler.astro, pero acotado a `.salto-animado`, que el JS pone al
+     pulsar la barra y retira a los 550ms (o al empezar un arrastre). Misma
+     curva y duración que el relleno, para que tirador y barra viajen juntos. */
+  #slider-track-wrapper.salto-animado :global(#min-handle),
+  #slider-track-wrapper.salto-animado :global(#max-handle) {
+    transition: left 0.5s cubic-bezier(0.25, 1, 0.5, 1), right 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   }
 </style>
