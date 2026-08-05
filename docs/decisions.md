@@ -4345,3 +4345,34 @@ Remate de D-240, criterio del propietario: al pasar el ratón la sombra pierde *
 
 - **El realce de hover de la sombra pasa DENTRO del `@media (hover: hover) and (pointer: fine)`.** Estaba fuera desde D-232, así que en un móvil el "hover" que el navegador simula al tocar habría dejado la sombra encogida y clara hasta el siguiente toque en otro sitio — exactamente la trampa que D-232 documenta para el botón "Me presta" y los marcadores.
 - **`.active` se separa del `:hover`.** Antes compartían la regla de color. Ahora el activo solo cambia el color (LE-400 al 40%, tamaño completo) y no encoge ni se aclara: el hover es un realce de paso y el activo un estado que se queda. Además `.active` lo pone el JS, así que no puede vivir dentro de un media query de puntero.
+
+## D-242 · El apilamiento del mapa se calcula por posición en PANTALLA, no por latitud
+
+Corrige D-230, que ordenaba por latitud. Eso solo vale mientras el mapa mira al norte: en cuanto se gira, "más al sur" deja de ser "más abajo en la pantalla". Medido con el mapa a 90°: el orden por z-index y el orden real en pantalla no coincidían en ninguna posición salvo la primera.
+
+**No hace falta trigonometría con el `heading` ni recalcular "cada X grados"** (que fue lo que se planteó): el navegador ya sabe dónde ha pintado cada marcador, así que se lee su caja y se ordena por ella. Sirve igual para girar, inclinar, hacer zoom y desplazar, sin distinguir entre ellos.
+
+**Dos trampas, ambas medidas:**
+
+1. **Hay que escribir la PROPIEDAD `zIndex` del marcador, no `style.zIndex`.** Google reaplica su propia propiedad sobre el estilo en cada repintado, así que un `style.zIndex` puesto a mano duraba un fotograma: al girar, los valores volvían solos a los de latitud (47xxxx) y el orden se revertía hasta soltar el dedo. Se llega por el DOM (`<gmp-advanced-marker>` **es** el objeto AdvancedMarkerElement) para no dejar fuera los globos de cluster, que los crea la librería y no están en `locationMarkers`.
+2. **Hace falta un BUCLE mientras la cámara se mueve, no un reordenado por evento.** `bounds_changed` y `heading_changed` se disparan de forma irregular —en una rotación programática saltan al principio y poco más—, así que el orden iba desfasado casi toda la animación: medido, 1-4 aciertos de 7 durante ~600ms, correcto solo al parar. Con un `requestAnimationFrame` que corre mientras hay movimiento y se corta en `idle`: 7/7 durante todo el gesto.
+
+## D-243 · Marcadores en modo oscuro: sin sombra plana, con resplandor
+
+La sombra plana desaparece en TODOS los estados: es una mancha clara pensada para un mapa claro y sobre el oscuro se lee como suciedad. En su lugar, el efecto que especificó el propietario (Figma: X 0 · Y 4 · Blur 4 · Spread 0 · `#190609` al 100%).
+
+Va como `drop-shadow` y no `box-shadow`: el segundo dibujaría un rectángulo y el marcador tiene punta; `drop-shadow` sigue la silueta real de cuerpo y puntero. Se repite en `:hover` y `.active` porque esos dos estados llevan un `filter: none` que si no lo borraría.
+
+## D-244 · RETIRADA la entrada animada del mapa
+
+Se implementó una entrada en la que la cámara llegaba girada y se enderezaba despacio. **El propietario no llegó a verla nunca**, ni en móvil ni en escritorio, ni con la amplitud subida a 30° y 1,2 niveles de zoom, ni saltándose la guarda de `prefers-reduced-motion`. Se retira entera.
+
+**Lo desconcertante, y por eso queda escrito**: en el entorno del agente SÍ funcionaba y está medido — con la ventana a 375px el `heading` iba de 0 a 30 y volvía a 0, el zoom de 6,65 a 7,85, y hay captura del mapa a medio girar. O sea que el código era correcto y algo del entorno real lo impide.
+
+**Hipótesis para quien lo reintente** (ninguna comprobada): que el dispositivo caiga al render ráster en vez de vectorial, en cuyo caso `setHeading()` se ignora en silencio y no hay forma de notarlo desde el código. Antes de volver a escribir la animación, conviene comprobar primero si `map.setHeading(45)` a pelo hace algo en el dispositivo de destino.
+
+## D-245 · Los marcadores no se seleccionan como texto
+
+`user-select: none`, `-webkit-touch-callout: none` y `-webkit-tap-highlight-color: transparent` en `.mel-marker-wrapper`. Un marcador es un botón, no un párrafo: no hay nada que copiar en él, y sin esto el móvil intentaba seleccionar su etiqueta al mantener el dedo.
+
+**No arregló** el problema que se investigaba —el propietario ve el cuerpo del marcador desaparecer al mantener pulsado, dejando solo puntero y sombra— y ese caso queda SIN resolver y aparcado por decisión suya ("es un detalle menor que muy poca gente va a reproducir"). Se conserva el cambio igualmente porque impedir la selección de texto en un control es correcto de por sí, no como arreglo de aquello.

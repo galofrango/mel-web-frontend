@@ -804,6 +804,18 @@ const tags = [
     align-items: center;
     position: relative;
     cursor: pointer;
+    /* Al mantener el dedo sobre un marcador, el móvil hacía lo que hace con
+       cualquier texto: seleccionarlo (D-245). Salía el resaltado sobre la
+       etiqueta, y a veces las asas de selección y la lupa — encima solo de
+       la etiqueta, no del puntero ni de la sombra, así que el marcador se
+       veía partido en trozos. Un marcador es un botón, no un párrafo: no hay
+       nada que copiar en él.
+       `-webkit-touch-callout` quita además el menú contextual de iOS, y
+       `tap-highlight-color` el rectángulo azul que Android pinta al tocar. */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
     transition: transform 0.15s ease-out;
     animation: marker-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
@@ -908,6 +920,25 @@ const tags = [
      un estado que se queda. El hover vive en el media query de arriba. */
   .mel-marker-wrapper.active .mel-marker-shadow {
     background-color: color-mix(in srgb, var(--mel-primitive-le-400) 40%, transparent);
+  }
+
+  /* MODO OSCURO (D-243). La sombra plana desaparece en TODOS los estados: es
+     una mancha clara pensada para un mapa claro, y sobre el mapa oscuro se
+     lee como suciedad debajo del marcador. En su lugar, el resplandor que
+     especificó el propietario (Figma: X 0 · Y 4 · Blur 4 · Spread 0 ·
+     #190609 al 100%).
+     Va como `drop-shadow` y no como `box-shadow` a propósito: `box-shadow`
+     dibujaría un rectángulo, y el marcador no lo es — tiene la punta del
+     puntero. `drop-shadow` sigue la silueta real de las dos piezas.
+     Se repite en `:hover` y `.active` porque esos dos estados llevan un
+     `filter: none` que si no lo borraría. */
+  .dark .mel-marker-shadow {
+    display: none;
+  }
+  .dark .mel-marker-wrapper,
+  .dark .mel-marker-wrapper:hover,
+  .dark .mel-marker-wrapper.active {
+    filter: drop-shadow(0 4px 4px #190609);
   }
 
   .mel-marker-wrapper.active {
@@ -3240,6 +3271,79 @@ const tags = [
     return Math.round((90 - lat) * 10000);
   }
 
+  // La latitud SOLO sirve mientras el mapa mira al norte (D-242). En cuanto se
+  // gira, "más al sur" deja de ser "más abajo en la pantalla" y el orden se
+  // invierte a trozos — el propietario lo vio: los marcadores del fondo se
+  // colaban por delante. Medido con el mapa a 90°: el orden por z-index y el
+  // orden real en pantalla no coincidían en ninguna posición salvo la primera.
+  //
+  // No hace falta trigonometría con el `heading` ni recalcular "cada X
+  // grados": el navegador ya sabe dónde ha pintado cada marcador, así que se
+  // lee su posición real y se ordena por ella. Eso vale para girar, inclinar,
+  // hacer zoom y desplazar sin distinguir entre ellos.
+  //
+  // Se escribe la PROPIEDAD `zIndex` del marcador y no `style.zIndex`
+  // (D-242): son cosas distintas. Google reaplica su propia propiedad sobre
+  // el estilo en cada repintado, así que un `style.zIndex` puesto a mano
+  // duraba hasta el siguiente fotograma del gesto — medido: al girar, los
+  // valores volvían solos a los de latitud (47xxxx) y el orden se revertía
+  // hasta soltar. Escribiendo la propiedad, lo que Google reaplica ya es lo
+  // nuestro. Se llega por el DOM y no por `locationMarkers` para no dejar
+  // fuera los globos de cluster, que los crea la librería; el elemento
+  // `<gmp-advanced-marker>` ES el objeto AdvancedMarkerElement.
+  function reordenarMarcadoresPorPantalla() {
+    const envoltorios = document.querySelectorAll('#map-container .mel-marker-wrapper');
+    if (!envoltorios.length) return;
+
+    const datos = [];
+    envoltorios.forEach(w => {
+      const marcador = w.closest('gmp-advanced-marker');
+      if (!marcador) return;
+      const caja = w.getBoundingClientRect();
+      // Un marcador todavía sin pintar mide 0: dejarlo fuera evita mandarlo
+      // al fondo por un dato que no es su posición real.
+      if (caja.height <= 0) return;
+      datos.push({ marcador, y: caja.bottom });
+    });
+    if (!datos.length) return;
+
+    // De arriba abajo en pantalla; al de más abajo, el z-index más alto.
+    datos.sort((a, b) => a.y - b.y);
+    datos.forEach((d, i) => { d.marcador.zIndex = 1000 + i; });
+  }
+
+  // Durante el gesto, no solo al soltarlo (D-242). `idle` llega cuando la
+  // cámara ya se ha parado, así que mientras se arrastraba o se giraba el
+  // orden se veía revertido y solo se colocaba al levantar el dedo — lo
+  // reportó el propietario. `bounds_changed` y `heading_changed` sí van
+  // disparándose durante el gesto (comprobado). Se acota a un fotograma para
+  // no recalcular varias veces por frame: son pocos marcadores, pero esto
+  // corre mientras el dedo se mueve.
+  // Es un BUCLE mientras la cámara se mueve, no un reordenado por evento
+  // (D-242). Se probó lo segundo y no basta: `bounds_changed` y
+  // `heading_changed` se disparan de forma irregular —en una rotación
+  // programática saltan al principio y poco más—, así que el orden se
+  // quedaba desfasado casi toda la animación (medido: 1-4 aciertos de 7
+  // durante ~600ms, y correcto solo al parar). Con el bucle se recalcula en
+  // cada fotograma mientras hay movimiento y se corta en `idle`.
+  //
+  // El coste es una lectura de caja y una escritura por marcador y fotograma,
+  // con una decena de marcadores en pantalla.
+  let bucleReorden = null;
+  function pedirReordenMarcadores() {
+    if (bucleReorden) return;
+    const paso = () => {
+      reordenarMarcadoresPorPantalla();
+      bucleReorden = requestAnimationFrame(paso);
+    };
+    bucleReorden = requestAnimationFrame(paso);
+  }
+  function pararReordenMarcadores() {
+    if (bucleReorden) cancelAnimationFrame(bucleReorden);
+    bucleReorden = null;
+    reordenarMarcadoresPorPantalla();   // remate con la cámara ya quieta
+  }
+
   // Renders a cluster bubble. Defined once at module scope (not nested
   // inside initGoogleMap) since it only touches markerLib/googleMap, which
   // are already shared top-level state — that lets createGoogleMapInstance()
@@ -3329,6 +3433,13 @@ const tags = [
       });
     }
     _s.googleMapClusterer = googleMapClusterer;
+
+    // Reordenar EN VIVO durante el gesto y una vez más al pararse (D-242):
+    // `bounds_changed` cubre desplazar e inclinar, `heading_changed` el giro,
+    // e `idle` remata por si algún reajuste final movió algo.
+    googleMap.addListener('bounds_changed', pedirReordenMarcadores);
+    googleMap.addListener('heading_changed', pedirReordenMarcadores);
+    googleMap.addListener('idle', pararReordenMarcadores);
 
     // Any markers from a previous Map instance are gone along with it (a new
     // Map wipes its container's contents) — drop stale references so
@@ -3970,6 +4081,12 @@ const tags = [
 
     mapMarkers = Array.from(locationMarkers.values(), entry => entry.marker);
     _s.mapMarkers = mapMarkers;
+
+    // Reordenar también aquí y no solo en `idle` (D-242): filtrar o buscar
+    // cambia QUÉ marcadores hay sin mover la cámara, así que `idle` no llega
+    // a dispararse y los nuevos se quedarían con el orden de latitud. En el
+    // fotograma siguiente, para que ya tengan caja que medir.
+    requestAnimationFrame(reordenarMarcadoresPorPantalla);
 
     // Auto-fit bounds of the Google Map ONLY if the map view is active/visible
     // and the caller actually wants it (callers that are about to apply
