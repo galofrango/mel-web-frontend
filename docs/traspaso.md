@@ -147,7 +147,7 @@ a mano desde la web.
 
 ## 4. Lo que este entorno NO puede reproducir
 
-Seis cosas, y todas han costado horas por darlas por buenas:
+Siete cosas, y todas han costado horas por darlas por buenas:
 
 1. **La barra de URL que se repliega** (Chrome/Safari móvil). Es la causa de que
    los elementos `position: fixed` se descoloquen al desplazar. Aquí no existe.
@@ -167,6 +167,20 @@ Seis cosas, y todas han costado horas por darlas por buenas:
    este tipo se conduce alternando `screenshot` y comprobación. `setInterval` sí
    corre — por eso `restoreScroll()` lo usa a propósito (ver su comentario).
 
+   **Ampliación (2026-08-05, costó DOS HORAS de fantasmas)**: el estado varía
+   DENTRO de una misma sesión — el panel puede empezar la tarde entregando
+   fotogramas con normalidad (rAF respondiendo en 1ms, animaciones WAAPI
+   medibles en pleno vuelo) y morir del todo horas después, incluso para
+   pestañas nuevas, sin que las capturas lo resuciten. Con el panel muerto, el
+   síntoma es de lo más traicionero: `scheduleFilterArchives()` programa su
+   rAF, el callback no corre NUNCA, `sliderUpdateScheduled` queda atascado en
+   `true` y el slider parece completamente roto — con el código perfectamente
+   sano, mientras la búsqueda (que llama a `filterArchives()` en síncrono)
+   funciona y despista aún más. **La primera comprobación ante cualquier "este
+   código no corre" es un rAF suelto con timeout**; si no dispara, el panel
+   está muerto y NINGUNA conclusión de comportamiento vale ya — se cierra, se
+   documenta el estado y lo prueba el propietario en su navegador.
+
 6. **El mapa de Google puede comportarse distinto aquí que en el dispositivo
    real.** Caso vivido (D-244): una entrada animada que giraba la cámara
    funcionaba aquí y está MEDIDA —`heading` de 0 a 30 y vuelta, captura del
@@ -175,6 +189,18 @@ Seis cosas, y todas han costado horas por darlas por buenas:
    es que el dispositivo caiga al render ráster, donde `setHeading()` se
    ignora **en silencio**. Antes de invertir en cualquier animación de cámara,
    comprobar primero si un `map.setHeading(45)` a pelo hace algo allí.
+
+7. **La hoja de Google se satura con las recargas de una sesión intensa** y el
+   dev server pasa a servir INTERMITENTEMENTE una página-carcasa de ~3KB: la
+   cabecera renderiza, y ni tarjetas ni el script grande llegan. Una carcasa
+   pillada por `curl` mientras el navegador tiene cargada una página íntegra
+   (o al revés) fabrica contradicciones imposibles — "el archivo servido no
+   tiene mi función" con el código correcto en disco. Ante cualquier lectura
+   rara de la página servida, comprobar PRIMERO su tamaño (`wc -c`: la buena
+   ronda 650KB) antes de sacar conclusiones. De propina: el demonio de `astro
+   dev` (Astro 7) no ve los cambios del worktree (la ruta pasa por `.claude/`,
+   carpeta con punto que el watcher ignora) — tras cada edición hay que
+   `npx astro dev stop` y relanzar, o se prueba código rancio.
 
 **Corolario**: si una prueba sintética dice que algo funciona y el propietario
 dice que no, **tiene razón él**. Y al revés: que aquí no se reproduzca un fallo
