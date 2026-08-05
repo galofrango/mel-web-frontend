@@ -899,6 +899,16 @@ const tags = [
     pointer-events: none;
   }
 
+  /* Burbujas de cluster que CONTINÚAN un grupo ya visible (D-250): sin
+     animación de entrada. El clusterer no es incremental — destruye y recrea
+     todas las burbujas en cada re-render (cambio de membresía, zoom) — y el
+     rebote de escala de `marker-fade-in` repetido en cada tirón del slider
+     era los "saltitos" que veía el propietario. La entrada con rebote queda
+     solo para grupos que aparecen de verdad (carga inicial del mapa). */
+  .mel-marker-wrapper.sin-entrada {
+    animation: none;
+  }
+
   /* Acotado a puntero fino: sin esto, tocar un marcador en móvil lo dejaba
      agrandado y con la sombra realzada hasta el siguiente scroll — el "hover"
      que el navegador simula al tocar, y que no suelta hasta entonces (mismo
@@ -923,17 +933,20 @@ const tags = [
       transform: translateY(-4px);
     }
 
-    /* Y la sombra ENCOGE mientras el marcador sube: 4px menos por cada lado
-       y 16 puntos menos de opacidad (40% → 24%), para que se lea como que
-       queda más lejos y más pequeña. Va aquí dentro, con el resto del
-       realce de ratón: fuera del media query, el "hover" que el móvil
+    /* Y la sombra ENCOGE mientras el marcador sube, hasta el 72% de su ancho
+       original (D-250, afinado por el propietario desde el 60% del primer
+       intento; antes eran solo 4px por lado y apenas se notaba): en reposo
+       ocupa el 78% del wrapper (11% de margen por lado), así que el 72% de
+       eso son 56,2% de ancho → 21,9% de margen por cada lado, centrada. Y 16 puntos menos de opacidad (40% → 24%), para que se lea
+       como que queda más lejos y más pequeña. Va aquí dentro, con el resto
+       del realce de ratón: fuera del media query, el "hover" que el móvil
        simula al tocar la dejaría encogida y clara hasta el siguiente toque
        en otro sitio (la misma trampa de D-232). El estado `.active` no
        entra: ese lo gobierna el JS y conserva su sombra a tamaño y opacidad
        completos. */
     .mel-marker-wrapper:hover .mel-marker-shadow {
-      left: calc(11% + 4px);
-      right: calc(11% + 4px);
+      left: 21.9%;
+      right: 21.9%;
       background-color: color-mix(in srgb, var(--mel-primitive-le-400) 24%, transparent);
     }
   }
@@ -1056,6 +1069,11 @@ const tags = [
     border-top: 10px solid var(--mel-action-secondary);
     margin-top: -1px;
     transition: border-top-color 0.15s ease-out, filter 0.15s ease-out, transform 0.15s ease-out;
+    /* Por ENCIMA de la sombra (D-250): la sombra es el último hermano del
+       wrapper y, siendo la única posicionada, pintaba sobre el triángulo —
+       al revés de la física que se imita. El puntero es item de un flex,
+       así que z-index le aplica sin necesidad de posicionarlo. */
+    z-index: 1;
   }
 
   /* Mismo acotado que el resto de `:hover` del marcador — ver más arriba. */
@@ -2322,18 +2340,20 @@ const tags = [
     });
   }
 
-  // Smooth numeric counter roll animation
-  function animateValue(obj, start, end, duration = 250) {
+  // Smooth numeric counter roll animation. `prefix` va pegado a cada
+  // fotograma del rodillo (los clusters del mapa lo usan con '+', D-250) —
+  // escribirlo aparte dejaría el número desnudo durante la animación.
+  function animateValue(obj, start, end, duration = 250, prefix = '') {
     if (start === end) return;
     let startTimestamp = null;
     const step = (timestamp) => {
       if (!startTimestamp) startTimestamp = timestamp;
       const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-      obj.textContent = Math.floor(progress * (end - start) + start);
+      obj.textContent = prefix + Math.floor(progress * (end - start) + start);
       if (progress < 1) {
         window.requestAnimationFrame(step);
       } else {
-        obj.textContent = end;
+        obj.textContent = prefix + end;
       }
     };
     window.requestAnimationFrame(step);
@@ -3491,6 +3511,15 @@ const tags = [
   // inside initGoogleMap) since it only touches markerLib/googleMap, which
   // are already shared top-level state — that lets createGoogleMapInstance()
   // reuse it too when the map gets recreated for a color scheme change.
+  // Última cifra de cluster que vio cada localización (por locKey). Es la
+  // memoria que permite que una burbuja recreada por el clusterer se lea
+  // como CONTINUACIÓN (D-250): nace sin animación de entrada y con su número
+  // rodando desde la cifra anterior, en vez del rebote de escala que, al
+  // repetirse en cada tirón del slider, era los "saltitos". No se limpia
+  // cuando una localización sale del filtro: como mucho, un grupo que
+  // reaparezca mucho después rueda desde una cifra vieja — cosmético.
+  const ultimaCifraDeCluster = new Map();
+
   const clusterRenderer = {
     render: ({ count, position, markers }) => {
       // `count` is the number of distinct location pins folded into this
@@ -3498,19 +3527,35 @@ const tags = [
       // behind it, i.e. the sum of each pin's own event count.
       const eventCount = (markers || []).reduce((sum, m) => sum + (m.eventCount || 1), 0);
 
+      // ¿Algún miembro venía ya de un grupo visible? Entonces esta burbuja
+      // es continuación, no estreno. Con varios candidatos manda el mayor
+      // (al partirse un grupo por zoom, cada hijo rueda desde la cifra del
+      // padre hacia la suya, que es como se lee el reparto).
+      let cifraPrevia = null;
+      (markers || []).forEach(m => {
+        const c = ultimaCifraDeCluster.get(m.melLocKey);
+        if (c != null && (cifraPrevia === null || c > cifraPrevia)) cifraPrevia = c;
+      });
+
       const clusterContent = document.createElement('div');
-      clusterContent.className = 'mel-marker-wrapper';
+      clusterContent.className = 'mel-marker-wrapper' + (cifraPrevia !== null ? ' sin-entrada' : '');
       // El `+` delante distingue de un golpe un grupo de un marcador suelto: un
       // "12" a secas se lee como "aquí hay doce eventos", cuando lo que dice en
       // realidad es "aquí y alrededor". Solo lo llevan los clusters; los pines
       // individuales siguen con su número tal cual (se pintan en otro sitio).
       clusterContent.innerHTML = `
         <div class="mel-marker-body">
-          <span class="mel-marker-label">+${eventCount}</span>
+          <span class="mel-marker-label">+${cifraPrevia !== null ? cifraPrevia : eventCount}</span>
         </div>
         <div class="mel-marker-pointer"></div>
         <div class="mel-marker-shadow"></div>
       `;
+      if (cifraPrevia !== null && cifraPrevia !== eventCount) {
+        // Mismo rodillo que las tags de la cabecera, con el `+` en cada
+        // fotograma (ver animateValue).
+        animateValue(clusterContent.querySelector('.mel-marker-label'), cifraPrevia, eventCount, 250, '+');
+      }
+      (markers || []).forEach(m => { if (m.melLocKey) ultimaCifraDeCluster.set(m.melLocKey, eventCount); });
 
       const clusterMarker = new markerLib.AdvancedMarkerElement({
         position,
@@ -4079,6 +4124,13 @@ const tags = [
 
     for (const [locKey, entry] of locationMarkers) {
       if (!newKeys.has(locKey)) {
+        // Se anota AQUÍ si el pin estaba a la vista, antes de que los lotes
+        // del clusterer (removeMarkers) le pongan `map` a null: un miembro
+        // plegado dentro de un cluster tiene `map` null y NADIE lo ha visto
+        // nunca — hacerle el desvanecido de salida lo materializaba de la
+        // nada durante 150ms justo cuando su grupo perdía la cifra (el
+        // "marcador que se va" que veía el propietario, D-250).
+        entry.eraVisible = !!entry.marker.map;
         if (entry.inClusterer && googleMapClusterer) toRemoveFromClusterer.push(entry.marker);
         toExit.push(entry);
         locationMarkers.delete(locKey);
@@ -4107,6 +4159,9 @@ const tags = [
           content: markerContent,
           title: group.locationName
         });
+        // La clave viaja con el marcador: clusterRenderer la necesita para
+        // saber si una burbuja recreada continúa un grupo visible (D-250).
+        marker.melLocKey = locKey;
 
         // Add click listener to show the details Side Panel. El marcador es un
         // interruptor: si el panel ya está abierto en ESTE local, volver a
@@ -4190,8 +4245,20 @@ const tags = [
           // sitios que escriben esta etiqueta y este reescribe la del otro cada
           // vez que un grupo gana o pierde un miembro. Con el `+` solo en el
           // renderer, desaparecía al reagrupar — un fallo intermitente de los
-          // que cuestan una tarde. Si cambias el formato, cámbialo en los dos.
-          if (label) label.textContent = '+' + sum;
+          // que cuestan una tarde. Si cambias el formato, cámbialo en los dos
+          // (aquí va como `prefix` de animateValue, D-250).
+          if (label) {
+            const actual = parseInt((label.textContent || '').replace(/[^0-9]/g, ''), 10);
+            if (Number.isFinite(actual) && actual !== sum) {
+              // El rodillo de las tags de la cabecera, en vez del cambio seco.
+              animateValue(label, actual, sum, 250, '+');
+            } else if (!Number.isFinite(actual)) {
+              label.textContent = '+' + sum;
+            }
+          }
+          // La memoria de continuidad también se actualiza por aquí: si no,
+          // el siguiente reagrupado rodaría desde una cifra atrasada.
+          cluster.markers.forEach(m => { if (m.melLocKey) ultimaCifraDeCluster.set(m.melLocKey, sum); });
         });
       }
     }
@@ -4212,6 +4279,13 @@ const tags = [
     // their own fade-out animation (the .exiting class) actually gets to play
     // before they're removed from the map for good.
     toExit.forEach(entry => {
+      // Solo se desvanece lo que estaba A LA VISTA. Un miembro plegado en un
+      // cluster se va sin ceremonia: su despedida visual es la cifra del
+      // grupo bajando (el rodillo de D-250), no un pin materializándose.
+      if (!entry.eraVisible) {
+        entry.marker.map = null;
+        return;
+      }
       // Los que se van sí se dejan por encima mientras dura su desvanecido
       // (150ms): es un estado transitorio, no compite por el orden estable.
       entry.marker.zIndex = ACTIVE_MARKER_ZINDEX;
@@ -4229,7 +4303,17 @@ const tags = [
     // cambia QUÉ marcadores hay sin mover la cámara, así que `idle` no llega
     // a dispararse y los nuevos se quedarían con el orden de latitud. En el
     // fotograma siguiente, para que ya tengan caja que medir.
+    //
+    // Y una SEGUNDA pasada más tarde (D-250): una burbuja recién creada por
+    // el clusterer puede no tener caja todavía en ese primer fotograma —
+    // reordenarMarcadoresPorPantalla() descarta las cajas con alto 0 — y se
+    // quedaba con su z de latitud (~47000) frente a los 1000+i del resto:
+    // un cluster que subía de cifra se plantaba por delante de todos, con
+    // sombra y todo, hasta el siguiente movimiento de cámara. Es la rendija
+    // entre "el marcador existe" y "el marcador mide"; la segunda pasada es
+    // idempotente y barata (7-8 cajas).
     requestAnimationFrame(reordenarMarcadoresPorPantalla);
+    setTimeout(reordenarMarcadoresPorPantalla, 150);
 
     // Auto-fit bounds of the Google Map ONLY if the map view is active/visible
     // and the caller actually wants it (callers that are about to apply

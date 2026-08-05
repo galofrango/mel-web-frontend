@@ -4443,3 +4443,26 @@ Arreglo: **reconciliación por `idMel` en vez de borrado total**, en los tres co
 **2. El tirador "tardaba un espacio" en arrancar.** Preexistente, destapado por el reorden en vivo: la caja del tirador (~66px) CUELGA a un lado de su ancla (el piquito marca el año; el `-72px` es de D-021 para el margen de 24px en el extremo) y el arrastre mapeaba el cursor a la posición ABSOLUTA del año sin compensar por dónde se agarrara la caja — agarrándola por el centro había ~39px de zona muerta hacia un lado y el cursor viajaba fuera de la caja todo el gesto (medido). Arreglo clásico: `agarreOffsetPx` se memoriza en `beginDrag` y se resta en cada movimiento. Verificado: 1:1 desde el primer píxel, por el centro o por el borde.
 
 Pendiente de validación del propietario en móvil real (Chrome y Safari).
+
+## D-250 · Marcadores: la sombra bajo el triángulo y al 60% en hover; clusters quietos con número rodante
+
+Rama `feature/marcadores-sombra-y-clusters`. Dos peticiones del propietario.
+
+**1. Sombra.** (a) Pintaba POR ENCIMA del triángulo del puntero — es el último hermano del wrapper y el único posicionado. Arreglo mínimo: `z-index: 1` en `.mel-marker-pointer`, que al ser item de un flex no necesita posicionarse para que le aplique. (b) En hover ahora encoge hasta el **60% de su ancho original** (antes 4px por lado, apenas perceptible): en reposo ocupa el 78% del wrapper (11% por lado) → 46,8% de ancho → `left/right: 26.6%`, centrada. Verificado computado: 78% → 46,8% exactos, con su transición de siempre.
+
+**2. Los "saltitos" de los clusters al mover el slider.** El clusterer no es incremental: en cada cambio de membresía destruye y recrea TODAS las burbujas, y cada recreación repetía la animación de entrada (`marker-fade-in`, rebote de escala 0.6→1.08) — eso eran los saltitos. Ya existía un camino rápido para cuando solo cambian los números (D-230), pero escribía el texto a seco.
+
+Arreglo en dos piezas, con una memoria nueva (`ultimaCifraDeCluster`, por locKey del pin — la clave viaja ahora en el propio marcador como `melLocKey`):
+- Una burbuja recreada cuyos miembros ya estaban en un grupo visible es una CONTINUACIÓN: nace con `.sin-entrada` (sin rebote) y su número RUEDA desde la cifra anterior con el mismo `animateValue` de las tags de la cabecera, al que se le añadió un `prefix` opcional para el `+` (el aviso de los dos escritores del `+` sigue vigente; ahora ambos pasan por el prefijo).
+- El camino sin cambio de topología también rueda en vez de reescribir a seco.
+- La entrada con rebote queda solo para grupos que aparecen de verdad (carga inicial). Al partirse un grupo por zoom, cada hijo rueda desde la cifra del padre hacia la suya.
+
+Medido en navegador: rodillo cazado a medias (+36 → +33 → +30 → +28 en muestras de ~100ms), `sin-entrada` presente en las burbujas recreadas, cero en el estreno del mapa, consola limpia. Lo que el movimiento de cámara o un centroide que cambia de sitio muevan de verdad, se mueve — eso es el mapa siendo honesto, no el bug.
+
+**Segunda ronda (mismo día, tras la primera prueba del propietario, que validó lo anterior):**
+
+- **La sombra del hover sube del 60% al 72%** del ancho original (56,2% del wrapper → `left/right: 21.9%`). Medido: 72,1%.
+- **El pin que salía de un cluster se materializaba 150ms**: el desvanecido de salida (`.exiting`) se aplicaba a TODO el que dejaba el filtro, incluidos los miembros plegados dentro de un cluster — que tienen `map` null y nadie había visto nunca; ponerlos en el mapa para el fade los hacía aparecer de la nada justo cuando la cifra del grupo bajaba. Ahora se anota si el pin estaba a la vista ANTES de los lotes del clusterer (que le anulan el `map`) y solo los visibles se despiden con fade; la despedida de un miembro plegado es la cifra del grupo bajando con el rodillo.
+- **Un cluster que subía de cifra se plantaba por delante de todos, con sombra y todo** (hipótesis del propietario: "cuenta como nuevo" — correcta en el efecto). La causa exacta: el reordenado por pantalla que ya corría tras cada filtrado (rAF) descarta cajas con alto 0, y una burbuja recién creada por el clusterer aún no ha montado en ese fotograma — se saltaba el reparto y conservaba su z de latitud (~47000) frente a los 1000+i del resto hasta el siguiente movimiento de cámara. Es la rendija entre "el marcador existe" y "el marcador mide": una SEGUNDA pasada de `reordenarMarcadoresPorPantalla()` a los 150ms (idempotente, 7-8 cajas) la cierra. Verificado: tras el asentado, todos los z en escala de pantalla (1000-1003), ninguno colado en la de latitud.
+
+Pendiente de validación del propietario.
