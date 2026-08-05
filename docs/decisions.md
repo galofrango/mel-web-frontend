@@ -4425,3 +4425,21 @@ Ahora, dos piezas:
 **Arreglo definitivo**: durante el sort el slider PIERDE el nombre (`view-transition-name: none` bajo `html.orden-cambiando`) y vuelve a viajar dentro de la foto de la raíz — exactamente como viajó siempre hasta D-248, sin desaparecer jamás. El nombre solo hace falta contra el halo del ARRASTRE, y el arrastre no lleva esa clase. La clase se pone antes de arrancar la transición y se retira en `finished`, así que las dos capturas la ven. **Trampa dentro de la trampa (variante fina de D-239)**: la regla vive en un bloque con ámbito donde las vecinas de pseudo-elementos se libran del cid (Astro no puede colgárselo a un pseudo-elemento) — a esta, con compound normal, sí se lo colgó y nació muerta. `:global()` obligatorio; comprobado en el navegador antes y después.
 
 Punto de retorno: el estado previo es el commit `8a61b17` (main); esta rama existe para poder tirarla entera si no convence.
+
+## D-249 · Reconciliación por idMel en las tres vistas, y el tirador compensa el punto de agarre
+
+Rama `feature/slider-reorden-vivo`, segunda tanda. Dos causas distintas para dos síntomas del propietario.
+
+**1. Cajas blancas en Chrome móvil durante el reorden (galería Y lista).** No existe ningún "fundido para cards sin cargar" que se pudiera romper — eso era el crossfade por defecto. La causa: cada filtrado reconstruía TODAS las tarjetas/filas con `innerHTML`, y una `<img>` recién creada (`loading="lazy" decoding="async"`) llega SIN descodificar a la foto "nueva" de la view transition. En escritorio la caché lo tapa; en Chrome móvil no, y se veían las cajas vacías moverse hasta asentarse. **Pasaba también con la búsqueda de siempre** — el arrastre solo lo hizo evidente al encadenar transiciones.
+
+Arreglo: **reconciliación por `idMel` en vez de borrado total**, en los tres contenedores (rejilla de galería, `<tbody>` de la tabla, tarjetas móviles de lista). Mover un nodo existente conserva su imagen descodificada, su medida del masonry y sus listeners; solo se crean los que ENTRAN al resultado y se retiran los que salen. Medido en página asentada: galería 28/30 persistentes son el mismo nodo, sort 19 reutilizadas / 0 recreadas, lista 31/32. Detalles con miga:
+- El divisor de las tarjetas móviles dependía de la posición al construir (`showDivider`); ahora todas nacen con él y se le conmuta `hidden` según posición — una tarjeta que era la última puede dejar de serlo.
+- `list-row-intro` se limpia al reutilizar: mover un nodo REINICIA sus animaciones CSS y el parpadeo de entrada se repetiría.
+- El caso "cero resultados" vacía a mano lo que antes vaciaba el `innerHTML = ''`.
+- El FLIP de la lista no se entera: captura sus rectángulos viejos antes y compara por id.
+
+**Trampa de medición que costó una hora, para el siguiente**: en una página RECIÉN cargada el primer render del cliente sustituye el orden del servidor (cronológico desde D-131) por el de la sesión — cualquier sonda que marque nodos antes de que eso asiente concluye "no se reutiliza nada" y es falso. Sondear siempre sobre página asentada.
+
+**2. El tirador "tardaba un espacio" en arrancar.** Preexistente, destapado por el reorden en vivo: la caja del tirador (~66px) CUELGA a un lado de su ancla (el piquito marca el año; el `-72px` es de D-021 para el margen de 24px en el extremo) y el arrastre mapeaba el cursor a la posición ABSOLUTA del año sin compensar por dónde se agarrara la caja — agarrándola por el centro había ~39px de zona muerta hacia un lado y el cursor viajaba fuera de la caja todo el gesto (medido). Arreglo clásico: `agarreOffsetPx` se memoriza en `beginDrag` y se resta en cada movimiento. Verificado: 1:1 desde el primer píxel, por el centro o por el borde.
+
+Pendiente de validación del propietario en móvil real (Chrome y Safari).

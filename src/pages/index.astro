@@ -2607,10 +2607,35 @@ const tags = [
             if (img.complete) measureFlyerImg(img);
           });
         } else {
-          gridContainer.innerHTML = '';
+          // Reconciliación por idMel, NO borrado total (D-249). Antes esto era
+          // `innerHTML = ''` + reconstruir las 32 tarjetas en cada filtrado, y
+          // una <img> recién creada (lazy + async) llega SIN descodificar a la
+          // foto "nueva" de la view transition: en escritorio la caché lo tapa,
+          // en Chrome móvil se veían cajas blancas moviéndose durante toda la
+          // animación (reportado con la búsqueda de siempre igual que con el
+          // arrastre del slider). Mover un nodo existente conserva su imagen
+          // descodificada, su medida del masonry y sus listeners — los tiene
+          // seguro: o nació de buildGalleryCard o es SSR pasado por
+          // bindInitialCardClicks. Solo se crean las tarjetas que ENTRAN al
+          // resultado y se retiran las que salen.
+          const vivas = new Map();
+          Array.from(gridContainer.children).forEach(el => {
+            if (el.dataset && el.dataset.id) vivas.set(el.dataset.id, el);
+          });
+          const conservadas = new Set();
           galleryShown.forEach((item, i) => {
-            const card = buildGalleryCard(item, i);
-            gridContainer.appendChild(card);
+            const existente = vivas.get(item.idMel);
+            if (existente) {
+              conservadas.add(item.idMel);
+              // appendChild sobre un hijo ya presente lo MUEVE al final: al
+              // recorrer galleryShown en orden, la rejilla queda en ese orden.
+              gridContainer.appendChild(existente);
+            } else {
+              gridContainer.appendChild(buildGalleryCard(item, i));
+            }
+          });
+          vivas.forEach((el, id) => {
+            if (!conservadas.has(id)) el.remove();
           });
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
@@ -2767,11 +2792,31 @@ const tags = [
           });
         };
 
-        listBody.innerHTML = '';
+        // Reconciliación por idMel en vez de `innerHTML = ''` (D-249, mismo
+        // motivo que la galería: una <img> recreada llega sin descodificar a
+        // la foto de la transición — miniaturas en blanco en Chrome móvil).
+        // Las filas no llevan listeners propios (la tabla delega en
+        // document, ver el registro más abajo), así que mover un <tr> es
+        // gratis. El FLIP no se entera: sus rectángulos viejos se capturaron
+        // antes de llegar aquí y compara por id.
+        const filasVivas = new Map();
+        Array.from(listBody.children).forEach(tr => {
+          if (tr.dataset && tr.dataset.id) filasVivas.set(tr.dataset.id, tr);
+        });
+        const filasConservadas = new Set();
 
         if (paginated.length > 0) {
           listTable.style.height = '';
           paginated.forEach(item => {
+            const filaViva = filasVivas.get(item.idMel);
+            if (filaViva) {
+              filasConservadas.add(item.idMel);
+              // Mover un nodo reinicia sus animaciones CSS: si conserva la
+              // clase de entrada de cuando fue nueva, el parpadeo se repetiría.
+              filaViva.classList.remove('list-row-intro');
+              listBody.appendChild(filaViva);
+              return;
+            }
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-mel-bg-secondary transition-colors';
             tr.dataset.id = item.idMel;
@@ -2824,6 +2869,10 @@ const tags = [
             `;
             listBody.appendChild(tr);
           });
+          // Fuera las filas que ya no están en la página del resultado.
+          filasVivas.forEach((tr, id) => {
+            if (!filasConservadas.has(id)) tr.remove();
+          });
 
           // FLIP "play" step: rows that existed before (matched by id) get
           // slid from their old position to the new one; rows that are
@@ -2842,6 +2891,10 @@ const tags = [
           // treatment.
           void listBody.offsetHeight;
           medirMarquee(listBody);
+        } else {
+          // Sin resultados no hay reconciliación: se vacía, como hacía el
+          // `innerHTML = ''` de antes.
+          filasVivas.forEach(tr => tr.remove());
         }
 
         // Móvil: mismo dataset paginado, tarjetas EventCardList compactas
@@ -2849,25 +2902,47 @@ const tags = [
         const mobileListContainer = document.getElementById('list-mobile-cards');
         const mobileListItems = document.getElementById('list-mobile-cards-items') || mobileListContainer;
         if (mobileListItems && paginated.length > 0) {
-          mobileListItems.innerHTML = '';
+          // Reconciliación por idMel, como la tabla y la galería (D-249). Las
+          // tarjetas reutilizadas conservan su <img> descodificada y sus
+          // listeners. El divisor ya no se decide al construir (una tarjeta
+          // que era la última puede dejar de serlo al reordenar): todas nacen
+          // con él y aquí se le conmuta `hidden` según la posición.
+          const tarjetasVivas = new Map();
+          Array.from(mobileListItems.children).forEach(f => {
+            if (f.dataset && f.dataset.id) tarjetasVivas.set(f.dataset.id, f);
+          });
+          const tarjetasConservadas = new Set();
           paginated.forEach((item, idx) => {
-            const row = buildEventCardList(item, {
-              showDivider: idx < paginated.length - 1,
-              extraClass: 'mobile-event-card-list',
-            });
-            row.dataset.id = item.idMel;
-            // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
-            // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
-            // ficha aparecía al instante y en el teléfono se notaba la espera.
-            // `touchstart` ocurre al posar el dedo, unos cientos de milisegundos
-            // antes de que se suelte: justo el margen que hace falta para adelantarla.
-            ['pointerenter', 'touchstart'].forEach((evento) => row.addEventListener(evento, () => {
-              prefetchEventUrl(item.idMel, { search: searchQuery });
-            }, { once: true, passive: true }));
-            row.addEventListener('click', () => {
-              navigateToEvent(item.idMel, { search: searchQuery });
-            });
-            mobileListItems.appendChild(row);
+            let row = tarjetasVivas.get(item.idMel);
+            if (row) {
+              tarjetasConservadas.add(item.idMel);
+              // Misma limpieza que en la tabla: mover reinicia animaciones.
+              row.classList.remove('list-row-intro');
+              mobileListItems.appendChild(row);
+            } else {
+              row = buildEventCardList(item, {
+                showDivider: true,
+                extraClass: 'mobile-event-card-list',
+              });
+              row.dataset.id = item.idMel;
+              // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
+              // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
+              // ficha aparecía al instante y en el teléfono se notaba la espera.
+              // `touchstart` ocurre al posar el dedo, unos cientos de milisegundos
+              // antes de que se suelte: justo el margen que hace falta para adelantarla.
+              ['pointerenter', 'touchstart'].forEach((evento) => row.addEventListener(evento, () => {
+                prefetchEventUrl(item.idMel, { search: searchQuery });
+              }, { once: true, passive: true }));
+              row.addEventListener('click', () => {
+                navigateToEvent(item.idMel, { search: searchQuery });
+              });
+              mobileListItems.appendChild(row);
+            }
+            const divisor = row.querySelector('.border-b.border-mel-border');
+            if (divisor) divisor.classList.toggle('hidden', idx === paginated.length - 1);
+          });
+          tarjetasVivas.forEach((f, id) => {
+            if (!tarjetasConservadas.has(id)) f.remove();
           });
           // Aquí, y no arriba con la tabla: hasta esta línea las tarjetas nuevas
           // no existían.

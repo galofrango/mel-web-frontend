@@ -233,6 +233,18 @@ const { min = 2004, max = 2019 } = Astro.props;
       }, 550);
     };
 
+    // Compensación del punto de agarre. El tirador es una caja de ~66px que
+    // CUELGA a un lado de su ancla (el piquito marca el año; D-021 fija el
+    // -72px para que a pct 0 el borde quede a 24px del margen). El arrastre
+    // mapeaba el cursor a la posición ABSOLUTA del año, sin importar por
+    // dónde agarraras la caja: pillándola por el centro había ~39px de zona
+    // muerta hacia un lado y el cursor viajaba fuera de la caja todo el
+    // gesto (medido; siempre fue así, pero el reorden en vivo de D-248 hizo
+    // que por fin se notara). Se memoriza al agarrar cuánto dista el cursor
+    // del ancla y se resta en cada movimiento: el tirador arranca al primer
+    // píxel, se agarre por donde se agarre.
+    let agarreOffsetPx = 0;
+
     const beginDrag = (e, which) => {
       // Si se agarra un tirador a mitad de salto, el salto se corta aquí:
       // con la clase puesta, el arrastre iría con 0.5s de retraso.
@@ -244,6 +256,14 @@ const { min = 2004, max = 2019 } = Astro.props;
       activePointerId = e.pointerId;
       activeHandle = which === 'min' ? minHandle : maxHandle;
       smoothedPct = null;
+      {
+        // Ancla actual del tirador agarrado, en píxeles de pantalla — la
+        // misma cuenta que hace rawPct pero del revés.
+        const rect = trackWrapper.getBoundingClientRect();
+        const pctActual = which === 'min' ? minPct : maxPct;
+        const anclaX = rect.left + 96 + (rect.width - 192) * (pctActual / 100);
+        agarreOffsetPx = e.clientX - anclaX;
+      }
       isTouchDrag = e.pointerType === 'touch' || e.pointerType === 'pen';
       // D-086 ronda 6: index.astro's own drag-time throttle (ronda 4) reads
       // this to decide whether to throttle the expensive filterArchives()
@@ -266,7 +286,9 @@ const { min = 2004, max = 2019 } = Astro.props;
     window.addEventListener('pointermove', (e) => {
       if (!isDraggingMin && !isDraggingMax) return;
       const rect = trackWrapper.getBoundingClientRect();
-      const rawPct = Math.max(0, Math.min(100, ((e.clientX - rect.left - 96) / (rect.width - 192)) * 100));
+      // `- agarreOffsetPx`: el cursor manda sobre el ANCLA del tirador
+      // conservando la distancia con la que se agarró (ver beginDrag).
+      const rawPct = Math.max(0, Math.min(100, ((e.clientX - agarreOffsetPx - rect.left - 96) / (rect.width - 192)) * 100));
       // Mouse input is precise to the pixel — no noise to filter, and
       // smoothing it only adds a laggy trail with nothing to show for it.
       // First sample of a touch drag snaps immediately (no lag grabbing
