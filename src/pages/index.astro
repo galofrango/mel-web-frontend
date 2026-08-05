@@ -218,7 +218,20 @@ const tags = [
            real contra el ancho que ocupan los textos de las tags
            (updateHomeToolbarLayout), así que colgarlo de un ancho fijo se
            desincronizaría en cuanto cambiaran los datos de la hoja. */
-        #gallery-grid.galeria-cuatro {
+        /* Entrada de una tarjeta durante el ARRASTRE del slider (D-251/D-252): el
+     camino FLIP no tiene el crossfade de la view transition, así que lo que
+     entra al resultado se anuncia creciendo desde el 92% mientras funde —
+     espejo de la despedida (que encoge al 90% apagándose, ver el fantasma en
+     performDOMUpdates). La clase la pone y quita reproducirFlipGaleria(). */
+  @keyframes card-entra {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .gallery-item.card-entra {
+    animation: card-entra 300ms ease-out;
+  }
+
+  #gallery-grid.galeria-cuatro {
           grid-template-columns: repeat(4, minmax(0, 1fr));
         }
         @media (min-width: 1024px) {
@@ -739,6 +752,12 @@ const tags = [
      mida exactamente lo que mide su imagen: el resto del área reservada es
      el hueco vertical. A diferencia del multicol, añadir tarjetas al final
      NO recoloca las existentes (requisito del scroll infinito). */
+  /* `position: relative` en la rejilla: ancla los fantasmas de despedida
+     (absolute) del arrastre del slider — ver performDOMUpdates (D-252). */
+  #gallery-grid {
+    position: relative;
+  }
+
   .gallery-item {
     align-self: start;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
@@ -1696,6 +1715,81 @@ const tags = [
     return card;
   }
 
+  // Guardería de tarjetas retiradas por el filtro (D-251, idea del
+  // propietario). Una tarjeta que sale del rango no se destruye: se guarda
+  // desmontada con su <img> ya cargada, y si su año vuelve al rango se
+  // revive tal cual — sin volver a pedir ni descodificar nada. Es lo que
+  // hace que arrastrar el slider adelante y atrás no reestrene tarjetas en
+  // blanco. Tope holgado por si el archivo crece; hoy caben todas.
+  const guarderiaTarjetas = new Map();
+  const GUARDERIA_MAX = 150;
+
+  // Duración y curva ÚNICAS para los vuelos de reordenación (galería Y
+  // lista, D-252 — petición del propietario: misma respiración en las dos
+  // vistas). La curva anterior (0.16, 1, …) disparaba las tarjetas de
+  // salida y solo suavizaba el aterrizaje; esta arranca y posa suave.
+  // El throttle del arrastre se calcula a partir de FLIP_DUR: ningún
+  // filtrado nuevo hasta que el vuelo en curso ha terminado.
+  const FLIP_DUR = 450;
+  const FLIP_EASE = 'cubic-bezier(0.3, 0, 0.25, 1)';
+
+  // FLIP del reorden de la galería durante el ARRASTRE del slider (D-251,
+  // regla 2: animación contenida = transforms). Sustituye a la view
+  // transition en ese camino: mueve los nodos reales — las imágenes siguen
+  // vivas, nada se fotografía — así que las supervivientes DESLIZAN a su
+  // sitio nuevo (al quitar años por la izquierda con orden cronológico, se
+  // ve subir a las que quedan, que es la lectura natural que pedía el
+  // propietario) y las que entran hacen un fundido corto.
+  //
+  // Con la Web Animations API, NO con transiciones CSS, y no es capricho:
+  // `.gallery-item` lleva su transición de hover con `!important` (más
+  // abajo, en el CSS), así que el juego clásico del FLIP — `transition:
+  // none` para colocar la inversión y reactivarla para el vuelo — pierde
+  // siempre contra esa regla y las tarjetas saltan en seco (comprobado en
+  // el navegador con el patrón aislado). `el.animate()` va por fuera de la
+  // cascada: ni lee ni escribe `style.transition`, gana a la transición en
+  // el orden de composición, y al terminar se limpia sola (sin `fill`).
+  //
+  // Aguanta cruces ENCADENADOS: los rects viejos se capturan ANTES de
+  // reconciliar (posición visual, con el vuelo anterior incluido porque la
+  // animación afecta al rect), aquí se CANCELAN los vuelos pendientes para
+  // medir el destino sobre layout limpio, y cada tarjeta viaja del delta a
+  // cero — un cruce que las pilla a medio vuelo las redirige desde donde
+  // estén.
+  let vuelosGaleria = [];
+  let flipEntradaTimer = null;
+  function reproducirFlipGaleria(grid, rectsViejos, entrantes) {
+    vuelosGaleria.forEach(a => { try { a.cancel(); } catch (e) {} });
+    vuelosGaleria = [];
+    if (flipEntradaTimer) clearTimeout(flipEntradaTimer);
+
+    // Misma referencia que la captura: relativa a la rejilla (ver D-252 en
+    // el punto de captura — el scroll no debe colarse en los deltas).
+    const baseNueva = grid.getBoundingClientRect();
+    Array.from(grid.children).forEach(el => {
+      const viejo = el.dataset && el.dataset.id && rectsViejos.get(el.dataset.id);
+      if (!viejo) return;
+      const nuevo = el.getBoundingClientRect();
+      const dx = viejo.left - (nuevo.left - baseNueva.left);
+      const dy = viejo.top - (nuevo.top - baseNueva.top);
+      if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        vuelosGaleria.push(el.animate(
+          [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
+          { duration: FLIP_DUR, easing: FLIP_EASE }
+        ));
+      }
+    });
+
+    (entrantes || []).forEach(el => {
+      if (el.dataset && rectsViejos.has(el.dataset.id)) return;
+      el.classList.add('card-entra');
+    });
+    flipEntradaTimer = setTimeout(() => {
+      (entrantes || []).forEach(el => el.classList.remove('card-entra'));
+      flipEntradaTimer = null;
+    }, 400);
+  }
+
   // Scroll infinito: el centinela (#gallery-sentinel, hermano de la rejilla)
   // entra en el margen de precarga y se añade el siguiente lote SIN tocar lo
   // ya colocado. Búsquedas y filtros no interfieren: resetean
@@ -1786,15 +1880,19 @@ const tags = [
   // while `#slider-track-wrapper` has D-068's `.dragging` class.
   let sliderLastFilterAt = 0;
   let sliderTrailingTimer = null;
-  const SLIDER_DRAG_FILTER_THROTTLE_MS = 120;
+  // Al ritmo del vuelo (D-252, la "interpolación" que pidió el propietario):
+  // ningún filtrado nuevo hasta que la animación FLIP en curso ha terminado.
+  // En un arrastre rápido los años intermedios NO se reproducen — el disparo
+  // agrupado (trailing) lee el rango vigente al saltar, así que se va
+  // directo del vuelo en curso al último año pisado. Antes era 120ms y solo
+  // táctil (D-086 r4/r6, cuando el problema era el hilo principal); ahora
+  // marca el compás de la animación y aplica a CUALQUIER puntero.
+  const SLIDER_DRAG_FILTER_THROTTLE_MS = FLIP_DUR + 30;
   // Último rango (min-max) que llegó a programar un filtrado. Con él,
   // updateSlider() ignora los `input` de un arrastre que no cruzan de año.
+  // (La serialización de transiciones de D-248 vivió aquí y se retiró en
+  // D-251: el arrastre ya no arranca transiciones que serializar.)
   let ultimoRangoSlider = null;
-  // Serialización de transiciones durante el arrastre (regla 3): mientras una
-  // esté en vuelo, los cruces de año nuevos se aplazan (no se apilan) y se
-  // resuelven de una sola vez al terminar, con el rango vigente.
-  let transicionFiltroViva = false;
-  let filtroSliderDiferido = false;
 
   function scheduleFilterArchives() {
     if (sliderUpdateScheduled) return;
@@ -1825,23 +1923,30 @@ const tags = [
     // TimeSlider dispara `input` en CADA movimiento del puntero, cambie o no
     // el año — durante un arrastre eso era refiltrar decenas de veces por
     // segundo el mismo rango. Si el rango no ha cruzado de año, no hay nada
-    // que hacer. Solo durante el arrastre: los caminos discretos (init,
-    // restauración al volver de una ficha, clic en barra, teclado) conservan
-    // su comportamiento exacto, que hay flujos delicados apoyados en él.
+    // que hacer. Fuera del arrastre también se descarta el duplicado, con un
+    // matiz (D-251): el `change` del soltar era un refiltrado del MISMO rango
+    // que el último cruce ya pintó — con view transition, o sea 32 grupos
+    // fotografiados para un no-op — y el segundo disparo del clic en barra
+    // (input+change seguidos), otro. Solo pasa si no hay un throttle táctil
+    // pendiente: si lo hay, este disparo ES la sincronización final y tiene
+    // que correr (limpia el timer más abajo). El primer disparo de la sesión
+    // nunca se descarta (ultimoRangoSlider nace null).
     const rango = val1 + '-' + val2;
-    if (isDragging && rango === ultimoRangoSlider) return;
+    if (rango === ultimoRangoSlider && (isDragging || !sliderTrailingTimer)) return;
     ultimoRangoSlider = rango;
 
-    reiniciarPosicion();
-    // D-086 ronda 6: this throttle exists for touch's high event rate +
-    // weaker mobile CPUs (see the comment above SLIDER_DRAG_FILTER_THROTTLE_MS) —
-    // it was applying to ANY drag regardless of input device, including a
-    // mouse on desktop, which never had the problem it exists to solve and
-    // just got a slower, throttled re-render for no reason. TimeSlider.astro
-    // stamps the actual pointer type onto this same element at drag start.
-    const isTouchDragging = isDragging && trackWrapper.dataset.pointerType === 'touch';
+    // El slider YA NO resetea la posición — ni arrastrando, ni al soltar, ni
+    // con el clic en barra (D-252): quien está al final del scroll y toca el
+    // slider se queda donde está. Si el contenido encoge, el navegador
+    // recorta el scroll él solo, y el FLIP mide en coordenadas relativas a
+    // la rejilla precisamente para que ese recorte no ensucie los vuelos.
+    // La búsqueda conserva su vuelta arriba: tiene su propio
+    // reiniciarPosicion() en su handler.
 
-    if (!isTouchDragging) {
+    // El throttle marca el compás del FLIP para CUALQUIER puntero (D-252;
+    // la exención del ratón de D-086 r6 tenía sentido cuando esto protegía
+    // al hilo principal — ahora agrupa cruces para que cada vuelo termine).
+    if (!isDragging) {
       if (sliderTrailingTimer) { clearTimeout(sliderTrailingTimer); sliderTrailingTimer = null; }
       scheduleFilterArchives();
       return;
@@ -2555,6 +2660,10 @@ const tags = [
 
       // 3. Populate Gallery Grid View
       const gridContainer = document.getElementById('gallery-grid');
+      // Estado del FLIP del arrastre (D-251): los llena la reconciliación de
+      // abajo y los consume reproducirFlipGaleria() tras el dimensionado.
+      let rectsViejosGaleria = null;
+      const entrantesGaleria = [];
 
       const viewsEmptyState = document.getElementById('views-empty-state');
       const listTableWrapper = document.getElementById('list-table-wrapper');
@@ -2637,7 +2746,35 @@ const tags = [
           // descodificada, su medida del masonry y sus listeners — los tiene
           // seguro: o nació de buildGalleryCard o es SSR pasado por
           // bindInitialCardClicks. Solo se crean las tarjetas que ENTRAN al
-          // resultado y se retiran las que salen.
+          // resultado y se retiran las que salen — y las que salen van a la
+          // guardería, no a la basura (D-251).
+          //
+          // Durante el arrastre, el reorden lo anima el FLIP (D-251): la
+          // posición VISUAL de partida se captura aquí, antes de tocar nada
+          // (con el transform de un vuelo anterior incluido, si lo hay), y
+          // reproducirFlipGaleria() se dispara tras dimensionarConocidas(),
+          // cuando la rejilla ya está en su layout final.
+          if (arrastrandoSlider) {
+            // Coordenadas RELATIVAS a la rejilla, no al viewport (D-252): si
+            // el scroll cambia entre la captura y la medición del destino
+            // (p. ej. el navegador lo recorta porque el contenido encogió),
+            // unos rects de viewport meterían ese desplazamiento común en
+            // todos los deltas y la rejilla entera parecería volar en bloque.
+            // Relativo al grid, el FLIP solo anima reordenación de verdad.
+            const baseVieja = gridContainer.getBoundingClientRect();
+            rectsViejosGaleria = new Map();
+            Array.from(gridContainer.children).forEach(el => {
+              if (!el.dataset || !el.dataset.id) return;
+              const r = el.getBoundingClientRect();
+              if (!r.height) return;   // sin caja no hay posición que contar
+              rectsViejosGaleria.set(el.dataset.id, {
+                left: r.left - baseVieja.left,
+                top: r.top - baseVieja.top,
+                width: r.width,
+                height: r.height,
+              });
+            });
+          }
           const vivas = new Map();
           Array.from(gridContainer.children).forEach(el => {
             if (el.dataset && el.dataset.id) vivas.set(el.dataset.id, el);
@@ -2650,12 +2787,64 @@ const tags = [
               // appendChild sobre un hijo ya presente lo MUEVE al final: al
               // recorrer galleryShown en orden, la rejilla queda en ese orden.
               gridContainer.appendChild(existente);
+              return;
+            }
+            const guardada = guarderiaTarjetas.get(item.idMel);
+            if (guardada) {
+              guarderiaTarjetas.delete(item.idMel);
+              gridContainer.appendChild(guardada);
+              entrantesGaleria.push(guardada);
             } else {
-              gridContainer.appendChild(buildGalleryCard(item, i));
+              const nueva = buildGalleryCard(item, i);
+              gridContainer.appendChild(nueva);
+              entrantesGaleria.push(nueva);
             }
           });
+          const aGuarderia = (id, el) => {
+            el.classList.remove('card-entra');
+            ['transform', 'transition', 'opacity', 'position', 'left', 'top',
+             'width', 'height', 'pointerEvents', 'zIndex'].forEach(p => { el.style[p] = ''; });
+            guarderiaTarjetas.set(id, el);
+            if (guarderiaTarjetas.size > GUARDERIA_MAX) {
+              guarderiaTarjetas.delete(guarderiaTarjetas.keys().next().value);
+            }
+          };
           vivas.forEach((el, id) => {
-            if (!conservadas.has(id)) el.remove();
+            if (conservadas.has(id)) return;
+            const rectRel = rectsViejosGaleria && rectsViejosGaleria.get(id);
+            if (!rectRel) {
+              // Sin arrastre (o sin caja medida) no hay despedida: fuera y a
+              // la guardería.
+              el.remove();
+              aGuarderia(id, el);
+              return;
+            }
+            // Despedida durante el arrastre (D-252): el PROPIO nodo hace de
+            // fantasma — clonarlo estrenaría una <img> sin descodificar, la
+            // enfermedad que venimos curando. Se queda en la rejilla pero
+            // fuera de flujo (absolute, coordenadas relativas al grid, que
+            // es `position: relative` para esto), sin `data-id` para que ni
+            // la reconciliación ni el FLIP lo confundan con una tarjeta
+            // viva, y encoge mientras se apaga. Al terminar recupera su id
+            // y pasa a la guardería, listo para revivir.
+            delete el.dataset.id;
+            el.classList.remove('card-entra');
+            el.style.position = 'absolute';
+            el.style.left = rectRel.left + 'px';
+            el.style.top = rectRel.top + 'px';
+            el.style.width = rectRel.width + 'px';
+            el.style.height = rectRel.height + 'px';
+            el.style.pointerEvents = 'none';
+            el.style.zIndex = '1';
+            const despedida = el.animate(
+              [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.9)' }],
+              { duration: 260, easing: 'ease-out' }
+            );
+            despedida.onfinish = despedida.oncancel = () => {
+              el.remove();
+              el.dataset.id = id;
+              aGuarderia(id, el);
+            };
           });
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
@@ -2667,6 +2856,12 @@ const tags = [
         // Si esto se hace después, la foto sale de una cuadrícula de placeholders
         // y la animación anima el sitio equivocado.
         dimensionarConocidas(gridContainer);
+        // El vuelo del arrastre (D-251): con el layout ya asentado, cada
+        // superviviente viaja de su posición visual capturada a la nueva y
+        // las entrantes funden. Solo hay rects si esto vino de un arrastre.
+        if (rectsViejosGaleria && rectsViejosGaleria.size) {
+          reproducirFlipGaleria(gridContainer, rectsViejosGaleria, entrantesGaleria);
+        }
         // Las tarjetas recién creadas nacen con su nombre de contenido. Si esto
         // es un reordenado, hay que renombrarlas por hueco AQUÍ, por el mismo
         // motivo: después de la foto ya no sirve de nada.
@@ -2711,16 +2906,29 @@ const tags = [
         // se viera poco, es que no existía.
         const tarjetasLista = document.getElementById('list-mobile-cards-items')
           || document.getElementById('list-mobile-cards');
+        // OJO con este mapa (D-252, el "siempre bajan" que veía el
+        // propietario): la tabla y las tarjetas móviles comparten los MISMOS
+        // idMel y vuelcan aquí juntas — y el contenedor oculto (tabla en
+        // móvil, tarjetas en escritorio) devolvía rects de tamaño CERO que
+        // machacaban los buenos según el orden de captura. Un delta contra
+        // (0,0) hacía que TODA fila pareciera venir de arriba y bajara,
+        // quitaras los años que quitaras. Sin caja no hay posición: se salta.
+        // Y en RELATIVO a su contenedor, como la galería: un recorte de
+        // scroll no debe colarse en los deltas como movimiento de filas.
         const oldRowRects = new Map();
-        if (isListVisible) {
-          Array.from(listBody.children).forEach(tr => {
-            if (tr.dataset && tr.dataset.id) oldRowRects.set(tr.dataset.id, tr.getBoundingClientRect());
+        const capturarFilas = (cont) => {
+          if (!cont) return;
+          const base = cont.getBoundingClientRect();
+          Array.from(cont.children).forEach(fila => {
+            if (!fila.dataset || !fila.dataset.id) return;
+            const r = fila.getBoundingClientRect();
+            if (!r.height) return;
+            oldRowRects.set(fila.dataset.id, { top: r.top - base.top });
           });
-          if (tarjetasLista) {
-            Array.from(tarjetasLista.children).forEach(fila => {
-              if (fila.dataset && fila.dataset.id) oldRowRects.set(fila.dataset.id, fila.getBoundingClientRect());
-            });
-          }
+        };
+        if (isListVisible) {
+          capturarFilas(listBody);
+          capturarFilas(tarjetasLista);
         }
 
         // Mismo truco que en la galería, y por el mismo motivo: el scroll se pone
@@ -2744,11 +2952,14 @@ const tags = [
         const reproducirFlip = (nodos) => {
           const toPlay = [];
           const aEntrar = [];
+          // Misma referencia que la captura: relativa al contenedor (D-252).
+          const baseNueva = nodos.length && nodos[0].parentElement
+            ? nodos[0].parentElement.getBoundingClientRect() : { top: 0 };
           nodos.forEach((el) => {
             if (!el.dataset || !el.dataset.id) return;
             const oldRect = oldRowRects.get(el.dataset.id);
             if (oldRect) {
-              const deltaY = oldRect.top - el.getBoundingClientRect().top;
+              const deltaY = oldRect.top - (el.getBoundingClientRect().top - baseNueva.top);
               if (Math.abs(deltaY) > 1) {
                 el.style.transition = 'none';
                 el.style.transform = `translateY(${deltaY}px)`;
@@ -2799,8 +3010,9 @@ const tags = [
           // Viniendo del botón de ordenación se alarga, igual que en la galería y
           // con los mismos dos valores: allí el movimiento ES el contenido, no un
           // efecto secundario de haber filtrado.
-          const dur = animacionOrdenLenta ? duracionOrden : 320;
-          const ease = animacionOrdenLenta ? ORDEN_ANIM_EASE : 'cubic-bezier(0.16, 1, 0.3, 1)';
+          // Misma respiración que la galería (D-252): FLIP_DUR/FLIP_EASE.
+          const dur = animacionOrdenLenta ? duracionOrden : FLIP_DUR;
+          const ease = animacionOrdenLenta ? ORDEN_ANIM_EASE : FLIP_EASE;
           requestAnimationFrame(() => {
             toPlay.forEach((el) => {
               el.style.transition = `transform ${dur}ms ${ease}`;
@@ -3004,22 +3216,20 @@ const tags = [
 
     // Durante el arrastre del slider NO se envuelve en una view transition: el
     // arrastre dispara un re-render cada pocos milisegundos y cada transición
-    // anima el reordenado de filas/tarjetas, así que encadenarlas sin control
-    // hacía que los elementos se vieran "rebotando buscando sitio" — durante
-    // una época el arrastre del slider directamente NO animaba por esto (se
-    // saltaba la transición entera y el DOM cambiaba a pelo). El arreglo de
-    // verdad no era apagar la animación sino no APILAR transiciones (regla 3):
-    // updateSlider() ya solo llama aquí al cruzar de año, y si al llegar un
-    // cruce hay una transición aún en vuelo, el refiltrado entero se aplaza a
-    // que termine — leerá entonces el rango vigente, así que ningún cruce se
-    // pierde, solo se agrupan. La galería persigue al slider con animaciones
-    // que siempre llegan a completarse.
+    // Durante el ARRASTRE del slider no se usa view transition (D-251): cada
+    // tarjeta lleva nombre propio (el morph a su ficha), así que cada cruce
+    // de año fotografiaba ~32 grupos, y encadenado eso desborda el
+    // presupuesto de texturas de un móvil — Chrome pintaba las tarjetas EN
+    // BLANCO durante todo el arrastre aunque sus imágenes estuvieran
+    // descodificadas (la reconciliación de D-249 no bastó por esto). El
+    // reorden del arrastre lo anima un FLIP con transforms dentro de
+    // performDOMUpdates (regla 2: animación contenida = FLIP), que mueve los
+    // nodos reales sin fotografiar nada. La serialización de transiciones de
+    // D-248 se retiró con esto: era el remedio para encadenarlas, y ya no se
+    // encadena ninguna. La transición queda para lo discreto (búsqueda,
+    // sort, clic en barra), donde el crossfade y el morph sí aportan.
     const trackWrapper = document.getElementById('slider-track-wrapper');
     const arrastrandoSlider = trackWrapper && trackWrapper.classList.contains('dragging');
-    if (arrastrandoSlider && transicionFiltroViva && document.startViewTransition && !restaurandoVuelta()) {
-      filtroSliderDiferido = true;
-      return;
-    }
 
     // Volviendo de una ficha NO se arranca transición aquí: la del ClientRouter
     // sigue viva y apilar una encima la supersede (regla 3 de AGENTS.md, escrita
@@ -3039,7 +3249,7 @@ const tags = [
     const listaEl = document.getElementById('view-lista');
     const ordenandoEnLista = animacionOrdenLenta && listaEl && !listaEl.classList.contains('hidden');
 
-    if (document.startViewTransition && !restaurandoVuelta() && !ordenandoEnLista) {
+    if (document.startViewTransition && !arrastrandoSlider && !restaurandoVuelta() && !ordenandoEnLista) {
       try {
         // Si el reordenado viene del botón de ordenación, la transición se
         // alarga. La clase se pone ANTES de arrancarla porque las animaciones de
@@ -3055,9 +3265,7 @@ const tags = [
           nombrarHuecos(true);
         }
         const transition = document.startViewTransition(performDOMUpdates);
-        transicionFiltroViva = true;
         transition.finished.catch(() => {}).finally(() => {
-          transicionFiltroViva = false;
           if (lenta) {
             document.documentElement.classList.remove('orden-cambiando');
             // Devuelve el nombre de contenido: es el que empareja la tarjeta con
@@ -3066,12 +3274,6 @@ const tags = [
             // La bandera se apaga AQUÍ y no al arrancar: el FLIP de la lista la
             // lee dentro de performDOMUpdates, que corre después.
             animacionOrdenLenta = false;
-          }
-          // Cruces de año que llegaron con esta transición en vuelo: se
-          // agruparon en uno y se resuelve ahora, con el rango vigente.
-          if (filtroSliderDiferido) {
-            filtroSliderDiferido = false;
-            filterArchives();
           }
         });
       } catch (err) {
