@@ -889,6 +889,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       if (imageCrop) {
         // Si la caja ya nace en el suelo (cartel apaisado), esto no encoge nada:
         // no hay aire que recuperar. Es la consecuencia buscada, no un fallo.
+        //
+        // El `- revelado` está PROBADO que no es la causa del "empujón" al
+        // crecer la foto de vuelta: se quitó de aquí y del `top` de la caja
+        // fijada, y el empujón siguió igual (D-247). No es el hilo del que
+        // tirar; si vuelves a este bug, busca en otro sitio.
         imageCrop.style.height = `${Math.max(IMAGE_MIN_H, altoMaximo - pasado - revelado)}px`;
       }
 
@@ -1389,6 +1394,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // Así que se reenvía el gesto a mano, sin tocar la geometría. Solo el eje
     // vertical: el horizontal sigue siendo del deslizamiento entre fotos y el
     // toque limpio sigue abriendo el lightbox.
+    // Un solo dueño por gesto. El arrastre vertical (de aquí abajo) y el
+    // deslizamiento entre fotos deciden su eje con deltas ACUMULADOS y
+    // reevalúan en cada movimiento hasta engancharse: en un gesto largo en
+    // diagonal acababan enganchándose LOS DOS (primero uno, luego el otro) y
+    // peleándose por el mismo dedo — la página desplazándose por debajo de un
+    // cambio de foto. El primero que decide eje se queda el gesto entero.
+    const ejeGesto = { dueno: null };
+
     function habilitarArrastreVertical(zona) {
       if (!zona) return;
       const MINIMO = 6;            // por debajo de esto es un toque, no un arrastre
@@ -1411,6 +1424,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         y0 = e.clientY; x0 = e.clientX; scroll0 = raizPagina.scrollTop;
         ultimaY = e.clientY; ultimoT = e.timeStamp; velocidad = 0; arrastrando = false;
         huboArrastre = false;
+        ejeGesto.dueno = null;
       }, { signal: wSig });
 
       zona.addEventListener('pointermove', (e) => {
@@ -1419,8 +1433,10 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         // El gesto solo se toma cuando es claramente vertical; si no, se deja
         // pasar para que el deslizamiento entre fotos siga funcionando.
         if (!arrastrando) {
+          if (ejeGesto.dueno === 'horizontal') return;
           if (Math.abs(dy) < MINIMO || Math.abs(dy) <= Math.abs(e.clientX - x0)) return;
           arrastrando = true; huboArrastre = true;
+          ejeGesto.dueno = 'vertical';
         }
         const dt = e.timeStamp - ultimoT;
         if (dt > 0) velocidad = (e.clientY - ultimaY) / dt;
@@ -1461,14 +1477,19 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       const MINIMO = 45;
       let x0 = null, y0 = null, dxUltimo = 0, dyUltimo = 0, huboDeslizamiento = false, arrastrando = false;
 
-      // `pan-y` es imprescindible, no un adorno: sin él el navegador se queda
-      // TODO el gesto: en cuanto el dedo se mueve en horizontal decide que es un
-      // desplazamiento suyo, dispara `pointercancel` y deja de mandar eventos —
-      // por eso el deslizamiento no llegaba a ocurrir nunca en un dispositivo
-      // real ni en la emulación del inspector. Con `pan-y` le cedemos el eje
-      // vertical (el scroll de la página sigue funcionando sobre la foto) y nos
-      // quedamos el horizontal.
-      zona.style.touchAction = 'pan-y';
+      // `none`, no `pan-y`: aquí el navegador no pinta nada. Con `auto` se
+      // quedaba TODO el gesto (pointercancel inmediato, el deslizamiento no
+      // ocurría nunca); con `pan-y` cedíamos el eje vertical… y eso dejaba a
+      // Safari quedarse el gesto A MITAD cuando el dedo derivaba en diagonal:
+      // `pointercancel`, y nuestro `resolver` contaba el recorrido horizontal
+      // acumulado como deslizamiento válido — el "cambia del tirón" de móvil
+      // real. Y en el inspector, Chrome reclamaba el pan vertical al instante
+      // sobre una caja fija que no tiene nada que desplazar: zona muerta.
+      // El eje vertical no lo perdemos por quitárselo al navegador porque
+      // sobre la foto NUNCA fue suyo — la caja es fija y el scroll nativo no
+      // la atraviesa; lo reenvía a mano `habilitarArrastreVertical` (arriba),
+      // que sigue recibiendo los eventos. Los dos ejes son nuestros.
+      zona.style.touchAction = 'none';
 
       // Resistencia elástica: arrastrar hacia un lado sin fotos deja hueco de
       // sobra (un tercio del recorrido real) para notar que el gesto SÍ se ha
@@ -1497,7 +1518,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (!fueArrastre) return;
 
         const base = -indiceActual() * 100;
-        if (Math.abs(dxUltimo) < MINIMO || Math.abs(dxUltimo) <= Math.abs(dyUltimo)) {
+        // Solo cuenta el recorrido horizontal: el eje ya se decidió al
+        // engancharse (cerrojo `ejeGesto`), así que comparar aquí contra el
+        // vertical era volver a juzgar un gesto ya adjudicado — un arrastre
+        // horizontal amplio con deriva vertical hacía snap-back en vez de
+        // cambiar de foto.
+        if (Math.abs(dxUltimo) < MINIMO) {
           track.style.transform = `translate3d(${base}%, 0, 0)`;
           return;
         }
@@ -1525,6 +1551,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
         x0 = e.clientX; y0 = e.clientY;
         dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false; arrastrando = false;
+        // También aquí, no solo en el arrastre vertical: el lightbox usa esta
+        // misma función y no tiene gestor vertical que le limpie el cerrojo.
+        ejeGesto.dueno = null;
         anchoFoto = zona.getBoundingClientRect().width;
       }, { signal: wSig });
 
@@ -1538,9 +1567,11 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (!arrastrando) {
           // Sin decidir el eje todavía: un temblor mínimo no cuenta como
           // gesto, y si domina el vertical es scroll de página, no nuestro.
+          if (ejeGesto.dueno === 'vertical') return;
           if (Math.max(Math.abs(dxUltimo), Math.abs(dyUltimo)) < 6) return;
           if (Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
           arrastrando = true;
+          ejeGesto.dueno = 'horizontal';
           track.style.transition = 'none';
         }
 
@@ -1594,6 +1625,22 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     // El arrastre vertical se engancha a TODA la caja fija, no solo a la foto:
     // la paginación y el faldón también son zona muerta si no.
     habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
+
+    // Y la RUEDA del ratón, aparte: el reenvío de arriba escucha dedo
+    // (descarta `pointerType === 'mouse'`) y la rueda ni siquiera es un
+    // pointer. En escritorio con la ventana estrecha, en cuanto la caja se
+    // fija la rueda encima de ella muere — para un `fixed` la cadena de
+    // scroll acaba en el viewport, que aquí no se desplaza (el scroll vive
+    // en `#detail-page-container`). Solo actúa con la caja fijada: en flujo
+    // el scroll nativo ya funciona y reenviar encima lo duplicaría.
+    if (cajaFoto) {
+      cajaFoto.addEventListener('wheel', (e) => {
+        if (!raizPagina.classList.contains('fijada')) return;
+        // deltaMode 1 = líneas (Firefox); a píxeles con el alto de línea usual.
+        raizPagina.scrollTop += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+        e.preventDefault();
+      }, { passive: false, signal: wSig });
+    }
 
     // Initialize carousel and autoplay
     if (imageUrls && imageUrls.length > 0) {
@@ -1753,6 +1800,10 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 
     .fijada #detail-image-sticky {
       position: fixed;
+      /* El `+ --mel-revelado` NO es la causa del "empujón" al crecer la foto
+         de vuelta (D-247): se probó quitarlo de aquí y del alto del recorte y
+         el empujón siguió, con el añadido de que la cabecera se solapaba
+         sobre el canto de la foto durante el tramo. Revertido. */
       top: calc(var(--mel-cab-fija, 176px) + var(--mel-revelado, 0px));
       left: 0;
       right: 0;

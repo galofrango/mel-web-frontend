@@ -4376,3 +4376,29 @@ Se implementó una entrada en la que la cámara llegaba girada y se enderezaba d
 `user-select: none`, `-webkit-touch-callout: none` y `-webkit-tap-highlight-color: transparent` en `.mel-marker-wrapper`. Un marcador es un botón, no un párrafo: no hay nada que copiar en él, y sin esto el móvil intentaba seleccionar su etiqueta al mantener el dedo.
 
 **No arregló** el problema que se investigaba —el propietario ve el cuerpo del marcador desaparecer al mantener pulsado, dejando solo puntero y sombra— y ese caso queda SIN resolver y aparcado por decisión suya ("es un detalle menor que muy poca gente va a reproducir"). Se conserva el cambio igualmente porque impedir la selección de texto en un control es correcto de por sí, no como arreglo de aquello.
+
+## D-246 · El gesto sobre la foto del evento tiene UN dueño: cerrojo de eje + `touch-action: none`
+
+Arregla el "cambia del tirón sin transición" del carrusel en móvil real, aparcado en una sesión anterior. La causa no era una: sobre la foto competían TRES gestores del mismo dedo — el deslizamiento horizontal, el reenvío vertical manual (`habilitarArrastreVertical`, que existe porque la caja es fija y el scroll nativo no la atraviesa) y el propio navegador, al que `touch-action: pan-y` le dejaba el eje vertical.
+
+**Dos fallos concretos, dos cambios:**
+
+1. **`pan-y` → `none` en la zona de deslizamiento.** Con `pan-y`, Safari podía quedarse el gesto A MITAD cuando el dedo derivaba en diagonal: disparaba `pointercancel` y nuestro `resolver` contaba el recorrido horizontal acumulado como deslizamiento válido — cambio de foto de golpe mientras la página además se desplazaba. Y en el inspector de escritorio, Chrome reclamaba el pan vertical al instante sobre una caja fija sin nada que desplazar: por eso allí arrastrar la foto no hacía nada. No se pierde el scroll vertical sobre la foto: nunca fue del navegador (caja fija), lo reenvía el gestor manual, que sigue recibiendo los eventos. Ojo al historial del comentario en el código: `pan-y` fue a su vez el arreglo contra `auto` (que mataba TODO el gesto) — no volver atrás.
+
+2. **Cerrojo compartido por gesto (`ejeGesto`).** Los dos gestores JS decidían su eje con deltas ACUMULADOS y reevaluaban en cada movimiento hasta engancharse: en un gesto largo en diagonal acababan enganchándose LOS DOS y peleándose por el dedo. Ahora el primero que decide eje se queda el gesto entero. Consecuencia: la comparación `dx` vs `dy` que `resolver` hacía al soltar sobra y se retira — era juzgar dos veces un gesto ya adjudicado, y hacía snap-back en arrastres horizontales amplios con deriva vertical.
+
+Verificado con gestos táctiles sintéticos en las cuatro direcciones del conflicto (vertical→horizontal no roba, horizontal→vertical no desplaza página, swipe limpio anima a 0.5s, extremo amortigua a 1/3 sin dar la vuelta) y en el lightbox (comparte función; su `pointerdown` también limpia el cerrojo porque no tiene gestor vertical que lo haga). **Validado por el propietario en móvil real** — la parte de `pointercancel` de Safari no se puede reproducir en este entorno, así que esa confirmación era imprescindible.
+
+## D-247 · La rueda del ratón sobre la caja fijada; y una vía muerta descartada para el "empujón" al crecer
+
+Dos frentes en la ficha de evento (layout móvil). **Uno entra, el otro se revierte** — y el revertido deja aprendizaje, que es para lo que se escribe esta entrada.
+
+**1. ENTRA — la rueda del ratón no hacía nada sobre la caja de la foto encogida** (escritorio a ancho móvil). Para un elemento `fixed`, la cadena de scroll de la rueda acaba en el viewport, que en esta página no se desplaza: el scroll vive en `#detail-page-container`. Y el reenvío táctil que ya existía (`habilitarArrastreVertical`) descarta el ratón a propósito, además de que la rueda ni siquiera es un evento de puntero. Se añade un listener de `wheel` en la caja que reenvía el desplazamiento **solo cuando está fijada**: en flujo el scroll nativo ya funciona y duplicarlo daría saltos. Normaliza `deltaMode` 1 (líneas, Firefox) a píxeles. Validado por el propietario.
+
+**2. SE REVIERTE — el "empujón" a lo que hay encima cuando la foto vuelve a crecer.** Sigue SIN RESOLVER.
+
+La hipótesis era que la culpa la tenía `--mel-revelado` (lo que asoma la fila de la X), que se resta del alto del recorte y se suma al `top` de la caja fijada. La medición que la respaldaba es real y sigue siendo cierta: al arrastrar hacia abajo, la foto se queda congelada los ~48px del asomo y después crece al doble de velocidad en el tramo donde la X se repliega.
+
+**Pero quitar `revelado` de las dos ecuaciones NO eliminó el empujón** — el propietario lo comprobó en móvil real: el empujón seguía igual, y encima aparecía un solape de la cabecera sobre el canto de la foto durante ese tramo. O sea que esa aceleración medida es un efecto colateral, no la causa. Revertido a como estaba.
+
+**Para quien lo reintente:** `revelado` ya está descartado, no vuelvas por ahí (hay un aviso en los dos sitios del código). El siguiente sospechoso razonable es el alto congelado de `#detail-image-column` frente al recorte que sí cambia, o el propio instante del `toggle('fijada')`, no probados. Y conviene medir la posición del CONTENIDO de debajo durante el crecimiento, no solo la de la foto: el propietario describe que se empuja lo de arriba, y todo lo medido hasta ahora ha sido la caja de la foto.
