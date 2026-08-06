@@ -68,11 +68,20 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
      etiqueta, como un solo objeto. -->
 <div
   style={`view-transition-name: flyer-img-${id};`}
-  class="gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30"
+  class="gallery-item unsized relative shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30"
   data-id={id}
   data-ratio={ratio ? String(ratio) : undefined}
   data-node-id="Grid Image V2"
 >
+  <!-- La capa que se INCLINA (experimental, D-264). Existe por una razón
+       concreta: el `transform` de la tarjeta ya tiene tres dueños —los vuelos
+       FLIP del slider, las entradas y despedidas, y el morphing hacia la
+       ficha—, y un cuarto escritor en la misma propiedad es lo que hizo
+       encallar el intento de julio (rama `experiment/gallery-3d-tilt`). Con el
+       giro una capa más adentro, cada uno anima lo suyo y no se estorban.
+       El `overflow-hidden` se mudó aquí desde la tarjeta: si se quedaba fuera,
+       recortaba la propia capa al crecer y el efecto no se veía. -->
+  <div class="carta-3d relative overflow-hidden bg-white">
   <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers.
        h-auto: la imagen entera a ancho de columna y ratio original (sin recortes).
        onload publica el ratio real y fija el row-span de la tarjeta en el grid
@@ -101,6 +110,12 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
        Si algún día se recupera, va también en su gemela `buildGalleryCard()`
        de index.astro (regla 7). -->
 
+  <!-- El barrido de luz (D-264). Va por debajo de la pastilla (z-10 contra su
+       z-20): el reflejo es del papel, no de la interfaz. Sin contenido propio
+       —el degradado lo escribe el motor de inclinación en cada fotograma— y
+       apagado del todo mientras nadie la sobrevuela. -->
+  <div class="brillo-3d" aria-hidden="true"></div>
+
   <!-- Figma "Event Info" (node 481:238727): 32px bottom bar in action-secondary,
        title left / date right, justify-between. Title truncates first (min-w-0)
        so the date never gets pushed off on narrow cards. -->
@@ -115,5 +130,6 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
         {date}
       </p>
     )}
+  </div>
   </div>
 </div>

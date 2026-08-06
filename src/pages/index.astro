@@ -813,8 +813,64 @@ const tags = [
     min-height: 280px;
   }
 
+  /* ---- Inclinación 3D de las tarjetas (EXPERIMENTAL, D-264) ----
+     Los números salen del laboratorio que el propietario ajustó a mano el
+     06-08-2026; están todos juntos aquí y en el motor de JS, y no repartidos
+     por el archivo, para que se puedan cambiar de un vistazo. */
+  .carta-3d {
+    /* La perspectiva va DENTRO del transform y no como propiedad de un
+       ancestro: `perspective` solo alcanza a los hijos DIRECTOS, y quien gira
+       es esta capa, un nivel por debajo de la rejilla. Además, así cada
+       tarjeta tiene su propio punto de fuga centrado en ella — con una
+       perspectiva compartida, las de los bordes se deformarían hacia el
+       centro de la pantalla. */
+    transform:
+      perspective(600px)
+      rotateX(var(--giro-x, 0deg))
+      rotateY(var(--giro-y, 0deg))
+      scale(var(--escala-3d, 1));
+    /* `flat` y no `preserve-3d`: ningún hijo necesita profundidad propia, y
+       con preserve-3d el navegador rasteriza cada capa por separado y deja
+       costuras de un píxel en los bordes. */
+    transform-style: flat;
+    transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  /* Mientras el puntero manda, sin transición: la capa sigue al dedo. Al
+     soltar vuelve la de 700ms y la tarjeta se endereza sola. */
+  .gallery-item.inclinando .carta-3d { transition: none; }
+
+  /* La escala al pasar por encima vive AQUÍ y no en la tarjeta (donde estaba
+     como `transform: scale(1.025) !important`): el transform de la tarjeta es
+     de los vuelos FLIP y del morphing. En CSS y no en JS para que funcione
+     igual antes de que el script arranque. */
+  @media (hover: hover) and (pointer: fine) {
+    .gallery-item:hover .carta-3d { --escala-3d: 1.045; }
+  }
+
+  /* El barrido de luz. El degradado lo escribe el motor en cada fotograma;
+     aquí solo vive el material: aditivo (la luz SUMA, así que también brilla
+     sobre los carteles oscuros) y desenfocado. */
+  .brillo-3d {
+    position: absolute;
+    inset: 0;
+    z-index: 10;          /* sobre el cartel, bajo la pastilla (z-20) */
+    pointer-events: none;
+    opacity: 0;
+    background: var(--brillo-fondo, none);
+    mix-blend-mode: screen;
+    filter: blur(20px);
+    transition: opacity 700ms ease;
+  }
+  .gallery-item.inclinando .brillo-3d { transition: none; opacity: 0.24; }
+
+  /* La sombra se recalcula en cada fotograma, así que su transición de 300ms
+     la haría arrastrarse por detrás del ratón. Se retira mientras se inclina;
+     al soltar vuelve y la sombra se recoge sola. */
+  .gallery-item.inclinando {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
   .gallery-item:hover {
-    transform: scale(1.025) !important;
     z-index: 30 !important;
     box-shadow: 0 239px 67px 0 rgb(var(--mel-shadow-rgb) / 0.00),
                 0 153px 61px 0 rgb(var(--mel-shadow-rgb) / 0.01),
@@ -1794,7 +1850,7 @@ const tags = [
     // entre las dos cante en cuanto se separen. Ya lo hicieron: aquí estaba la
     // sombra del DS y allí no, así que la galería cambiaba de aspecto en cuanto
     // tocabas un filtro.
-    card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30';
+    card.className = 'gallery-item unsized relative shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30';
     card.dataset.id = item.idMel;
     // Si la proporción de este cartel se conoce, la tarjeta nace sabiendo su
     // altura en vez de como placeholder. dimensionarConocidas() se la aplica en
@@ -1812,16 +1868,24 @@ const tags = [
     // solo la foto y la caja blanca se quedaba quieta detrás.
     card.style.viewTransitionName = `flyer-img-${item.idMel}`;
     card.innerHTML = `
+      <!-- La capa que se INCLINA (D-264). El porqué de que exista, y de que el
+           overflow se mudara aquí desde la tarjeta, en su gemela
+           FlyerCard.astro (regla 7). -->
+      <div class="carta-3d relative overflow-hidden bg-white">
       <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers -->
       <img src="${imgSrc}"${srcsetAttr} alt="${escHtml(item.evento)}" loading="lazy" decoding="async" referrerpolicy="no-referrer" class="w-full h-auto block pointer-events-none" onload="window.__melMeasureFlyer && window.__melMeasureFlyer(this)" onerror="this.onerror=null; this.src='/flyers/flyer-1.png'; window.__melMeasureFlyer && window.__melMeasureFlyer(this);" />
 
       <!-- RETIRADO (D-234): capa de rayas diagonales en hover. Ver el porqué
            en su gemela FlyerCard.astro (regla 7). -->
 
+      <!-- El barrido de luz (D-264), por debajo de la pastilla. -->
+      <div class="brillo-3d" aria-hidden="true"></div>
+
       <!-- Overlay info on hover (Figma "Event Info" 481:238727 — mirrors FlyerCard.astro, ver AGENTS.md regla 7) -->
       <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
         <p class="typo-caption text-mel-text-on-action truncate min-w-0">${escHtml(item.evento)}</p>
         ${item.fecha ? `<p class="typo-caption text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
+      </div>
       </div>
     `;
     // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
@@ -2648,6 +2712,11 @@ const tags = [
   }
 
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
+    // Lo PRIMERO: enderezar la tarjeta (D-264). En escritorio se pulsa el
+    // cartel que se está sobrevolando, o sea inclinado, y el morphing
+    // fotografía el estado viejo al arrancar la navegación: sin esto, la foto
+    // de partida sería una tarjeta torcida.
+    if (typeof window.__melSoltarTilt === 'function') window.__melSoltarTilt();
     // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
     recordarFlyerAbierto(idMel);
     saveReturnState();
@@ -2670,6 +2739,135 @@ const tags = [
   // siguieron en pie hasta esta limpieza.
   function abrirFicha(item) {
     navigateToEvent(item.idMel, { search: searchQuery });
+  }
+
+  // ---------------------------------------------------------------
+  // Inclinación 3D de las tarjetas (EXPERIMENTAL, D-264)
+  // ---------------------------------------------------------------
+  // Los ajustes son los que el propietario fijó a mano en el laboratorio
+  // (06-08-2026). Van juntos aquí; el CSS gemelo está en el bloque
+  // `.carta-3d` del <style> de esta misma página, y los DOS números que
+  // aparecen en ambos sitios —la perspectiva de 600px y los 700ms de vuelta
+  // al reposo— están avisados allí (regla 7: parejas de números).
+  //
+  // Qué NO toca este motor, y es lo que lo hace convivir con el resto:
+  //   · el `transform` de la tarjeta, que es de los vuelos FLIP del slider y
+  //     del morphing hacia la ficha. El giro va en la capa de dentro.
+  //   · nada en táctil: sin puntero fino no se activa siquiera.
+  const TILT = {
+    giro: 4,            // grados máximos de inclinación
+    recorrido: 8,       // % que viaja el reflejo por grado de giro
+    luz: 355,           // de dónde viene la luz (0 = arriba)
+    barrido: 135,       // rotación extra de la banda de luz
+    banda: 35,          // media anchura del barrido, en % de la tarjeta
+    nucleo: 0.83,       // opacidad del centro de la banda (borde muy difuso)
+    sombraOp: 0.48,
+    sombraDist: 8,
+    sombraBlur: 16,
+    sombraExt: 0,
+    empuje: 0.55,       // cuánto acompaña la sombra al giro, px por grado
+  };
+
+  function initTilt3D(senal) {
+    const grid = document.getElementById('gallery-grid');
+    if (!grid) return;
+    // Sin ratón de verdad no hay nada que inclinar: en un móvil el "hover" es
+    // un invento del navegador al tocar, y ya nos costó las rayas de D-234.
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const ANGULO_BANDA = (TILT.luz + 90 + TILT.barrido) % 360;
+    const dirSombra = ((TILT.luz + 180) % 360) * Math.PI / 180;
+    const somX = Math.sin(dirSombra) * TILT.sombraDist;
+    const somY = -Math.cos(dirSombra) * TILT.sombraDist;
+
+    let carta = null, caja = null, pedido = 0, ratonX = 0, ratonY = 0;
+
+    // Curva "perezosa": el reflejo casi no se mueve cerca del centro y se
+    // dispara hacia los bordes. Es lo que le da el aire de vidrio grueso.
+    const recorridoDe = (grados) => {
+      const t = Math.max(-1, Math.min(1, grados / TILT.giro));
+      const a = Math.abs(t);
+      return (t < 0 ? -1 : 1) * a * a * TILT.giro * TILT.recorrido;
+    };
+
+    function pintar() {
+      pedido = 0;
+      if (!carta || !caja) return;
+      const px = (ratonX - caja.left) / caja.width;
+      const py = (ratonY - caja.top) / caja.height;
+      const giroX = (0.5 - py) * 2 * TILT.giro;
+      const giroY = (px - 0.5) * 2 * TILT.giro;
+      carta.style.setProperty('--giro-x', giroX.toFixed(2) + 'deg');
+      carta.style.setProperty('--giro-y', giroY.toFixed(2) + 'deg');
+
+      const avance = 50 - recorridoDe(giroY) + recorridoDe(giroX);
+      carta.style.setProperty('--brillo-fondo',
+        `linear-gradient(${ANGULO_BANDA}deg,` +
+        ` rgb(255 255 255 / 0) ${(avance - TILT.banda * 2).toFixed(1)}%,` +
+        ` rgb(255 255 255 / ${TILT.nucleo}) ${avance.toFixed(1)}%,` +
+        ` rgb(255 255 255 / 0) ${(avance + TILT.banda * 2).toFixed(1)}%)`);
+
+      // La sombra se estira por donde la tarjeta se LEVANTA, no por donde se
+      // hunde: una esquina que sube se separa del fondo y su sombra se aleja.
+      // `important` porque la regla de hover de la hoja lo lleva.
+      carta.style.setProperty('box-shadow',
+        `${(somX - giroY * TILT.empuje).toFixed(1)}px` +
+        ` ${(somY + giroX * TILT.empuje).toFixed(1)}px` +
+        ` ${TILT.sombraBlur}px ${TILT.sombraExt}px` +
+        ` rgb(var(--mel-shadow-rgb) / ${TILT.sombraOp})`, 'important');
+    }
+
+    function soltar() {
+      if (!carta) return;
+      const c = carta;
+      c.classList.remove('inclinando');
+      c.style.removeProperty('--giro-x');
+      c.style.removeProperty('--giro-y');
+      c.style.removeProperty('--brillo-fondo');
+      c.style.removeProperty('box-shadow');
+      // `will-change` solo en la tarjeta activa: dejarlo en las 32 promociona
+      // 32 capas de compositor para nada.
+      const capa = c.querySelector('.carta-3d');
+      if (capa) capa.style.removeProperty('will-change');
+      carta = null; caja = null;
+      if (pedido) { cancelAnimationFrame(pedido); pedido = 0; }
+    }
+    // Para que el morphing hacia la ficha no fotografíe una tarjeta torcida:
+    // se endereza EN SECO (sin los 700ms de vuelta) justo antes de navegar.
+    window.__melSoltarTilt = () => {
+      const c = carta, capa = c && c.querySelector('.carta-3d');
+      if (capa) {
+        capa.style.transition = 'none';
+        soltar();
+        void capa.offsetWidth;              // fuerza el recálculo antes de devolver la transición
+        capa.style.removeProperty('transition');
+      } else soltar();
+    };
+
+    grid.addEventListener('pointermove', (e) => {
+      const c = e.target.closest('.gallery-item');
+      if (!c) { soltar(); return; }
+      if (c !== carta) {
+        soltar();
+        carta = c;
+        c.classList.add('inclinando');
+        const capa = c.querySelector('.carta-3d');
+        if (capa) capa.style.willChange = 'transform';
+        // Se mide UNA vez por tarjeta, no en cada movimiento: leer la caja en
+        // cada `pointermove` obliga al navegador a recalcular la maquetación.
+        caja = c.getBoundingClientRect();
+      }
+      ratonX = e.clientX; ratonY = e.clientY;
+      if (!pedido) pedido = requestAnimationFrame(pintar);
+    }, { signal: senal });
+
+    grid.addEventListener('pointerleave', soltar, { signal: senal });
+    // La caja cambia de sitio con el scroll y con el reordenado; si no se
+    // relee, el giro se calcularía contra una posición vieja.
+    document.getElementById('view-galería')?.addEventListener('scroll', () => {
+      if (carta) caja = carta.getBoundingClientRect();
+    }, { passive: true, signal: senal });
   }
 
   function bindInitialCardClicks() {
@@ -5547,6 +5745,7 @@ const tags = [
     readReturnState();
     updateSlider();
     bindInitialCardClicks();
+    initTilt3D(wSig);
     initSortHeaders();
 
     // Botón flotante de ordenación. Se engancha con el AbortController de la
