@@ -1331,6 +1331,22 @@ const tags = [
       document.documentElement.classList.add('mel-vuelta');
       setTimeout(() => document.documentElement.classList.remove('mel-vuelta'), 600);
     }
+    // La retirada NO puede fiarse solo del temporizador: si el visitante abre
+    // un cartel antes de los 600ms (el ping-pong natural de entrar-volver-
+    // entrar), la ida arrancaba con la clase aún puesta — los nombres de las
+    // tarjetas apagados y el morphing de ENTRADA roto (visto por el
+    // propietario). `astro:before-preparation` dispara ANTES de que la ida
+    // fotografíe el estado viejo (mismo timing que usa la ficha para despojar
+    // su cartel, D-256): quitarla aquí garantiza que ninguna navegación
+    // saliente hereda la vuelta. Guard de registro único: este script se
+    // reevalúa en cada visita a la home y sin él se acumularía un listener
+    // por visita (la lección de D-126).
+    if (!window._melVueltaCleanupBound) {
+      window._melVueltaCleanupBound = true;
+      document.addEventListener('astro:before-preparation', () => {
+        document.documentElement.classList.remove('mel-vuelta');
+      });
+    }
   } catch (e) {}
 
   // Sort column/direction survive a hard reload (sessionStorage) — without
