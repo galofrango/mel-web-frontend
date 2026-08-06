@@ -1766,7 +1766,7 @@ const tags = [
   // estén.
   let vuelosGaleria = [];
   let flipEntradaTimer = null;
-  function reproducirFlipGaleria(grid, rectsViejos, entrantes) {
+  function reproducirFlipGaleria(grid, rectsViejos, entrantes, dur = FLIP_DUR, ease = FLIP_EASE) {
     vuelosGaleria.forEach(a => { try { a.cancel(); } catch (e) {} });
     vuelosGaleria = [];
     if (flipEntradaTimer) clearTimeout(flipEntradaTimer);
@@ -1783,7 +1783,7 @@ const tags = [
       if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
         vuelosGaleria.push(el.animate(
           [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
-          { duration: FLIP_DUR, easing: FLIP_EASE }
+          { duration: dur, easing: ease }
         ));
       }
     });
@@ -1796,6 +1796,67 @@ const tags = [
       (entrantes || []).forEach(el => el.classList.remove('card-entra'));
       flipEntradaTimer = null;
     }, 400);
+  }
+
+  // Despedida y llegada de filas de la Lista (D-255) — UN solo efecto para
+  // móvil y escritorio, el que el propietario señaló como referencia: fundido
+  // + encogimiento a la vez, y las vecinas se deslizan solas por el reflujo
+  // del colapso, sin FLIP aparte. Un `<tr>` no colapsa como un div (ni admite
+  // overflow ni altura animable con celdas de alto fijo), así que en la tabla
+  // se pliegan sus CELDAS: paddings, altura de línea y el bloque interior.
+  // WAAPI y no clases CSS por lo de siempre (D-253): la mitad de este marcado
+  // lo fabrica el JS y las reglas con ámbito no lo visten.
+  function plegarYRetirar(fila) {
+    fila.style.pointerEvents = 'none';
+    const animaciones = [];
+    if (fila.tagName === 'TR') {
+      fila.querySelectorAll('td').forEach(td => {
+        td.style.overflow = 'hidden';
+        const cs = getComputedStyle(td);
+        animaciones.push(td.animate(
+          [{ paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, lineHeight: cs.lineHeight },
+           { paddingTop: '0px', paddingBottom: '0px', lineHeight: '0px' }],
+          { duration: 260, easing: 'ease-out' }
+        ));
+        const bloque = td.firstElementChild;
+        if (bloque && bloque.offsetHeight) {
+          bloque.style.overflow = 'hidden';
+          animaciones.push(bloque.animate(
+            [{ height: bloque.offsetHeight + 'px' }, { height: '0px' }],
+            { duration: 260, easing: 'ease-out' }
+          ));
+        }
+      });
+    } else {
+      fila.style.overflow = 'hidden';
+      animaciones.push(fila.animate(
+        [{ height: fila.offsetHeight + 'px' }, { height: '0px' }],
+        { duration: 260, easing: 'ease-out' }
+      ));
+    }
+    animaciones.push(fila.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: 'ease-out' }));
+    Promise.allSettled(animaciones.map(a => a.finished)).then(() => fila.remove());
+  }
+
+  function desplegarFila(fila) {
+    if (fila.tagName === 'TR') {
+      fila.querySelectorAll('td').forEach(td => {
+        td.style.overflow = 'hidden';
+        const cs = getComputedStyle(td);
+        td.animate(
+          [{ paddingTop: '0px', paddingBottom: '0px', lineHeight: '0px' },
+           { paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, lineHeight: cs.lineHeight }],
+          { duration: 260, easing: 'ease-out' }
+        );
+        const bloque = td.firstElementChild;
+        if (bloque && bloque.offsetHeight) {
+          bloque.animate([{ height: '0px' }, { height: bloque.offsetHeight + 'px' }], { duration: 260, easing: 'ease-out' });
+        }
+      });
+    } else {
+      fila.animate([{ height: '0px' }, { height: fila.offsetHeight + 'px' }], { duration: 260, easing: 'ease-out' });
+    }
+    fila.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
   }
 
   // Scroll infinito: el centinela (#gallery-sentinel, hermano de la rejilla)
@@ -2783,7 +2844,11 @@ const tags = [
           // (con el transform de un vuelo anterior incluido, si lo hay), y
           // reproducirFlipGaleria() se dispara tras dimensionarConocidas(),
           // cuando la rejilla ya está en su layout final.
-          if (arrastrandoSlider) {
+          if (arrastrandoSlider || animacionOrdenLenta) {
+            // También en el SORT del botón (D-255): el reordenado viaja por
+            // FLIP de identidad — cada cartel vuela a su sitio — en vez de la
+            // view transition por huecos, que "transformaba" una tarjeta en
+            // otra (emparejaba por posición) y fotografiaba 32 grupos.
             // Coordenadas RELATIVAS a la rejilla, no al viewport (D-252): si
             // el scroll cambia entre la captura y la medición del destino
             // (p. ej. el navegador lo recorta porque el contenido encogió),
@@ -2900,26 +2965,23 @@ const tags = [
         // superviviente viaja de su posición visual capturada a la nueva y
         // las entrantes funden. Solo hay rects si esto vino de un arrastre.
         if (rectsViejosGaleria && rectsViejosGaleria.size) {
-          reproducirFlipGaleria(gridContainer, rectsViejosGaleria, entrantesGaleria);
+          // El sort del botón conserva su ritmo propio y deliberadamente
+          // lento (D-131: ahí el movimiento ES el contenido).
+          reproducirFlipGaleria(
+            gridContainer, rectsViejosGaleria, entrantesGaleria,
+            animacionOrdenLenta ? duracionOrden : FLIP_DUR,
+            animacionOrdenLenta ? ORDEN_ANIM_EASE : FLIP_EASE
+          );
         }
-        // Las tarjetas recién creadas nacen con su nombre de contenido. Si esto
-        // es un reordenado, hay que renombrarlas por hueco AQUÍ, por el mismo
-        // motivo: después de la foto ya no sirve de nada.
+        // Ordenando desde el botón, el scroll vuelve arriba. Ya NO se llama a
+        // nombrarHuecos(true) aquí (D-255): eso era coreografía de la view
+        // transition por huecos, y en el camino FLIP habría dejado los
+        // nombres `mel-hueco-N` puestos PARA SIEMPRE (quien los restauraba
+        // era el `finished` de una transición que ya no se arranca),
+        // rompiendo el morph a la ficha. El salto de scroll es instantáneo y
+        // los vuelos van en coordenadas de la rejilla (D-252), así que no se
+        // contaminan con él.
         if (animacionOrdenLenta) {
-          nombrarHuecos(true);
-          // Y el scroll vuelve arriba AQUÍ DENTRO, no antes de arrancar la
-          // transición. Ésta es la línea que funde subir y reordenar en un solo
-          // gesto, y funciona por CUÁNDO corre, no por lo que hace:
-          //
-          // la foto del estado viejo ya está tomada (el navegador la hace antes
-          // de entrar en este callback, con el visitante donde estuviera), así
-          // que al fotografiar el estado nuevo desde arriba cada tarjeta viaja su
-          // desplazamiento de reordenación MÁS el del scroll, de una vez. Puesto
-          // antes de arrancar la transición, la foto vieja ya saldría desde
-          // arriba y el scroll se perdería: salto seco y luego animación.
-          //
-          // Va después de reconstruir la rejilla porque a media reconstrucción el
-          // alto del contenedor todavía no es el definitivo.
           const galeriaScroller = document.getElementById('view-galería');
           if (galeriaScroller) galeriaScroller.scrollTop = 0;
         }
@@ -3008,9 +3070,12 @@ const tags = [
             } else if (oldRowRects.size > 0) {
               // Solo se tratan como "nuevas" cuando hay un render anterior con
               // el que comparar; si no, el primer pintado de la lista repetiría
-              // la entrada de todas las filas sin motivo.
+              // la entrada de todas las filas sin motivo. La entrada es el
+              // ESPEJO de la despedida (despliegue + fundido, D-255) — antes
+              // era la clase `list-row-intro`, un fundido corto que al lado
+              // del pliegue de salida se leía "del tirón".
               if (animacionOrdenLenta) aEntrar.push(el);
-              else el.classList.add('list-row-intro');
+              else desplegarFila(el);
             }
           });
 
@@ -3150,38 +3215,18 @@ const tags = [
             colocarFila(tr);
           });
           // Fuera las filas que ya no están en la página del resultado — con
-          // despedida (D-254): funden en su sitio y, al apagarse la última,
-          // las que quedan VUELAN a ocupar el hueco de una vez (mini-FLIP
-          // propio, porque quitar un <tr> no se puede colapsar como un div).
-          // Pierden el data-id durante la agonía, como en móvil, para que
-          // pasadas siguientes no las resuciten; el reproducirFlip de abajo
-          // tampoco las ve. Sus rects viejos se capturaron con ellas aún
-          // enteras, así que sus deltas no se contaminan.
-          const filasMoribundas = [];
+          // la MISMA despedida que las tarjetas móviles (D-255): pliegue +
+          // fundido a la vez, y las vecinas se deslizan solas por el reflujo
+          // del colapso. Pierden el data-id durante la agonía, como en
+          // móvil, para que pasadas siguientes no las resuciten; el
+          // reproducirFlip de abajo tampoco las ve. (El primer intento aquí
+          // fue fundido → vuelo en dos tiempos, D-254; el propietario pidió
+          // igualarlo al continuo del móvil.)
           filasVivas.forEach((tr, id) => {
-            if (!filasConservadas.has(id)) filasMoribundas.push(tr);
+            if (filasConservadas.has(id)) return;
+            delete tr.dataset.id;
+            plegarYRetirar(tr);
           });
-          if (filasMoribundas.length) {
-            const fundidos = filasMoribundas.map(tr => {
-              delete tr.dataset.id;
-              tr.style.pointerEvents = 'none';
-              return tr.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out' });
-            });
-            Promise.allSettled(fundidos.map(a => a.finished)).then(() => {
-              const supervivientes = Array.from(listBody.children).filter(f => f.dataset && f.dataset.id);
-              const base0 = listBody.getBoundingClientRect();
-              const posViejas = new Map(supervivientes.map(f => [f, f.getBoundingClientRect().top - base0.top]));
-              filasMoribundas.forEach(tr => tr.remove());
-              const base1 = listBody.getBoundingClientRect();
-              supervivientes.forEach(f => {
-                const dy = posViejas.get(f) - (f.getBoundingClientRect().top - base1.top);
-                if (Math.abs(dy) > 1) {
-                  f.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
-                    { duration: FLIP_DUR, easing: FLIP_EASE });
-                }
-              });
-            });
-          }
 
           // FLIP "play" step: rows that existed before (matched by id) get
           // slid from their old position to the new one; rows that are
@@ -3259,22 +3304,15 @@ const tags = [
           });
           tarjetasVivas.forEach((f, id) => {
             if (tarjetasConservadas.has(id)) return;
-            // Despedida progresiva (D-253): colapsa y funde en vez de irse a
-            // pelo — el colapso desliza a las de abajo de forma natural, sin
-            // pelearse con el FLIP (que mide con la moribunda aún a tamaño
-            // completo, así que sus deltas salen limpios). Pierde el data-id
-            // durante la agonía para que ni la reconciliación ni el FLIP de
-            // pasadas siguientes la confundan con una fila viva; si su año
-            // vuelve antes de los 260ms, se construye una fresca y listo.
+            // Despedida progresiva (D-253/D-255): colapsa y funde a la vez —
+            // el colapso desliza a las de abajo de forma natural, sin
+            // pelearse con el FLIP (que mide con la moribunda aún entera).
+            // Pierde el data-id durante la agonía para que ni la
+            // reconciliación ni el FLIP de pasadas siguientes la confundan
+            // con una fila viva; si su año vuelve antes de tiempo, se
+            // construye una fresca y listo.
             delete f.dataset.id;
-            f.style.overflow = 'hidden';
-            f.style.pointerEvents = 'none';
-            const alto = f.offsetHeight;
-            const salida = f.animate(
-              [{ height: alto + 'px', opacity: 1 }, { height: '0px', opacity: 0 }],
-              { duration: 260, easing: 'ease-out' }
-            );
-            salida.onfinish = salida.oncancel = () => f.remove();
+            plegarYRetirar(f);
           });
           // Aquí, y no arriba con la tabla: hasta esta línea las tarjetas nuevas
           // no existían.
@@ -3352,7 +3390,11 @@ const tags = [
     const listaEl = document.getElementById('view-lista');
     const ordenandoEnLista = animacionOrdenLenta && listaEl && !listaEl.classList.contains('hidden');
 
-    if (document.startViewTransition && !arrastrandoSlider && !restaurandoVuelta() && !ordenandoEnLista) {
+    // `!animacionOrdenLenta`: desde D-255 el sort del botón también viaja por
+    // FLIP (identidad, sin fotografías) — la transición queda para búsqueda y
+    // clic en barra. El bloque `lenta` de aquí abajo se conserva por si algún
+    // camino residual arrancara una transición con la bandera puesta.
+    if (document.startViewTransition && !arrastrandoSlider && !animacionOrdenLenta && !restaurandoVuelta() && !ordenandoEnLista) {
       try {
         // Si el reordenado viene del botón de ordenación, la transición se
         // alarga. La clase se pone ANTES de arrancarla porque las animaciones de

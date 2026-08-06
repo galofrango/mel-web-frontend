@@ -4519,3 +4519,15 @@ Tercera pasada de matices sobre el FLIP, tras validar el propietario D-253 en m�
 **2. La tabla de escritorio se une a las despedidas**: las filas que salen funden en su sitio (200ms) y, al apagarse la última, las supervivientes VUELAN a ocupar el hueco de una vez (mini-FLIP propio con WAAPI). Un `<tr>` no se puede colapsar como un div — no admite `overflow` ni altura animable con celdas de alto fijo — así que el patrón es fundido → vuelo, en dos tiempos, frente al colapso continuo de las tarjetas móviles. Las moribundas pierden su `data-id` durante la agonía (mismo criterio que móvil y galería) para que ni pasadas siguientes ni el FLIP ordinario las cuenten.
 
 **Verificación**: build OK; el panel de pruebas sigue sin fotogramas — validación del propietario.
+
+## D-255 · Lista con UNA sola despedida/llegada en todas partes, y el sort viaja por FLIP
+
+Cuarta pasada de matices, con dos encargos del propietario.
+
+**1. Lista unificada, con el efecto que él señaló como referencia** (el pliegue+fundido de las tarjetas móviles): un solo par de ayudantes, `plegarYRetirar()` / `desplegarFila()`, sirve a tarjetas móviles Y filas de tabla — las vecinas se deslizan solas por el reflujo del colapso, sin FLIP aparte. Un `<tr>` no colapsa como un div (ni overflow ni altura animable con celdas de alto fijo), así que en la tabla se pliegan sus CELDAS: paddings, `line-height` y el bloque interior de la primera. Con WAAPI y no clases CSS, por la trampa de ámbito de siempre (D-253). La entrada es el espejo exacto del pliegue — la clase `list-row-intro` deja de usarse en este camino (el fundido corto se leía "del tirón" al lado del pliegue). Supersede el fundido→vuelo en dos tiempos de la tabla (D-254, vivió una tarde).
+
+**2. El sort del botón viaja por FLIP de identidad** (petición expresa, también por el rendimiento en Chrome móvil): cada cartel VUELA a su sitio nuevo, en vez de la view transition por huecos que emparejaba por posición — lo que el propietario veía como "tarjetas que se transforman en otras" era exactamente eso, el hueco 3 viejo fundiéndose con el hueco 3 nuevo fuera quien fuera. Conserva su ritmo deliberadamente lento (D-131: `duracionOrden` variable con la distancia + su curva propia). Sin fotografías: fuera el coste de 32 snapshots también aquí.
+
+**Trampa desactivada al migrar**: `nombrarHuecos(true)` se llamaba dentro de performDOMUpdates al ordenar, y quien deshacía los nombres era el `finished` de la transición — en el camino FLIP habría dejado `mel-hueco-N` puestos PARA SIEMPRE, rompiendo el morph a la ficha. Retirada la llamada; el mecanismo entero de huecos queda solo en el camino residual de transición (documentado como tal). El salto de scroll al ordenar pasa a ser instantáneo — los vuelos van en coordenadas de la rejilla y no se contaminan; si al propietario le falta aquella fusión scroll+reorden, se revisita.
+
+**Verificación**: build OK; panel aún sin fotogramas — validación del propietario. El tercer encargo (adoptar el orden servido al entrar de nuevas, para matar las tarjetas en blanco del primer arrastre) va en tanda propia: toca el contrato de navegación.
