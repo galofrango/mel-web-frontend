@@ -2809,23 +2809,34 @@ const tags = [
             if (el.dataset && el.dataset.id) vivas.set(el.dataset.id, el);
           });
           const conservadas = new Set();
+          // Colocación SOLO si el nodo no está ya donde toca (D-254). El
+          // appendChild incondicional de antes movía TODAS las tarjetas en
+          // cada pasada aunque el orden no cambiara, y en iOS mover un nodo
+          // con <img> puede repintarla — el parpadeo de las tarjetas de
+          // ARRIBA que vio el propietario al recortar por la derecha, cuando
+          // allí no debería inmutarse nada. Un nodo que ya es el siguiente
+          // del cursor no se toca.
+          let cursorGaleria = null;
+          const colocarEnGaleria = (nodo) => {
+            const siguiente = cursorGaleria ? cursorGaleria.nextSibling : gridContainer.firstChild;
+            if (siguiente !== nodo) gridContainer.insertBefore(nodo, siguiente);
+            cursorGaleria = nodo;
+          };
           galleryShown.forEach((item, i) => {
             const existente = vivas.get(item.idMel);
             if (existente) {
               conservadas.add(item.idMel);
-              // appendChild sobre un hijo ya presente lo MUEVE al final: al
-              // recorrer galleryShown en orden, la rejilla queda en ese orden.
-              gridContainer.appendChild(existente);
+              colocarEnGaleria(existente);
               return;
             }
             const guardada = guarderiaTarjetas.get(item.idMel);
             if (guardada) {
               guarderiaTarjetas.delete(item.idMel);
-              gridContainer.appendChild(guardada);
+              colocarEnGaleria(guardada);
               entrantesGaleria.push(guardada);
             } else {
               const nueva = buildGalleryCard(item, i);
-              gridContainer.appendChild(nueva);
+              colocarEnGaleria(nueva);
               entrantesGaleria.push(nueva);
             }
           });
@@ -3068,6 +3079,14 @@ const tags = [
 
         if (paginated.length > 0) {
           listTable.style.height = '';
+          // Colocación solo-si-hace-falta, como en la galería (D-254): mover
+          // filas que ya están en su sitio repinta sus miniaturas gratis.
+          let cursorFila = null;
+          const colocarFila = (nodo) => {
+            const siguiente = cursorFila ? cursorFila.nextSibling : listBody.firstChild;
+            if (siguiente !== nodo) listBody.insertBefore(nodo, siguiente);
+            cursorFila = nodo;
+          };
           paginated.forEach(item => {
             const filaViva = filasVivas.get(item.idMel);
             if (filaViva) {
@@ -3075,7 +3094,7 @@ const tags = [
               // Mover un nodo reinicia sus animaciones CSS: si conserva la
               // clase de entrada de cuando fue nueva, el parpadeo se repetiría.
               filaViva.classList.remove('list-row-intro');
-              listBody.appendChild(filaViva);
+              colocarFila(filaViva);
               return;
             }
             const tr = document.createElement('tr');
@@ -3128,12 +3147,41 @@ const tags = [
                   : `<span class="marquee-inner search-cell-link" data-search="${escHtml(item.disenador)}">${escHtml(item.disenador)}<span class="table-link-underline"></span></span>`; })()}
               </td>
             `;
-            listBody.appendChild(tr);
+            colocarFila(tr);
           });
-          // Fuera las filas que ya no están en la página del resultado.
+          // Fuera las filas que ya no están en la página del resultado — con
+          // despedida (D-254): funden en su sitio y, al apagarse la última,
+          // las que quedan VUELAN a ocupar el hueco de una vez (mini-FLIP
+          // propio, porque quitar un <tr> no se puede colapsar como un div).
+          // Pierden el data-id durante la agonía, como en móvil, para que
+          // pasadas siguientes no las resuciten; el reproducirFlip de abajo
+          // tampoco las ve. Sus rects viejos se capturaron con ellas aún
+          // enteras, así que sus deltas no se contaminan.
+          const filasMoribundas = [];
           filasVivas.forEach((tr, id) => {
-            if (!filasConservadas.has(id)) tr.remove();
+            if (!filasConservadas.has(id)) filasMoribundas.push(tr);
           });
+          if (filasMoribundas.length) {
+            const fundidos = filasMoribundas.map(tr => {
+              delete tr.dataset.id;
+              tr.style.pointerEvents = 'none';
+              return tr.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out' });
+            });
+            Promise.allSettled(fundidos.map(a => a.finished)).then(() => {
+              const supervivientes = Array.from(listBody.children).filter(f => f.dataset && f.dataset.id);
+              const base0 = listBody.getBoundingClientRect();
+              const posViejas = new Map(supervivientes.map(f => [f, f.getBoundingClientRect().top - base0.top]));
+              filasMoribundas.forEach(tr => tr.remove());
+              const base1 = listBody.getBoundingClientRect();
+              supervivientes.forEach(f => {
+                const dy = posViejas.get(f) - (f.getBoundingClientRect().top - base1.top);
+                if (Math.abs(dy) > 1) {
+                  f.animate([{ transform: `translateY(${dy}px)` }, { transform: 'translateY(0)' }],
+                    { duration: FLIP_DUR, easing: FLIP_EASE });
+                }
+              });
+            });
+          }
 
           // FLIP "play" step: rows that existed before (matched by id) get
           // slid from their old position to the new one; rows that are
@@ -3173,13 +3221,20 @@ const tags = [
             if (f.dataset && f.dataset.id) tarjetasVivas.set(f.dataset.id, f);
           });
           const tarjetasConservadas = new Set();
+          // Colocación solo-si-hace-falta, como en galería y tabla (D-254).
+          let cursorTarjeta = null;
+          const colocarTarjeta = (nodo) => {
+            const siguiente = cursorTarjeta ? cursorTarjeta.nextSibling : mobileListItems.firstChild;
+            if (siguiente !== nodo) mobileListItems.insertBefore(nodo, siguiente);
+            cursorTarjeta = nodo;
+          };
           paginated.forEach((item, idx) => {
             let row = tarjetasVivas.get(item.idMel);
             if (row) {
               tarjetasConservadas.add(item.idMel);
               // Misma limpieza que en la tabla: mover reinicia animaciones.
               row.classList.remove('list-row-intro');
-              mobileListItems.appendChild(row);
+              colocarTarjeta(row);
             } else {
               row = buildEventCardList(item, {
                 showDivider: true,
@@ -3197,7 +3252,7 @@ const tags = [
               row.addEventListener('click', () => {
                 navigateToEvent(item.idMel, { search: searchQuery });
               });
-              mobileListItems.appendChild(row);
+              colocarTarjeta(row);
             }
             const divisor = row.querySelector('.border-b.border-mel-border');
             if (divisor) divisor.classList.toggle('hidden', idx === paginated.length - 1);

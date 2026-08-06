@@ -4509,3 +4509,13 @@ Sobre D-251/D-252, validados en lo grueso ("está mucho mejor"). Seis ajustes:
 6. **Área táctil de los tiradores +12px por lado** (pseudo-elemento invisible; en esa franja el clic-en-barra pasa a ser agarre, que es lo que un dedo espera ahí).
 
 **Verificación**: build OK; el panel sigue sin producir fotogramas (trampa 5 del traspaso), así que la validación visual es del propietario.
+
+## D-254 · Escritorio de la Lista con despedidas, y nadie mueve lo que ya está en su sitio
+
+Tercera pasada de matices sobre el FLIP, tras validar el propietario D-253 en móvil ("se ve increíble") y confirmar que los parpadeos del soltar murieron con `vueloDeSoltado`.
+
+**1. El parpadeo de las tarjetas de ARRIBA al recortar por la derecha** (reportado en la lista móvil, cuando solo deberían irse las del final): la reconciliación hacía `appendChild` incondicional — **movía TODOS los nodos en cada pasada** aunque el orden no cambiara, y en iOS mover un nodo con `<img>` puede repintarla. Ahora las tres vistas colocan con cursor: un nodo que ya es el siguiente del anterior colocado **no se toca**. En una pasada que solo recorta por el final, ningún superviviente se mueve del DOM.
+
+**2. La tabla de escritorio se une a las despedidas**: las filas que salen funden en su sitio (200ms) y, al apagarse la última, las supervivientes VUELAN a ocupar el hueco de una vez (mini-FLIP propio con WAAPI). Un `<tr>` no se puede colapsar como un div — no admite `overflow` ni altura animable con celdas de alto fijo — así que el patrón es fundido → vuelo, en dos tiempos, frente al colapso continuo de las tarjetas móviles. Las moribundas pierden su `data-id` durante la agonía (mismo criterio que móvil y galería) para que ni pasadas siguientes ni el FLIP ordinario las cuenten.
+
+**Verificación**: build OK; el panel de pruebas sigue sin fotogramas — validación del propietario.
