@@ -639,79 +639,17 @@ const tags = [
      llevaban muertas desde que se escribieron (el panel del mapa de D-116 y el
      botón de ordenación incluidos, que por eso volvían a quedarse debajo).
      Astro no toca un selector que ya empieza por `html`. */
-  html::view-transition-group(mel-header),
-  html::view-transition-group(mel-toolbar),
-  html::view-transition-group(mel-pagination),
-  html::view-transition-group(mel-bloque-fijo),
-  /* El slider llevaba desde D-248 con nombre propio (mel-slider) pero sin
-     z-index, o sea en la capa 0 — la misma que los carteles, que también se
-     promocionan por su flyer-img-…. A igualdad de capa manda el orden del
-     documento, y las tarjetas van después: al volver de una ficha, las de
-     arriba (todavía en blanco, imagen sin cargar) se pintaban ENCIMA del
-     slider durante los 250ms de la transición. Es lo que el propietario grabó
-     como "la cabecera hace cosas raras": no era el slider colocándose tarde
-     —viene ya colocado desde el servidor, comprobado— sino tapado. Mismo
-     remedio de siempre (D-116 con el panel, D-131 con el botón de orden). */
-  html::view-transition-group(mel-slider) {
-    z-index: 100;
-  }
-
-  /* El bloque de cabecera ENTERO como pieza opaca en toda transición (D-259).
-     Los grupos de arriba cubren sus elementos, pero los huecos entre ellos
-     (gaps y paddings del bloque) no eran de nadie y por ahí se veían pasar las
-     tarjetas al volver de una ficha. Este grupo pinta el fondo opaco de la
-     franja completa. z-index 99: por encima de las tarjetas (capa 0), por
-     debajo de sus propios hijos nombrados (100+), que deben pintarse sobre él. */
-  html::view-transition-group(mel-bloque-cabecera) {
-    z-index: 99;
-  }
-  /* En la vuelta de una ficha el bloque no tiene pareja en la página vieja
-     (la ficha no lo nombra): sin esto, su imagen nueva entraría FUNDIÉNDOSE
-     250ms y durante el fundido se verían las tarjetas detrás — el artefacto de
-     siempre con otra cara. A 0s aparece opaco desde el primer fotograma. En
-     las transiciones dentro de la home (búsqueda, salto de barra) sí tiene
-     pareja y esto solo hace que la imagen viva mande desde el principio, que
-     es lo que ya pasa con el slider. */
-  html::view-transition-new(mel-bloque-cabecera) {
-    animation-duration: 0s;
-  }
-
-  /* El bottom sheet también entra en la capa de transición, y por encima de la
-     toolbar. Sin nombre propio se quedaba en la página normal mientras cabecera
-     y toolbar se promocionaban a la capa superior del navegador — que ignora
-     cualquier `z-index` de la página (regla 2 de AGENTS.md). Al volver de un
-     evento eso se veía como si hubiera DOS paneles: el primero formándose
-     detrás del slider y los tags, y al acabar la transición otro apareciendo de
-     golpe por delante de todo. Es el mismo, cambiando de capa. */
-  html::view-transition-group(mel-side-panel) {
-    z-index: 101;
-  }
-
-
-  /* El botón de ordenación también entra en la capa de transición, y por encima
-     de los carteles. Las imágenes de la galería llevan `view-transition-name`
-     (flyer-img-…), así que durante el reordenado se promocionan a la capa
-     superior del navegador, que ignora el z-index de la página (regla 2): el
-     botón se quedaba abajo y algunas tarjetas le pasaban por delante mientras
-     volaban. Mismo remedio que con el panel del mapa (D-116): nombre propio y
-     un grupo por encima. */
-  html::view-transition-group(mel-boton-orden),
-  html::view-transition-group(mel-whisper) {
-    z-index: 102;
-  }
-
-  /* El slider NUNCA participa del crossfade (D-248). Con el reordenado en
-     vivo, cada cruce de año durante el arrastre arranca una transición, y el
-     crossfade de la raíz pintaba un fantasma del tirador en su posición
-     vieja disolviéndose 320ms — el "halo" que se veía al arrastrar rápido.
-     El nombre (mel-slider) lo pone TimeSlider.astro; aquí su grupo entero va
-     a 0s: la imagen vieja desaparece en el acto y la "nueva" es viva, así
-     que el tirador sigue al dedo nítido mientras la galería anima debajo. */
-  html::view-transition-group(mel-slider),
-  html::view-transition-old(mel-slider),
-  html::view-transition-new(mel-slider) {
-    animation-duration: 0s;
-  }
+  /* MOVIDO A global.css (D-260): todo el apilamiento de las view transitions
+     entre páginas (z-index de mel-header/mel-toolbar/mel-pagination/
+     mel-bloque-fijo/mel-slider a 100, mel-side-panel a 101, mel-boton-orden y
+     mel-whisper a 102, mel-bloque-cabecera a 99 con su new a 0s, y el slider
+     fuera del crossfade). Aquí estas reglas estaban medio muertas: en una
+     transición del ClientRouter manda el CSS del documento de DESTINO, así
+     que a la ida (galería → ficha) no existían y las tarjetas volaban por
+     encima de la cabecera. Las historias de cada regla (D-116, D-131, D-162,
+     D-248, D-257, D-259) están comentadas allí.
+     Debajo quedan SOLO las del reordenado (html.orden-cambiando…), que ocurre
+     siempre con la home como documento. */
 
   /* Reordenado venido del botón: más lento y con entrada y salida suaves. Los
      valores los publica JS al arrancar la transición (duracionOrden y
@@ -1725,9 +1663,24 @@ const tags = [
 
   // Llamado por el onload inline de cada <img> (y por la repesca de imágenes
   // ya completas tras cada render): publica el ratio real en la tarjeta.
+  //
+  // Si la tarjeta YA trae proporción (la del servidor, de flyer_tecnico.json),
+  // esa manda y aquí no se pisa (D-260). La miniatura que sirve Google trae
+  // unas dimensiones redondeadas a su ancho (w700), y esa diferencia de
+  // decimales podía mover el span una fila: la rejilla se recolocaba en
+  // silencio después de cargar cada imagen, y una tarjeta abierta en la
+  // columna derecha se reencontraba en la izquierda al volver de su ficha
+  // (grabado por el propietario, 06-08-2026). Con una sola fuente de verdad,
+  // el mismo orden da siempre las mismas columnas.
   function measureFlyerImg(img) {
     const card = img.closest('.gallery-item');
     if (!card || !img.naturalWidth || !img.naturalHeight) return;
+    if (card.dataset.ratio) {
+      // Colocada ya por dimensionarConocidas() — solo queda el caso de una
+      // tarjeta recién construida que aún no ha pasado por esa pasada.
+      if (card.classList.contains('unsized')) sizeGalleryCard(card);
+      return;
+    }
     const ratio = img.naturalWidth / img.naturalHeight;
     card.dataset.ratio = String(ratio);
     if (card.dataset.id) ratiosMedidos.set(card.dataset.id, ratio);
@@ -1803,10 +1756,13 @@ const tags = [
     // Si la proporción de este cartel se conoce, la tarjeta nace sabiendo su
     // altura en vez de como placeholder. dimensionarConocidas() se la aplica en
     // cuanto está en el DOM (aquí clientWidth aún es 0). Dos fuentes, por este
-    // orden: lo medido en esta sesión y lo que el servidor ya sabía de
-    // flyer_tecnico.json (item.ratio, D-259) — espejo del data-ratio SSR de
+    // orden: lo que el servidor ya sabía de flyer_tecnico.json (item.ratio,
+    // D-259) y, en su defecto, lo medido en esta sesión. El del servidor MANDA
+    // (D-260): si lo medido pudiera pisarlo, el span de una misma tarjeta
+    // cambiaría según de qué fuente saliera en cada reconstrucción y las
+    // columnas bailarían entre visitas. Espejo del data-ratio SSR de
     // FlyerCard.astro.
-    const ratioConocido = ratiosMedidos.get(item.idMel) || item.ratio;
+    const ratioConocido = item.ratio || ratiosMedidos.get(item.idMel);
     if (ratioConocido) card.dataset.ratio = String(ratioConocido);
     // El nombre de transición va en LA TARJETA, igual que en FlyerCard.astro
     // (regla 7: las dos tienen que decir lo mismo). Estando en la `<img>` volaba
