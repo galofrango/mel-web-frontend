@@ -1317,6 +1317,22 @@ const tags = [
     }
   } catch (e) {}
 
+  // Marcador de VUELTA para el ritmo de la transición (D-262): si hay estado
+  // de vuelta pendiente, esto ES una vuelta de ficha. Se pone aquí, en la
+  // evaluación del script —que en una navegación suave ocurre durante el
+  // intercambio, ANTES de que el navegador fotografíe el estado nuevo— para
+  // que las reglas `html.mel-vuelta::view-transition-…` de global.css vean la
+  // clase puesta. Se retira solo (600ms cubre de sobra los 90 de la
+  // transición): las transiciones internas posteriores no deben heredarla.
+  // En la vuelta dura del panel (?location=) no hay transición y la clase no
+  // hace nada — se pone y se va sin efecto.
+  try {
+    if (sessionStorage.getItem('mel-return-state')) {
+      document.documentElement.classList.add('mel-vuelta');
+      setTimeout(() => document.documentElement.classList.remove('mel-vuelta'), 600);
+    }
+  } catch (e) {}
+
   // Sort column/direction survive a hard reload (sessionStorage) — without
   // this, navigating into an event and back (a real page reload since D-072)
   // would silently drop whatever order the visitor picked in Lista, and the

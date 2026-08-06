@@ -1084,16 +1084,29 @@ html::view-transition-group(mel-bloque-cabecera) {
 html::view-transition-new(mel-bloque-cabecera) {
   animation-duration: 0s;
 }
-/* A la IDA (home → ficha) tampoco tiene pareja, y aquí está la secuencia que
-   pidió el propietario: "las tarjetas tendrían que evaporarse ANTES de que
-   empiece a hacerlo la cabecera". La franja aguanta OPACA los primeros 200ms
-   —mientras las tarjetas y el resto de la página se funden debajo— y solo
-   entonces se despide, en otros 200. `fill-mode: both` sostiene la opacidad
-   completa durante la espera. */
-html::view-transition-old(mel-bloque-cabecera) {
-  animation-delay: 200ms;
-  animation-duration: 200ms;
-  animation-fill-mode: both;
+/* El ritmo de la IDA (evaporación en 20ms + franja en dos tiempos) NO está
+   aquí: vive en el <style> de event/[id].astro, porque en una transición
+   manda el CSS del documento de DESTINO (D-260) y esas reglas solo deben
+   actuar yendo HACIA una ficha — aquí alcanzarían también a las transiciones
+   internas de la home. */
+
+/* El ritmo de la VUELTA (ficha → home), D-262. `mel-vuelta` lo pone el script
+   de la home en síncrono al evaluarse cuando hay `mel-return-state` — o sea,
+   solo en una vuelta de ficha, nunca en las transiciones internas (búsqueda,
+   salto de barra), que también tienen a la home como documento y no deben
+   cambiar de ritmo. El propietario señaló "una franjita que llega un poco más
+   tarde" bajo la cabecera: era la ficha vieja disolviéndose 250ms bajo una
+   franja que aparece a 0s — dos relojes distintos a la vista. A 90ms por los
+   dos lados, el cruce entero se resuelve de golpe y de paso encoge el
+   microdestello de las tarjetas (dos fundidos superpuestos, ver roadmap). */
+html.mel-vuelta::view-transition-old(*),
+html.mel-vuelta::view-transition-new(*) {
+  animation-duration: 90ms;
+}
+/* La franja conserva su 0s también en la vuelta: la regla de arriba, con su
+   clase, le ganaría en especificidad a la del nombre. */
+html.mel-vuelta::view-transition-new(mel-bloque-cabecera) {
+  animation-duration: 0s;
 }
 
 html::view-transition-group(mel-pagination),

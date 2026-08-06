@@ -1746,6 +1746,30 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </script>
 
 <style>
+  /* El ritmo de la IDA (galería → esta ficha), D-262. Estas reglas viven AQUÍ
+     y no en global.css a propósito: en una transición del ClientRouter manda
+     el CSS del documento de DESTINO (D-260), así que solo actúan cuando se
+     viene HACIA una ficha — que es exactamente el único momento en que deben.
+     Lo pidió el propietario con números: "la página se evapora como en 20ms
+     máximo, mientras que la franja aguanta ese tiempo y luego empieza a
+     desvanecerse también".
+     El (*) alcanza también al par del cartel que hace morphing: su imagen
+     vieja se disuelve en esos mismos 20ms y la nueva manda durante todo el
+     vuelo — mejor, no peor. Y en Anterior/Siguiente (ficha → ficha) la página
+     saliente se evapora igual de rápido. Los selectores empiezan por `html`
+     (la excepción documentada del ámbito de Astro, D-239). */
+  html::view-transition-old(*) {
+    animation-duration: 20ms;
+  }
+  /* La franja de cabecera es la excepción: aguanta OPACA los 20ms en los que
+     todo lo demás se evapora debajo, y solo entonces se despide. `fill-mode:
+     both` sostiene la opacidad completa durante la espera. */
+  html::view-transition-old(mel-bloque-cabecera) {
+    animation-delay: 20ms;
+    animation-duration: 180ms;
+    animation-fill-mode: both;
+  }
+
   @media (max-width: 1023px) {
     /* El divisor sobre la navegación se dibuja con un pseudoelemento y no con
        `border-top`: el borde se pinta sobre la caja del bloque, así que llegaba
