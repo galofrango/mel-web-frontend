@@ -1129,11 +1129,26 @@ html.mel-vuelta #slider-track-wrapper {
       levanta la ficha y debajo estaba todo, quieto y colocado. */
 html.mel-vuelta::view-transition-new(root) {
   animation-duration: 0s;
+  mix-blend-mode: normal;
 }
 html.mel-vuelta::view-transition-old(root) {
   animation-delay: 120ms;
-  animation-duration: 180ms;
+  /* 500ms por orden expresa del propietario ("si dura menos de medio
+     segundo, súbelo a esa duración"). */
+  animation-duration: 500ms;
   animation-fill-mode: both;
+  mix-blend-mode: normal;
+}
+/* Fundido de TRANSPARENCIA pura, sin mezcla de capas (petición del
+   propietario: "un fundido normal basado únicamente en transparencia"). El
+   navegador, por defecto, funde old y new con `mix-blend-mode: plus-lighter`
+   dentro de un image-pair aislado — está pensado para crossfades entre dos
+   imágenes que se reparten la opacidad, pero aquí la de abajo está SIEMPRE
+   opaca, y la mezcla aditiva se veía como una fusión rara de capas, no como
+   una ficha volviéndose transparente. `isolation: auto` + `normal` en las dos
+   imágenes lo convierten en un fundido corriente. */
+html.mel-vuelta::view-transition-image-pair(root) {
+  isolation: auto;
 }
 
 html::view-transition-group(mel-pagination),
