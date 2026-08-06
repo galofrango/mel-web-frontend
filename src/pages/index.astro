@@ -591,7 +591,17 @@ const tags = [
   html::view-transition-group(mel-header),
   html::view-transition-group(mel-toolbar),
   html::view-transition-group(mel-pagination),
-  html::view-transition-group(mel-bloque-fijo) {
+  html::view-transition-group(mel-bloque-fijo),
+  /* El slider llevaba desde D-248 con nombre propio (mel-slider) pero sin
+     z-index, o sea en la capa 0 — la misma que los carteles, que también se
+     promocionan por su flyer-img-…. A igualdad de capa manda el orden del
+     documento, y las tarjetas van después: al volver de una ficha, las de
+     arriba (todavía en blanco, imagen sin cargar) se pintaban ENCIMA del
+     slider durante los 250ms de la transición. Es lo que el propietario grabó
+     como "la cabecera hace cosas raras": no era el slider colocándose tarde
+     —viene ya colocado desde el servidor, comprobado— sino tapado. Mismo
+     remedio de siempre (D-116 con el panel, D-131 con el botón de orden). */
+  html::view-transition-group(mel-slider) {
     z-index: 100;
   }
 
@@ -2072,6 +2082,29 @@ const tags = [
   // Qué flyer se abrió por última vez, para poder volver a ÉL y no a un píxel.
   function recordarFlyerAbierto(idMel) {
     _s.ultimoFlyerAbierto = idMel || null;
+    // Y CUÁL de las URLs del cartel se bajó de verdad esta tarjeta, para que la
+    // ficha pueda pintarla de fondo mientras llega la suya.
+    //
+    // La ficha no reaprovecha nada de lo que la galería ya tiene: la tarjeta
+    // pide 700 u 1000 de ancho y la ficha 1400 o 2000 (ANCHOS_TARJETA contra
+    // ANCHOS_FICHA), y otro ancho es otra URL, o sea otra descarga desde cero.
+    // De ahí la entrada "a dos tiempos" que grabó el propietario: el morph
+    // llevaba la tarjeta a su sitio en ~200ms y aterrizaba en una caja VACÍA, y
+    // la foto aparecía medio segundo más tarde como un segundo golpe.
+    //
+    // `currentSrc` y no `src`: con `srcset` quien elige el ancho es el
+    // navegador, y solo él sabe cuál acabó bajándose. Esa es la que está en
+    // caché y la única que se pinta al instante.
+    try {
+      // Todas y no la primera: el mismo evento está a la vez en la galería, en
+      // la tabla y en las tarjetas de móvil, y las de los contenedores ocultos
+      // no han cargado nada (currentSrc vacío). Vale la primera que SÍ tenga.
+      const candidatas = idMel ? document.querySelectorAll(`[data-id="${idMel}"] img`) : [];
+      const img = Array.from(candidatas).find(el => el.currentSrc);
+      if (img) {
+        sessionStorage.setItem('mel-cartel-cacheado', JSON.stringify({ id: idMel, src: img.currentSrc }));
+      }
+    } catch (e) {}
   }
 
   function saveReturnState() {

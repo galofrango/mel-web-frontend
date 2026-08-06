@@ -721,6 +721,37 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       }
     } catch (e) {}
 
+    // El cartel que la galería ya tenía descargado, de fondo, mientras el
+    // grande viaja (lo deja escrito `recordarFlyerAbierto()` en index.astro,
+    // donde está la explicación larga). El fondo se pinta al instante porque
+    // esa URL está en caché, así que el morph aterriza sobre la imagen de
+    // verdad —borrosita— en vez de sobre un hueco, y cuando llega la nítida la
+    // sustituye sin que se note un segundo tiempo.
+    //
+    // `background-size: contain` para casar con el `object-contain` de la
+    // imagen: comparten caja (el tope de tamaño real va en el propio elemento),
+    // así que encuadran igual y la sustitución no mueve nada.
+    //
+    // Se retira al cargar la buena: hay carteles PNG con transparencia y si no,
+    // se verían los dos superpuestos por las zonas transparentes.
+    try {
+      const crudoCartel = sessionStorage.getItem('mel-cartel-cacheado');
+      const cacheado = crudoCartel ? JSON.parse(crudoCartel) : null;
+      const primera = document.querySelector('#carousel-track img');
+      if (cacheado && cacheado.id === eventId && cacheado.src && primera && !primera.complete) {
+        primera.style.backgroundImage = `url("${cacheado.src}")`;
+        primera.style.backgroundSize = 'contain';
+        primera.style.backgroundPosition = 'center';
+        primera.style.backgroundRepeat = 'no-repeat';
+        primera.addEventListener('load', () => {
+          primera.style.backgroundImage = '';
+          primera.style.backgroundSize = '';
+          primera.style.backgroundPosition = '';
+          primera.style.backgroundRepeat = '';
+        }, { once: true });
+      }
+    } catch (e) {}
+
     // Parse search/location/view queries from URL parameters
     const urlParams = new URLSearchParams(window.location.search);
     const activeView = urlParams.get('view') || 'galería';
