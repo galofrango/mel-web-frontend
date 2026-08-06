@@ -218,20 +218,7 @@ const tags = [
            real contra el ancho que ocupan los textos de las tags
            (updateHomeToolbarLayout), así que colgarlo de un ancho fijo se
            desincronizaría en cuanto cambiaran los datos de la hoja. */
-        /* Entrada de una tarjeta durante el ARRASTRE del slider (D-251/D-252): el
-     camino FLIP no tiene el crossfade de la view transition, así que lo que
-     entra al resultado se anuncia creciendo desde el 92% mientras funde —
-     espejo de la despedida (que encoge al 90% apagándose, ver el fantasma en
-     performDOMUpdates). La clase la pone y quita reproducirFlipGaleria(). */
-  @keyframes card-entra {
-    from { opacity: 0; transform: scale(0.92); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  .gallery-item.card-entra {
-    animation: card-entra 300ms ease-out;
-  }
-
-  #gallery-grid.galeria-cuatro {
+        #gallery-grid.galeria-cuatro {
           grid-template-columns: repeat(4, minmax(0, 1fr));
         }
         @media (min-width: 1024px) {
@@ -735,6 +722,27 @@ const tags = [
 </style>
 
 <style is:global>
+  /* Entrada de una tarjeta durante el ARRASTRE del slider (D-251/D-253):
+     espejo exacto de la despedida (que encoge al 90% apagándose en 260ms,
+     ver el fantasma en performDOMUpdates). En el bloque GLOBAL a la fuerza:
+     estuvo en el bloque con ámbito de arriba y nació MUERTA para las
+     tarjetas creadas por JS (el cid de Astro no las viste, trampa D-239) —
+     "las entradas van del tirón" del propietario era literalmente que esta
+     regla no aplicaba. La clase la pone y quita reproducirFlipGaleria(). */
+  @keyframes card-entra {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .gallery-item.card-entra {
+    animation: card-entra 260ms ease-out;
+  }
+
+  /* Las tarjetas móviles de la Lista llevan fondo propio (D-253): sin él,
+     durante los vuelos del FLIP se transparentaban unas sobre otras. */
+  .mobile-event-card-list {
+    background-color: var(--mel-bg-primary);
+  }
+
   /* The shared .view-panel.active rule sets display:flex, which stretches the
      gallery grid to the scroll viewport height and makes its rows overflow —
      that buries the grid's bottom padding mid-content instead of below the last
@@ -1730,7 +1738,7 @@ const tags = [
   // salida y solo suavizaba el aterrizaje; esta arranca y posa suave.
   // El throttle del arrastre se calcula a partir de FLIP_DUR: ningún
   // filtrado nuevo hasta que el vuelo en curso ha terminado.
-  const FLIP_DUR = 450;
+  const FLIP_DUR = 350;   // 450 en el primer intento; el propietario lo bajó
   const FLIP_EASE = 'cubic-bezier(0.3, 0, 0.25, 1)';
 
   // FLIP del reorden de la galería durante el ARRASTRE del slider (D-251,
@@ -1893,6 +1901,13 @@ const tags = [
   // (La serialización de transiciones de D-248 vivió aquí y se retiró en
   // D-251: el arrastre ya no arranca transiciones que serializar.)
   let ultimoRangoSlider = null;
+  // El `change` del soltar que descarga una pasada agrupada pendiente forma
+  // parte del ARRASTRE aunque la clase `.dragging` ya no esté: debe volar
+  // por FLIP, no arrancar una view transition discreta justo al soltar
+  // (D-253 — el propietario veía parpadear el fondo de la toolbar y hasta
+  // el slider en ese instante). Bandera de un solo uso, la consume
+  // filterArchives.
+  let vueloDeSoltado = false;
 
   function scheduleFilterArchives() {
     if (sliderUpdateScheduled) return;
@@ -1947,14 +1962,28 @@ const tags = [
     // la exención del ratón de D-086 r6 tenía sentido cuando esto protegía
     // al hilo principal — ahora agrupa cruces para que cada vuelo termine).
     if (!isDragging) {
-      if (sliderTrailingTimer) { clearTimeout(sliderTrailingTimer); sliderTrailingTimer = null; }
+      if (sliderTrailingTimer) {
+        // Hay una pasada agrupada pendiente: este disparo es el remate del
+        // arrastre y viaja como él, por FLIP (ver vueloDeSoltado).
+        clearTimeout(sliderTrailingTimer);
+        sliderTrailingTimer = null;
+        vueloDeSoltado = true;
+      }
       scheduleFilterArchives();
       return;
     }
 
+    // El compás del vuelo solo aplica con la GALERÍA a la vista (D-253): en
+    // la Lista las filas no marean al moverse (criterio del propietario) y
+    // es mejor reproducir todos los años; allí queda el throttle corto de
+    // siempre (120ms, D-086 r4), que protege el hilo principal sin agrupar.
+    const vistaGaleria = document.getElementById('view-galería');
+    const compas = (vistaGaleria && !vistaGaleria.classList.contains('hidden'))
+      ? SLIDER_DRAG_FILTER_THROTTLE_MS : 120;
+
     const now = performance.now();
     const elapsed = now - sliderLastFilterAt;
-    if (elapsed >= SLIDER_DRAG_FILTER_THROTTLE_MS) {
+    if (elapsed >= compas) {
       sliderLastFilterAt = now;
       scheduleFilterArchives();
     } else if (!sliderTrailingTimer) {
@@ -1962,7 +1991,7 @@ const tags = [
         sliderTrailingTimer = null;
         sliderLastFilterAt = performance.now();
         scheduleFilterArchives();
-      }, SLIDER_DRAG_FILTER_THROTTLE_MS - elapsed);
+      }, compas - elapsed);
     }
   }
 
@@ -3174,7 +3203,23 @@ const tags = [
             if (divisor) divisor.classList.toggle('hidden', idx === paginated.length - 1);
           });
           tarjetasVivas.forEach((f, id) => {
-            if (!tarjetasConservadas.has(id)) f.remove();
+            if (tarjetasConservadas.has(id)) return;
+            // Despedida progresiva (D-253): colapsa y funde en vez de irse a
+            // pelo — el colapso desliza a las de abajo de forma natural, sin
+            // pelearse con el FLIP (que mide con la moribunda aún a tamaño
+            // completo, así que sus deltas salen limpios). Pierde el data-id
+            // durante la agonía para que ni la reconciliación ni el FLIP de
+            // pasadas siguientes la confundan con una fila viva; si su año
+            // vuelve antes de los 260ms, se construye una fresca y listo.
+            delete f.dataset.id;
+            f.style.overflow = 'hidden';
+            f.style.pointerEvents = 'none';
+            const alto = f.offsetHeight;
+            const salida = f.animate(
+              [{ height: alto + 'px', opacity: 1 }, { height: '0px', opacity: 0 }],
+              { duration: 260, easing: 'ease-out' }
+            );
+            salida.onfinish = salida.oncancel = () => f.remove();
           });
           // Aquí, y no arriba con la tabla: hasta esta línea las tarjetas nuevas
           // no existían.
@@ -3229,7 +3274,10 @@ const tags = [
     // encadena ninguna. La transición queda para lo discreto (búsqueda,
     // sort, clic en barra), donde el crossfade y el morph sí aportan.
     const trackWrapper = document.getElementById('slider-track-wrapper');
-    const arrastrandoSlider = trackWrapper && trackWrapper.classList.contains('dragging');
+    // El remate del soltar (vueloDeSoltado) cuenta como arrastre: misma
+    // animación FLIP, sin transición discreta en el instante de soltar.
+    const arrastrandoSlider = (trackWrapper && trackWrapper.classList.contains('dragging')) || vueloDeSoltado;
+    vueloDeSoltado = false;
 
     // Volviendo de una ficha NO se arranca transición aquí: la del ClientRouter
     // sigue viva y apilar una encima la supersede (regla 3 de AGENTS.md, escrita

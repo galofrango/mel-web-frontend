@@ -431,6 +431,20 @@ const { min = 2004, max = 2019 } = Astro.props;
     transition: none !important;
   }
 
+  /* Área táctil ampliada de los tiradores (D-253): 12px invisibles por cada
+     lado para acertarles a la primera en móvil. Un pseudo-elemento extiende
+     la zona de hit de SU elemento, así que el pointerdown sigue naciendo en
+     el tirador y beginDrag ni se entera. `:global()` porque los tiradores
+     los pinta SliderHandler.astro (la frontera de ámbito de siempre). En la
+     franja de 12px pegada al tirador, el clic-en-barra pasa a ser agarre —
+     que es justo lo que un dedo esperaba tocando ahí. */
+  :global(#min-handle::before),
+  :global(#max-handle::before) {
+    content: '';
+    position: absolute;
+    inset: -12px;
+  }
+
   /* El salto del clic en barra, y SOLO él, anima también los tiradores
      (D-235). `:global()` para cruzar la frontera de ámbito hasta
      SliderHandler.astro, pero acotado a `.salto-animado`, que el JS pone al
