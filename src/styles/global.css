@@ -1152,6 +1152,14 @@ html.mel-vuelta::view-transition-old(root) {
      segundo, súbelo a esa duración"); los 120ms de tapa opaca, con `both`. */
   animation: mel-vuelta-desvanecer 500ms ease 120ms both;
   mix-blend-mode: normal;
+  /* ENCIMA de la nueva, y esto es todo el truco: dentro del par, el navegador
+     pinta la imagen nueva DESPUÉS (o sea, por delante) de la vieja. Con la
+     mezcla aditiva de serie no se notaba — la luz suma, el orden da igual —
+     pero al pasar a transparencia pura la home opaca TAPABA a la ficha desde
+     el primer fotograma y su fundido de 500ms ocurría entero detrás de una
+     pared ("desaparece del tirón", el propietario). La ficha delante,
+     volviéndose transparente sobre la home quieta, es la vuelta diseñada. */
+  z-index: 1;
 }
 html.mel-vuelta::view-transition-image-pair(root) {
   isolation: auto;

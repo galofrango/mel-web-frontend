@@ -1329,7 +1329,16 @@ const tags = [
   try {
     if (sessionStorage.getItem('mel-return-state')) {
       document.documentElement.classList.add('mel-vuelta');
-      setTimeout(() => document.documentElement.classList.remove('mel-vuelta'), 600);
+      // 1200 y no 600 (D-263 quinquies): el temporizador es solo la RED — la
+      // retirada de verdad es el listener de before-preparation de abajo. Con
+      // 600 perdía dos carreras a la vez: cortaba la animación de la vieja a
+      // 20ms del final (120 de tapa + 500 de fundido), y si el revelado del
+      // velo llegaba después de los 600, se encontraba la clase ya quitada y
+      // caía en el camino CON fundido — las "tarjetas apareciendo con
+      // fundido" que el propietario vio dentro de la vuelta. Una transición
+      // interna antes de 1,2s exigiría un gesto casi imposible; la ida rápida
+      // ya la cubre el listener.
+      setTimeout(() => document.documentElement.classList.remove('mel-vuelta'), 1200);
     }
     // La retirada NO puede fiarse solo del temporizador: si el visitante abre
     // un cartel antes de los 600ms (el ping-pong natural de entrar-volver-

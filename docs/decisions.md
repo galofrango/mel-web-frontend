@@ -4665,3 +4665,11 @@ Con la disolución ya en transparencia pura, el propietario reporta el morphing 
 Arreglo: además del temporizador (que se queda como red), la clase se retira en `astro:before-preparation` — que dispara ANTES de que la ida fotografíe el estado viejo, el mismo timing que usa la ficha para despojar su cartel (D-256). Ninguna navegación saliente hereda ya la vuelta. Con guard de registro único (`_melVueltaCleanupBound`), que este script se reevalúa por visita y sin él se acumularía un listener por visita (D-126).
 
 Y la respuesta a la pregunta justa del propietario ("esto no debería ser tan complicado"): la complicación no está en el fundido — está en que un estado que solo debe existir DURANTE una transición tiene que ponerse antes de la foto (desde la página saliente, bis), quitarse antes de la foto siguiente (aquí), y no tocar las transiciones de en medio. Tres relojes ajenos que no se ven. Ya están los tres escritos.
+
+### D-263 quinquies · La vieja delante (z-index), y la red del temporizador a 1200
+
+"No estoy viendo que la ficha se desvanezca 500ms; desaparece del tirón, y las tarjetas sí aparecen con fundido" — dos carreras distintas, cazadas con sondas en el navegador (el marcador quedó exculpado: presente en el documento entrante en before-swap y en el vivo en after-swap).
+
+**La ficha "del tirón"**: dentro del par de imágenes, el navegador pinta la NUEVA por delante de la vieja. Con la mezcla aditiva de serie no se notaba (la luz suma, el orden da igual), pero al pasar a transparencia pura la home opaca tapaba a la ficha desde el primer fotograma — su fundido de 500ms ocurría entero detrás de una pared. `z-index: 1` en la vieja: la ficha delante, volviéndose transparente sobre la home quieta. Es la pareja de la trampa del ter: quitar el plus-lighter destapa el ORDEN de pintado, que la mezcla ocultaba.
+
+**Las tarjetas "con fundido"**: el temporizador de red (600ms) ganaba la carrera al revelado del velo — la clase se retiraba antes de que `revelarColocado()` corriera, y este caía en el camino normal de 250ms de fundido, visible dentro de la vuelta. La red sube a 1200ms; la retirada real sigue siendo el listener de before-preparation (quater), así que la ida rápida no se ve afectada. De paso, 600 cortaba la animación de la vieja a 20ms del final (120+500=620).
