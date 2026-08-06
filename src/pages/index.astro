@@ -879,6 +879,23 @@ const tags = [
                 0 10px 21px 0 rgb(var(--mel-shadow-rgb) / 0.10) !important;
   }
 
+  /* Donde el efecto ACTÚA, la sombra de hover es la del efecto y no la vieja
+     (D-264). No se solapaban por ningún motivo bueno: yo escribía la nueva en
+     línea encima de aquella, y en el hueco entre que el ratón entra y llega el
+     primer fotograma —y otra vez al salir— asomaba la de antes. Eso es el
+     "se nota un poco" del propietario. Ahora la nueva ES la regla, y el motor
+     solo mueve su desplazamiento con dos variables; no hay dos sombras que
+     puedan pelearse.
+     Fuera de aquí (táctil, donde el efecto no existe) la vieja sigue intacta:
+     el "hover" de un móvil es el invento del navegador al tocar, y ese
+     comportamiento no lo toca este experimento. */
+  @media (hover: hover) and (pointer: fine) {
+    .gallery-item:hover {
+      box-shadow: var(--sombra-x, 0.7px) var(--sombra-y, 8px)
+                  16px 0 rgb(var(--mel-shadow-rgb) / 0.48) !important;
+    }
+  }
+
   @keyframes marker-fade-in {
     0% {
       opacity: 0;
@@ -2759,13 +2776,23 @@ const tags = [
     recorrido: 8,       // % que viaja el reflejo por grado de giro
     luz: 355,           // de dónde viene la luz (0 = arriba)
     barrido: 135,       // rotación extra de la banda de luz
-    banda: 35,          // media anchura del barrido, en % de la tarjeta
+    // MEDIA anchura del barrido: la banda va de avance−35% a avance+35%, o
+    // sea 70% de la tarjeta. Estuvo en `banda*2` por un error de nombre y el
+    // reflejo salía del doble de ancho — iluminaba el cartel entero, que es
+    // lo que cazó el propietario.
+    banda: 35,
     nucleo: 0.83,       // opacidad del centro de la banda (borde muy difuso)
     sombraOp: 0.48,
     sombraDist: 8,
     sombraBlur: 16,
     sombraExt: 0,
     empuje: 0.55,       // cuánto acompaña la sombra al giro, px por grado
+    // Gemelos del CSS de `.carta-3d` (regla 7): si allí cambian, aquí también.
+    // El motor los necesita para calcular hasta dónde puede girar cada
+    // tarjeta sin destapar su propia caja.
+    perspectiva: 600,
+    escala: 1.045,
+    margen: 0.9,        // cuánto se recorta ese tope, por seguridad
   };
 
   function initTilt3D(senal) {
@@ -2781,14 +2808,41 @@ const tags = [
     const somX = Math.sin(dirSombra) * TILT.sombraDist;
     const somY = -Math.cos(dirSombra) * TILT.sombraDist;
 
-    let carta = null, caja = null, pedido = 0, ratonX = 0, ratonY = 0;
+    let carta = null, caja = null, tope = TILT.giro, pedido = 0, ratonX = 0, ratonY = 0;
+
+    // Hasta dónde puede inclinarse ESTA tarjeta sin que el canto que se aleja
+    // se meta hacia dentro y destape la caja blanca de debajo.
+    //
+    // Al girar con perspectiva, el borde que retrocede se proyecta más cerca
+    // del centro; la escala (1.045) da un margen, pero ese margen es un
+    // porcentaje del alto y el desplazamiento crece con el alto en píxeles.
+    // Por eso los carteles muy verticales lo agotan y los apaisados no: el
+    // propietario lo vio en el más alto del archivo. Despejando la condición
+    // de cobertura —`d·(k·cos t − 1) ≥ (alto·k/2)·sen t`— sale el tope.
+    //
+    // Se calcula por tarjeta y en el momento, no de una tabla: el alto depende
+    // del número de columnas, que aquí no lo decide un breakpoint sino una
+    // medición (`.galeria-cuatro`). Medido con la perspectiva y la escala
+    // actuales: a cuatro columnas el cartel más alto admite 4,75° (no estorba);
+    // a tres, 3,42°; a dos, 2,63°. Los apaisados pasan de 15° y nunca tocan
+    // techo.
+    function topeGiroDe(alto) {
+      if (!alto) return TILT.giro;
+      const seno = (2 * TILT.perspectiva * (TILT.escala - 1)) / (alto * TILT.escala);
+      if (!(seno > 0)) return TILT.giro;
+      if (seno >= 1) return TILT.giro;
+      return Math.min(TILT.giro, Math.asin(seno) * 180 / Math.PI * TILT.margen);
+    }
 
     // Curva "perezosa": el reflejo casi no se mueve cerca del centro y se
     // dispara hacia los bordes. Es lo que le da el aire de vidrio grueso.
+    // Se normaliza contra el tope REAL de la tarjeta, no contra los 4° de
+    // catálogo: si no, en un cartel muy alto el reflejo viajaría menos solo
+    // por haberle recortado el giro.
     const recorridoDe = (grados) => {
-      const t = Math.max(-1, Math.min(1, grados / TILT.giro));
+      const t = Math.max(-1, Math.min(1, grados / tope));
       const a = Math.abs(t);
-      return (t < 0 ? -1 : 1) * a * a * TILT.giro * TILT.recorrido;
+      return (t < 0 ? -1 : 1) * a * a * tope * TILT.recorrido;
     };
 
     function pintar() {
@@ -2796,26 +2850,24 @@ const tags = [
       if (!carta || !caja) return;
       const px = (ratonX - caja.left) / caja.width;
       const py = (ratonY - caja.top) / caja.height;
-      const giroX = (0.5 - py) * 2 * TILT.giro;
-      const giroY = (px - 0.5) * 2 * TILT.giro;
+      const giroX = (0.5 - py) * 2 * tope;
+      const giroY = (px - 0.5) * 2 * tope;
       carta.style.setProperty('--giro-x', giroX.toFixed(2) + 'deg');
       carta.style.setProperty('--giro-y', giroY.toFixed(2) + 'deg');
 
       const avance = 50 - recorridoDe(giroY) + recorridoDe(giroX);
       carta.style.setProperty('--brillo-fondo',
         `linear-gradient(${ANGULO_BANDA}deg,` +
-        ` rgb(255 255 255 / 0) ${(avance - TILT.banda * 2).toFixed(1)}%,` +
+        ` rgb(255 255 255 / 0) ${(avance - TILT.banda).toFixed(1)}%,` +
         ` rgb(255 255 255 / ${TILT.nucleo}) ${avance.toFixed(1)}%,` +
-        ` rgb(255 255 255 / 0) ${(avance + TILT.banda * 2).toFixed(1)}%)`);
+        ` rgb(255 255 255 / 0) ${(avance + TILT.banda).toFixed(1)}%)`);
 
       // La sombra se estira por donde la tarjeta se LEVANTA, no por donde se
       // hunde: una esquina que sube se separa del fondo y su sombra se aleja.
-      // `important` porque la regla de hover de la hoja lo lleva.
-      carta.style.setProperty('box-shadow',
-        `${(somX - giroY * TILT.empuje).toFixed(1)}px` +
-        ` ${(somY + giroX * TILT.empuje).toFixed(1)}px` +
-        ` ${TILT.sombraBlur}px ${TILT.sombraExt}px` +
-        ` rgb(var(--mel-shadow-rgb) / ${TILT.sombraOp})`, 'important');
+      // Solo se mueve el DESPLAZAMIENTO, con dos variables: la sombra entera
+      // la declara el CSS de hover, así que no hay dos sombras compitiendo.
+      carta.style.setProperty('--sombra-x', (somX - giroY * TILT.empuje).toFixed(1) + 'px');
+      carta.style.setProperty('--sombra-y', (somY + giroX * TILT.empuje).toFixed(1) + 'px');
     }
 
     function soltar() {
@@ -2825,7 +2877,8 @@ const tags = [
       c.style.removeProperty('--giro-x');
       c.style.removeProperty('--giro-y');
       c.style.removeProperty('--brillo-fondo');
-      c.style.removeProperty('box-shadow');
+      c.style.removeProperty('--sombra-x');
+      c.style.removeProperty('--sombra-y');
       // `will-change` solo en la tarjeta activa: dejarlo en las 32 promociona
       // 32 capas de compositor para nada.
       const capa = c.querySelector('.carta-3d');
@@ -2857,6 +2910,7 @@ const tags = [
         // Se mide UNA vez por tarjeta, no en cada movimiento: leer la caja en
         // cada `pointermove` obliga al navegador a recalcular la maquetación.
         caja = c.getBoundingClientRect();
+        tope = topeGiroDe(caja.height);
       }
       ratonX = e.clientX; ratonY = e.clientY;
       if (!pedido) pedido = requestAnimationFrame(pintar);
@@ -2866,7 +2920,7 @@ const tags = [
     // La caja cambia de sitio con el scroll y con el reordenado; si no se
     // relee, el giro se calcularía contra una posición vieja.
     document.getElementById('view-galería')?.addEventListener('scroll', () => {
-      if (carta) caja = carta.getBoundingClientRect();
+      if (carta) { caja = carta.getBoundingClientRect(); tope = topeGiroDe(caja.height); }
     }, { passive: true, signal: senal });
   }
 
