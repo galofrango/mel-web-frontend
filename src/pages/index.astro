@@ -722,20 +722,10 @@ const tags = [
 </style>
 
 <style is:global>
-  /* Entrada de una tarjeta durante el ARRASTRE del slider (D-251/D-253):
-     espejo exacto de la despedida (que encoge al 90% apagándose en 260ms,
-     ver el fantasma en performDOMUpdates). En el bloque GLOBAL a la fuerza:
-     estuvo en el bloque con ámbito de arriba y nació MUERTA para las
-     tarjetas creadas por JS (el cid de Astro no las viste, trampa D-239) —
-     "las entradas van del tirón" del propietario era literalmente que esta
-     regla no aplicaba. La clase la pone y quita reproducirFlipGaleria(). */
-  @keyframes card-entra {
-    from { opacity: 0; transform: scale(0.9); }
-    to { opacity: 1; transform: scale(1); }
-  }
-  .gallery-item.card-entra {
-    animation: card-entra 260ms ease-out;
-  }
+  /* (La entrada de tarjetas `card-entra` vivió aquí entre D-253 y D-256;
+     ahora va por WAAPI dentro de reproducirFlipGaleria, con duración que
+     escala con la pasada. Su primera versión, en el bloque con ámbito de
+     arriba, nació muerta — trampa D-239.) */
 
   /* Las tarjetas móviles de la Lista llevan fondo propio (D-253): sin él,
      durante los vuelos del FLIP se transparentaban unas sobre otras. */
@@ -1765,11 +1755,9 @@ const tags = [
   // cero — un cruce que las pilla a medio vuelo las redirige desde donde
   // estén.
   let vuelosGaleria = [];
-  let flipEntradaTimer = null;
   function reproducirFlipGaleria(grid, rectsViejos, entrantes, dur = FLIP_DUR, ease = FLIP_EASE) {
     vuelosGaleria.forEach(a => { try { a.cancel(); } catch (e) {} });
     vuelosGaleria = [];
-    if (flipEntradaTimer) clearTimeout(flipEntradaTimer);
 
     // Misma referencia que la captura: relativa a la rejilla (ver D-252 en
     // el punto de captura — el scroll no debe colarse en los deltas).
@@ -1788,14 +1776,20 @@ const tags = [
       }
     });
 
+    // Entradas al ritmo de la pasada (D-256): con el compás del arrastre son
+    // los ~260ms de siempre, pero en el sort (vuelos de hasta 1500ms) crecen
+    // hasta 500 — si no, media rejilla aparecía "de golpe" al lado de vuelos
+    // lentos y el barajado se leía como un corte. Por WAAPI y no con la
+    // clase CSS de antes: mismas razones de siempre (ámbito) y así entran en
+    // vuelosGaleria y un cruce encadenado las redirige en vez de pisarlas.
+    const durEntrada = Math.max(260, Math.min(500, Math.round(dur / 3)));
     (entrantes || []).forEach(el => {
       if (el.dataset && rectsViejos.has(el.dataset.id)) return;
-      el.classList.add('card-entra');
+      vuelosGaleria.push(el.animate(
+        [{ opacity: 0, transform: 'scale(0.9)' }, { opacity: 1, transform: 'scale(1)' }],
+        { duration: durEntrada, easing: 'ease-out' }
+      ));
     });
-    flipEntradaTimer = setTimeout(() => {
-      (entrantes || []).forEach(el => el.classList.remove('card-entra'));
-      flipEntradaTimer = null;
-    }, 400);
   }
 
   // Despedida y llegada de filas de la Lista (D-255) — UN solo efecto para
@@ -2881,9 +2875,15 @@ const tags = [
           // ARRIBA que vio el propietario al recortar por la derecha, cuando
           // allí no debería inmutarse nada. Un nodo que ya es el siguiente
           // del cursor no se toca.
+          // Saltando estorbos (fantasmas absolutos y tarjetas que van a salir
+          // en esta misma pasada): sin el salto, cada tarjeta viva posterior a
+          // un estorbo se movía de DOM sin necesidad (D-256).
+          const idsMostrados = new Set(galleryShown.map(x => x.idMel));
+          const esEstorboCarta = n => !n.dataset || !n.dataset.id || !idsMostrados.has(n.dataset.id);
           let cursorGaleria = null;
           const colocarEnGaleria = (nodo) => {
-            const siguiente = cursorGaleria ? cursorGaleria.nextSibling : gridContainer.firstChild;
+            let siguiente = cursorGaleria ? cursorGaleria.nextSibling : gridContainer.firstChild;
+            while (siguiente && siguiente !== nodo && esEstorboCarta(siguiente)) siguiente = siguiente.nextSibling;
             if (siguiente !== nodo) gridContainer.insertBefore(nodo, siguiente);
             cursorGaleria = nodo;
           };
@@ -2906,7 +2906,6 @@ const tags = [
             }
           });
           const aGuarderia = (id, el) => {
-            el.classList.remove('card-entra');
             ['transform', 'transition', 'opacity', 'position', 'left', 'top',
              'width', 'height', 'pointerEvents', 'zIndex'].forEach(p => { el.style[p] = ''; });
             guarderiaTarjetas.set(id, el);
@@ -2933,7 +2932,6 @@ const tags = [
             // viva, y encoge mientras se apaga. Al terminar recupera su id
             // y pasa a la guardería, listo para revivir.
             delete el.dataset.id;
-            el.classList.remove('card-entra');
             el.style.position = 'absolute';
             el.style.left = rectRel.left + 'px';
             el.style.top = rectRel.top + 'px';
@@ -2941,9 +2939,13 @@ const tags = [
             el.style.height = rectRel.height + 'px';
             el.style.pointerEvents = 'none';
             el.style.zIndex = '1';
+            // Al ritmo de la pasada, como las entradas (D-256): ~260ms en el
+            // arrastre, hasta 500 en el sort lento.
+            const durDespedida = Math.max(260, Math.min(500,
+              Math.round((animacionOrdenLenta ? duracionOrden : FLIP_DUR) / 3)));
             const despedida = el.animate(
               [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.9)' }],
-              { duration: 260, easing: 'ease-out' }
+              { duration: durDespedida, easing: 'ease-out' }
             );
             despedida.onfinish = despedida.oncancel = () => {
               el.remove();
@@ -3146,9 +3148,20 @@ const tags = [
           listTable.style.height = '';
           // Colocación solo-si-hace-falta, como en la galería (D-254): mover
           // filas que ya están en su sitio repinta sus miniaturas gratis.
+          // Los ESTORBOS (moribundas de esta pasada o de una anterior, aún
+          // plegándose) se saltan al buscar el siguiente (D-256): sin esto,
+          // cada fila viva se insertaba DELANTE de una moribunda de arriba y
+          // la iba empujando al fondo de la tabla — la moribunda acababa
+          // colapsando en el sitio equivocado o fuera de la vista, que es
+          // exactamente "las de arriba desaparecen sin animación" que veía
+          // el propietario, mientras las del final (sin nada que las
+          // empujara) se plegaban de maravilla.
+          const idsPaginados = new Set(paginated.map(x => x.idMel));
+          const esEstorboFila = n => !n.dataset || !n.dataset.id || !idsPaginados.has(n.dataset.id);
           let cursorFila = null;
           const colocarFila = (nodo) => {
-            const siguiente = cursorFila ? cursorFila.nextSibling : listBody.firstChild;
+            let siguiente = cursorFila ? cursorFila.nextSibling : listBody.firstChild;
+            while (siguiente && siguiente !== nodo && esEstorboFila(siguiente)) siguiente = siguiente.nextSibling;
             if (siguiente !== nodo) listBody.insertBefore(nodo, siguiente);
             cursorFila = nodo;
           };
@@ -3266,10 +3279,15 @@ const tags = [
             if (f.dataset && f.dataset.id) tarjetasVivas.set(f.dataset.id, f);
           });
           const tarjetasConservadas = new Set();
-          // Colocación solo-si-hace-falta, como en galería y tabla (D-254).
+          // Colocación solo-si-hace-falta, como en galería y tabla (D-254),
+          // saltando estorbos (moribundas plegándose) — el mismo empujón al
+          // fondo que en la tabla, ver colocarFila (D-256).
+          const idsPaginadosM = new Set(paginated.map(x => x.idMel));
+          const esEstorboTarjeta = n => !n.dataset || !n.dataset.id || !idsPaginadosM.has(n.dataset.id);
           let cursorTarjeta = null;
           const colocarTarjeta = (nodo) => {
-            const siguiente = cursorTarjeta ? cursorTarjeta.nextSibling : mobileListItems.firstChild;
+            let siguiente = cursorTarjeta ? cursorTarjeta.nextSibling : mobileListItems.firstChild;
+            while (siguiente && siguiente !== nodo && esEstorboTarjeta(siguiente)) siguiente = siguiente.nextSibling;
             if (siguiente !== nodo) mobileListItems.insertBefore(nodo, siguiente);
             cursorTarjeta = nodo;
           };

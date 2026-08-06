@@ -1673,7 +1673,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     document.addEventListener('astro:page-load', initPage);
 
     // Clean transition intervals on Astro page unload
-    document.addEventListener('astro:before-preparation', () => {
+    document.addEventListener('astro:before-preparation', (e) => {
       if (window.melAutoplayInterval) {
         clearInterval(window.melAutoplayInterval);
         window.melAutoplayInterval = null;
@@ -1682,6 +1682,23 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         document.removeEventListener('keydown', window.melOverlayKeydownHandler);
         window.melOverlayKeydownHandler = null;
       }
+      // RETIRADO el morphing de VUELTA evento → galería (D-256, decisión del
+      // propietario): con la galería reconstruyéndose al volver (orden de
+      // sesión vs. el servido) y las tarjetas más allá del primer lote sin
+      // existir aún, el morph no puede ser fiable — aterrizaba en la columna
+      // equivocada y hasta movía la tarjeta después. Se despoja el nombre
+      // ANTES de que el ClientRouter fotografíe el estado viejo (por eso
+      // `before-preparation` y no `before-swap`, que llega con la foto ya
+      // hecha): sin pareja, el cartel entra en el fundido de la raíz y la
+      // vuelta es un fade limpio. La IDA (galería → evento) no se toca.
+      try {
+        const destino = e && e.to ? new URL(e.to, location.href).pathname : null;
+        if (destino === '/') {
+          document.querySelectorAll('[style*="flyer-img-"]').forEach(el => {
+            el.style.viewTransitionName = 'none';
+          });
+        }
+      } catch (err) {}
     });
   }
 </script>
