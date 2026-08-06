@@ -4627,3 +4627,19 @@ Tercer ajuste sobre la misma transición, con el propietario afinando números (
 **La vuelta**: la "franjita tardía" era la ficha vieja disolviéndose a 250ms bajo una franja que aparece a 0s — dos relojes a la vista, y el borde inferior de la franja era la costura. Pero "destino = home" también es verdad en las transiciones internas (búsqueda, salto de barra), que no deben cambiar de ritmo, así que la vuelta necesita marcador propio: el script de la home, al evaluarse (que en una navegación suave ocurre durante el intercambio, ANTES de la foto nueva), pone `html.mel-vuelta` si existe `mel-return-state`, y la clase se retira sola a los 600ms. En global.css, bajo esa clase, old y new de todo a 90ms (cruce único y rápido; de paso encoge el microdestello de las tarjetas) y la franja conserva su 0s con una regla más específica — la de la clase le ganaría.
 
 **Verificación**: build OK; en el HTML servido de la ficha los selectores `html::…` salen sin cid (la excepción de ámbito de D-239, comprobada otra vez), las reglas de la vuelta viajan en el CSS global de ambas páginas y el marcador JS parsea. Ritmos reales, en Chrome móvil.
+
+## D-263 · La vuelta es "se levanta la ficha y debajo estaba todo": raíz sola, home viva a 0s, ficha opaca 120ms y disolución de 180
+
+Tanda acordada explícitamente con el propietario (roadmap, 06-08-2026) tras su fotograma a fotograma del intento de D-262: el botón de orden y el whisper entraban por encima de la ficha, las 32 tarjetas aparecían de golpe sobre ambos, y cada pieza llevaba su reloj. Su petición literal: "una disolución uniforme de la página de evento sobre la página principal totalmente cargada y sin movimientos extraños".
+
+**El diseño, en dos mitades (global.css bajo `html.mel-vuelta`, la clase de D-262):**
+
+1. **Durante la vuelta nadie tiene nombre**: se apagan por CSS (`!important`, que varios van en el atributo style) todos los que declara la home — tarjetas, franja de cabecera, botón de orden, whisper, paginación, panel del mapa, slider. La transición entera queda reducida a la raíz: UNA imagen vieja (la ficha completa) sobre UNA nueva (la home completa). Ya no hay zoo posible: no existen las capas.
+
+2. **La imagen nueva de la raíz es VIVA** (el navegador replica el estado actual, no una foto — es la razón por la que el propietario dejó de ver el "orden crono de entrada" en sus inspecciones: la restauración corre durante la transición y la imagen la refleja). A 0s, la home está presente desde el primer fotograma; la ficha aguanta OPACA 120ms (`fill-mode: both`) tapando la restauración de orden y scroll que corre debajo, y solo entonces se disuelve, uniforme, en 180ms.
+
+**Y el velo sin doble fundido**: `revelarColocado()` revela INSTANTÁNEO bajo `mel-vuelta` — su fundido de 250ms se veía a través de la ficha disolviéndose (dos fundidos apilados: el microdestello). La disolución de la ficha ya es el único fundido de la vuelta.
+
+**Por qué esto y no el morph inverso**: registrado en el roadmap al acordarlo — esta base (restauración tapada + raíz única) cubre todos los casos por construcción (sort, vuelta desde otro evento de la secuencia, tarjeta filtrada fuera), y es además el prerrequisito del morph si algún día se quiere, acotado a tarjeta visible y con este cierre como respaldo.
+
+**Verificación**: build OK; reglas servidas en el HTML (apagado de nombres, root new 0s, root old 120/180) y script parsea. El resultado visual —incluida la carrera entre los 120ms de tapa y la restauración— solo se puede juzgar en el móvil del propietario. Si la tapa se queda corta en frío (imágenes sin caché), el ajuste es subir el delay, no rehacer el diseño.

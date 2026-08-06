@@ -1090,23 +1090,50 @@ html::view-transition-new(mel-bloque-cabecera) {
    actuar yendo HACIA una ficha — aquí alcanzarían también a las transiciones
    internas de la home. */
 
-/* El ritmo de la VUELTA (ficha → home), D-262. `mel-vuelta` lo pone el script
-   de la home en síncrono al evaluarse cuando hay `mel-return-state` — o sea,
-   solo en una vuelta de ficha, nunca en las transiciones internas (búsqueda,
-   salto de barra), que también tienen a la home como documento y no deben
-   cambiar de ritmo. El propietario señaló "una franjita que llega un poco más
-   tarde" bajo la cabecera: era la ficha vieja disolviéndose 250ms bajo una
-   franja que aparece a 0s — dos relojes distintos a la vista. A 90ms por los
-   dos lados, el cruce entero se resuelve de golpe y de paso encoge el
-   microdestello de las tarjetas (dos fundidos superpuestos, ver roadmap). */
-html.mel-vuelta::view-transition-old(*),
-html.mel-vuelta::view-transition-new(*) {
-  animation-duration: 90ms;
+/* La VUELTA (ficha → home), D-263: "una disolución uniforme de la página de
+   evento sobre la página principal totalmente cargada y sin movimientos
+   extraños" — la petición literal del propietario, tras grabar fotograma a
+   fotograma cómo el intento anterior (todo a 90ms, D-262) seguía siendo un
+   zoo de capas: el botón de orden y el whisper entrando por encima de la
+   ficha, las 32 tarjetas apareciendo de golpe sobre ambos, y cada pieza con
+   su reloj.
+
+   `mel-vuelta` lo pone el script de la home en síncrono al evaluarse cuando
+   hay `mel-return-state` (durante el intercambio, ANTES de que el navegador
+   fotografíe) — solo en una vuelta de ficha, nunca en las transiciones
+   internas (búsqueda, salto de barra), que no deben cambiar.
+
+   La mecánica tiene dos mitades:
+
+   1) Durante la vuelta NADIE tiene nombre propio: se apagan aquí todos los
+      que la home declara (tarjetas, franja de cabecera, botón de orden,
+      whisper, paginación, panel del mapa; el del slider ya es condicional).
+      `!important` porque varios van en el atributo style. Sin nombres, la
+      transición entera se reduce a la raíz: UNA imagen vieja (la ficha,
+      entera) sobre UNA imagen nueva (la home, entera). */
+html.mel-vuelta .gallery-item,
+html.mel-vuelta #bloque-cabecera,
+html.mel-vuelta #boton-orden,
+html.mel-vuelta #whisper,
+html.mel-vuelta #pagination-controls-desktop,
+html.mel-vuelta #map-side-panel,
+html.mel-vuelta #slider-track-wrapper {
+  view-transition-name: none !important;
 }
-/* La franja conserva su 0s también en la vuelta: la regla de arriba, con su
-   clase, le ganaría en especificidad a la del nombre. */
-html.mel-vuelta::view-transition-new(mel-bloque-cabecera) {
+/* 2) La imagen nueva de la raíz es VIVA (el navegador replica el estado
+      actual, no una foto): a 0s, la home está presente y completa desde el
+      primer fotograma — y como la restauración de orden y scroll corre
+      durante los primeros compases, la ficha OPACA la tapa mientras tanto:
+      su old aguanta 120ms con `fill-mode: both` y solo entonces se disuelve,
+      uniforme, en 180ms. Es el "cierre de algo que estaba encima": se
+      levanta la ficha y debajo estaba todo, quieto y colocado. */
+html.mel-vuelta::view-transition-new(root) {
   animation-duration: 0s;
+}
+html.mel-vuelta::view-transition-old(root) {
+  animation-delay: 120ms;
+  animation-duration: 180ms;
+  animation-fill-mode: both;
 }
 
 html::view-transition-group(mel-pagination),

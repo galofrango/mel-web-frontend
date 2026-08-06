@@ -1321,9 +1321,11 @@ const tags = [
   // de vuelta pendiente, esto ES una vuelta de ficha. Se pone aquí, en la
   // evaluación del script —que en una navegación suave ocurre durante el
   // intercambio, ANTES de que el navegador fotografíe el estado nuevo— para
-  // que las reglas `html.mel-vuelta::view-transition-…` de global.css vean la
-  // clase puesta. Se retira solo (600ms cubre de sobra los 90 de la
-  // transición): las transiciones internas posteriores no deben heredarla.
+  // que las reglas `html.mel-vuelta…` de global.css vean la clase puesta —
+  // tanto las de ritmo (::view-transition-…) como las que APAGAN los nombres
+  // de todos los grupos de la home durante la vuelta (D-263). Se retira solo
+  // (600ms cubre de sobra los ~300 de la transición): las transiciones
+  // internas posteriores no deben heredarla.
   // En la vuelta dura del panel (?location=) no hay transición y la clase no
   // hace nada — se pone y se va sin efecto.
   try {
@@ -2312,6 +2314,16 @@ const tags = [
   function revelarColocado(el) {
     // Solo revela lo que está oculto: así llamarlo dos veces no reinicia nada.
     if (!el || el.style.opacity !== '0') return;
+    // Dentro de una vuelta de ficha (D-263), el revelado es INSTANTÁNEO: la
+    // imagen nueva de la raíz es viva, así que este fundido se vería a través
+    // de la ficha que se está disolviendo encima — dos fundidos apilados, el
+    // origen del microdestello. La disolución de la ficha YA es el fundido de
+    // la vuelta; aquí solo hay que estar colocados debajo cuanto antes.
+    if (document.documentElement.classList.contains('mel-vuelta')) {
+      el.style.transition = '';
+      el.style.opacity = '';
+      return;
+    }
     void el.offsetWidth;
     el.style.transition = 'opacity 0.25s ease';
     el.style.opacity = '1';
