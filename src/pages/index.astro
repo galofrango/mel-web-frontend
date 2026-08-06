@@ -1317,17 +1317,15 @@ const tags = [
     }
   } catch (e) {}
 
-  // Marcador de VUELTA para el ritmo de la transición (D-262): si hay estado
-  // de vuelta pendiente, esto ES una vuelta de ficha. Se pone aquí, en la
-  // evaluación del script —que en una navegación suave ocurre durante el
-  // intercambio, ANTES de que el navegador fotografíe el estado nuevo— para
-  // que las reglas `html.mel-vuelta…` de global.css vean la clase puesta —
-  // tanto las de ritmo (::view-transition-…) como las que APAGAN los nombres
-  // de todos los grupos de la home durante la vuelta (D-263). Se retira solo
-  // (600ms cubre de sobra los ~300 de la transición): las transiciones
-  // internas posteriores no deben heredarla.
-  // En la vuelta dura del panel (?location=) no hay transición y la clase no
-  // hace nada — se pone y se va sin efecto.
+  // Marcador de VUELTA (`mel-vuelta`, D-262/D-263). OJO: quien lo instala A
+  // TIEMPO es la FICHA, en su `astro:before-swap`, escribiéndolo en el
+  // documento entrante — este script se evalúa DESPUÉS de la foto nueva
+  // (asumimos lo contrario en D-262 y el vídeo del propietario lo desmintió:
+  // los nombres nunca llegaban a apagarse). Lo que este bloque sí hace, y
+  // para eso llega siempre a tiempo: (1) programar la RETIRADA, que las
+  // transiciones internas posteriores no deben heredar la clase; (2) ponerla
+  // en la vuelta DURA del panel (?location=, recarga completa), donde no hay
+  // transición pero revelarColocado() la consulta para revelar sin fundido.
   try {
     if (sessionStorage.getItem('mel-return-state')) {
       document.documentElement.classList.add('mel-vuelta');

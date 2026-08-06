@@ -4643,3 +4643,11 @@ Tanda acordada explícitamente con el propietario (roadmap, 06-08-2026) tras su 
 **Por qué esto y no el morph inverso**: registrado en el roadmap al acordarlo — esta base (restauración tapada + raíz única) cubre todos los casos por construcción (sort, vuelta desde otro evento de la secuencia, tarjeta filtrada fuera), y es además el prerrequisito del morph si algún día se quiere, acotado a tarjeta visible y con este cierre como respaldo.
 
 **Verificación**: build OK; reglas servidas en el HTML (apagado de nombres, root new 0s, root old 120/180) y script parsea. El resultado visual —incluida la carrera entre los 120ms de tapa y la restauración— solo se puede juzgar en el móvil del propietario. Si la tapa se queda corta en frío (imágenes sin caché), el ajuste es subir el delay, no rehacer el diseño.
+
+### D-263 bis · El marcador lo instala la FICHA en el documento entrante, no la home
+
+El primer intento de D-263 falló entero en el móvil del propietario, con un síntoma inequívoco: la franja seguía apareciendo a 0s y las tarjetas seguían siendo grupos sueltos — es decir, **los nombres nunca llegaron a apagarse**, o sea que `html.mel-vuelta` no estaba puesto cuando el navegador fotografió el estado nuevo. La premisa de D-262 ("el script de la home se evalúa durante el intercambio, antes de la foto") era **falsa**: se evalúa después.
+
+Arreglo: el marcador lo instala la ficha en su `astro:before-swap`, el único gancho con acceso a `e.newDocument` antes del intercambio — la clase viaja en los atributos del documento entrante, el swap la instala y la foto nueva ya la ve. Condición: destino `/` y `mel-return-state` presente. El script de la home conserva dos papeles para los que sí llega a tiempo: programar la retirada (600ms) y poner la clase en la vuelta dura del panel (`?location=`), donde no hay transición pero `revelarColocado()` la consulta.
+
+Lección para la colección de trampas: **nada que deba estar presente en la foto nueva puede ponerlo el script de la página nueva** — para llegar antes que la foto hay que escribir en `e.newDocument` desde la página saliente.

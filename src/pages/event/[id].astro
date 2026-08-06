@@ -1742,6 +1742,27 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         }
       } catch (err) {}
     });
+
+    // El marcador `mel-vuelta` (D-263) se instala DESDE AQUÍ, en el documento
+    // ENTRANTE, y no desde el script de la home: el primer intento lo ponía la
+    // home al evaluarse su script, asumiendo que eso ocurre antes de la foto
+    // nueva — y el vídeo del propietario demostró que NO (la franja seguía
+    // apareciendo a 0s y las tarjetas como grupos sueltos: los nombres nunca
+    // llegaron a apagarse, o sea que la clase no estaba puesta al fotografiar).
+    // `astro:before-swap` es el único gancho con acceso a `e.newDocument`
+    // ANTES del intercambio: la clase viaja en los atributos del documento
+    // nuevo, el swap la instala, y la foto nueva —que se toma después del
+    // swap— ya la ve, junto con todo el CSS de apagado de global.css.
+    // La retirada sigue siendo cosa del script de la home (su temporizador de
+    // 600ms), que para retirar sí llega siempre a tiempo.
+    document.addEventListener('astro:before-swap', (e) => {
+      try {
+        const destino = e && e.to ? new URL(e.to, location.href).pathname : null;
+        if (destino === '/' && e.newDocument && sessionStorage.getItem('mel-return-state')) {
+          e.newDocument.documentElement.classList.add('mel-vuelta');
+        }
+      } catch (err) {}
+    });
   }
 </script>
 
