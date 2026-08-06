@@ -4603,3 +4603,17 @@ El propietario valida D-259 en Chrome móvil ("está muchísimo mejor todo", "la
 **3. Apuntado sin tocar** (roadmap): el microdestello de las tarjetas al volver (dos fundidos superpuestos; posible vía con `view-transition-class`), el flash blanco de la franja de cabecera en la carga inicial y la medida del toggle — los dos últimos marcados como secundarios por el propietario.
 
 **Verificación**: build OK; el CSS global servido contiene las reglas y el de la home ya no (curl); script parsea. Capas y columnas, a validar en su móvil — el panel sigue sin viewport.
+
+## D-261 · La franja de cabecera es UNA foto: fuera los nombres interiores, y la ida en dos tiempos
+
+Segundo vídeo del propietario tras D-260. Confirma arreglada la columna (D-260 §2), pero la ida sigue mal por otra razón que él mismo diagnostica con precisión: ya no hay tarjetas POR ENCIMA de la cabecera, pero "se sigue viendo todo al mismo tiempo" porque todo coge transparencia a la vez — y "no todos los elementos de la cabecera están tratados igual, sobre todo el toggle y ese background que debería pertenecer a todo el conjunto".
+
+Tenía razón en las dos cosas. La franja eran CUATRO capas de transición independientes: `mel-header` (buscador+menú), `mel-toolbar` (cifras+toggle), `mel-slider` (con reglas de 0s que lo hacían desaparecer DEL TIRÓN mientras el resto se fundía — el trato desigual del vídeo) y el bloque de fondo debajo. Cada una con su fundido, a su ritmo.
+
+**Arreglo — un solo grupo**: los nombres `mel-header` y `mel-toolbar` se retiran (existían por D-116/D-131, cuando no había bloque opaco que cubriera la franja; hoy no protegen nada que `mel-bloque-cabecera` no cubra); el del slider queda ACOTADO a `.salto-animado` (la única transición en la que se mueve y su imagen viva debe mandar — el arrastre va por FLIP desde D-251 y no arranca transiciones); y `nombrarHuecos()` pierde el baile de apagar/reponer los interiores. Buscador, slider, cifras, toggle y fondo viajan ahora dentro de la foto del bloque, siempre.
+
+**Y la secuencia que pidió** ("las tarjetas tendrían que evaporarse antes de que empiece a hacerlo la cabecera"): a la ida el bloque no tiene pareja en la ficha, así que su `::view-transition-old` lleva `animation-delay: 200ms` + 200ms de fundido con `fill-mode: both` — la franja aguanta opaca mientras las tarjetas y el resto se funden debajo, y solo entonces se despide. La vuelta conserva el 0s de D-259 (aparece opaca en el primer fotograma), ahora con el toggle y el fondo dentro de la misma foto — lo que debería eliminar también el "el toggle ya está plantado pero el background llega más tarde" del vídeo. En las transiciones dentro de la home (búsqueda), el par existe y el efecto neto del delay es un cruce de cifras 200ms más tardío: aceptable.
+
+**Apuntado, sin tocar aún** (lo aparcó él: "esto lo vemos luego"): al volver hay un instante en que las tarjetas se ven en el orden/scroll de entrada antes de saltar al restaurado — es la reconstrucción + restauración asomando entre el swap y la colocación; conecta con la idea del "cierre como si la ficha estuviera simplemente encima". Y el microdestello de las tarjetas (roadmap, vía view-transition-class) sigue pendiente.
+
+**Verificación**: build OK; en el HTML servido ya no existe ningún `view-transition-name: mel-header|mel-toolbar` y el del slider solo bajo `.salto-animado`/`.dragging`; reglas nuevas presentes en el CSS global de ambas páginas. Ritmos y capas, a validar en Chrome móvil — el panel sigue sin viewport.

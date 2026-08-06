@@ -1069,19 +1069,33 @@ button:disabled { cursor: not-allowed; }
    Las reglas del reordenado (html.orden-cambiando…) se quedan en
    index.astro: ese flujo ocurre siempre con la home como documento. */
 
-/* La franja de cabecera completa: pieza opaca por encima de las tarjetas
-   (z 99) y por debajo de sus propios hijos nombrados (100+). Su imagen
-   nueva entra a 0s: al volver de una ficha no tiene pareja en la página
-   vieja y un fundido de 250ms dejaba ver las tarjetas detrás. */
+/* La franja de cabecera completa — desde D-261, LA ÚNICA pieza de la franja:
+   los nombres interiores que la despedazaban (mel-header, mel-toolbar, y el
+   del slider fuera de su salto) ya no existen, así que buscador, cifras,
+   slider y toggle viajan todos dentro de esta foto, con su fondo, como el
+   conjunto que el propietario pidió. Pieza opaca por encima de las tarjetas
+   (z 99) y por debajo de los flotantes (100+). */
 html::view-transition-group(mel-bloque-cabecera) {
   z-index: 99;
 }
+/* A la VUELTA (ficha → home) no tiene pareja en la página vieja: a 0s aparece
+   opaca desde el primer fotograma en vez de fundirse dejando ver las tarjetas
+   detrás. */
 html::view-transition-new(mel-bloque-cabecera) {
   animation-duration: 0s;
 }
+/* A la IDA (home → ficha) tampoco tiene pareja, y aquí está la secuencia que
+   pidió el propietario: "las tarjetas tendrían que evaporarse ANTES de que
+   empiece a hacerlo la cabecera". La franja aguanta OPACA los primeros 200ms
+   —mientras las tarjetas y el resto de la página se funden debajo— y solo
+   entonces se despide, en otros 200. `fill-mode: both` sostiene la opacidad
+   completa durante la espera. */
+html::view-transition-old(mel-bloque-cabecera) {
+  animation-delay: 200ms;
+  animation-duration: 200ms;
+  animation-fill-mode: both;
+}
 
-html::view-transition-group(mel-header),
-html::view-transition-group(mel-toolbar),
 html::view-transition-group(mel-pagination),
 html::view-transition-group(mel-bloque-fijo),
 html::view-transition-group(mel-slider) {

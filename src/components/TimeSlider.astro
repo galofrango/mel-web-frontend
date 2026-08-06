@@ -409,7 +409,19 @@ const { min = 2004, max = 2019 } = Astro.props;
      el propietario). Nombre propio + grupo a 0s en index.astro (mismo
      remedio que el botón de orden, D-131): la imagen "nueva" de un grupo es
      VIVA, así que el slider se pinta siempre nítido y al día. */
-  #slider-track-wrapper {
+  /* ACOTADO desde D-261: el nombre existe SOLO durante el salto del clic en
+     barra (.salto-animado), que es la única transición en la que el slider se
+     mueve y su imagen viva debe mandar (el arrastre ya no arranca
+     transiciones desde D-251 — va por FLIP). Fijo, sacaba al slider del
+     bloque de cabecera como capa aparte en cada navegación entre páginas, y
+     con sus reglas de 0s desaparecía DEL TIRÓN mientras el resto de la
+     franja se fundía — el trato desigual que el propietario grabó en vídeo.
+     Sin nombre, viaja dentro de la foto de #bloque-cabecera como todo lo
+     demás. `.dragging` se incluye por si algún camino futuro vuelve a
+     arrancar una transición con el dedo puesto: la regla de D-248 (imagen
+     viva, sin halo) es exactamente la que querríamos ahí. */
+  #slider-track-wrapper.dragging,
+  #slider-track-wrapper.salto-animado {
     view-transition-name: mel-slider;
   }
 

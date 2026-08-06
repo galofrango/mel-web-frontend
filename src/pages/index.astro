@@ -172,12 +172,13 @@ const tags = [
          pareja resultó ser justo lo que faltaba): al volver de una ficha, las
          tarjetas se promocionan por su flyer-img-… y se veían POR LOS HUECOS
          entre los grupos sueltos de cabecera y toolbar, cuyos margins no eran
-         de nadie. Con el bloque entero nombrado, su fondo opaco cubre la franja
-         completa por encima de las tarjetas (z-index en el <style> de abajo, y
-         su ::view-transition-new a 0s para que en la vuelta aparezca opaco
-         desde el primer fotograma en vez de fundirse dejando ver detrás).
-         Durante el reordenado, nombrarHuecos() lo renombra a mel-bloque-fijo y
-         al deshacer lo devuelve a ESTE nombre, no a vacío. -->
+         de nadie. Desde D-261 esos grupos sueltos YA NO EXISTEN: este bloque es
+         la única pieza nombrada de la franja y todo (buscador, slider, cifras,
+         toggle, fondo) viaja dentro de su foto. Sus reglas de apilamiento y
+         ritmo viven en global.css (D-260: en el CSS de una página solo actúan
+         cuando esa página es el destino). Durante el reordenado,
+         nombrarHuecos() lo renombra a mel-bloque-fijo y al deshacer lo
+         devuelve a ESTE nombre, no a vacío. -->
     <div
       id="bloque-cabecera"
       style="view-transition-name: mel-bloque-cabecera;"
@@ -185,7 +186,12 @@ const tags = [
              pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)]
              -mx-6 px-6 sm:-mx-12 sm:px-12 lg:-mx-[108px] lg:px-[108px]"
     >
-    <div id="home-header" class="flex items-center gap-4 lg:gap-6 shrink-0" style="view-transition-name: mel-header;">
+    <!-- SIN view-transition-name propio desde D-261: lo llevaba (mel-header) y
+         eso lo sacaba del bloque como capa aparte con su propio fundido — la
+         franja se despedazaba en tres tiempos (cabecera, toolbar, slider) en
+         cada transición. El propietario pidió UN conjunto: la única pieza con
+         nombre es #bloque-cabecera, y este div viaja dentro de su foto. -->
+    <div id="home-header" class="flex items-center gap-4 lg:gap-6 shrink-0">
       <div class="flex-1 min-w-0 w-full">
         <HeaderTitle hideDivider={true} />
       </div>
@@ -215,7 +221,10 @@ const tags = [
          El `pb` baja a `XS` en escritorio: allí el hueco hasta la galería suma
          además los 16px del `lg:mt` de la propia galería (D-064) y se iba a 56,
          que el propietario ve excesivo. Con esto, 48. -->
-    <div id="home-toolbar" class="flex flex-col gap-mel-m md:gap-mel-l pb-mel-s lg:pb-mel-xs shrink-0 lg:mt-mel-xs" style="view-transition-name: mel-toolbar;">
+    <!-- Tampoco lleva nombre (mel-toolbar) desde D-261 — misma razón que
+         #home-header: el toggle y las cifras iban en una capa aparte y se
+         fundían a destiempo del fondo del bloque. -->
+    <div id="home-toolbar" class="flex flex-col gap-mel-m md:gap-mel-l pb-mel-s lg:pb-mel-xs shrink-0 lg:mt-mel-xs">
       <!-- Year Slider Bar (Removed text header label as requested). On mobile the
            slider runs full-bleed to the screen edges (negative margins cancel the
            page's px-6), per the mobile toolbar design (Figma 315:17658). -->
@@ -1724,22 +1733,15 @@ const tags = [
     }
 
     // El bloque de cabecera entero pasa a ser UNA pieza opaca por encima de las
-    // tarjetas mientras dura el reordenado, y sus dos nombres interiores se
-    // apagan: si siguieran puestos, cabecera y toolbar se capturarían aparte y
-    // dejarían su silueta recortada en el bloque, que es justo el agujero por el
-    // que se colaban las tarjetas. Arriba no se mueve nada durante un reordenado,
-    // así que no necesitan grupo propio.
-    // Al deshacer se restaura su nombre FIJO (D-259), no vacío: el bloque
-    // participa siempre en las transiciones entre páginas como pieza opaca.
+    // tarjetas mientras dura el reordenado. Al deshacer se restaura su nombre
+    // FIJO (D-259), no vacío: el bloque participa siempre en las transiciones
+    // entre páginas como pieza opaca.
+    // Aquí había además un baile de los nombres interiores (mel-header y
+    // mel-toolbar, apagarlos al ir y reponerlos al volver): desde D-261 esos
+    // nombres NO existen — cabecera y toolbar viajan siempre dentro de la foto
+    // del bloque, en el reordenado y en todo lo demás.
     const bloque = document.getElementById('bloque-cabecera');
     if (bloque) bloque.style.viewTransitionName = porHueco ? 'mel-bloque-fijo' : 'mel-bloque-cabecera';
-    // Por id y no por el `style`: al apagarlos el atributo deja de contener el
-    // nombre, así que un selector como `[style*="mel-header"]` encontraría los
-    // elementos a la ida y no a la vuelta, y se quedarían apagados para siempre.
-    [['home-header', 'mel-header'], ['home-toolbar', 'mel-toolbar']].forEach(([id, nombre]) => {
-      const el = document.getElementById(id);
-      if (el) el.style.viewTransitionName = porHueco ? 'none' : nombre;
-    });
   }
 
   function buildGalleryCard(item, i) {
