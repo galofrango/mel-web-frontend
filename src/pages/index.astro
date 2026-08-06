@@ -42,6 +42,18 @@ const ANCHO_MINIATURA = 200;
 // src/lib/mel.ts porque la ficha de evento necesita exactamente lo mismo.
 const initialArchives = await fetchEvents();
 
+// Caché de CDN (D-258): la página es idéntica para todos los visitantes (nada
+// personalizado sale del servidor; lo personal vive en sessionStorage), así que
+// Vercel puede servirla cacheada sin pisar el SSR — que hasta ahora esperaba a
+// Google Sheets EN CADA request antes de mandar un solo byte, y a veces Google
+// respondía con el shell rate-limitado de 3KB (trampa 7 del traspaso). Los 5
+// minutos los fijó el propietario (06-08-2026): un cambio en la hoja tarda eso
+// como máximo en verse. `stale-while-revalidate`: pasado el plazo se sirve la
+// copia vieja al instante y se renueva por detrás — nadie espera nunca a la
+// hoja. Misma cabecera en las tres páginas que leen la hoja (aquí, la ficha e
+// info); si se toca una, las tres.
+Astro.response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=300, stale-while-revalidate=600');
+
 // El rango del deslizador de tiempo sale de los datos, no de un literal. Se
 // calcula AQUÍ, en el servidor, y cruza al cliente por `define:vars` (regla 7):
 // el script de esta página es inline y no puede importar de mel.ts. D-183.
@@ -302,6 +314,7 @@ const tags = [
                 date={formatFechaDMY(item.fecha)}
                 image={imgSrc}
                 srcset={imgSrcset}
+                prioridad={i < 8}
               />
             );
           })}
@@ -1320,11 +1333,14 @@ const tags = [
   const _s = window._melState;
 
   // Secuencia única de la sesión (contrato de navegación, docs/architecture.md).
-  // El servidor baraja el archivo en CADA render, así que sin esto volver de la
-  // ficha de un evento reordenaría la galería bajo los pies del visitante y
-  // "volver al mismo sitio" sería imposible. La sesión se queda con el primer
-  // barajado que le sirvieron y lo reutiliza mientras dure la pestaña; pestaña
-  // nueva = orden nuevo, que es lo que se buscaba con el aleatorio.
+  // OJO: el servidor NO baraja desde D-131 — sirve SIEMPRE cronológico
+  // ascendente, y este comentario decía lo contrario durante meses (era de la
+  // era pre-D-131; cazado en D-258). Lo que esta siembra protege hoy: el orden
+  // que el VISITANTE haya puesto (barajado o columna, `aplicarOrden` persiste
+  // aquí mismo) sobrevive a la vuelta de una ficha y a un F5, aunque el
+  // servidor vuelva a servir cronológico. En una entrada fresca es un espejo
+  // exacto del orden servido — verificado, y de ello depende que el primer
+  // filtrado reutilice los nodos SSR en vez de reconstruirlos.
   //
   // Tiene que ir aquí y no dentro de initHomePage(): _melState nace ya con
   // `archives` poblado desde el SSR, así que cualquier guard del tipo
@@ -1439,6 +1455,10 @@ const tags = [
   const srcSetDrive = (url, anchos = ANCHOS_TARJETA) =>
     anchos.map((a) => `${extractDriveImage(url, a)} ${a}w`).filter((par) => !par.startsWith(' ')).join(', ');
 
+  // Endpoint directo lh3 (D-258), no el redirect de drive.google.com/thumbnail:
+  // el salto era un 302 no-store que se repagaba en cada carga; el directo se
+  // cachea 24h en el navegador. La explicación completa, en la fuente de verdad
+  // (extractDriveImage en mel.ts) — si se toca allí, aquí también.
   function extractDriveImage(url, ancho = 1000) {
     if (!url) return '';
     let fileId = '';
@@ -1447,7 +1467,7 @@ const tags = [
     } else if (url.includes('/d/')) {
       fileId = url.split('/d/')[1].split('/')[0];
     }
-    return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
+    return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}` : '';
   }
 
   // Escapa HTML para insertarlo de forma segura en innerHTML — usado por

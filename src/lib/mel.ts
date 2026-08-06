@@ -52,11 +52,22 @@ export async function fetchSheetRows(sheet?: string): Promise<any[]> {
 
 /**
  * Un enlace `drive.google.com/file/d/ID/view` NO carga en un `<img>`. Hay que
- * pasarlo siempre por el endpoint de miniatura (regla 8 de AGENTS.md), y todo
+ * pasarlo siempre por un endpoint de imagen (regla 8 de AGENTS.md), y todo
  * `<img>` remoto necesita además `referrerpolicy="no-referrer"`.
  *
- * `ancho` = los píxeles que Drive debe servir. Pedir siempre w1000 costaba ~679
- * KB de media por cartel (el peor del archivo, 2 MB) para pintarlo en una
+ * El endpoint es `lh3.googleusercontent.com/d/ID=wANCHO` — el DESTINO al que
+ * `drive.google.com/thumbnail` redirigía, pedido a pelo (D-258). El salto por
+ * Drive era un 302 con `no-store`: ~0,24s por foto que se repagaban en cada
+ * carga, porque un redirect no cacheable no se cachea jamás. La imagen final,
+ * en cambio, responde `private, max-age=86400`: el navegador del visitante SÍ
+ * la guarda 24h — pero solo si la URL que pide es directamente esta. Medido el
+ * 06/08/2026: 0,48s vía Drive, 0,24s directo, y la revisita, de caché.
+ * Los dos endpoints son igual de no-documentados; este es el que Drive usa por
+ * debajo. Si algún día dejara de servir, el camino de vuelta es restaurar el
+ * formato `drive.google.com/thumbnail?id=ID&sz=wANCHO` aquí y en el gemelo.
+ *
+ * `ancho` = los píxeles que Google debe servir. Pedir siempre w1000 costaba
+ * ~679 KB de media por cartel (el peor del archivo, 2 MB) para pintarlo en una
  * tarjeta de 342px o, peor, en una miniatura de 56px.
  *
  * Devuelve '' si no hay URL o no se reconoce el id.
@@ -69,7 +80,7 @@ export function extractDriveImage(url?: string, ancho = 1000): string {
   } else if (url.includes('/d/')) {
     fileId = url.split('/d/')[1].split('/')[0];
   }
-  return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w${ancho}` : '';
+  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}` : '';
 }
 
 /**

@@ -143,6 +143,7 @@
    - **Idea del propietario, viable en principio (2026-07-28)**: detectar Safari y mostrar un aviso cuyo botón provoque la interacción con Google que levanta la restricción. **Un bloqueador de contenido queda descartado por el propio propietario, con buen argumento**: un bloqueador filtra por patrón de URL, así que visitar el enlace no lo ablandaría — seguiría bloqueando después. Que se desbloqueara solo con verlo, sin desactivar nada, apunta a un mecanismo de interacción de primera parte, que es justo el que un botón puede satisfacer. Queda por confirmar si basta con abrir la página de Google o hace falta **interactuar** en ella.
    - Contras a sopesar aunque sea viable: se le pide a cada visitante de iPhone un rodeo por Google antes de ver un archivo cuyo contenido *son* las imágenes; no hay forma de comprobar que ha funcionado; y el patrón "pulsa aquí para desbloquear" se parece demasiado a los que la gente ha aprendido a desconfiar.
    - Otra vía sin coste, para valorar: alojar derivadas optimizadas de los flyers como estáticos del propio repositorio. Son 50 eventos; la CDN de Vercel sirve estáticos sin cargo apreciable y Google desaparece de la ecuación. El precio es que las imágenes dejarían de editarse solo desde Drive.
+   - **Novedad que puede cambiar el cuadro (D-258, 06-08-2026)**: el sitio ya no pisa `drive.google.com` para las imágenes — van directas a `lh3.googleusercontent.com`, y parte del diagnóstico de arriba (el `no-store`, "no hay caché posible") era en realidad del REDIRECT, no de la imagen: la imagen final se cachea 24h en el navegador. Queda por comprobar **en el iPhone del propietario** si la prevención de rastreo de Safari trata a `lh3.googleusercontent.com` igual que trataba a `drive.google.com`; si no lo bloquea, este problema entero podría haber desaparecido de rebote. No dar nada por hecho sin esa prueba.
 
 ---
 
@@ -158,7 +159,7 @@
 
 - **Índices de Columna de la Hoja Hardcodeados**: El parseador SSR depende de los índices absolutos de columna en el Google Sheet; reordenar columnas en la hoja rompería la extracción de datos.
 - **Clave de Google Maps en Frontend**: Incrustada en `Layout.astro` (pendiente de restringir por dominio autorizado en Google Cloud Console).
-- **Ausencia de Caché SSR**: Cada request ejecuta una petición HTTP en vivo a Google Sheets.
+- ~~**Ausencia de Caché SSR**~~ → **Mitigada con caché de CDN (D-258, 06-08-2026)**: las tres páginas que leen la hoja (home, ficha, info) responden `s-maxage=300, stale-while-revalidate=600` — Vercel sirve la copia cacheada al instante y renueva por detrás; un cambio en la hoja tarda ≤5 min en verse (plazo fijado por el propietario). El SSR sigue pidiendo la hoja en vivo cuando la CDN sí le pregunta; una caché en el propio servidor sigue sin existir (y con la CDN delante probablemente no haga falta nunca).
 
 ---
 

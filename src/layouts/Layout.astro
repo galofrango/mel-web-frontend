@@ -27,6 +27,13 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
     <link rel="preconnect" href="https://maps.googleapis.com">
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
+    <!-- El dominio del que vienen TODOS los carteles (D-258). Fuentes y mapas
+         llevaban preconnect desde siempre; las imágenes —lo más pesado del
+         sitio— no, así que la primera foto pagaba DNS+TCP+TLS enteros. Sin
+         `crossorigin`: los <img> van en modo no-cors (no llevan atributo
+         crossorigin), y un preconnect crossorigin abriría una conexión que
+         esas peticiones no pueden reutilizar. -->
+    <link rel="preconnect" href="https://lh3.googleusercontent.com">
     <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Google Maps Platform Bootstrap Script -->

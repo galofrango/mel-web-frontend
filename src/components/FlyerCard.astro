@@ -31,9 +31,18 @@ interface Props {
    *  pasa con las imágenes de relleno locales. */
   srcset?: string;
   id: string;
+  /** true = esta tarjeta cae en la primera pantalla: la imagen va `eager` y
+   *  con `fetchpriority="high"` (D-258). Con todo `lazy`, el navegador
+   *  degradaba también las fotos que se ven nada más entrar — que son
+   *  exactamente las de la primera impresión. Solo la pone el SSR para las
+   *  primeras tarjetas; la réplica `buildGalleryCard()` no la necesita (todo
+   *  lo que construye JS es de la tarjeta 33 en adelante o de repintados, que
+   *  nunca son primera pantalla) y por eso allí `lazy` fijo NO es divergencia
+   *  del espejo. */
+  prioridad?: boolean;
 }
 
-const { title, date, image, srcset = '', id } = Astro.props;
+const { title, date, image, srcset = '', id, prioridad = false } = Astro.props;
 
 /** Cuánto ocupa esta tarjeta en pantalla, por tramos. Es lo que el navegador
  *  necesita para elegir del `srcset` ANTES de maquetar: sin esto supone que la
@@ -66,7 +75,8 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
     srcset={srcset || undefined}
     sizes={srcset ? TAMANOS : undefined}
     alt={title}
-    loading="lazy"
+    loading={prioridad ? 'eager' : 'lazy'}
+    fetchpriority={prioridad ? 'high' : undefined}
     decoding="async"
     referrerpolicy="no-referrer"
     class="w-full h-auto block pointer-events-none"

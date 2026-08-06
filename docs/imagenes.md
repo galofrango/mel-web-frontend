@@ -35,7 +35,8 @@ llegan con orientación normal.
 ### JPEG y no PNG — esto es lo más importante
 
 **La web nunca sirve el fichero original.** Todo pasa por el generador de
-miniaturas de Drive (`drive.google.com/thumbnail?id=…&sz=w700`), que redimensiona
+miniaturas de Google (`lh3.googleusercontent.com/d/ID=w700` desde D-258; es el
+mismo generador al que `drive.google.com/thumbnail` redirigía), que redimensiona
 al vuelo. Pero **conserva el formato**: si subes un PNG, el visitante descarga un
 PNG a cualquier tamaño.
 

@@ -84,10 +84,10 @@ Actúa como mini-CMS de la página `/info`. Columnas:
 
 ### Procesamiento de Imágenes (Google Drive)
 
-`extractDriveImage(url)` convierte cualquier enlace de Drive (`/file/d/ID/view` o `?id=ID`) al endpoint optimizado:
-`https://drive.google.com/thumbnail?id=ID&sz=w1000`
+`extractDriveImage(url)` convierte cualquier enlace de Drive (`/file/d/ID/view` o `?id=ID`) al endpoint directo de imagen:
+`https://lh3.googleusercontent.com/d/ID=w1000`
 
-Este es el único formato que permite la carga nativa en etiquetas `<img>`. Todos los elementos `<img>` remotos incluyen `referrerpolicy="no-referrer"`.
+Hasta D-258 se usaba `drive.google.com/thumbnail?id=ID&sz=w1000`, que NO sirve la imagen: responde un 302 con `no-store` hacia exactamente la URL de arriba, así que cada foto pagaba un salto (~0,24s) incacheable en cada carga. El endpoint directo es el destino de aquel redirect, responde `private, max-age=86400` y el navegador lo cachea 24h. Todos los elementos `<img>` remotos incluyen `referrerpolicy="no-referrer"`.
 
 ### Coordenadas y Geocodificación
 
@@ -328,7 +328,7 @@ rel="prefetch">` de los colindantes, para que no haya pantallas en blanco.
 1. **Escalabilidad del Volumen de Datos (Proyección a 8.000+ Flyers)**:
    - **Hoja de Google Sheets como CMS**: Google Sheets admite hasta 10.000.000 de celdas por documento. Para un catálogo proyectado de 8.000 flyers (~160.000 celdas), el archivo utiliza apenas el 1,6% de la capacidad total de Google Sheets. El endpoint de consulta `gviz/tq` devuelve el dataset comprimido en milisegundos durante la petición SSR.
    - **Renderizado Adaptativo y Paginación por Lotes**: La vista Galería utiliza paginación por lotes (`PAGE_SIZE = 30`) con scroll infinito e `IntersectionObserver`, descargando imágenes solo a medida que entran en el viewport. La vista Lista y el Mapa instancian nodos en memoria de forma optimizada. El navegador solo gestiona en DOM los elementos que el usuario visualiza en pantalla, evitando saturación de memoria.
-   - **Red CDN Global para Imágenes**: Las imágenes alojadas en Google Drive se sirven a través del endpoint optimizado de thumbnails de Google (`drive.google.com/thumbnail`), garantizando compresión de ancho de banda y velocidad de red sin costes de almacenamiento ni servidor propio.
+   - **Red CDN Global para Imágenes**: Las imágenes alojadas en Google Drive se sirven a través del endpoint directo de imagen de Google (`lh3.googleusercontent.com/d/ID=wANCHO`, D-258), garantizando compresión de ancho de banda, caché de navegador de 24h y velocidad de red sin costes de almacenamiento ni servidor propio.
 
 2. **Independencia de Licencias y Tecnologías de Pago**:
    - **Código Abierto Nativo (Licencia MIT)**: La pila tecnológica principal (**Astro 7**, **JavaScript Vanilla**, **Tailwind CSS 4**) se basa 100% en software libre y código abierto. No existe dependencia de soluciones de pago, librerías cerradas o suscripciones SaaS propietarias.

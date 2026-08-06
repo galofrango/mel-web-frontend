@@ -43,7 +43,7 @@ No existe base de datos ni backend propio. Los datos se leen en cada request des
 | Estilos | Tailwind CSS 4 vía `@tailwindcss/vite`, design tokens propios en `src/styles/global.css` |
 | Scripts de cliente | JavaScript Vanilla (sin React, Vue ni librerías de UI externas) |
 | CMS | Google Sheets — endpoint público `gviz/tq` |
-| Imágenes | Google Drive — thumbnail endpoint `https://drive.google.com/thumbnail?id=ID&sz=w1000` |
+| Imágenes | Google Drive — endpoint directo `https://lh3.googleusercontent.com/d/ID=w1000` (D-258) |
 | Mapa | Google Maps JS API + `@googlemaps/js-api-loader` + MarkerClusterer |
 | Navegación | View Transitions (`ClientRouter` de Astro) |
 | Deploy | Vercel (SSR) |
@@ -116,8 +116,10 @@ Los datos se mapean por índice de columna (`c[n]`). Propiedades resultantes en 
 Un enlace `drive.google.com/file/d/ID/view` **no** carga en `<img>`. Siempre se convierte vía `extractDriveImage()` a:
 
 ```
-https://drive.google.com/thumbnail?id=ID&sz=w1000
+https://lh3.googleusercontent.com/d/ID=w1000
 ```
+
+(Hasta D-258 era `drive.google.com/thumbnail?id=ID&sz=w1000` — un redirect incacheable hacia exactamente esta URL, ~0,24s de peaje por foto en cada carga. El directo se cachea 24h en el navegador.)
 
 Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
 
@@ -190,7 +192,7 @@ Si detectas discrepancias entre la documentación, el código o conversaciones p
    Y el patrón que **sí** esquiva el problema, preferible siempre que se pueda: `AdaptiveTagsRow` renderiza el marcado en SSR y `updateAdaptiveTagsRow()` solo escribe los valores dentro. Así se retiró `makeTagHtml()`, y así se hizo con `EmptyState`.
 
    Lo que la historia de esta regla enseña: un componente que **no se importa en ningún sitio** y se anuncia como "la referencia" del marcado es peor que no tenerlo. Nada rompe cuando se desvía, así que se desvía. Pasó con `EventCardList.astro` (D-154).
-8. **URLs de Google Drive (`extractDriveImage`):** Un enlace `drive.google.com/file/d/ID/view` no carga en un `<img>`; conviértelo siempre al endpoint `https://drive.google.com/thumbnail?id=ID&sz=w1000`. Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
+8. **URLs de Google Drive (`extractDriveImage`):** Un enlace `drive.google.com/file/d/ID/view` no carga en un `<img>`; conviértelo siempre, vía `extractDriveImage()`, al endpoint directo `https://lh3.googleusercontent.com/d/ID=wANCHO` (D-258 — NO al viejo `drive.google.com/thumbnail`, que es un redirect incacheable hacia este mismo destino y costaba ~0,24s por foto en cada carga). Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
 9. **Espaciados verticales en `vh` y de intro en `%`:** Están calibrados a 1440px de ancho / ~1100px de alto para reproducir los píxeles aprobados por el propietario en pantalla 4K. No los reconviertas a píxeles fijos.
 10. **Geometría del Header unificada:** Mismo padding superior `pt-[10vh]` y misma fila en todas las páginas. El título colapsa a "M.E.L." por debajo de **440px** (no en `lg`; la cuenta está en `HeaderSimple.astro` y en D-152) y el menú a icono, con gap de 16px. En páginas nuevas **usa `<HeaderSimple />`**, no copies el marcado: estuvo duplicado byte a byte en `exposiciones`, `info` y `404` porque esta misma regla decía "replica el header", y eso es una invitación a que se desincronicen. La home no lo usa —lleva el buscador (`HeaderTitle`) y su título es un campo, no un enlace—, pero la geometría de la fila y el punto de colapso SÍ tienen que coincidir entre ambas: si no, el título salta de sitio al navegar.
 11. **Estabilidad de la Galería:** El masonry de la galería usa CSS Grid + `row-span` medido por imagen (`sizeGalleryCard()` en index.astro). No uses CSS multicolumna con scroll infinito porque rebalancea todas las columnas al añadir un lote.
