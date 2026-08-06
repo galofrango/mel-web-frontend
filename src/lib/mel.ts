@@ -37,17 +37,40 @@ export function sheetUrl(sheet?: string): string {
  * sitio se sirve en SSR en cada petición y una hoja caída no debe tumbar la
  * página. Cada llamante decide qué pintar con cero filas.
  */
+// Memoria del servidor (D-259): la hoja se lee UNA vez cada 5 minutos por
+// instancia, no una vez por request. Vercel reutiliza instancias (Fluid
+// Compute), así que la mayoría de requests que sí llegan al SSR —los que la
+// CDN no tenía, como la primera visita a cada ficha— responden de memoria en
+// vez de esperar ~300-800ms a Google. El TTL es el mismo que el s-maxage de
+// las páginas a propósito: un solo plazo de frescura en todo el sitio, los 5
+// minutos que fijó el propietario.
+// Si la hoja falla o responde el shell rate-limitado (cero filas), se sirve la
+// copia vieja aunque haya caducado: datos de hace unos minutos son mejores que
+// una página vacía — el shell de 3KB de la trampa 7 del traspaso deja de poder
+// vaciar la web.
+const MEMO_TTL_MS = 5 * 60 * 1000;
+const memoHojas = new Map<string, { filas: any[]; hasta: number }>();
+
 export async function fetchSheetRows(sheet?: string): Promise<any[]> {
+  const clave = sheet || '';
+  const memo = memoHojas.get(clave);
+  if (memo && Date.now() < memo.hasta && memo.filas.length) return memo.filas;
+  let filas: any[] = [];
   try {
     const response = await fetch(sheetUrl(sheet));
     const text = await response.text();
     const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-    if (!match || !match[1]) return [];
-    return JSON.parse(match[1]).table.rows || [];
+    if (match && match[1]) filas = JSON.parse(match[1]).table.rows || [];
   } catch (e) {
     console.error(`[mel] no se pudo leer la hoja ${sheet ? `"${sheet}"` : '(primera)'}`, e);
-    return [];
   }
+  if (filas.length) {
+    memoHojas.set(clave, { filas, hasta: Date.now() + MEMO_TTL_MS });
+    return filas;
+  }
+  // Cero filas = fallo de red, JSON ilegible o shell rate-limitado: la copia
+  // vieja, si existe, antes que el vacío.
+  return memo ? memo.filas : [];
 }
 
 /**

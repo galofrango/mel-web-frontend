@@ -173,18 +173,20 @@ Las tres cosas muestran siempre el mismo orden. Se materializa en
 
 | Situación | Comportamiento |
 |---|---|
-| **Sesión nueva** (pestaña nueva, sin `sessionStorage`) | El servidor baraja el archivo; ese primer barajado se congela como secuencia de la sesión en `sessionStorage['mel-session-order']`. Galería y Lista lo muestran por igual. |
-| **Recarga (F5)** | Se reutiliza la secuencia de la sesión: el orden **no** cambia. Solo una pestaña nueva genera un orden nuevo. Es el precio de que cerrar un evento devuelva al sitio exacto, y fue una decisión explícita del propietario. |
+| **Sesión nueva** (pestaña nueva, sin `sessionStorage`) | El servidor sirve el archivo en cronológico ascendente (desde D-131 ya no baraja; barajar es una acción del visitante, con el botón). Ese orden servido se congela como secuencia de la sesión en `sessionStorage['mel-session-order']`. Galería y Lista lo muestran por igual. |
+| **Recarga (F5)** | **Arranca en cronológico** (D-259, decisión del propietario del 06-08-2026 que sustituye a la anterior): un F5 sin vuelta pendiente borra secuencia, ciclo del botón y columna de Lista, y la página queda exactamente como la sirve el servidor. La excepción es la vuelta de una ficha (`mel-return-state` presente, venga por el camino suave o por el duro del panel): ahí TODO se conserva — cerrar un evento sigue devolviendo al sitio exacto, que es lo básico. Motivo del cambio: el orden superviviente al F5 era el único caso restante en que el DOM servido no coincidía con la sesión y el primer filtrado reconstruía las 32 tarjetas de golpe. |
 | **Filtrar / buscar / mover el slider de años** | **Solo oculta.** Nada se reordena: el resultado es siempre una subsecuencia del orden vigente, en las tres vistas. Al limpiar el filtro reaparece lo oculto en su sitio. |
 | **Ordenar una columna en Lista** | Ese orden pasa a ser la secuencia activa, y lo adoptan también la Galería y la navegación entre eventos. **Ordenar es acumulativo**: reordena la secuencia vigente en vez de rehacerla desde el archivo, así que **el segundo criterio es siempre la ordenación anterior** — y la primera vez, el barajado de la sesión. Ordenar por fecha y luego por nombre deja el nombre mandando y la fecha decidiendo dentro de cada nombre. La secuencia resultante se persiste en `mel-session-order` (la columna y el sentido, solo para las flechas de las cabeceras, en `mel-sort-state`). |
 | **Abrir un evento desde el panel del mapa** | La secuencia se acota a los eventos **de ese local**, en el orden en que se ven en el panel (que ya arrastra rango de años y búsqueda activos). |
 | **Anterior / Siguiente y flechas ←/→** | Recorren la secuencia activa. Lo filtrado no existe para ellas: se salta. |
 | **Acceso directo por URL** (enlace externo, sin sesión) | No hay secuencia guardada: se recae en el orden cronológico que sirve el SSR de `/event/[id]`. |
 
-> **Consecuencia asumida**: como la secuencia por defecto es aleatoria,
-> *Anterior/Siguiente* también lo es mientras no se ordene nada en Lista. Es lo
-> coherente con "una sola secuencia": la navegación recorre lo que el visitante
-> acaba de ver, no un orden paralelo invisible.
+> **Consecuencia asumida**: *Anterior/Siguiente* recorre la secuencia activa,
+> sea la cronológica por defecto, la de una columna de Lista o el barajado del
+> botón. Es lo coherente con "una sola secuencia": la navegación recorre lo que
+> el visitante acaba de ver, no un orden paralelo invisible. (Cuando el defecto
+> era aleatorio —era pre-D-131— esto significaba navegación aleatoria de serie;
+> hoy solo si el visitante baraja.)
 
 ### Volver al sitio de origen
 

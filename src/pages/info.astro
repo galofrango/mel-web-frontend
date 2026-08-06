@@ -109,7 +109,7 @@ const fallbackSections = [
 // Caché de CDN, 5 minutos + servir-viejo-mientras-renueva (D-258). La
 // explicación completa está sobre la cabecera gemela de index.astro; si se
 // toca una, las tres (la home, la ficha y esta).
-Astro.response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=300, stale-while-revalidate=600');
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
 
 try {
   const rows = await fetchSheetRows(HOJA_INFO);

@@ -40,9 +40,16 @@ interface Props {
    *  nunca son primera pantalla) y por eso allí `lazy` fijo NO es divergencia
    *  del espejo. */
   prioridad?: boolean;
+  /** Proporción real del cartel (ancho/alto, de flyer_tecnico.json, D-259).
+   *  Con ella la tarjeta nace con `data-ratio` y el masonry le fija el alto en
+   *  el primer fotograma, sin esperar al onload de la imagen. Sin ella (cartel
+   *  aún no auditado por el panel) rige el camino viejo: medirse al cargar.
+   *  La réplica `buildGalleryCard()` hace exactamente lo mismo vía
+   *  `item.ratio` — regla 7, si se toca aquí se toca allí. */
+  ratio?: number;
 }
 
-const { title, date, image, srcset = '', id, prioridad = false } = Astro.props;
+const { title, date, image, srcset = '', id, prioridad = false, ratio } = Astro.props;
 
 /** Cuánto ocupa esta tarjeta en pantalla, por tramos. Es lo que el navegador
  *  necesita para elegir del `srcset` ANTES de maquetar: sin esto supone que la
@@ -63,6 +70,7 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
   style={`view-transition-name: flyer-img-${id};`}
   class="gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30"
   data-id={id}
+  data-ratio={ratio ? String(ratio) : undefined}
   data-node-id="Grid Image V2"
 >
   <!-- Image with referrerpolicy no-referrer to allow anonymous loading of Google Drive links in browsers.

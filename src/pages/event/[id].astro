@@ -32,7 +32,9 @@ if (eventIndex === -1) {
 // propósito: un enlace roto no debe dejar un "no existe" cacheado 5 minutos —
 // justo el plazo en el que un evento recién añadido a la hoja aún puede no
 // existir para la CDN.
-Astro.response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=300, stale-while-revalidate=600');
+// `max-age=60` (D-259): imprescindible para que el prefetch de las tarjetas
+// sirva de algo — la explicación, sobre la cabecera gemela de index.astro.
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
 
 // Nombres en inglés para el resto de la plantilla de esta página, que es la que
 // ya los usaba. El mapeo va aquí y no en el módulo compartido a propósito: la

@@ -15,6 +15,7 @@ import IntroAnimation from '../components/IntroAnimation.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
 import EmptyState from '../components/EmptyState.astro';
 import { fetchEvents, rangoDeAnios, extractDriveImage, srcSetDrive, formatFechaDMY } from '../lib/mel';
+import flyerTecnico from '../data/flyer_tecnico.json';
 
 // Anchos por contexto, medidos en navegador: la tarjeta de galería se pinta a
 // 342px (684 con densidad 2) y la miniatura de la lista en una caja de 40px.
@@ -42,6 +43,27 @@ const ANCHO_MINIATURA = 200;
 // src/lib/mel.ts porque la ficha de evento necesita exactamente lo mismo.
 const initialArchives = await fetchEvents();
 
+// La proporción REAL del cartel de cada tarjeta, sabida ANTES de que su imagen
+// cargue (D-259). Viene de flyer_tecnico.json —el panel audita las dimensiones
+// de las 101 imágenes del archivo—, así que el masonry puede fijar el alto de
+// TODAS las tarjetas en el primer fotograma, en vez de esperar al onload de
+// cada imagen y recolocar la rejilla a golpes durante el primer segundo (que
+// era lo que movía tarjetas de columna en la vuelta de una ficha, empujaba el
+// scroll restaurado y obligaba a volverAlFlyer a perseguir su tarjeta). Se
+// muta el item para que cruce al cliente por define:vars con todo lo demás.
+// Un cartel que no esté en el JSON (subido y aún sin pasar por el panel) queda
+// sin ratio y conserva el camino viejo: medirse al cargar.
+const idDeDriveUrl = (url?: string): string => {
+  if (!url) return '';
+  if (url.includes('id=')) return url.split('id=')[1].split('&')[0];
+  if (url.includes('/d/')) return url.split('/d/')[1].split('/')[0];
+  return '';
+};
+for (const item of initialArchives) {
+  const d = (flyerTecnico as any)[idDeDriveUrl(item.carruselItems?.[0]?.urlDrive)]?.px;
+  if (Array.isArray(d) && d[0] > 0 && d[1] > 0) (item as any).ratio = d[0] / d[1];
+}
+
 // Caché de CDN (D-258): la página es idéntica para todos los visitantes (nada
 // personalizado sale del servidor; lo personal vive en sessionStorage), así que
 // Vercel puede servirla cacheada sin pisar el SSR — que hasta ahora esperaba a
@@ -52,7 +74,12 @@ const initialArchives = await fetchEvents();
 // copia vieja al instante y se renueva por detrás — nadie espera nunca a la
 // hoja. Misma cabecera en las tres páginas que leen la hoja (aquí, la ficha e
 // info); si se toca una, las tres.
-Astro.response.headers.set('Cache-Control', 'public, max-age=0, must-revalidate, s-maxage=300, stale-while-revalidate=600');
+// `max-age=60` y no 0 (D-259): con 0 el navegador revalidaba SIEMPRE, así que
+// el <link rel="prefetch"> que las tarjetas disparan al posar el dedo quedaba
+// inutilizado — la navegación real no podía reutilizarlo sin volver a la red.
+// Con 60, la ficha precargada abre de caché local, y volver atrás también.
+// Un F5 explícito revalida igualmente (los reloads se saltan el max-age).
+Astro.response.headers.set('Cache-Control', 'public, max-age=60, s-maxage=300, stale-while-revalidate=600');
 
 // El rango del deslizador de tiempo sale de los datos, no de un literal. Se
 // calcula AQUÍ, en el servidor, y cruza al cliente por `define:vars` (regla 7):
@@ -139,11 +166,21 @@ const tags = [
          Esta envoltura es opaca y de una pieza, y se lleva el `pt` superior y el
          sangrado horizontal (márgenes negativos que anulan el `px` de la página,
          igual que hace el slider) para llegar a los cuatro bordes.
-         Su `view-transition-name` NO va aquí sino que lo pone y lo quita JS solo
-         durante el reordenado (nombrarHuecos): fijo, se metería en las
-         transiciones entre páginas, donde no existe destino que le corresponda. -->
+         Su `view-transition-name` SÍ va aquí desde D-259 (antes solo lo ponía
+         JS durante el reordenado, con el argumento de que en las transiciones
+         entre páginas "no existe destino que le corresponda" — y ese grupo sin
+         pareja resultó ser justo lo que faltaba): al volver de una ficha, las
+         tarjetas se promocionan por su flyer-img-… y se veían POR LOS HUECOS
+         entre los grupos sueltos de cabecera y toolbar, cuyos margins no eran
+         de nadie. Con el bloque entero nombrado, su fondo opaco cubre la franja
+         completa por encima de las tarjetas (z-index en el <style> de abajo, y
+         su ::view-transition-new a 0s para que en la vuelta aparezca opaco
+         desde el primer fotograma en vez de fundirse dejando ver detrás).
+         Durante el reordenado, nombrarHuecos() lo renombra a mel-bloque-fijo y
+         al deshacer lo devuelve a ESTE nombre, no a vacío. -->
     <div
       id="bloque-cabecera"
+      style="view-transition-name: mel-bloque-cabecera;"
       class="flex flex-col gap-mel-m md:gap-mel-l shrink-0 bg-mel-bg-primary
              pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)]
              -mx-6 px-6 sm:-mx-12 sm:px-12 lg:-mx-[108px] lg:px-[108px]"
@@ -315,6 +352,7 @@ const tags = [
                 image={imgSrc}
                 srcset={imgSrcset}
                 prioridad={i < 8}
+                ratio={(item as any).ratio}
               />
             );
           })}
@@ -616,6 +654,26 @@ const tags = [
      remedio de siempre (D-116 con el panel, D-131 con el botón de orden). */
   html::view-transition-group(mel-slider) {
     z-index: 100;
+  }
+
+  /* El bloque de cabecera ENTERO como pieza opaca en toda transición (D-259).
+     Los grupos de arriba cubren sus elementos, pero los huecos entre ellos
+     (gaps y paddings del bloque) no eran de nadie y por ahí se veían pasar las
+     tarjetas al volver de una ficha. Este grupo pinta el fondo opaco de la
+     franja completa. z-index 99: por encima de las tarjetas (capa 0), por
+     debajo de sus propios hijos nombrados (100+), que deben pintarse sobre él. */
+  html::view-transition-group(mel-bloque-cabecera) {
+    z-index: 99;
+  }
+  /* En la vuelta de una ficha el bloque no tiene pareja en la página vieja
+     (la ficha no lo nombra): sin esto, su imagen nueva entraría FUNDIÉNDOSE
+     250ms y durante el fundido se verían las tarjetas detrás — el artefacto de
+     siempre con otra cara. A 0s aparece opaco desde el primer fotograma. En
+     las transiciones dentro de la home (búsqueda, salto de barra) sí tiene
+     pareja y esto solo hace que la imagen viva mande desde el principio, que
+     es lo que ya pasa con el slider. */
+  html::view-transition-new(mel-bloque-cabecera) {
+    animation-duration: 0s;
   }
 
   /* El bottom sheet también entra en la capa de transición, y por encima de la
@@ -1291,10 +1349,33 @@ const tags = [
   // -------------------------------------------------------
   // Persistent state: survives View Transition re-execution
   // -------------------------------------------------------
+  // Una RECARGA de verdad sin vuelta pendiente arranca en cronológico (D-259,
+  // decisión del propietario: "si ayuda, el barajado activo se va al cuerno al
+  // recargar; la vuelta de una ficha es lo básico"). Antes, barajado y orden de
+  // columna sobrevivían también al F5, y ese era el único caso que quedaba en
+  // el que el DOM servido (cronológico) no coincidía con la sesión: el primer
+  // filtrado reconstruía las 32 tarjetas de golpe. Ahora los tres apuntes
+  // (secuencia, ciclo del botón y columna de Lista) se borran juntos y la
+  // página arranca exactamente como la sirvió el servidor.
+  // Guardas: `!window._melState` = solo un cargado real de documento (en una
+  // navegación suave el estado vive y borrar aquí desincronizaría el botón de
+  // orden de la secuencia en memoria); `mel-return-state` = se viene de una
+  // ficha (por el camino suave o por el duro del panel), y ahí TODO se
+  // conserva, que es el contrato.
+  try {
+    if (!window._melState && !sessionStorage.getItem('mel-return-state')) {
+      sessionStorage.removeItem('mel-session-order');
+      sessionStorage.removeItem('mel-orden-galeria');
+      sessionStorage.removeItem('mel-sort-state');
+    }
+  } catch (e) {}
+
   // Sort column/direction survive a hard reload (sessionStorage) — without
   // this, navigating into an event and back (a real page reload since D-072)
   // would silently drop whatever order the visitor picked in Lista, and the
-  // Galería's own order (below) depends on this same value.
+  // Galería's own order (below) depends on this same value. Desde D-259 esa
+  // supervivencia queda acotada a la VUELTA de una ficha: un F5 sin vuelta
+  // pendiente lo limpia todo (ver el bloque de arriba).
   let __melSavedSort = null;
   try {
     const raw = sessionStorage.getItem('mel-sort-state');
@@ -1337,10 +1418,12 @@ const tags = [
   // ascendente, y este comentario decía lo contrario durante meses (era de la
   // era pre-D-131; cazado en D-258). Lo que esta siembra protege hoy: el orden
   // que el VISITANTE haya puesto (barajado o columna, `aplicarOrden` persiste
-  // aquí mismo) sobrevive a la vuelta de una ficha y a un F5, aunque el
-  // servidor vuelva a servir cronológico. En una entrada fresca es un espejo
-  // exacto del orden servido — verificado, y de ello depende que el primer
-  // filtrado reutilice los nodos SSR en vez de reconstruirlos.
+  // aquí mismo) sobrevive a la vuelta de una ficha, aunque el servidor vuelva a
+  // servir cronológico. A un F5 sin vuelta pendiente ya NO sobrevive (D-259):
+  // el bloque de limpieza de arriba borra los apuntes y se resiembra del orden
+  // servido, así que toda carga real es un espejo exacto del DOM del servidor —
+  // de ello depende que el primer filtrado reutilice los nodos SSR en vez de
+  // reconstruirlos.
   //
   // Tiene que ir aquí y no dentro de initHomePage(): _melState nace ya con
   // `archives` poblado desde el SSR, así que cualquier guard del tipo
@@ -1607,7 +1690,15 @@ const tags = [
   // Para el botón de ordenación esto es lo que decide si hay animación o no: el
   // navegador fotografía el estado nuevo al salir del callback, y si en ese
   // instante ninguna tarjeta está medida, fotografía la cuadrícula equivocada.
-  const ratiosMedidos = new Map();
+  //
+  // En _melState y no en una const del script (D-259): el script se reevalúa en
+  // cada navegación suave, así que un Map local moría justo al volver de una
+  // ficha — que es exactamente cuando más falta hacía. Con esto, y con los
+  // ratios que ya vienen del servidor (item.ratio, de flyer_tecnico.json), la
+  // rejilla de la vuelta nace medida entera: nada baila de columna ni empuja el
+  // scroll restaurado mientras llegan las imágenes.
+  _s.ratiosMedidos = _s.ratiosMedidos || new Map();
+  const ratiosMedidos = _s.ratiosMedidos;
 
   // Da altura a las tarjetas cuya proporción ya conocemos, en una sola pasada.
   // Lee el ancho de columna una vez y no una por tarjeta: todas miden lo mismo.
@@ -1685,8 +1776,10 @@ const tags = [
     // dejarían su silueta recortada en el bloque, que es justo el agujero por el
     // que se colaban las tarjetas. Arriba no se mueve nada durante un reordenado,
     // así que no necesitan grupo propio.
+    // Al deshacer se restaura su nombre FIJO (D-259), no vacío: el bloque
+    // participa siempre en las transiciones entre páginas como pieza opaca.
     const bloque = document.getElementById('bloque-cabecera');
-    if (bloque) bloque.style.viewTransitionName = porHueco ? 'mel-bloque-fijo' : '';
+    if (bloque) bloque.style.viewTransitionName = porHueco ? 'mel-bloque-fijo' : 'mel-bloque-cabecera';
     // Por id y no por el `style`: al apagarlos el atributo deja de contener el
     // nombre, así que un selector como `[style*="mel-header"]` encontraría los
     // elementos a la ida y no a la vuelta, y se quedarían apagados para siempre.
@@ -1707,10 +1800,13 @@ const tags = [
     // tocabas un filtro.
     card.className = 'gallery-item unsized relative overflow-hidden shadow-[var(--mel-shadow-sm)] bg-white cursor-pointer transition-all duration-300 group hover:z-30';
     card.dataset.id = item.idMel;
-    // Si este cartel ya se midió en esta sesión, la tarjeta nace sabiendo su
+    // Si la proporción de este cartel se conoce, la tarjeta nace sabiendo su
     // altura en vez de como placeholder. dimensionarConocidas() se la aplica en
-    // cuanto está en el DOM (aquí clientWidth aún es 0).
-    const ratioConocido = ratiosMedidos.get(item.idMel);
+    // cuanto está en el DOM (aquí clientWidth aún es 0). Dos fuentes, por este
+    // orden: lo medido en esta sesión y lo que el servidor ya sabía de
+    // flyer_tecnico.json (item.ratio, D-259) — espejo del data-ratio SSR de
+    // FlyerCard.astro.
+    const ratioConocido = ratiosMedidos.get(item.idMel) || item.ratio;
     if (ratioConocido) card.dataset.ratio = String(ratioConocido);
     // El nombre de transición va en LA TARJETA, igual que en FlyerCard.astro
     // (regla 7: las dos tienen que decir lo mismo). Estando en la `<img>` volaba
@@ -5429,6 +5525,12 @@ const tags = [
     }
 
     // Initialize state and render
+    // Antes de nada: las tarjetas SSR ya traen su proporción de serie
+    // (data-ratio, D-259) — se les fija el alto AHORA, en síncrono, no cuando
+    // la primera pasada de filtro llegue por su requestAnimationFrame un
+    // fotograma después. Es la diferencia entre una rejilla que nace colocada
+    // y una que se coloca delante del visitante.
+    dimensionarConocidas(document.getElementById('gallery-grid'));
     calculateDynamicBounds();
     // Fase 1 de la vuelta desde una ficha de evento: deja puestos rango de años
     // y orden ANTES del primer render, para no pintar el archivo entero y
