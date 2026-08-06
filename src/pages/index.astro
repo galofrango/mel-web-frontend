@@ -2792,7 +2792,6 @@ const tags = [
     // tarjeta sin destapar su propia caja.
     perspectiva: 600,
     escala: 1.045,
-    margen: 0.9,        // cuánto se recorta ese tope, por seguridad
   };
 
   function initTilt3D(senal) {
@@ -2810,28 +2809,56 @@ const tags = [
 
     let carta = null, caja = null, tope = TILT.giro, pedido = 0, ratonX = 0, ratonY = 0;
 
-    // Hasta dónde puede inclinarse ESTA tarjeta sin que el canto que se aleja
-    // se meta hacia dentro y destape la caja blanca de debajo.
+    // Hasta dónde puede inclinarse ESTA tarjeta sin que se le vea la caja de
+    // debajo por ninguna parte.
     //
-    // Al girar con perspectiva, el borde que retrocede se proyecta más cerca
-    // del centro; la escala (1.045) da un margen, pero ese margen es un
-    // porcentaje del alto y el desplazamiento crece con el alto en píxeles.
-    // Por eso los carteles muy verticales lo agotan y los apaisados no: el
-    // propietario lo vio en el más alto del archivo. Despejando la condición
-    // de cobertura —`d·(k·cos t − 1) ≥ (alto·k/2)·sen t`— sale el tope.
+    // Al girar con perspectiva, la parte que retrocede se proyecta hacia el
+    // centro; la escala (1.045) da un margen, pero ese margen es un porcentaje
+    // del tamaño y el desplazamiento crece en píxeles, así que los carteles
+    // grandes lo agotan. La primera versión de esta cuenta miraba solo los
+    // CANTOS y se quedó corta: el blanco sale por una ESQUINA, que es donde
+    // los dos giros se suman y el retroceso es mayor. Con la misma tarjeta,
+    // por cantos salían 4° y por esquinas 3,36°: ese hueco era el fallo.
     //
-    // Se calcula por tarjeta y en el momento, no de una tabla: el alto depende
-    // del número de columnas, que aquí no lo decide un breakpoint sino una
-    // medición (`.galeria-cuatro`). Medido con la perspectiva y la escala
-    // actuales: a cuatro columnas el cartel más alto admite 4,75° (no estorba);
-    // a tres, 3,42°; a dos, 2,63°. Los apaisados pasan de 15° y nunca tocan
-    // techo.
-    function topeGiroDe(alto) {
-      if (!alto) return TILT.giro;
-      const seno = (2 * TILT.perspectiva * (TILT.escala - 1)) / (alto * TILT.escala);
-      if (!(seno > 0)) return TILT.giro;
-      if (seno >= 1) return TILT.giro;
-      return Math.min(TILT.giro, Math.asin(seno) * 180 / Math.PI * TILT.margen);
+    // Ahora se proyectan las cuatro esquinas de verdad —girar en Y, luego en
+    // X, luego dividir por la perspectiva— y se busca por bisección el mayor
+    // giro que las mantiene a todas fuera de la caja. Es exacto y da igual la
+    // proporción del cartel.
+    //
+    // Se calcula por tarjeta y al sobrevolarla, no de una tabla: el alto
+    // depende del número de columnas y ese número aquí no lo decide un
+    // breakpoint sino una medición (`.galeria-cuatro`). Medido: los apaisados
+    // y los cuadrados nunca tocan techo; a cuatro columnas el más alto del
+    // archivo se queda en 3,02°, a tres en 2,26° y a dos en 1,99°.
+    const MARGEN_PX = 0.5;   // colchón contra el redondeo a píxel
+
+    function cubreLaCaja(grados, ancho, alto) {
+      const r = grados * Math.PI / 180;
+      const ca = Math.cos(r), sa = Math.sin(r), cb = ca, sb = sa;  // mismo giro en los dos ejes: el peor caso
+      const W = ancho * TILT.escala / 2, H = alto * TILT.escala / 2;
+      const topeX = ancho / 2 + MARGEN_PX, topeY = alto / 2 + MARGEN_PX;
+      for (let sx = -1; sx <= 1; sx += 2) {
+        for (let sy = -1; sy <= 1; sy += 2) {
+          const x = sx * W, y = sy * H;
+          const px = x * cb;
+          const py = y * ca + x * sb * sa;
+          const pz = y * sa - x * sb * ca;
+          const f = TILT.perspectiva / (TILT.perspectiva - pz);
+          if (Math.abs(px * f) < topeX || Math.abs(py * f) < topeY) return false;
+        }
+      }
+      return true;
+    }
+
+    function topeGiroDe(ancho, alto) {
+      if (!ancho || !alto) return TILT.giro;
+      if (cubreLaCaja(TILT.giro, ancho, alto)) return TILT.giro;
+      let bajo = 0, alcanza = TILT.giro;
+      for (let i = 0; i < 16; i++) {
+        const medio = (bajo + alcanza) / 2;
+        if (cubreLaCaja(medio, ancho, alto)) bajo = medio; else alcanza = medio;
+      }
+      return bajo;
     }
 
     // Curva "perezosa": el reflejo casi no se mueve cerca del centro y se
@@ -2910,7 +2937,7 @@ const tags = [
         // Se mide UNA vez por tarjeta, no en cada movimiento: leer la caja en
         // cada `pointermove` obliga al navegador a recalcular la maquetación.
         caja = c.getBoundingClientRect();
-        tope = topeGiroDe(caja.height);
+        tope = topeGiroDe(caja.width, caja.height);
       }
       ratonX = e.clientX; ratonY = e.clientY;
       if (!pedido) pedido = requestAnimationFrame(pintar);
@@ -2920,7 +2947,7 @@ const tags = [
     // La caja cambia de sitio con el scroll y con el reordenado; si no se
     // relee, el giro se calcularía contra una posición vieja.
     document.getElementById('view-galería')?.addEventListener('scroll', () => {
-      if (carta) { caja = carta.getBoundingClientRect(); tope = topeGiroDe(caja.height); }
+      if (carta) { caja = carta.getBoundingClientRect(); tope = topeGiroDe(caja.width, caja.height); }
     }, { passive: true, signal: senal });
   }
 
