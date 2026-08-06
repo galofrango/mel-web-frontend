@@ -1127,26 +1127,32 @@ html.mel-vuelta #slider-track-wrapper {
       su old aguanta 120ms con `fill-mode: both` y solo entonces se disuelve,
       uniforme, en 180ms. Es el "cierre de algo que estaba encima": se
       levanta la ficha y debajo estaba todo, quieto y colocado. */
-html.mel-vuelta::view-transition-new(root) {
-  animation-duration: 0s;
-  mix-blend-mode: normal;
-}
-html.mel-vuelta::view-transition-old(root) {
-  animation-delay: 120ms;
-  /* 500ms por orden expresa del propietario ("si dura menos de medio
-     segundo, súbelo a esa duración"). */
-  animation-duration: 500ms;
-  animation-fill-mode: both;
-  mix-blend-mode: normal;
-}
 /* Fundido de TRANSPARENCIA pura, sin mezcla de capas (petición del
    propietario: "un fundido normal basado únicamente en transparencia"). El
-   navegador, por defecto, funde old y new con `mix-blend-mode: plus-lighter`
-   dentro de un image-pair aislado — está pensado para crossfades entre dos
-   imágenes que se reparten la opacidad, pero aquí la de abajo está SIEMPRE
-   opaca, y la mezcla aditiva se veía como una fusión rara de capas, no como
-   una ficha volviéndose transparente. `isolation: auto` + `normal` en las dos
-   imágenes lo convierten en un fundido corriente. */
+   navegador funde old y new con `mix-blend-mode: plus-lighter`, y lo aplica
+   MEDIANTE UNA ANIMACIÓN interna que acompaña al fundido — por eso declarar
+   `mix-blend-mode: normal` a secas no pudo con ello (una animación en marcha
+   gana a las declaraciones normales, y estirar la duración estiraba también
+   la animación de mezcla; primer intento fallido, verificado por el
+   propietario). El único camino es NO dejar correr las animaciones del
+   navegador: la nueva se queda sin ninguna (visible a opacidad natural desde
+   el primer fotograma, que es lo que queríamos del 0s) y la vieja corre UNA
+   animación propia que solo toca la opacidad. Sin la animación interna, la
+   mezcla vuelve a `normal` sola; el `isolation: auto` deshace el aislamiento
+   del par, de propina. */
+@keyframes mel-vuelta-desvanecer {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+html.mel-vuelta::view-transition-new(root) {
+  animation: none;
+}
+html.mel-vuelta::view-transition-old(root) {
+  /* 500ms por orden expresa del propietario ("si dura menos de medio
+     segundo, súbelo a esa duración"); los 120ms de tapa opaca, con `both`. */
+  animation: mel-vuelta-desvanecer 500ms ease 120ms both;
+  mix-blend-mode: normal;
+}
 html.mel-vuelta::view-transition-image-pair(root) {
   isolation: auto;
 }
