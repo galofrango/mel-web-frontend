@@ -5933,6 +5933,36 @@ const tags = [
     // buscador se llena y se ensancha, y las tarjetas filtran, por el camino
     // que ya existe y que el propietario dio por bueno. Ninguna coreografía
     // nueva que mantener.
+    // Remedida de seguridad cuando la maquetación ya se ha asentado (D-269).
+    //
+    // El alto que reserva cada tarjeta sale de `ancho / proporción`, así que
+    // depende del ANCHO DE COLUMNA — y ese ancho no es definitivo durante el
+    // arranque: la cuarta columna no la enciende un breakpoint sino una
+    // medición (`updateHomeToolbarLayout` → `.galeria-cuatro`), y la vista
+    // puede no estar maquetada todavía cuando se mide. Si se calcula con un
+    // ancho que luego cambia, los huecos verticales quedan de más para
+    // siempre: las fotos salen bien y debajo de cada una sobra sitio, que es
+    // exactamente lo que el propietario fotografió en Safari al volver de una
+    // ficha (07-08-2026).
+    //
+    // El remedido que ya existía va colgado del CAMBIO de clase de columnas y
+    // se salta en silencio si el ancho da 0 (`if (ancho)`), cosa perfectamente
+    // posible con la vista aún sin maquetar. Esta pasada no depende de que
+    // nada cambie ni de acertar el instante: cuando el navegador ha maquetado
+    // de verdad, vuelve a escribir todos los `row-span` con el ancho REAL.
+    // Doble rAF a propósito: el primero entra en el fotograma en curso, el
+    // segundo ya cae después de que se haya maquetado.
+    // Es idempotente y solo escribe: si los anchos no cambiaron, reescribe lo
+    // mismo. Barato y sin efectos.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const rejilla = document.getElementById('gallery-grid');
+      if (!rejilla) return;
+      const primera = rejilla.querySelector('.gallery-item');
+      const ancho = primera ? primera.clientWidth : 0;
+      if (!ancho) return;
+      rejilla.querySelectorAll('.gallery-item').forEach(c => sizeGalleryCard(c, ancho));
+    }));
+
     if (relatoBusqueda) {
       setTimeout(() => {
         // La marca se borra AQUÍ y no al leerla, y no es un detalle: el orden
