@@ -815,6 +815,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       document.addEventListener('click', (e) => {
         const enlace = e.target && e.target.closest && e.target.closest('a[href^="/?"]');
         if (!enlace) return;
+        // El botón de CERRAR queda fuera, y no es un detalle: su `href` es
+        // `/?view=…&search=…` cuando se venía de una búsqueda, o sea que
+        // empieza igual y lleva `search=` igual que un enlace de artista. Sin
+        // esta salida marcaba el relato al cerrar, y al volver a la galería se
+        // repetía toda la función —buscador llenándose y tarjetas moviéndose—
+        // cuando volver tiene que dejarlo TODO quieto (D-268). Volver no es
+        // buscar: es regresar a un sitio que ya estaba filtrado.
+        if (enlace.id === 'detail-close-btn' || enlace.closest('#detail-close-btn')) return;
         try {
           const params = new URL(enlace.href, location.href).searchParams;
           const local = params.get('location');

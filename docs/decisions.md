@@ -4771,3 +4771,15 @@ El propietario: "las cards no se animan durante el filtrado, solo desaparecen y 
 Es el mismo caso que `avanzarOrden()` ya resolvía llamando a `cancelarVuelta()`, con el mismo razonamiento que está escrito allí: en cuanto el visitante elige otra cosa, ya no está volviendo a ningún sitio. Pulsar un enlace de búsqueda es exactamente eso. Se añade la misma llamada antes de lanzar el relato.
 
 **Verificado con la cadena real** (galería → tarjeta → enlace de artista, que es la única forma de que exista estado de vuelta; un primer intento cargando la ficha en duro NO reproducía el fallo porque sin visita previa a la galería no hay vuelta que cancelar, y por poco doy por bueno un arreglo sin probarlo de verdad): a los 200ms la vuelta está viva y el buscador vacío; a los 360ms la vuelta está cancelada y el contador de `startViewTransition` sube — el filtro arranca su animación, que antes no existía.
+
+## D-268 · Volver de una ficha repetía el relato de la búsqueda
+
+El propietario, al poco de subir D-267: "si entro en un evento desde la búsqueda, al volver a la galería filtrada se repite toda la jugada de la búsqueda y las tarjetas moviéndose. **Al volver de un evento a la galería, esta debería estar siempre estática.**"
+
+Causa: la escucha delegada que marca los enlaces de búsqueda cazaba también el **botón de cerrar**. Su `href` es `/?view=…&search=…` cuando se venía de una búsqueda — empieza por `/?` y lleva `search=` exactamente igual que un enlace de artista, así que era indistinguible por la forma del enlace. Al cerrar se marcaba un relato que se representaba al aterrizar.
+
+Arreglo: el botón de cerrar queda fuera de esa escucha, por id. **Volver no es buscar**: es regresar a un sitio que ya estaba filtrado, y el contrato dice que ahí no se mueve nada.
+
+**Verificado con la cadena completa** (galería → ficha → enlace de artista → galería filtrada → ficha → cerrar): el clic en cerrar ya no deja marca —antes dejaba el término— y la vuelta llega con el buscador lleno y las 4 tarjetas desde el fotograma cero, sin repetir la función.
+
+Lección para la colección: cuando un delegado se engancha por la FORMA del enlace (`a[href^="/?"]`), acabará cazando enlaces que se parecen pero significan otra cosa. Aquí conviven tres cosas distintas bajo el mismo patrón — ir al mapa, buscar, y volver — y solo la tercera no debía marcar nada.
