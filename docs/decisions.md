@@ -4739,3 +4739,13 @@ Petición del propietario (07-08-2026): al cerrar un evento abierto desde el pan
 **Verificado en navegador, ciclo completo**: panel abierto por navegación suave con su local; entrada al evento; cierre → dispara `astro:before-swap` (o sea, suave y no recarga), la clase `mel-vuelta` viaja en el documento entrante, y al aterrizar el mapa está sano (contenedor con contenido) y **el panel abierto con el título correcto**. Y el enlace de "Lugar" ya no lleva atributo de recarga y deja puesta la marca. **Lo que no se puede comprobar aquí**: que el fundido se VEA bien — el panel de pruebas no genera fotogramas.
 
 **Riesgo abierto que el propietario debe validar**: el arreglo de `Link.astro` convierte en navegación suave TODOS los enlaces de tags del sitio, no solo el de Lugar. Es lo que el componente siempre quiso hacer, y debería notarse más rápido, pero conviene probar también Localidad, Diseño, Organiza y los enlaces de artistas.
+
+### D-266 bis · La celda de "Lugar" de la Lista se suma a la misma transición
+
+El propietario cierra el círculo: la transición al mapa que acabábamos de estandarizar desde la ficha "no funciona igual desde los links de la tabla en Lista, y creo que deberían compartirla".
+
+Causa, y era de una línea: esa celda navegaba con `window.location.href`, un salto duro que **se salta el ClientRouter entero**. Llevaba al mismo sitio que la tag de "Lugar" —y su propio comentario lo decía, citando D-075— pero por un camino que no podía tener transición ninguna. Ahora usa la navegación suave y deja puesta la marca `mel-volviendo-al-panel`, así que aterriza igual que los demás: panel abierto sin coreografía, sin el segundo de espera.
+
+Barrido de comprobación: no queda ningún otro salto duro en el sitio salvo el respaldo de `navigateToEvent()` para cuando el router no está disponible, que es correcto.
+
+**Verificado en navegador**: el clic dispara `astro:before-swap` (o sea, suave y no recarga), aterriza en `?view=mapa&location=New+Caribe`, el mapa queda sano y el panel abierto con su título.

@@ -5795,7 +5795,15 @@ const tags = [
           const link = target.classList.contains('location-cell-link') ? target : target.closest('.location-cell-link');
           const lugar = link.getAttribute('data-location');
           if (lugar) {
-            window.location.href = `/?view=mapa&location=${encodeURIComponent(lugar)}`;
+            // Mismo aterrizaje que la tag de "Lugar" de la ficha (D-266): panel
+            // abierto sin coreografía y navegación SUAVE. Antes era un
+            // `window.location.href`, o sea un salto duro que se saltaba el
+            // router entero — por eso este enlace no compartía la transición
+            // con los demás pese a llevar al mismo sitio.
+            try { sessionStorage.setItem('mel-volviendo-al-panel', lugar); } catch (e) {}
+            const destino = `/?view=mapa&location=${encodeURIComponent(lugar)}`;
+            if (typeof window.__melNavigate === 'function') window.__melNavigate(destino);
+            else window.location.href = destino;
           }
           return;
         }
