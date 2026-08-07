@@ -777,26 +777,49 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       if (activeSearch) returnParams.set('search', activeSearch);
       if (activeLocation) returnParams.set('location', activeLocation);
       closeBtn.href = `/?${returnParams.toString()}`;
-      // Volviendo a un panel abierto, sin transición de página. Con ella, la
-      // cabecera y la toolbar se promocionan a la capa superior del navegador y
-      // el panel llega a destiempo: se le ve formarse detrás del slider y los
-      // tags y saltar por delante al terminar (D-116 y cuatro intentos de
-      // arreglarlo dentro de la transición). El propietario prefiere que la
-      // vuelta sea instantánea, con todo tal cual se dejó, antes que una
-      // animación que no acaba de cuadrar. El estado de vuelta viaja en
-      // sessionStorage, así que la recarga no pierde nada.
+      // Volviendo a un panel abierto (D-266). Hasta ahora esto forzaba RECARGA
+      // COMPLETA: el motivo original (D-116, y cuatro intentos) era que dentro
+      // de la transición la cabecera y la toolbar se promocionaban a la capa
+      // superior y el panel llegaba a destiempo, y el propietario prefirió
+      // instantáneo antes que una animación que no cuadraba. Ese motivo ya no
+      // existe: desde D-261 la franja viaja como UNA sola pieza y desde D-263
+      // la vuelta apaga todos los nombres y se resuelve con la ficha
+      // disolviéndose sobre la home ya montada. Así que se deja navegar suave
+      // y la vuelta al mapa hereda ese mismo cierre.
+      //
+      // La marca sigue: le dice a la home que esto es una VUELTA a un estado y
+      // no un viaje a un sitio. Sin ella se reproduce la secuencia de entrada
+      // entera —cámara buscando el marcador y panel abriéndose tras su segundo
+      // de espera—, que tiene sentido llegando desde una tag de "Lugar" y
+      // ninguno volviendo.
+      closeBtn.removeAttribute('data-astro-reload');
       if (activeLocation) {
-        closeBtn.setAttribute('data-astro-reload', '');
-        // Marca para la home: esto es una VUELTA a un estado, no un viaje a un
-        // sitio. Sin ella, la carga completa reproducía la secuencia de entrada
-        // entera —galería, cambio a mapa, cámara buscando el marcador y el
-        // panel abriéndose con su segundo de espera—, que tiene sentido
-        // llegando desde una tag de "Lugar" y ninguno volviendo.
         closeBtn.addEventListener('click', () => {
           try { sessionStorage.setItem('mel-volviendo-al-panel', activeLocation); } catch (e) {}
         }, { once: true });
       }
-      else closeBtn.removeAttribute('data-astro-reload');
+    }
+
+    // La tag de "Lugar" aterriza en el MISMO sitio que el cierre (D-266,
+    // decisión del propietario): todos los eventos de esta navegación
+    // comparten local, así que ir al mapa por el enlace o salir por la X
+    // llevan al mismo estado, y merecen la misma llegada — panel abierto y sin
+    // coreografía. Se marca aquí igual que en el cierre.
+    //
+    // Delegado en el documento y no atado a la tag: la fila de tags se pinta
+    // DOS veces (la horizontal de móvil y la columna de escritorio, ver
+    // TAGS_EVENTO) y además AdaptiveTagsRow la rehace al medir. Un listener por
+    // enlace se perdería en cada repintado; el delegado los cubre todos.
+    if (!window._melLugarBound) {
+      window._melLugarBound = true;
+      document.addEventListener('click', (e) => {
+        const enlace = e.target && e.target.closest && e.target.closest('a[href*="view=mapa"][href*="location="]');
+        if (!enlace) return;
+        try {
+          const local = new URL(enlace.href, location.href).searchParams.get('location');
+          if (local) sessionStorage.setItem('mel-volviendo-al-panel', local);
+        } catch (err) {}
+      });
     }
 
     // Abort any previous window listeners to prevent duplicates across page transitions.
@@ -1758,7 +1781,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     document.addEventListener('astro:before-swap', (e) => {
       try {
         const destino = e && e.to ? new URL(e.to, location.href).pathname : null;
-        if (destino === '/' && e.newDocument && sessionStorage.getItem('mel-return-state')) {
+        // `mel-volviendo-al-panel` cuenta como vuelta igual que el estado de
+        // la galería (D-266): al mapa se puede llegar por la X o por la tag de
+        // "Lugar", y por esa segunda puede no haber estado de galería que
+        // restaurar —se entró por URL directa, por ejemplo— y aun así el
+        // aterrizaje merece el mismo cierre.
+        const hayVuelta = sessionStorage.getItem('mel-return-state')
+          || sessionStorage.getItem('mel-volviendo-al-panel');
+        if (destino === '/' && e.newDocument && hayVuelta) {
           e.newDocument.documentElement.classList.add('mel-vuelta');
         }
       } catch (err) {}

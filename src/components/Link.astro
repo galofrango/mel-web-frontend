@@ -30,7 +30,16 @@ const isDisabled = state === "Disabled";
     aria-label={ariaLabel}
     class={`group relative inline-flex items-center gap-1 no-underline mel-link-active ${state === 'Primary' ? "mel-link-primary" : ""} typo-body-roman ${expandHitArea ? "mel-link-hit-expand" : ""} ${className} ${isRight ? "justify-end text-right" : isCenter ? "justify-center text-center" : "justify-start text-left"}`}
     id={id}
-    data-astro-reload={reload}
+    {/* El atributo SOLO existe si de verdad se pide recarga dura (D-266).
+        Antes se emitía siempre —`data-astro-reload="false"` con el valor por
+        defecto— y el ClientRouter de Astro no mira el valor sino la PRESENCIA
+        (`el.dataset.astroReload !== undefined`, en su ClientRouter.astro), así
+        que TODOS los enlaces del sitio recargaban la página entera. Nadie lo
+        había pedido: ni un solo sitio del proyecto pasa `reload`. Era el
+        motivo de que llegar al mapa por la tag de "Lugar" se sintiera un
+        pantallazo, y de paso tiraba a la basura la app ya cargada en cada
+        salto por una tag. */}
+    data-astro-reload={reload ? '' : undefined}
   >
     <span class="mel-link-text relative inline-block text-inherit min-w-0">
       <slot />

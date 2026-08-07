@@ -1400,7 +1400,9 @@ const tags = [
   // en la vuelta DURA del panel (?location=, recarga completa), donde no hay
   // transición pero revelarColocado() la consulta para revelar sin fundido.
   try {
-    if (sessionStorage.getItem('mel-return-state')) {
+    // La vuelta al PANEL cuenta igual que la de la galería (D-266): puede
+    // llegar sin estado de galería que restaurar y aun así es una vuelta.
+    if (sessionStorage.getItem('mel-return-state') || sessionStorage.getItem('mel-volviendo-al-panel')) {
       document.documentElement.classList.add('mel-vuelta');
       // 1200 y no 600 (D-263 quinquies): el temporizador es solo la RED — la
       // retirada de verdad es el listener de before-preparation de abajo. Con
@@ -4835,6 +4837,20 @@ const tags = [
     const urlView = params.get('view');
     const urlLocation = params.get('location');
     let justAutoOpened = false;
+    // Volviendo de una ficha al panel por navegación SUAVE (D-266): el estado
+    // sobrevive a la navegación, así que `activeSidePanelKey` sigue apuntando
+    // al local de antes y la auto-apertura de abajo —que exige que NO haya
+    // ninguno activo— no se dispararía. Pero el DOM sí se ha renovado y el
+    // panel nuevo nace cerrado: se quedaría sin abrir. Es literalmente el
+    // "panel lateral atascado" del que avisa la regla 15 de AGENTS.md, y es la
+    // razón por la que esta vuelta se hacía con recarga completa.
+    // Se limpia la clave para que el camino de siempre vuelva a correr y abra
+    // el panel en el DOM nuevo. Solo se MIRA la marca; quien la consume (y la
+    // borra) es el bloque de más abajo, que la necesita para saber que esto es
+    // una vuelta y abrir sin coreografía.
+    try {
+      if (sessionStorage.getItem('mel-volviendo-al-panel')) activeSidePanelKey = null;
+    } catch (e) {}
     if (urlView === 'mapa' && !activeSidePanelKey) {
       const matchName = (urlLocation || '').toLowerCase().trim();
       if (matchName) {
