@@ -5942,6 +5942,15 @@ const tags = [
         // y se ponía en "lleno" al instante — la historia terminaba antes de
         // empezar. Medido: buscador ya lleno y galería ya recortada a los 0ms.
         try { sessionStorage.removeItem('mel-relato-busqueda'); } catch (e) {}
+        // Pulsar un enlace de búsqueda deja de ser "estoy volviendo de una
+        // ficha", exactamente igual que elegir un orden nuevo — y por el mismo
+        // motivo, con las mismas palabras que ya están en `cancelarVuelta()`:
+        // mientras la vuelta siga viva, `filterArchives` se salta la
+        // transición y el filtro ocurre en un fotograma. La vuelta dura 4s y
+        // el relato arranca a los 320ms, así que SIEMPRE caía dentro: por eso
+        // las tarjetas desaparecían de golpe en vez de despedirse como las de
+        // cualquier otra búsqueda.
+        cancelarVuelta();
         window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query: relatoBusqueda } }));
       }, 320);
     }
