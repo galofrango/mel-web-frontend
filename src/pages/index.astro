@@ -5874,7 +5874,16 @@ const tags = [
     // Quien lo hace de verdad es HeaderTitle, que lee `?search=` por su cuenta y
     // llama a setState('filled', …) — y eso pone el valor en el input Y dispara la
     // búsqueda, o sea las dos mitades del trabajo.
-    if (searchParam !== null && searchParam !== searchQuery) {
+    // El RELATO de la búsqueda (D-267): si el visitante ha llegado pulsando un
+    // enlace de búsqueda dentro del sitio, la galería NO arranca filtrada. Se
+    // deja entera y un momento después se lanza el mismo evento que usan las
+    // celdas de la tabla, que llena el buscador y filtra con su animación de
+    // siempre. Sin esto la historia ya ha terminado cuando aparece la página:
+    // el término puesto y las tarjetas recortadas, sin que se vea el gesto.
+    let relatoBusqueda = null;
+    try { relatoBusqueda = sessionStorage.getItem('mel-relato-busqueda'); } catch (e) {}
+
+    if (searchParam !== null && searchParam !== searchQuery && !relatoBusqueda) {
       searchQuery = searchParam;
       _s.searchQuery = searchParam;
     }
@@ -5913,6 +5922,29 @@ const tags = [
         requestAnimationFrame(() => whisperDeOrden(ordenActual()));
       }
     } catch (e) {}
+
+    // Y aquí se cuenta el relato de la búsqueda (D-267). Va lo ÚLTIMO de
+    // initHomePage y con un respiro por delante: la galería tiene que estar
+    // montada y el cruce de páginas terminado antes de empezar, porque el
+    // filtro arranca su propia transición y apilar dos las supersede (regla
+    // 3). 320ms es el cruce corriente de la raíz (250) más un margen.
+    //
+    // Se usa el MISMO evento que las celdas de la tabla, a propósito: así el
+    // buscador se llena y se ensancha, y las tarjetas filtran, por el camino
+    // que ya existe y que el propietario dio por bueno. Ninguna coreografía
+    // nueva que mantener.
+    if (relatoBusqueda) {
+      setTimeout(() => {
+        // La marca se borra AQUÍ y no al leerla, y no es un detalle: el orden
+        // en que corren los `astro:page-load` de esta página y de HeaderTitle
+        // NO está garantizado (la misma trampa que documenta readReturnState).
+        // Borrándola arriba, HeaderTitle llegaba después, no veía marca alguna
+        // y se ponía en "lleno" al instante — la historia terminaba antes de
+        // empezar. Medido: buscador ya lleno y galería ya recortada a los 0ms.
+        try { sessionStorage.removeItem('mel-relato-busqueda'); } catch (e) {}
+        window.dispatchEvent(new CustomEvent('mel-set-search', { detail: { query: relatoBusqueda } }));
+      }, 320);
+    }
   }
 
   // --- List View Sorting and Navigation Actions ---

@@ -341,10 +341,19 @@ import IconButton from './IconButton.astro';
       }
     });
 
-    // On initialization, check if search query parameter exists
+    // On initialization, check if search query parameter exists.
+    //
+    // Salvo que venga un RELATO pendiente (D-267): si el visitante ha llegado
+    // pulsando un enlace de búsqueda dentro del sitio, el buscador tiene que
+    // arrancar VACÍO para que se le vea llenarse un instante después. Quien
+    // lanza el relato es index.astro, con el mismo evento que usan las celdas
+    // de la tabla; aquí solo hay que no adelantarse. La marca NO se consume
+    // aquí: la borra quien la usa.
     const params = new URLSearchParams(window.location.search);
     const urlQuery = params.get('search');
-    if (urlQuery && urlQuery.trim().length > 0) {
+    let hayRelato = false;
+    try { hayRelato = !!sessionStorage.getItem('mel-relato-busqueda'); } catch (e) {}
+    if (urlQuery && urlQuery.trim().length > 0 && !hayRelato) {
       setState('filled', urlQuery.trim());
     } else {
       setState('default');

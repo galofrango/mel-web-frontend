@@ -813,11 +813,20 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
     if (!window._melLugarBound) {
       window._melLugarBound = true;
       document.addEventListener('click', (e) => {
-        const enlace = e.target && e.target.closest && e.target.closest('a[href*="view=mapa"][href*="location="]');
+        const enlace = e.target && e.target.closest && e.target.closest('a[href^="/?"]');
         if (!enlace) return;
         try {
-          const local = new URL(enlace.href, location.href).searchParams.get('location');
-          if (local) sessionStorage.setItem('mel-volviendo-al-panel', local);
+          const params = new URL(enlace.href, location.href).searchParams;
+          const local = params.get('location');
+          if (local) { sessionStorage.setItem('mel-volviendo-al-panel', local); return; }
+          // Enlaces que generan una BÚSQUEDA (artista, localidad, diseño): se
+          // marca el término para que la home cuente el proceso en vez de
+          // aterrizar con todo filtrado ya (D-267). Solo se marca aquí, en un
+          // clic DENTRO del sitio: llegar de fuera por un enlace compartido
+          // sigue mostrando el resultado al instante, que allí no hay ningún
+          // gesto que explicar.
+          const termino = params.get('search');
+          if (termino && termino.trim()) sessionStorage.setItem('mel-relato-busqueda', termino.trim());
         } catch (err) {}
       });
     }
@@ -1786,8 +1795,14 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         // "Lugar", y por esa segunda puede no haber estado de galería que
         // restaurar —se entró por URL directa, por ejemplo— y aun así el
         // aterrizaje merece el mismo cierre.
-        const hayVuelta = sessionStorage.getItem('mel-return-state')
-          || sessionStorage.getItem('mel-volviendo-al-panel');
+        // Yendo a contar el proceso de una búsqueda NO se pone (D-267): el
+        // cierre de la vuelta dura 620ms entre la tapa y la disolución, y el
+        // filtro que viene detrás arrancaría su propia transición encima —
+        // apilarlas supersede la primera (regla 3). Con el cruce corriente de
+        // la raíz, la historia puede empezar en cuanto la home está montada.
+        const hayVuelta = (sessionStorage.getItem('mel-return-state')
+          || sessionStorage.getItem('mel-volviendo-al-panel'))
+          && !sessionStorage.getItem('mel-relato-busqueda');
         if (destino === '/' && e.newDocument && hayVuelta) {
           e.newDocument.documentElement.classList.add('mel-vuelta');
         }

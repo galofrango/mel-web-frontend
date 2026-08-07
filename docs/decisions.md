@@ -4749,3 +4749,17 @@ Causa, y era de una línea: esa celda navegaba con `window.location.href`, un sa
 Barrido de comprobación: no queda ningún otro salto duro en el sitio salvo el respaldo de `navigateToEvent()` para cuando el router no está disponible, que es correcto.
 
 **Verificado en navegador**: el clic dispara `astro:before-swap` (o sea, suave y no recarga), aterriza en `?view=mapa&location=New+Caribe`, el mapa queda sano y el panel abierto con su título.
+
+## D-267 · El relato de la búsqueda: que se vea el gesto al llegar por un enlace
+
+Observación del propietario tras estandarizar la navegación suave (D-266): al pulsar un artista se aterriza en la galería con la búsqueda **ya hecha**, sin animación ninguna. "Es muy suave, pero antes, con la recarga dura, parecía que se viajaba a la galería y se hacía la búsqueda, con la línea del buscador dibujándose, lo cual llamaba la atención sobre el buscador y daba más pistas sobre lo que sucede al presionar un enlace". Quiere reproducir lo que ya hace la tabla de Lista.
+
+**Por qué la tabla lo hace bien y el enlace no.** En la tabla no se navega: el clic lanza un evento interno, el buscador pasa de vacío a lleno —y al ensancharse es cuando "se mueve la línea"— y la galería filtra por su camino animado. Tres cosas encadenadas y visibles. Desde un enlace sí se navega, y al aterrizar el buscador se pone en "lleno" durante el arranque y el filtro se aplica en el mismo suspiro: cuando la página aparece, la historia ya terminó.
+
+**El diseño**: si el clic ocurrió DENTRO del sitio, se marca el término; la home aterriza **sin filtrar** y, 320ms después, lanza **el mismo evento que usan las celdas de la tabla**. Ninguna coreografía nueva — se reutiliza el camino que el propietario ya dio por bueno. Los 320ms son el cruce corriente de la raíz (250) más un margen: el filtro arranca su propia transición y apilar dos las supersede (regla 3). Por lo mismo, esta navegación **no** se marca como vuelta: el cierre de D-263 dura 620ms entre tapa y disolución y se pisarían.
+
+**Llegar de fuera NO cuenta la historia** (decisión del propietario, que pidió separarlo para valorarlo aparte): con un enlace compartido no hay gesto que explicar, ver la galería entera y que de pronto se recorte parecería un fallo, y además retrasaría el resultado. La marca solo la pone un clic dentro del sitio.
+
+**La trampa que costó una pasada**, y que es la de siempre en este repo con otra cara: la marca se borraba al leerla, en `index.astro`. Pero el orden en que corren los `astro:page-load` de la página y de `HeaderTitle` **no está garantizado** (lo documenta `readReturnState` desde D-121), así que HeaderTitle llegaba después, no veía marca alguna y se ponía en "lleno" al instante. Medido: buscador lleno y galería recortada a los 0ms, la historia terminada antes de empezar. Ahora la marca se borra **cuando se usa**, dentro del temporizador, no al leerla.
+
+**Verificado en navegador, los dos caminos.** Con clic dentro: `after-swap` y `page-load` con el buscador vacío y las 32 tarjetas enteras, a los 340ms el buscador lleno y la marca consumida, y la rejilla recortada a 4 con la URL actualizada. Con carga en frío sin marca: buscador lleno y 4 tarjetas de entrada, comportamiento intacto. **Lo que no se puede juzgar aquí**: si el ritmo de 320ms es el bueno — el panel no da fotogramas y eso es cosa del propietario.
