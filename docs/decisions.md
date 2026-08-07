@@ -4808,3 +4808,36 @@ Dos síntomas que el propietario reportó juntos y que son el mismo mecanismo: a
 **Un fallo que me cacé a mí mismo al verificarlo, y que habría dejado el arreglo muerto justo en el caso reportado**: el observador se guardaba una sola vez, pero su contenedor de referencia es `#view-galería`, y en una navegación suave el DOM se cambia entero. El observador quedaba apuntando a un contenedor desconectado y sus intersecciones no volvían a dispararse nunca — o sea que al volver de una ficha, precisamente, no habría precargado nada. Ahora se comprueba si la referencia sigue siendo la del documento y se rehace si no; es el mismo cuidado que ya se tiene con el contenedor del mapa (`isStale` en `switchView`), por idéntica razón.
 
 **Verificado en navegador** en el caso exacto: galería → ficha → cerrar, y tras volver se crea un observador nuevo cuyo contenedor **no es el viejo** y **sí está conectado**. Lo que no se puede comprobar aquí es el efecto sobre la carga real: el panel no maqueta (`innerWidth` 0), así que nada llega a intersecar. **La mejora en Safari la confirma el propietario.**
+
+
+## D-271 · El apilamiento del mapa: una sola escala, y el activo indultado hasta que se toque
+
+Cuatro apuntes del propietario sobre el mapa que resultaron ser dos mecanismos.
+
+**El cluster que salta por delante.** Al hacer zoom out, la burbuja que se come a un marcador aparecía por encima de otro que ya estaba en el mapa. La causa es que conviven dos escalas de z-index: el reordenado por posición en pantalla (D-242) escribía `1000 + índice`, y un marcador **recién nacido** todavía no ha pasado por ahí y lleva su z de latitud, que vale ~470000. Cualquier rendija entre "el marcador existe" y "el marcador mide" —`reordenarMarcadoresPorPantalla()` descarta las cajas de alto 0— lo plantaba al frente.
+
+D-250 ya había parcheado esto para el caso de filtrar, con dos pasadas de reordenado dentro de `updateMapMarkers()`. **El zoom out no pasa por ahí**: las burbujas las crea el clusterer por su cuenta al pararse la cámara, así que aquellas dos pasadas no lo cubrían nunca.
+
+El arreglo va por los dos lados. La base de la escala de pantalla sube a `1000000`, **por encima** de cualquier z de latitud: así la misma rendija manda al recién nacido al FONDO en vez de al frente, y el fallo pasa de "salta delante" a "aparece un fotograma tarde". Y la rendija en sí se cierra enganchándose a `clusteringend` del clusterer, que es el aviso de que las burbujas nuevas ya están puestas. Comprobado que ese evento existe y se dispara sobre la instancia en la versión que carga el sitio (markerclusterer 2.6.2, desde unpkg) antes de usarlo.
+
+**El activo por delante — enmienda a D-230.** D-230 había bajado el marcador activo a la regla común (manda la posición en pantalla) porque su sombra tapaba pines más al sur, y dejó escrito que la salida acordada NO era volver a subirle el z-index. El propietario pidió ahora lo contrario, pero **con una condición que no estaba entonces**: por delante *hasta que se toque el mapa*. Eso cambia el balance — el artefacto de D-230 solo molesta si es permanente. A cambio se arregla el caso que lo pedía: al llegar desde el enlace de "Lugar" de una ficha, el marcador de destino quedaba a veces detrás de otros (Gran Café).
+
+El indulto se concede al ABRIR un local y muere al primer `pointerdown` o rueda sobre el contenedor. **No sirven los eventos de cámara de Google** (`bounds_changed`, `zoom_changed`): los dispara también el `panTo()` que hace el propio panel al abrirse, con lo que el indulto se suicidaría en el mismo instante en que se concede. Y se detecta en un solo sitio, comparando `activeSidePanelKey` con el último activo, lo que cubre de una vez las cuatro puertas de entrada (pulsar el marcador, el enlace de "Lugar", la celda de la Lista, `?location=` en la URL) sin tocar ninguna.
+
+**Zoom de despeje, la otra mitad.** El indulto tapa el síntoma; el propietario pidió además quitar la causa. Al pulsar un marcador que se pisa con algún vecino, la cámara se acerca **lo justo** para separarlos. La cuenta sale de una propiedad del mapa: cada nivel de zoom duplica la separación en pantalla mientras el marcador mide siempre lo mismo, así que para separar dos cajas cuyos centros están a `d` px cuando necesitan `n`, hacen falta `log2(n/d)` niveles. Basta despejar en UNO de los dos ejes, así que de los dos se pide el más barato, y del conjunto de vecinos, el más caro. Con zoom fraccionario (ya estaba activado) se pide el mínimo, no el siguiente entero — por eso se lee como un acercamiento y no como un escalón. Tope de 3 niveles, y dos marcadores en el mismo punto exacto no disparan nada: no hay zoom que los separe y perseguirlo te dejaría en mitad de la nada con el problema intacto.
+
+Como el despeje mueve centro Y zoom en un solo movimiento, `populateSidePanel()` acepta `{ saltarCamara: true }` para callarse su `panTo` — si los dos escribieran la cámara a la vez se pelearían.
+
+**Verificación.** El truncado y la cuenta del despeje se comprobaron ejecutando código, no leyéndolo: el ancho de las etiquetas, medido en navegador con la tipografía real; y `zoomParaDespejar`, con un guion que **extrae la función del propio fichero** y la corre contra cajas de mentira (seis casos: vecino lejano no mueve la cámara, vecino encima pide zoom y tras aplicarlo las cajas quedan separadas de verdad sin pasarse, despejado en vertical no pide nada, superpuestos exactos tampoco, manda el vecino más pegado, y no se pasa del zoom 20). **Lo que no se pudo ver funcionando aquí es el mapa**: el visor de este entorno da `innerWidth` 0, así que Google Maps nunca maqueta y no hay marcadores que mirar. **La confirmación visual es del propietario.**
+
+### D-271 bis · El tope de ancho de los marcadores trunca solo el nombre
+
+El propietario pidió acotar el ancho del marcador "máximo Valdepiélago". Medido con la tipografía real, **Valdepiélago no es el nombre más ancho sino el noveno** (99,2px); por encima hay ocho, hasta "Plaza de toros de Astorga" con 198px. Con el tope en 100px, esa y "Plaza de toros de León" se leen las dos como "Plaza de toros …" — indistinguibles en el mapa. Se le señaló y decidió mantener los 100px; **subirlo a 180 deja solo Astorga truncada y es cambiar ese número y nada más**.
+
+El recorte se come **solo el nombre**: el contador va en su propio nodo y siempre se ve entero (`Sala Retrovisor (12)` → `Sala Retro… (12)`). Con un solo elemento, lo primero que se pierde es justo el dato que dice cuánto hay ahí. El nombre completo queda en el `title` del marcador.
+
+`inline-block` + `vertical-align: bottom` en vez de flex: el ellipsis solo necesita una caja de bloque acotada, y así no hay que sembrar `min-width: 0` por toda la cadena de padres (regla 6 de AGENTS.md).
+
+### D-271 ter · El mapa sangraba hasta `lg` y el slider hasta `sm`
+
+Entre 640 y 1024px de ancho, el slider ya había vuelto a los márgenes de la página (`-mx-6 sm:mx-0`) mientras el mapa seguía llegando al borde de la pantalla (`sm:-left-12 sm:-right-12 lg:left-0`). Ahora los dos cortan en `sm`. El bottom sheet no se ve afectado: es `position: fixed`, va contra la ventana y no contra el mapa.

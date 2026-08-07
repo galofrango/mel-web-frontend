@@ -10,8 +10,8 @@
     {
       "name": "mel-dev-movil",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--host", "--port", "4399"],
-      "port": 4399
+      "runtimeArgs": ["run", "dev", "--", "--host", "--port", "4500"],
+      "port": 4500
     }
   ]
 }

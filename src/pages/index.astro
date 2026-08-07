@@ -389,7 +389,11 @@ const tags = [
            la galería hace con su `-mb-[3vh]`: el mapa llega al borde inferior de
            la pantalla en vez de dejar una franja de fondo debajo. Desde `lg` se
            queda como estaba. -->
-      <div id="view-mapa" class="view-panel hidden absolute top-0 lg:top-[24px] bottom-[-3vh] lg:bottom-0 overflow-hidden flex -left-6 -right-6 sm:-left-12 sm:-right-12 lg:left-0 lg:right-0">
+      <!-- El sangrado lateral se corta en `sm`, no en `lg`: el slider vuelve a
+           los márgenes de la página en `sm` (ver su envoltorio `-mx-6 sm:mx-0`)
+           y el mapa seguía a sangre hasta `lg`, así que entre 640 y 1024px uno
+           llegaba al borde y el otro no. Si cambias uno, cambia el otro. -->
+      <div id="view-mapa" class="view-panel hidden absolute top-0 lg:top-[24px] bottom-[-3vh] lg:bottom-0 overflow-hidden flex -left-6 -right-6 sm:left-0 sm:right-0">
         <!-- El mapa y su franja de estado comparten caja, con la franja SUPERPUESTA
              (`absolute` dentro de este `relative`). Así el InfoBanner mide justo lo
              que mide el mapa —y encoge con él al desplegarse el panel, sin calcular
@@ -1164,6 +1168,31 @@ const tags = [
     color: var(--mel-text-on-action);
     white-space: nowrap;
     transition: color 0.15s ease-out;
+  }
+
+  /* Se trunca SOLO el nombre; el contador va aparte y siempre se ve entero
+     (`Sala Retrovisor (12)` → `Sala Retro… (12)`, nunca `Sala Retrovisor (…`).
+     Por eso son dos elementos y no uno con ellipsis: con un solo nodo, lo
+     primero que se come el recorte es justo el dato que dice cuánto hay ahí.
+
+     100px es lo que mide "Valdepiélago" con esta tipografía (medido: 99,2px a
+     500 16px Space Grotesk), que es el tope que pidió el propietario. OJO al
+     efecto colateral: por encima de ese ancho hay ocho nombres, y dos de ellos
+     son "Plaza de toros de León" y "Plaza de toros de Astorga" — con este tope
+     los dos se leen igual, "Plaza de toros …". Subir a 180px deja solo Astorga
+     truncada; es cambiar este número y nada más.
+
+     `inline-block` + `vertical-align: bottom` en vez de flex: el ellipsis solo
+     necesita una caja de bloque con ancho acotado, y así no hay que sembrar
+     `min-width: 0` por toda la cadena de padres (regla 6 de AGENTS.md). El
+     `bottom` evita que el hueco del descender desalinee el contador. */
+  .mel-marker-nombre {
+    display: inline-block;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
   }
 
   /* Mismo acotado que `.mel-marker-wrapper:hover` de arriba, y mismo motivo:
@@ -4310,6 +4339,29 @@ const tags = [
   // nuestro. Se llega por el DOM y no por `locationMarkers` para no dejar
   // fuera los globos de cluster, que los crea la librería; el elemento
   // `<gmp-advanced-marker>` ES el objeto AdvancedMarkerElement.
+  // La base de la escala es DELIBERADAMENTE más alta que cualquier z de
+  // latitud (`zIndexPorLatitud` devuelve ~470000 para León). Un marcador que
+  // acaba de nacer todavía no ha pasado por aquí y lleva su z de latitud, así
+  // que con la base antigua (1000) se plantaba por ENCIMA de todos los que sí
+  // estaban ordenados — es lo que el propietario veía al hacer zoom out: la
+  // burbuja de cluster que se come a un pin y aparece delante de otro que ya
+  // estaba en el mapa. Con la base por encima, esa misma rendija manda al
+  // recién nacido al FONDO en vez de al frente: un fotograma tarde en vez de
+  // un salto al frente, y el fallo pasa de visible a inapreciable.
+  //
+  // La rendija en sí (el marcador existe pero aún no mide, así que
+  // `caja.height <= 0` lo descarta) se cierra aparte, reordenando en cuanto
+  // el clusterer avisa de que ha terminado — ver `clusteringend` más abajo.
+  const BASE_Z_PANTALLA = 1000000;
+
+  // Mientras vale `true`, el marcador activo se salta el reordenado y se queda
+  // por encima de todo. Se pone al abrir un local y se cae al primer toque
+  // sobre el mapa (ver `soltarActivoPorDelante`). Acotarlo al "hasta que se
+  // toque" es lo que lo hace tolerable: el motivo por el que D-230 lo bajó fue
+  // que su sombra tapaba pines más al sur, y eso solo molesta si dura.
+  let activoPorDelante = false;
+  let ultimoActivoConIndulto = null;
+
   function reordenarMarcadoresPorPantalla() {
     const envoltorios = document.querySelectorAll('#map-container .mel-marker-wrapper');
     if (!envoltorios.length) return;
@@ -4318,6 +4370,10 @@ const tags = [
     envoltorios.forEach(w => {
       const marcador = w.closest('gmp-advanced-marker');
       if (!marcador) return;
+      // El activo, mientras esté indultado, ni se mide ni se toca: su z lo
+      // pone la pasada de `activeEntries` y tiene que sobrevivir a esto, que
+      // corre en cada fotograma del gesto.
+      if (activoPorDelante && w.classList.contains('active')) return;
       const caja = w.getBoundingClientRect();
       // Un marcador todavía sin pintar mide 0: dejarlo fuera evita mandarlo
       // al fondo por un dato que no es su posición real.
@@ -4328,7 +4384,67 @@ const tags = [
 
     // De arriba abajo en pantalla; al de más abajo, el z-index más alto.
     datos.sort((a, b) => a.y - b.y);
-    datos.forEach((d, i) => { d.marcador.zIndex = 1000 + i; });
+    datos.forEach((d, i) => { d.marcador.zIndex = BASE_Z_PANTALLA + i; });
+  }
+
+  // "Hasta que se toque el mapa", literal: un dedo, un ratón o una rueda sobre
+  // el contenedor. No sirve `bounds_changed` ni `zoom_changed` porque los
+  // dispara también el `panTo()` que hace el propio panel al abrirse, con lo
+  // que el indulto moriría en el mismo instante en que se concede.
+  function soltarActivoPorDelante() {
+    if (!activoPorDelante) return;
+    activoPorDelante = false;
+    reordenarMarcadoresPorPantalla();
+  }
+
+  // Al abrir un local apretujado, además de ponerlo por delante se acerca la
+  // cámara lo justo para que deje de estarlo: el indulto tapa el síntoma, el
+  // zoom quita la causa. El que pidió el propietario es "algo de zoom", no un
+  // salto — de ahí que se calcule el mínimo en vez de aplicar un +2 fijo.
+  //
+  // La cuenta sale de una propiedad del mapa: cada nivel de zoom DUPLICA la
+  // separación en pantalla entre dos coordenadas, mientras que el marcador
+  // mide siempre lo mismo. Así que para separar dos cajas cuyos centros están
+  // a `d` px cuando necesitan `n`, hacen falta log2(n/d) niveles. Basta con
+  // despejar en UNO de los dos ejes (dos cajas que ya no se cruzan en
+  // horizontal no se solapan aunque compartan altura), así que de los dos se
+  // pide el más barato, y del conjunto de vecinos, el más caro.
+  const DESPEJE_MAX_NIVELES = 3;   // tope: nunca teletransporta
+  const DESPEJE_AIRE = 8;          // px de respiro que se pide entre cajas
+
+  function zoomParaDespejar(envoltorioActivo) {
+    if (!googleMap || !envoltorioActivo) return null;
+    const propia = envoltorioActivo.getBoundingClientRect();
+    if (propia.width <= 0) return null;
+
+    let niveles = 0;
+    document.querySelectorAll('#map-container .mel-marker-wrapper').forEach(w => {
+      if (w === envoltorioActivo) return;
+      const otra = w.getBoundingClientRect();
+      if (otra.width <= 0) return;
+
+      const dx = Math.abs((propia.left + propia.right) / 2 - (otra.left + otra.right) / 2);
+      const dy = Math.abs((propia.top + propia.bottom) / 2 - (otra.top + otra.bottom) / 2);
+      const hacenFaltaX = (propia.width + otra.width) / 2 + DESPEJE_AIRE;
+      const hacenFaltaY = (propia.height + otra.height) / 2 + DESPEJE_AIRE;
+      if (dx >= hacenFaltaX || dy >= hacenFaltaY) return;   // este ya está despejado
+
+      const porX = dx > 0.5 ? Math.log2(hacenFaltaX / dx) : Infinity;
+      const porY = dy > 0.5 ? Math.log2(hacenFaltaY / dy) : Infinity;
+      const coste = Math.min(porX, porY);
+      // Infinito = los dos están prácticamente en el mismo punto y no hay
+      // zoom que los separe. Se ignora en vez de perseguirlo: acercarse al
+      // tope no arreglaría nada y dejaría al usuario en mitad de la nada.
+      if (Number.isFinite(coste) && coste > niveles) niveles = coste;
+    });
+
+    if (niveles <= 0) return null;
+    const actual = googleMap.getZoom();
+    // Zoom fraccionario (el mapa lo tiene activado): se pide el mínimo que
+    // despeja, no el siguiente nivel entero. Es lo que hace que se lea como
+    // un acercamiento y no como un escalón.
+    const objetivo = Math.min(actual + Math.min(niveles, DESPEJE_MAX_NIVELES), 20);
+    return objetivo > actual + 0.05 ? objetivo : null;
   }
 
   // Durante el gesto, no solo al soltarlo (D-242). `idle` llega cuando la
@@ -4485,6 +4601,29 @@ const tags = [
     googleMap.addListener('heading_changed', pedirReordenMarcadores);
     googleMap.addListener('idle', pararReordenMarcadores);
 
+    // El zoom out no pasa por `updateMapMarkers()` —las burbujas las crea el
+    // clusterer por su cuenta al pararse la cámara—, así que las dos pasadas
+    // de reordenado que hay allí no lo cubren. `clusteringend` es el aviso de
+    // que las burbujas nuevas ya están puestas; un fotograma después ya miden
+    // y se pueden ordenar. Sin esto, una burbuja recién creada se quedaba con
+    // su z de latitud hasta el siguiente movimiento de cámara.
+    if (googleMapClusterer && typeof googleMapClusterer.addListener === 'function') {
+      googleMapClusterer.addListener('clusteringend', () => {
+        requestAnimationFrame(reordenarMarcadoresPorPantalla);
+      });
+    }
+
+    // Ver `soltarActivoPorDelante`. `pointerdown` cubre dedo y ratón, `wheel`
+    // el zoom de rueda, que no genera pointerdown. Pasivos: solo leen.
+    // La marca evita duplicarlos: al cambiar el esquema de color se construye
+    // un Map nuevo pero el contenedor es el MISMO nodo, así que sin ella se
+    // irían acumulando oyentes sobre él.
+    if (mapContainerEl.dataset.melSueltaActivo !== 'sí') {
+      mapContainerEl.dataset.melSueltaActivo = 'sí';
+      mapContainerEl.addEventListener('pointerdown', soltarActivoPorDelante, { passive: true });
+      mapContainerEl.addEventListener('wheel', soltarActivoPorDelante, { passive: true });
+    }
+
     // Any markers from a previous Map instance are gone along with it (a new
     // Map wipes its container's contents) — drop stale references so
     // updateMapMarkers() rebuilds every pin fresh instead of thinking they
@@ -4575,9 +4714,15 @@ const tags = [
   // delayOpen (ms): when > 0, the CSS slide-in waits that long after the DOM
   // has been populated — lets the map pan/zoom settle visually before the
   // panel slides over it (used by the auto-open-from-location-link path).
-  function populateSidePanel(group, delayOpen = 0) {
+  // opciones.saltarCamara: no toques la cámara, que ya la mueve quien llama.
+  // Lo usa el clic sobre un marcador apretujado, que en vez del `panTo` de
+  // aquí lanza un `smoothZoomTo` con centro Y zoom en el mismo movimiento; si
+  // los dos escribieran la cámara a la vez se pelearían (el `panTo` anima por
+  // su cuenta mientras `smoothZoomTo` la reescribe en cada fotograma).
+  function populateSidePanel(group, delayOpen = 0, opciones = {}) {
     const sidePanel = document.getElementById('map-side-panel');
     if (!sidePanel) return;
+    const muevoYoLaCamara = !opciones.saltarCamara;
 
     const isAlreadyOpen = sidePanel.classList.contains('side-panel-open');
 
@@ -4710,7 +4855,7 @@ const tags = [
       setTimeout(() => {
         updateSidePanelDOM();
         sidePanel.style.opacity = '1';
-        if (googleMap) {
+        if (googleMap && muevoYoLaCamara) {
           googleMap.panTo(group.coords); // panTo animates smoothly on its own
         }
       }, 150);
@@ -4739,7 +4884,7 @@ const tags = [
       // jumping once it already has. Keeping the map's own tiles in step
       // with the panel's width transition is handled by the ResizeObserver
       // set up in createGoogleMapInstance() (D-075), not by a timer here.
-      if (googleMap) googleMap.panTo(group.coords);
+      if (googleMap && muevoYoLaCamara) googleMap.panTo(group.coords);
     }
   }
 
@@ -4836,10 +4981,22 @@ const tags = [
   function updateMapMarkers(shouldFitBounds = true) {
     if (!googleMap || !markerLib) return;
 
-    // Kept comfortably above any cluster's zIndex (MAX_ZINDEX + count, where
-    // count is a small number of events) so the active marker always renders
-    // on top of cluster bubbles too.
+    // Por encima de cualquier otra escala: de la de latitud (~470000) y de la
+    // del reordenado por pantalla (BASE_Z_PANTALLA + índice). Lo usan el
+    // marcador activo mientras dura su indulto y los que se están yendo.
     const ACTIVE_MARKER_ZINDEX = Number(google.maps.Marker.MAX_ZINDEX) + 1000000;
+
+    // El indulto se concede al ABRIR un local, no en cada repintado: esta
+    // función corre también al arrastrar el slider o al volver de una ficha, y
+    // ahí no hay que devolverle la delantera a un marcador que el usuario ya
+    // había mandado al montón tocando el mapa. Detectarlo aquí, comparando con
+    // el último activo, cubre de una vez todas las puertas de entrada (pulsar
+    // el marcador, el enlace de "Lugar" de una ficha, la celda de la Lista,
+    // ?location= en la URL) sin tener que tocar ninguna.
+    if (activeSidePanelKey && activeSidePanelKey !== ultimoActivoConIndulto) {
+      activoPorDelante = true;
+    }
+    ultimoActivoConIndulto = activeSidePanelKey;
 
 
     // Get currently filtered archives
@@ -5018,7 +5175,7 @@ const tags = [
         markerContent.className = 'mel-marker-wrapper';
         markerContent.innerHTML = `
           <div class="mel-marker-body text-marker">
-            <span class="mel-marker-label"></span>
+            <span class="mel-marker-label"><span class="mel-marker-nombre"></span><span class="mel-marker-cuenta"></span></span>
           </div>
           <div class="mel-marker-pointer"></div>
           <div class="mel-marker-shadow"></div>
@@ -5044,9 +5201,13 @@ const tags = [
             return;
           }
           activeSidePanelKey = locKey;
-          // populateSidePanel() itself calls panTo() to smoothly recenter on
-          // this marker — no separate zoom change here, just the pan.
-          populateSidePanel(group);
+          // Si este marcador está pisándose con algún vecino, se acerca lo
+          // justo para despejarlo (ver zoomParaDespejar) y la cámara la lleva
+          // ese movimiento, centro y zoom a la vez. Si está despejado, no se
+          // toca el zoom y populateSidePanel() hace su `panTo` de siempre.
+          const zoomDespeje = zoomParaDespejar(markerContent);
+          populateSidePanel(group, 0, { saltarCamara: zoomDespeje !== null });
+          if (zoomDespeje !== null) smoothZoomTo(zoomDespeje, group.coords);
           updateMapMarkers(false); // Redraw map to update the active marker's state without resetting bounds!
         });
 
@@ -5056,8 +5217,18 @@ const tags = [
 
       entry.group = group;
       entry.marker.eventCount = count;
-      const label = entry.marker.content.querySelector('.mel-marker-label');
-      if (label) label.textContent = `${group.locationName} (${count})`;
+      // Nombre y contador por separado para que el truncado se coma solo el
+      // nombre (ver `.mel-marker-nombre` en el CSS). `textContent` sobre los
+      // dos nodos ya creados, no `innerHTML` sobre el padre: esto corre en
+      // cada tirón del slider y no hace falta rehacer nodos —ni escapar nada—
+      // para cambiar dos cadenas.
+      const nombreEl = entry.marker.content.querySelector('.mel-marker-nombre');
+      const cuentaEl = entry.marker.content.querySelector('.mel-marker-cuenta');
+      if (nombreEl) nombreEl.textContent = group.locationName;
+      if (cuentaEl) cuentaEl.textContent = ` (${count})`;
+      // El `title` del marcador (ya se le daba al crearlo) conserva el nombre
+      // entero para el que quede recortado, así que se refresca aquí también.
+      entry.marker.title = group.locationName;
       entry.marker.content.classList.toggle('active', isActive);
 
       // The active marker is pulled out of the clusterer entirely and placed
@@ -5134,12 +5305,17 @@ const tags = [
     }
 
     activeEntries.forEach(entry => {
-      // Misma regla que el resto (D-230): manda la posición en pantalla. El
-      // marcador activo ya no se sube por encima de todo — su sombra tapaba
-      // pines más al sur. Si al usarlo resulta que el activo se queda tapado
-      // y molesta, la salida acordada con el propietario NO es volver a
-      // subirle el zIndex, sino distinguirlo de otra forma (tamaño, zoom).
-      entry.marker.zIndex = zIndexPorLatitud(entry.marker.position);
+      // Por delante de todo, pero SOLO hasta que se toque el mapa. Matiza
+      // D-230, que lo había bajado a la regla común (manda la posición en
+      // pantalla) porque su sombra tapaba pines más al sur: ese artefacto solo
+      // molesta si es permanente, y aquí se acaba al primer gesto. Lo que se
+      // gana a cambio es el caso que lo pedía: al llegar desde el enlace de
+      // "Lugar" de una ficha, el marcador al que has venido se quedaba a veces
+      // detrás de otros (Gran Café). Cuando el indulto cae, esta misma entrada
+      // vuelve a la regla común en el siguiente reordenado.
+      entry.marker.zIndex = activoPorDelante
+        ? ACTIVE_MARKER_ZINDEX
+        : zIndexPorLatitud(entry.marker.position);
       entry.marker.map = googleMap;
     });
 
