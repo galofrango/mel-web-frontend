@@ -1078,12 +1078,17 @@ button:disabled { cursor: not-allowed; }
 html::view-transition-group(mel-bloque-cabecera) {
   z-index: 99;
 }
-/* A la VUELTA (ficha → home) no tiene pareja en la página vieja: a 0s aparece
-   opaca desde el primer fotograma en vez de fundirse dejando ver las tarjetas
-   detrás. */
-html::view-transition-new(mel-bloque-cabecera) {
-  animation-duration: 0s;
-}
+/* RETIRADO un `::view-transition-new(mel-bloque-cabecera)` a 0s que estaba SIN
+   acotar y quemaba la cabecera en las transiciones DENTRO de la home — el
+   parpadeo al teclear en el buscador (D-265).
+   El navegador cruza las dos fotos SUMANDO luz, y eso solo cuadra mientras
+   una baje al mismo ritmo que la otra sube: una imagen nueva instantánea
+   encima de una vieja que aún se desvanece pasa del 100% de luminosidad, y la
+   franja entera se lava durante 250ms por cada tecla.
+   Nació en D-259 para que la vuelta de una ficha apareciera opaca de golpe,
+   pero desde D-263 la vuelta APAGA todos los nombres (ver más abajo), así que
+   este grupo ni siquiera existe allí: la regla no servía a nadie y solo
+   quemaba. */
 /* El ritmo de la IDA (evaporación en 20ms + franja en dos tiempos) NO está
    aquí: vive en el <style> de event/[id].astro, porque en una transición
    manda el CSS del documento de DESTINO (D-260) y esas reglas solo deben
