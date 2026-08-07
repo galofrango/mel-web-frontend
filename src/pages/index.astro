@@ -1786,6 +1786,55 @@ const tags = [
     card.classList.remove('unsized');
   }
 
+  // Precarga con margen amplio (D-270).
+  //
+  // Los carteles van `loading="lazy"` salvo los ocho primeros (D-258), y de la
+  // decisión de CUÁNDO pedirlos se encarga el navegador. El margen con el que
+  // se adelanta no está en ninguna norma, y **Safari es mucho más tacaño que
+  // Chrome**: pide la foto casi cuando ya la tienes delante. De ahí las dos
+  // cosas que reportó el propietario y que son la misma: al hacer scroll
+  // rápido se ven las cajas blancas hasta que la imagen llega, y al VOLVER de
+  // una ficha las tarjetas que quedan por ENCIMA del cartel de origen se
+  // quedan en blanco — la restauración deja el scroll a media galería, esas
+  // nunca han pasado por pantalla y nadie las ha pedido.
+  //
+  // Se deja de depender de ese criterio: un observador propio con 1500px de
+  // margen (el mismo orden que el centinela del scroll infinito) asciende cada
+  // imagen a `eager` ANTES de que haga falta. No descarga nada de más — son
+  // las mismas imágenes, solo que pedidas a tiempo — y desde D-258 salen de la
+  // caché del navegador en las revisitas.
+  let observadorPrecarga = null;
+  let raizPrecarga = null;
+  function precargarCercanas(grid) {
+    if (!grid || typeof IntersectionObserver === 'undefined') return;
+    const raiz = document.getElementById('view-galería');
+    // El observador se rehace si su CONTENEDOR de referencia ya no es el que
+    // está en el documento. En una navegación suave el DOM se cambia entero,
+    // así que un observador guardado se queda apuntando a un contenedor
+    // desconectado y sus intersecciones no vuelven a dispararse nunca — y la
+    // vuelta de una ficha, que es justo cuando más falta hace, sería el primer
+    // sitio donde fallaría. Es el mismo cuidado que ya se tiene con el mapa
+    // (`isStale` en switchView), por la misma razón.
+    if (observadorPrecarga && (raizPrecarga !== raiz || (raizPrecarga && !raizPrecarga.isConnected))) {
+      observadorPrecarga.disconnect();
+      observadorPrecarga = null;
+    }
+    if (!observadorPrecarga) {
+      raizPrecarga = raiz;
+      observadorPrecarga = new IntersectionObserver((entradas) => {
+        entradas.forEach((entrada) => {
+          if (!entrada.isIntersecting) return;
+          const img = entrada.target;
+          // Cambiar `loading` de lazy a eager con el `src` ya puesto dispara la
+          // descarga en el acto; y una vez pedida, no hay nada que vigilar.
+          if (img.loading === 'lazy') img.loading = 'eager';
+          observadorPrecarga.unobserve(img);
+        });
+      }, { root: raiz, rootMargin: '1500px 0px' });
+    }
+    grid.querySelectorAll('img[loading="lazy"]').forEach((img) => observadorPrecarga.observe(img));
+  }
+
   // Llamado por el onload inline de cada <img> (y por la repesca de imágenes
   // ya completas tras cada render): publica el ratio real en la tarjeta.
   //
@@ -2093,6 +2142,7 @@ const tags = [
     // Los carteles ya vistos antes (se bajó, se filtró y se volvió a bajar) no
     // vuelven a pasar por el placeholder.
     dimensionarConocidas(gridContainer);
+    precargarCercanas(gridContainer);
   }
 
   // Determine dynamic bounds
@@ -3258,6 +3308,7 @@ const tags = [
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
           });
+          precargarCercanas(gridContainer);
         } else {
           // Reconciliación por idMel, NO borrado total (D-249). Antes esto era
           // `innerHTML = ''` + reconstruir las 32 tarjetas en cada filtrado, y
@@ -3395,6 +3446,7 @@ const tags = [
           gridContainer.querySelectorAll('img').forEach(img => {
             if (img.complete) measureFlyerImg(img);
           });
+          precargarCercanas(gridContainer);
         }
         // Antes de que el navegador fotografíe el estado nuevo al salir de este
         // callback, la cuadrícula tiene que estar YA colocada: las tarjetas cuyo
@@ -5843,6 +5895,10 @@ const tags = [
     // fotograma después. Es la diferencia entre una rejilla que nace colocada
     // y una que se coloca delante del visitante.
     dimensionarConocidas(document.getElementById('gallery-grid'));
+    // Y se vigila desde el arranque, que es lo que cubre las tarjetas servidas
+    // por el SSR — incluidas las que al volver de una ficha quedan por encima
+    // del cartel de origen y nunca pasarían por pantalla.
+    precargarCercanas(document.getElementById('gallery-grid'));
     calculateDynamicBounds();
     // Fase 1 de la vuelta desde una ficha de evento: deja puestos rango de años
     // y orden ANTES del primer render, para no pintar el archivo entero y
