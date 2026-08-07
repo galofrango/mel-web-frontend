@@ -4841,3 +4841,24 @@ El recorte se come **solo el nombre**: el contador va en su propio nodo y siempr
 ### D-271 ter · El mapa sangraba hasta `lg` y el slider hasta `sm`
 
 Entre 640 y 1024px de ancho, el slider ya había vuelto a los márgenes de la página (`-mx-6 sm:mx-0`) mientras el mapa seguía llegando al borde de la pantalla (`sm:-left-12 sm:-right-12 lg:left-0`). Ahora los dos cortan en `sm`. El bottom sheet no se ve afectado: es `position: fixed`, va contra la ventana y no contra el mapa.
+
+
+## D-272 · Quién manda sobre la cámara al llegar al mapa
+
+Dos síntomas que el propietario reportó por separado y que resultaron ser **el mismo bug**: al volver de una ficha se perdía el encuadre del que venías, y al llegar por el enlace de "Lugar" el marcador quedaba pegado al borde en vez de centrado.
+
+**La raíz.** La rama de auto-apertura de `updateMapMarkers()` coloca la cámara sobre el local… y `fitMapToMarkers()` la pisa unas líneas más abajo, **dentro de esa misma función**. Y otra vez 150ms después, desde `initGoogleMap()`. Ganaba siempre el encuadre general de todos los pines. El arreglo es una condición: si este pase ya ha colocado la cámara en un sitio concreto, no se encuadra. Lo mismo al volver al mapa desde Galería o Lista con un local abierto (`resize` sí, reencuadre no): estabas mirando ese sitio, y salir y volver no es motivo para devolverte al plano general.
+
+**La cámara se guarda al salir hacia una ficha y el mapa NACE con ella.** No nace en el encuadre por defecto para saltar después: se le pasan centro y zoom a `createGoogleMapInstance()`, así que no hay ni un fotograma de plano general. Sustituye al `setZoom(15)` fijo que había en la rama de vuelta, que tampoco era tu encuadre.
+
+**Va sellada con el local del que se sale**, y esto no es adorno: desde la ficha se puede saltar a otro evento con Anterior/Siguiente y pulsar *su* "Lugar", que es una llegada a un sitio DISTINTO con su propia coreografía. Una cámara sin sellar se la comería y te dejaría mirando el local anterior. Si el destino de la URL no coincide, se descarta — y se borra igualmente, para que no quede al acecho de la siguiente llegada. Es de un solo uso, y se limpia además en cualquier F5 que no venga de una ficha, junto a las otras claves de sesión.
+
+**Centrar una vez no basta: el centro se SOSTIENE.** Corregido el encuadre, el marcador seguía sin quedar centrado al llegar por "Lugar", y el motivo es que `setCenter()` centra en el contenedor **tal y como está en ese instante**: acto seguido el panel se abre y le cambia el tamaño al mapa durante 300ms (500 en el sheet de móvil), y el marcador deriva hacia el borde del espacio que queda. Así que el centro se reafirma en **cada cambio de tamaño del contenedor** — una señal que ya existía y que llega en cada fotograma de la transición: el `ResizeObserver` de D-075. Nada de retardos fijos por cada sitio que abre el panel, que es de donde salen los desajustes el día que alguien cambia la duración de una animación.
+
+Se suelta por dos vías: un reloj de 900ms y **el primer gesto sobre el mapa**, reutilizando el mismo momento que suelta al marcador activo (D-271). Si el visitante ya está moviendo el mapa, sostenerle un centro es pelearse con él.
+
+Un caso que habría fallado en silencio: la segunda rama de llegada (un `?location=` compartido, sin marca de vuelta) no abre el panel hasta un segundo después, muy por fuera de esa ventana. El cambio de tamaño que de verdad descentra habría llegado con el centro ya suelto. Ahí se vuelve a sostener justo antes de abrir.
+
+**Y el despeje también al llegar.** A petición del propietario, el mismo cálculo de D-271 (`zoomParaDespejar`, reutilizado — no hay una segunda copia de la cuenta que pueda desviarse) se aplica al aterrizar en un local que se pisa con sus vecinos. Lo único distinto es **cuándo se puede medir**: al llegar, los marcadores acaban de crearse y no están pintados, así que medir ahí devuelve cajas de alto 0. Se espera al primer `idle` y un fotograma más — la misma rendija entre "existe" y "mide" que ya obligaba a la segunda pasada del reordenado. Con dos frenos: no despeja si se ha recuperado cámara (volviendo de una ficha manda tu encuadre), y se cancela si el visitante toca el mapa mientras tanto.
+
+**Verificación.** Compila. El sellado se comprobó ejecutando la función real extraída del fichero: siete casos, incluidos el de un solo uso, el destino distinto (que descarta *y* consume), la llegada sin `?location=`, acentos y mayúsculas, y JSON corrupto. **Lo que no se pudo ver funcionando aquí es el mapa**: el visor de este entorno da `innerWidth` 0, así que Google Maps nunca maqueta. **La confirmación visual es del propietario.**

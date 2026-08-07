@@ -1416,6 +1416,9 @@ const tags = [
       sessionStorage.removeItem('mel-session-order');
       sessionStorage.removeItem('mel-orden-galeria');
       sessionStorage.removeItem('mel-sort-state');
+      // Misma razón: un F5 que no viene de una ficha empieza de cero, y una
+      // cámara guardada de antes secuestraría el encuadre inicial.
+      sessionStorage.removeItem('mel-camara-mapa');
     }
   } catch (e) {}
 
@@ -2818,6 +2821,7 @@ const tags = [
     // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
     recordarFlyerAbierto(idMel);
     saveReturnState();
+    guardarCamaraDelMapa(location);
     // La MISMA fábrica que usa la precarga (eventUrl), no una copia: si las dos
     // construyen la cadena por su cuenta acaban divergiendo, y basta un parámetro
     // de diferencia para que lo precargado no se use.
@@ -4162,9 +4166,12 @@ const tags = [
         initGoogleMap();
         mapInitialized = true;
       } else if (googleMap) {
-        // Trigger resize and re-fit bounds now that container has dimensions
+        // Trigger resize and re-fit bounds now that container has dimensions.
+        // Con un local abierto NO se reencuadra: el visitante está mirando ese
+        // sitio, y salir a Galería y volver no es motivo para devolverlo al
+        // plano general. El `resize` sí, siempre.
         google.maps.event.trigger(googleMap, 'resize');
-        fitMapToMarkers();
+        if (!activeSidePanelKey) fitMapToMarkers();
       }
     }
   }
@@ -4392,6 +4399,10 @@ const tags = [
   // dispara también el `panTo()` que hace el propio panel al abrirse, con lo
   // que el indulto moriría en el mismo instante en que se concede.
   function soltarActivoPorDelante() {
+    // El primer gesto sobre el mapa suelta también el centro sostenido: si el
+    // visitante ya está moviendo el mapa, seguir reafirmando un centro sería
+    // pelearse con él (ver `sostenerCentro`).
+    soltarCentroSostenido();
     if (!activoPorDelante) return;
     activoPorDelante = false;
     reordenarMarcadoresPorPantalla();
@@ -4646,6 +4657,9 @@ const tags = [
     if (mapResizeObserver) mapResizeObserver.disconnect();
     mapResizeObserver = new ResizeObserver(() => {
       google.maps.event.trigger(googleMap, 'resize');
+      // Y aquí, no en otro sitio: si veníamos a un local concreto, hay que
+      // reafirmar su centro en CADA cambio de tamaño. Ver `sostenerCentro`.
+      aplicarCentroSostenido();
     });
     mapResizeObserver.observe(mapContainerEl);
   }
@@ -4660,10 +4674,15 @@ const tags = [
       // Google Cloud Console — colorScheme picks between them; it's kept in
       // sync with the site's own toggle below.
       const isDarkNow = document.documentElement.classList.contains('dark');
+
+      // Volviendo de una ficha, el mapa NACE con la cámara que se dejó, en vez
+      // de nacer en el encuadre por defecto y saltar a ella después: así no
+      // hay ni un fotograma de "plano general" antes de recolocarse.
+      const camara = recuperarCamaraDelMapa();
       createGoogleMapInstance(
         isDarkNow ? google.maps.ColorScheme.DARK : google.maps.ColorScheme.LIGHT,
-        { lat: 42.5987, lng: -5.5671 },
-        14
+        camara ? { lat: camara.lat, lng: camara.lng } : { lat: 42.5987, lng: -5.5671 },
+        camara ? camara.zoom : 14
       );
 
       // Persist to global state
@@ -4672,16 +4691,23 @@ const tags = [
       _s.mapInitialized = true;
       mapInitialized = true;
 
-      updateMapMarkers(true);
+      // Con cámara recuperada NO se encuadra: encuadrar es justo lo que la
+      // pisaba. Sin ella, el comportamiento de siempre.
+      camaraRecuperadaEnEsteMapa = !!camara;
+      updateMapMarkers(!camara);
 
       // The map container may not have its final layout size yet at this
       // exact moment (it just became visible as part of the same view
       // switch), which can make this first fitBounds() compute a bogus,
       // too-far-out zoom. Re-trigger resize + re-fit shortly after, same
       // fix already relied on when switching back to an initialized map.
+      //
+      // El `resize` sí hace falta siempre (el mapa tiene que enterarse de su
+      // tamaño real); el re-encuadre, no: era el segundo de los dos que
+      // pisaban la cámara colocada por la rama de auto-apertura.
       setTimeout(() => {
         google.maps.event.trigger(googleMap, 'resize');
-        fitMapToMarkers();
+        if (!camara && !activeSidePanelKey) fitMapToMarkers();
       }, 150);
     } catch (e) {
       console.error("Error loading Google Maps API", e);
@@ -4888,6 +4914,121 @@ const tags = [
     }
   }
 
+  // La cámara del mapa se guarda al salir hacia una ficha y se recupera al
+  // volver, para dejar al visitante donde estaba en vez de devolverlo al
+  // encuadre general (roadmap 13). Solo se guarda si el mapa es la vista
+  // activa: desde la galería o la lista no hay cámara que conservar.
+  //
+  // Es de un solo uso: se borra al leerla. Así una vuelta la consume y no
+  // queda una cámara vieja al acecho para secuestrar una llegada posterior
+  // que sí debería encuadrarse sola.
+  const CLAVE_CAMARA = 'mel-camara-mapa';
+
+  // Vale `true` entre que el mapa nace con una cámara recuperada y el primer
+  // `updateMapMarkers()` que corre después, que es quien tiene que saber que
+  // no debe recolocar nada. Lo apaga ese mismo pase.
+  let camaraRecuperadaEnEsteMapa = false;
+
+  // Llegar a un local desde el enlace de "Lugar" no se resuelve centrando UNA
+  // vez: `setCenter()` centra en el contenedor tal y como está en ese
+  // instante, y acto seguido el panel se abre y le cambia el tamaño al mapa
+  // durante 300ms. El marcador acaba derivando hacia el borde del espacio que
+  // queda — que es exactamente lo que reportó el propietario.
+  //
+  // Así que el centro se SOSTIENE: se reafirma en cada cambio de tamaño del
+  // contenedor, que es una señal que ya existe (el ResizeObserver de D-075) y
+  // que llega en cada fotograma de la transición del panel. Nada de adivinar
+  // retardos fijos por cada sitio que abre el panel.
+  //
+  // Se suelta solo, por dos vías: un reloj de seguridad, y el primer gesto
+  // sobre el mapa — si el visitante ya está moviéndolo, sostener su centro
+  // sería pelearse con él.
+  const SOSTENER_CENTRO_MS = 900;   // 300 de la transición + margen de sobra
+  let centroSostenido = null;
+  let relojCentroSostenido = null;
+  let llegadaSinTocar = false;   // ver `despejarAlLlegar`, más abajo
+
+  function sostenerCentro(coords) {
+    centroSostenido = coords || null;
+    clearTimeout(relojCentroSostenido);
+    if (!centroSostenido) return;
+    relojCentroSostenido = setTimeout(soltarCentroSostenido, SOSTENER_CENTRO_MS);
+    aplicarCentroSostenido();
+  }
+
+  function aplicarCentroSostenido() {
+    if (centroSostenido && googleMap) googleMap.setCenter(centroSostenido);
+  }
+
+  function soltarCentroSostenido() {
+    clearTimeout(relojCentroSostenido);
+    relojCentroSostenido = null;
+    centroSostenido = null;
+    llegadaSinTocar = false;
+  }
+
+  // El mismo despeje que al pulsar un marcador (ver `zoomParaDespejar`), pero
+  // al LLEGAR a un local desde el enlace de "Lugar". Cambia solo el cuándo: al
+  // llegar, los marcadores acaban de crearse y todavía no están pintados, así
+  // que medir en ese instante devuelve cajas de alto 0 y la cuenta sale vacía.
+  // Se espera al primer `idle` —la cámara ya quieta— y un fotograma más, que
+  // es la misma rendija entre "existe" y "mide" que obliga a la segunda pasada
+  // del reordenado por pantalla.
+  function despejarAlLlegar(coords) {
+    if (!googleMap) return;
+    llegadaSinTocar = true;
+    google.maps.event.addListenerOnce(googleMap, 'idle', () => {
+      requestAnimationFrame(() => {
+        // Si el visitante ya ha tocado el mapa, esto deja de ser una llegada y
+        // pasa a ser una intromisión: no se le mueve la cámara por detrás.
+        if (!llegadaSinTocar) return;
+        const activo = document.querySelector('#map-container .mel-marker-wrapper.active');
+        const z = zoomParaDespejar(activo);
+        if (z === null) return;
+        // El zoom vuelve a mover el encuadre y el panel puede seguir abriéndose,
+        // así que se reafirma el centro mientras dura.
+        sostenerCentro(coords);
+        smoothZoomTo(z, coords);
+      });
+    });
+  }
+
+  // Va SELLADA con el local del que se sale. Sin el sello hay un caso que se
+  // cuela: desde la ficha se puede saltar a otro evento (Anterior/Siguiente) y
+  // pulsar su "Lugar", que es una llegada a un sitio DISTINTO — y esa llegada
+  // tiene su propia coreografía ("el mapa encuentra el sitio"). Una cámara sin
+  // sellar se la comería y te dejaría mirando el local anterior.
+  function guardarCamaraDelMapa(lugar) {
+    const vistaMapa = document.getElementById('view-mapa');
+    if (!googleMap || !vistaMapa || vistaMapa.classList.contains('hidden')) return;
+    try {
+      const c = googleMap.getCenter();
+      if (!c) return;
+      sessionStorage.setItem(CLAVE_CAMARA, JSON.stringify({
+        lat: c.lat(), lng: c.lng(), zoom: googleMap.getZoom(), lugar: lugar || '',
+      }));
+    } catch (e) {}
+  }
+
+  function recuperarCamaraDelMapa() {
+    let crudo = null;
+    try {
+      crudo = sessionStorage.getItem(CLAVE_CAMARA);
+      if (crudo) sessionStorage.removeItem(CLAVE_CAMARA);   // de un solo uso
+    } catch (e) {}
+    if (!crudo) return null;
+    try {
+      const c = JSON.parse(crudo);
+      if (!Number.isFinite(c?.lat) || !Number.isFinite(c?.lng) || !Number.isFinite(c?.zoom)) return null;
+      // El sello: solo vale si se vuelve al MISMO local del que se salió.
+      const destino = (new URLSearchParams(window.location.search).get('location') || '').toLowerCase().trim();
+      if ((c.lugar || '').toLowerCase().trim() !== destino) return null;
+      return c;
+    } catch (e) {
+      return null;
+    }
+  }
+
   function fitMapToMarkers() {
     if (!googleMap || mapMarkers.length === 0) return;
     const bounds = new google.maps.LatLngBounds();
@@ -5046,6 +5187,13 @@ const tags = [
     const urlView = params.get('view');
     const urlLocation = params.get('location');
     let justAutoOpened = false;
+    // ¿Este pase ha puesto la cámara en un sitio concreto? Si lo ha hecho, el
+    // encuadre general del final no debe correr: era el bug de raíz de los dos
+    // síntomas del roadmap 13 (volver de una ficha perdía el encuadre, y
+    // llegar por "Lugar" dejaba el marcador pegado al borde). La rama de
+    // auto-apertura coloca la cámara AQUÍ ARRIBA y `fitMapToMarkers()` la
+    // pisaba unas líneas más abajo, en la misma función.
+    let camaraColocada = false;
     // Volviendo de una ficha al panel por navegación SUAVE (D-266): el estado
     // sobrevive a la navegación, así que `activeSidePanelKey` sigue apuntando
     // al local de antes y la auto-apertura de abajo —que exige que NO haya
@@ -5093,17 +5241,39 @@ const tags = [
       } catch (e) {}
 
       if (justAutoOpened && volviendoAlPanel && googleMap) {
-        googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
-        googleMap.setZoom(15);
+        // Volviendo de una ficha, la cámara buena ya la trae el mapa de
+        // nacimiento (ver initGoogleMap): recolocarla aquí a un zoom 15 fijo
+        // es precisamente lo que borraba el encuadre del que se venía. Solo
+        // se coloca si NO se pudo recuperar —llegar por el enlace de "Lugar"
+        // de una ficha también pasa por aquí, y ahí no hay cámara previa.
+        camaraColocada = true;
+        if (!camaraRecuperadaEnEsteMapa) {
+          googleMap.setZoom(15);
+          // Sostenido, no centrado a secas: el panel se abre justo después y
+          // le cambia el tamaño al mapa. Ver `sostenerCentro`.
+          sostenerCentro(locationGroups[activeSidePanelKey].coords);
+          // Y si al llegar el local se pisa con sus vecinos, un poco de zoom
+          // para despejarlo — el mismo criterio que al pulsar un marcador.
+          // Solo cuando NO se recupera cámara: volviendo de una ficha manda
+          // el encuadre que dejaste, no lo que a esto le parezca mejor.
+          despejarAlLlegar(locationGroups[activeSidePanelKey].coords);
+        }
         populateSidePanel(locationGroups[activeSidePanelKey]);
       } else if (justAutoOpened && googleMap) {
-        googleMap.setCenter(locationGroups[activeSidePanelKey].coords);
+        camaraColocada = true;
         googleMap.setZoom(15);
+        sostenerCentro(locationGroups[activeSidePanelKey].coords);
         // Store the timeout ID so initHomePage can cancel it if it re-runs
         // (e.g. a second astro:page-load) before this fires — otherwise the
         // panel opens with a dead AbortController and no close listener.
         window._melAutoOpenTimeout = setTimeout(() => {
           window._melAutoOpenTimeout = null;
+          // Se vuelve a sostener el centro AQUÍ: en esta rama el panel no se
+          // abre hasta un segundo después, mucho más allá de la ventana que
+          // abrió el `sostenerCentro` de arriba. Sin esto, el cambio de tamaño
+          // que de verdad descentra llegaría con el centro ya suelto.
+          sostenerCentro(locationGroups[activeSidePanelKey].coords);
+          despejarAlLlegar(locationGroups[activeSidePanelKey].coords);
           populateSidePanel(locationGroups[activeSidePanelKey], 300);
         }, 1000);
       } else {
@@ -5365,10 +5535,17 @@ const tags = [
     // and the caller actually wants it (callers that are about to apply
     // their own pan/zoom, e.g. opening or closing a marker's panel, pass
     // false so they don't race against this fit).
+    //
+    // Y nunca si este mismo pase acaba de colocar la cámara sobre un local
+    // (`camaraColocada`): el que llama pedía encuadrar porque el mapa acababa
+    // de nacer y no sabía que había un destino, pero lo hay, y encuadrar aquí
+    // lo borra. Es el bug de raíz del roadmap 13.
     const mapContainer = document.getElementById('view-mapa');
-    if (shouldFitBounds && mapContainer && !mapContainer.classList.contains('hidden')) {
+    if (shouldFitBounds && !camaraColocada && mapContainer && !mapContainer.classList.contains('hidden')) {
       fitMapToMarkers();
     }
+
+    camaraRecuperadaEnEsteMapa = false;   // ya la ha consumido quien tenía que consumirla
   }
 
   // -------------------------------------------------------
