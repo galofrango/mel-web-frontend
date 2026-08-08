@@ -760,9 +760,25 @@ const tags = [
      arriba, nació muerta — trampa D-239.) */
 
   /* Las tarjetas móviles de la Lista llevan fondo propio (D-253): sin él,
-     durante los vuelos del FLIP se transparentaban unas sobre otras. */
+     durante los vuelos del FLIP se transparentaban unas sobre otras.
+
+     Y por eso hay que repetir aquí el pulsado y el sobrevuelo, aunque
+     buildEventCardList() ya se los ponga con `hover:`/`active:` de Tailwind:
+     este bloque va SIN capa y las utilidades de Tailwind viven en
+     `@layer utilities`, y en la cascada lo que está fuera de toda capa gana a
+     lo que está dentro **sin mirar la especificidad**. O sea que este fondo
+     plano se comía el del estado pulsado. Se notaba solo en la Lista y no en
+     el panel del mapa —que pinta las MISMAS filas con la misma función—
+     porque el panel no lleva esta clase. Si algún día se retira el fondo
+     propio, estas dos reglas se van con él. */
   .mobile-event-card-list {
     background-color: var(--mel-bg-primary);
+  }
+  .mobile-event-card-list:hover {
+    background-color: var(--mel-bg-secondary);
+  }
+  .mobile-event-card-list:active {
+    background-color: var(--mel-bg-tertiary);
   }
 
   /* The shared .view-panel.active rule sets display:flex, which stretches the

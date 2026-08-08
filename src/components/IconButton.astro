@@ -7,13 +7,18 @@
  *   action-primary, Pressed: text-tertiary), drop shadow + blur, icon in
  *   text-on-action.
  * - type="phantom": Transparent bg, no border/shadow (Resting: action-
- *   secondary, Hover: action-primary, Pressed: action-tertiary).
+ *   secondary, Hover: action-primary). Pressed (Figma 111:3934) es una PLACA:
+ *   fondo bg-secondary y el icono de vuelta a action-secondary. Antes solo
+ *   cambiaba el color del icono a action-tertiary, y en un teléfono eso se
+ *   perdía — si la página tardaba en responder no sabías si habías acertado
+ *   con el dedo. Ahora lo que avisa es el fondo, no el icono.
  *
  * Size norms:
  * - size=40: Houses a 24px icon with 3px stroke width
  * - size=24: Houses a 16px icon with 2px stroke width
  */
 import Icon from './Icon.astro';
+import { PHANTOM_ESTADOS, PRIMARIO_ESTADOS } from '../lib/ds';
 
 interface Props {
   icon: 'x' | 'search' | 'chevron-left' | 'chevron-right' | 'menu';
@@ -45,10 +50,12 @@ const sizeClasses = size === 40 ? 'w-10 h-10' : 'w-6 h-6';
 const iconSize = size === 40 ? 24 : 16;
 const strokeWidth = size === 40 ? 3 : 2;
 
-// Determine variant design tokens (Resting/Hover/Pressed per Figma 111:3929)
+// Tokens de estado (Resting/Hover/Pressed según Figma 111:3929). Viven en
+// `lib/ds.ts` y no aquí porque MenuItem.astro necesita los mismos y no puede
+// usar este componente — ver el comentario de ese fichero.
 const variantClasses = finalType === 'primary'
-  ? 'bg-mel-action-secondary text-mel-text-on-action backdrop-blur-[2px] shadow-[var(--mel-shadow-button)] hover:bg-mel-action-primary hover:text-mel-text-on-action-primary active:bg-mel-text-tertiary active:text-mel-text-on-action'
-  : 'bg-transparent text-mel-action-secondary hover:text-mel-action-primary hover:bg-transparent active:text-mel-action-tertiary';
+  ? `${PRIMARIO_ESTADOS} backdrop-blur-[2px] shadow-[var(--mel-shadow-button)]`
+  : `bg-transparent hover:bg-transparent ${PHANTOM_ESTADOS}`;
 ---
 
 {href ? (

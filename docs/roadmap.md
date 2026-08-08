@@ -177,6 +177,14 @@
 
 ## Deuda Técnica Registrada
 
+- **Si algún día se quita la palabra «Menú», `MenuItem` debe pasar a ser un `IconButton` a secas** (2026-08-08, acordado con el propietario). Hoy no puede serlo: ese elemento es un `<button>` que contiene el texto «Menú» *y* el hueco de icono, y anidar otro `<button>` dentro es HTML inválido. Por eso comparte con `IconButton` la cadena de clases de `src/lib/ds.ts` en vez de usar el componente. **En cuanto el texto desaparezca, esa razón desaparece con él** y lo que queda es un botón de icono phantom idéntico a cualquier otro: hay que sustituirlo por `<IconButton icon="menu" variant="ghost" />` y borrar la variante de grupo de `ds.ts` si no la usa nadie más. Sin esto anotado, lo previsible es que se quede como está para siempre, con su marcado propio y a un cambio de distancia de volver a desincronizarse.
+
+- **Los comentarios del código se han ido de madre; hay que podarlos** (2026-08-08, planteado por el propietario: «me parecen un poco excesivos e incluso algunas veces creo que repetidos»). Tiene razón, y la causa es identificable: se ha estado escribiendo **el mismo razonamiento dos veces**, en el comentario y en `decisions.md`. Por construcción, eso es duplicado.
+  - **El reparto que debería regir**: en el código, solo la restricción que no se puede deducir leyéndolo —«esta caja NO es flex a propósito», «esto va sin capa y por eso gana», «este número tiene que valer lo mismo que aquel»— y lo que ya se intentó y se revirtió, que es lo que evita repetir un error. El relato de por qué se decidió, en `decisions.md`.
+  - **Qué NO tocar al podar**: los avisos de réplica viva (regla 7 de AGENTS.md), los «se probó X y no funciona porque Y», y los que señalan un número acoplado a otro sitio. Esos son precisamente los que han ahorrado horas.
+  - Candidatos claros a recorte: los comentarios de varios párrafos que narran una sesión entera, y los que repiten en dos sitios la misma explicación.
+  - Hacerlo en su propia tanda y por zonas, no de rebote mientras se arregla otra cosa: es un diff enorme sobre `index.astro`, justo lo que AGENTS.md avisa que genera regresiones.
+
 - **El panel no tiene tests de su cliente.** Toda la lógica de pantalla —ocultar, notas, el carrusel del filtro, los recuentos— vive en el script en línea de `panel.astro`, que no se puede importar desde `node --test` (regla 7: lleva `define:vars` en otras páginas y aquí, aunque no los lleve, sigue siendo un script de página). Se comprueba a mano en el navegador, caso por caso, y así se han cazado bugs reales (D-212, D-214). Si el panel crece, lo que toca es sacar esa lógica a un módulo importable.
 - **`sips` y `pngquant` son herramientas de la máquina, no del proyecto.** El motor de arreglos las llama por nombre; en un ordenador sin ellas, el panel audita igual pero no puede arreglar nada. No se declara como dependencia a propósito (D-200): el panel solo existe en desarrollo y en el ordenador del propietario.
 

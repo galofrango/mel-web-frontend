@@ -193,6 +193,63 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
             document.documentElement.classList.remove('mel-desplazando');
           });
         }, { passive: true });
+
+        // --- Pulsado que sobrevive al dedo (solo táctil) -------------------
+        // En un teléfono `:active` se apaga en cuanto levantas el dedo, así que
+        // si la acción tarda —cargar una ficha, cerrar una página— te quedas
+        // mirando sin saber si has acertado a pulsar. Al soltar se fija
+        // `.mel-pulsado`, que cada componente del DS pinta igual que su estado
+        // pulsado (ver lib/ds.ts), y ahí se queda hasta que pasa algo.
+        //
+        // Solo táctil: se cuelga de `touchend`, que un ratón no dispara. En
+        // escritorio esto no llega a existir, que es donde no hace falta porque
+        // el puntero no tapa el botón y la espera se lee en el cursor.
+        //
+        // Las cuatro formas de quedarse pegado, y su respuesta:
+        //  - El toque acaba siendo un scroll → ya hay bandera para eso
+        //    (`mel-desplazando`), se reutiliza en vez de medir otra vez.
+        //  - El dedo se va del botón antes de soltar → se comprueba dónde cae.
+        //  - La acción no cambia de página, o la vuelta restaura esta → se
+        //    barre en los eventos de navegación y en `pageshow`.
+        //  - La acción falla o tarda una barbaridad → reloj de seguridad.
+        var PULSADO = 'mel-pulsado';
+        var SEGURIDAD_MS = 4000;
+        var relojPulsado = null;
+        var candidato = null;
+
+        function limpiarPulsado() {
+          clearTimeout(relojPulsado);
+          relojPulsado = null;
+          var marcados = document.querySelectorAll('.' + PULSADO);
+          for (var i = 0; i < marcados.length; i++) marcados[i].classList.remove(PULSADO);
+        }
+
+        addEventListener('touchstart', function (e) {
+          limpiarPulsado();   // un toque nuevo cancela el anterior
+          candidato = e.target && e.target.closest
+            ? e.target.closest('button, a[href], [role="button"]')
+            : null;
+        }, { passive: true, capture: true });
+
+        addEventListener('touchend', function (e) {
+          var boton = candidato;
+          candidato = null;
+          if (!boton) return;
+          if (document.documentElement.classList.contains('mel-desplazando')) return;
+          // ¿Se ha soltado encima? Si el dedo se fue a otra parte no habrá
+          // pulsación, y dejar el botón encendido sería mentir.
+          var t = e.changedTouches && e.changedTouches[0];
+          if (t) {
+            var bajoElDedo = document.elementFromPoint(t.clientX, t.clientY);
+            if (!bajoElDedo || !boton.contains(bajoElDedo)) return;
+          }
+          boton.classList.add(PULSADO);
+          relojPulsado = setTimeout(limpiarPulsado, SEGURIDAD_MS);
+        }, { passive: true });
+
+        ['astro:before-swap', 'astro:page-load', 'pageshow'].forEach(function (evento) {
+          addEventListener(evento, limpiarPulsado);
+        });
       })();
     </script>
   </head>

@@ -1894,9 +1894,17 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
       align-items: center;
       text-align: center;
     }
+    /* `text-align`, NO `justify-content`: esa caja (`.marquee-cell`) no es un
+       contenedor flex —deliberadamente, ver D-228 en TagWithLink.astro—, así
+       que `justify-content` no hacía absolutamente nada y el título se quedaba
+       con el `text-left`/`text-right` de su propia clase mientras la etiqueta
+       de encima sí se centraba. Ese era el descuadre: rótulo al centro y
+       título pegado a un lado. El enlace es `inline-flex`, o sea una caja de
+       nivel en línea, y a esas sí las centra el `text-align` del bloque que
+       las contiene. */
     :global(#detail-nav-block:has(#nav-prev-container.invisible):not(:has(#nav-next-container.invisible)) #nav-next-container .filter-tag > div:last-child),
     :global(#detail-nav-block:has(#nav-next-container.invisible):not(:has(#nav-prev-container.invisible)) #nav-prev-container .filter-tag > div:last-child) {
-      justify-content: center;
+      text-align: center;
     }
   }
 

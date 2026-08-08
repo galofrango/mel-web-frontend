@@ -1,5 +1,6 @@
 ---
 import Icon from './Icon.astro';
+import { PHANTOM_ESTADOS_GRUPO } from '../lib/ds';
 
 interface Props {
   id?: string;
@@ -20,12 +21,15 @@ const { id } = Astro.props;
   <span class="typo-h3 hidden md:inline text-mel-text-primary group-hover:text-mel-action-primary transition-colors duration-200 select-none">
     Menú
   </span>
-  <!-- Custom 40px icon holder behaving as a single hover unit with valid non-nested HTML —
-       IconButton itself can't be reused here since it renders its own <button>, and
-       nesting an interactive element inside another is invalid HTML (this button IS
-       the interactive element; Icon.astro is the same DS icon markup without the chrome,
-       colors mirror IconButton's Phantom Resting/Hover/Pressed tokens). -->
-  <div class="w-10 h-10 flex items-center justify-center text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-tertiary transition-colors duration-200 shrink-0">
+  <!-- Hueco de icono de 40px: es un botón phantom del DS a todos los efectos y
+       tiene que verse EXACTAMENTE igual que uno. Lo que no puede es SER uno:
+       este elemento ya es un `<button>` (lleva también el texto "Menú", que
+       debe seguir siendo pulsable), y meter otro `<button>` dentro es HTML
+       inválido. La salida no es copiar los tokens a mano —así fue como este
+       botón se quedó con el pulsado viejo cuando cambió el del componente—
+       sino tirar de la MISMA cadena de clases, en su variante de grupo:
+       el estado lo tiene el botón de fuera y lo pinta este hueco de dentro. -->
+  <div class:list={["w-10 h-10 flex items-center justify-center transition-colors duration-200 shrink-0", PHANTOM_ESTADOS_GRUPO]}>
     <Icon icon="menu" size={24} strokeWidth={3} />
   </div>
 </button>

@@ -4862,3 +4862,53 @@ Un caso que habría fallado en silencio: la segunda rama de llegada (un `?locati
 **Y el despeje también al llegar.** A petición del propietario, el mismo cálculo de D-271 (`zoomParaDespejar`, reutilizado — no hay una segunda copia de la cuenta que pueda desviarse) se aplica al aterrizar en un local que se pisa con sus vecinos. Lo único distinto es **cuándo se puede medir**: al llegar, los marcadores acaban de crearse y no están pintados, así que medir ahí devuelve cajas de alto 0. Se espera al primer `idle` y un fotograma más — la misma rendija entre "existe" y "mide" que ya obligaba a la segunda pasada del reordenado. Con dos frenos: no despeja si se ha recuperado cámara (volviendo de una ficha manda tu encuadre), y se cancela si el visitante toca el mapa mientras tanto.
 
 **Verificación.** Compila. El sellado se comprobó ejecutando la función real extraída del fichero: siete casos, incluidos el de un solo uso, el destino distinto (que descarta *y* consume), la llegada sin `?location=`, acentos y mayúsculas, y JSON corrupto. **Lo que no se pudo ver funcionando aquí es el mapa**: el visor de este entorno da `innerWidth` 0, así que Google Maps nunca maqueta. **La confirmación visual es del propietario.**
+
+
+## D-273 · Los enlaces de Anterior/Siguiente en el primer y último evento
+
+En móvil, con un solo lado navegable, el rótulo salía centrado y el título pegado a un lado. Ya existía una regla para centrar los dos —reactiva al mismo `invisible` que alterna el JS, con `:has()`— pero centraba con **`justify-content` sobre una caja que no es flex**: `.marquee-cell` es un bloque a propósito (D-228, el marquee necesita medir su propio ancho y un contenedor flex "blockifica" a su hijo). Esa propiedad no hacía nada, así que el título se quedaba con el `text-left`/`text-right` de su propia clase.
+
+Es `text-align`, no `justify-content`: el enlace es `inline-flex`, o sea una caja de nivel en línea, y a esas sí las centra el `text-align` del bloque que las contiene.
+
+**Verificado midiendo**, no de vista: con un solo enlace, rótulo y título quedan a 0px del centro del bloque. Y con la prueba de control —deshacer solo esa propiedad y volver a medir— el rótulo sigue en 0 y el título salta a −189px, que es exactamente la captura del propietario. Con los dos enlaces, nada cambia.
+
+
+## D-274 · Estados pulsados: la capa que se los comía, la placa nueva y el pulsado que sobrevive al dedo
+
+### El pulsado de la Lista en móvil no respondía, y en el panel del mapa sí
+
+Siendo **las mismas filas pintadas por la misma función** (`buildEventCardList`). La diferencia es una clase que solo llevan las de la Lista, con fondo propio para que no se transparenten durante los vuelos del filtrado (D-253) — y esa regla vive en un bloque `<style is:global>`, o sea **fuera de toda capa CSS**, mientras que las utilidades de Tailwind viven en `@layer utilities`.
+
+**La lección, que vale para todo el proyecto**: en la cascada, una declaración fuera de capa gana a una declaración en capa **sin mirar la especificidad**. La utilidad `active:bg-…` (0,2,0) perdía contra un `.clase` suelto (0,1,0). Comprobado montando las dos reglas y midiendo cuál gana, en vez de fiarse de la teoría. Cada vez que un `<style is:global>` de este proyecto pinte una propiedad que alguna utilidad de Tailwind también pinta, gana el bloque global — y en silencio.
+
+Arreglo: declarar `:hover` y `:active` en ese mismo bloque, junto al fondo que los tapaba y con el aviso de que si se retira ese fondo, estas dos reglas se van con él.
+
+### La placa del botón phantom (Figma 111:3934)
+
+El propietario cambió el pulsado del botón phantom: antes solo cambiaba el color del icono a `action-tertiary`, ahora es una **placa** —fondo `bg-secondary`, icono de vuelta a `action-secondary`—. El motivo es de uso real: en un teléfono, un cambio de tinte del icono se pierde, y si la página tarda en responder no sabes si has acertado a pulsar.
+
+Se usan los tokens y no los hex de Figma, así el oscuro sale solo (placa tinted-900, icono le-100). Comprobado que los dos primitivos coinciden convirtiendo los HSL del proyecto: `Action/Secondary` #490815 ↔ le-800 #490814, `Background/Secondary (Mid)` #e9e0e2 ↔ tinted-100 #eae1e3. Y comprobado en la hoja completa del componente que **Figma lo define igual en tamaño 24**, no solo en 40.
+
+Un sitio donde esto podía romperse en silencio: el orden de las utilidades en el CSS generado. `active` sale después de `hover`, así que pulsar en escritorio mientras sobrevuelas enseña la placa y no el hover. Verificado en el CSSOM.
+
+### `src/lib/ds.ts`: los estados phantom, en un solo sitio
+
+El cambio anterior se aplicó en `IconButton.astro` y `MenuItem.astro` se quedó atrás, porque pintaba los mismos tokens a mano. **No puede usar el componente**: `MenuItem` ya es un `<button>` —lleva también la palabra "Menú", que debe seguir siendo pulsable— y anidar otro `<button>` es HTML inválido. Así que lo que se comparte es la cadena de clases, en dos variantes: la de "el elemento es el botón" y la de "el botón es un ancestro con `.group`".
+
+Son **dos cadenas literales y no una con el prefijo calculado**: Tailwind encuentra las clases leyendo el código fuente como texto, y una cadena montada con `${prefijo}hover:…` no aparece literal en ninguna parte — la utilidad no se generaría y la clase quedaría escrita en el HTML sin CSS detrás. Verificado que Tailwind sí lee el `.ts` y genera las seis.
+
+### Los chevrones del menú lateral no eran botones
+
+Se pintaban con `IconButton` y `pointer-events-none`, lo que además metía un `<button>` dentro de un `<a>` —HTML inválido— siete veces. Ahora son el icono suelto, con el color mandado por el estado de la fila. Se conserva la geometría exacta (glifo de 16 en caja de 24, que es lo que dibuja el tamaño 24 del DS) para no mover el diseño de rebote.
+
+### `.mel-pulsado`: el pulsado que sobrevive al dedo
+
+En un teléfono `:active` se apaga al levantar el dedo, así que si la acción tarda te quedas sin saber si has acertado. Al soltar se fija `.mel-pulsado`, que cada componente del DS pinta igual que su estado pulsado. **Solo táctil**: se cuelga de `touchend`, que un ratón no dispara.
+
+Las cuatro formas de quedarse pegado y su respuesta: el toque acaba siendo scroll (se reutiliza la bandera `mel-desplazando` que ya existía, en vez de medir el arrastre otra vez), el dedo se va del botón antes de soltar (se comprueba dónde cae), la acción no cambia de página o la vuelta la restaura (se barre en los eventos de navegación y en `pageshow`), y la acción falla o tarda demasiado (reloj de 4s).
+
+**Se queda fuera a propósito**: `BotonOrden` tiene nodo de Figma propio (1085:47259) y su pulsado usa `action-tertiary`; decisión del propietario de que mande su ficha. Y los botones del panel de auditoría interno son botones de texto, otra familia.
+
+### Una trampa de verificación de este entorno, apuntada para no repetirla
+
+Al comprobar el `MenuItem` el fondo salía transparente y parecía roto. No lo estaba: el panel de pruebas tiene **el reloj de animaciones congelado**, así que la `CSSTransition` de `background-color` se queda en `running` para siempre y el valor computado no pasa del de partida — ni siquiera con un `background-color: red` en línea. Se confirma anulando la transición (da el valor correcto) o clonando el elemento. **Cualquier medición de una propiedad con `transition` en este entorno miente**; hay que anular la transición antes de leer.

@@ -1,5 +1,10 @@
 ---
 import IconButton from './IconButton.astro';
+// El chevrón de cada fila NO es un botón: la fila entera ya es el enlace. Antes
+// se pintaba con IconButton y `pointer-events-none`, lo que además metía un
+// `<button>` dentro de un `<a>` — HTML inválido — siete veces. Con el icono
+// suelto, el color lo sigue mandando el estado de la fila (`group-*`).
+import Icon from './Icon.astro';
 ---
 
 <!-- Side Menu Backdrop Overlay (Dimming) -->
@@ -51,7 +56,9 @@ import IconButton from './IconButton.astro';
             Inicio
           </p>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
 
@@ -62,7 +69,9 @@ import IconButton from './IconButton.astro';
             Intro
           </p>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
       
@@ -76,7 +85,9 @@ import IconButton from './IconButton.astro';
         <div class="bg-mel-action-primary flex items-center gap-1 px-2 py-0.5 shrink-0">
           <span class="typo-caption text-mel-text-on-action-primary">Nuevo</span>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
       
@@ -87,7 +98,9 @@ import IconButton from './IconButton.astro';
             Proyecto
           </p>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
       
@@ -98,7 +111,9 @@ import IconButton from './IconButton.astro';
             Equipo
           </p>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
       
@@ -109,7 +124,9 @@ import IconButton from './IconButton.astro';
             Contacto
           </p>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
       
@@ -120,7 +137,9 @@ import IconButton from './IconButton.astro';
             Apoya el proyecto
           </p>
         </div>
-        <IconButton size={24} icon="chevron-right" variant="ghost" class="text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary pointer-events-none" />
+        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
+          <Icon icon="chevron-right" size={16} strokeWidth={2} />
+        </div>
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
     </div>
