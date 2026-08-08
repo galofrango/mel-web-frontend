@@ -117,7 +117,16 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       // redondeo o un par de píxeles que ya se leen. Sin el umbral, celdas
       // que desbordan 3-4px hacían un tirón de una décima de segundo, que se
       // ve como un temblor y no como una revelación.
-      const MARQUEE_MINIMO_PX = 8;
+      // Antes eran 8px, para que un sobrante de tres o cuatro no diera un tirón
+      // de una décima que se lee como un temblor. El propietario pidió que se
+      // aplique siempre, así que el umbral baja a lo mínimo (por debajo de esto
+      // son sobras de redondeo, no texto) y de que no tiemble se encarga ahora
+      // MARQUEE_MINIMO_S: un recorrido corto se hace despacio en vez de no
+      // hacerse. Es mejor arreglo que el umbral, porque el problema nunca fue la
+      // distancia sino la duración.
+      const MARQUEE_MINIMO_PX = 2;
+      // Suelo de duración de la ida, en segundos.
+      const MARQUEE_MINIMO_S = 0.25;
 
       (window as any).melMedirMarquee = function (raiz?: Element | Document | null) {
         const ambito: Element | Document = (raiz as any) || document;
@@ -142,7 +151,7 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
           const recorrido = inner.scrollWidth - util;
           if (util > 0 && recorrido > MARQUEE_MINIMO_PX) {
             inner.classList.add('is-overflowing');
-            const ida = recorrido / MARQUEE_PX_POR_SEGUNDO;
+            const ida = Math.max(recorrido / MARQUEE_PX_POR_SEGUNDO, MARQUEE_MINIMO_S);
             celda.style.setProperty('--marquee-duration', ida + 's');
             celda.style.setProperty('--marquee-return', (ida * MARQUEE_FACTOR_VUELTA) + 's');
             celda.style.setProperty('--cell-width', util + 'px');

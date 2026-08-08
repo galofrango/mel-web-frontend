@@ -4912,3 +4912,40 @@ Las cuatro formas de quedarse pegado y su respuesta: el toque acaba siendo scrol
 ### Una trampa de verificación de este entorno, apuntada para no repetirla
 
 Al comprobar el `MenuItem` el fondo salía transparente y parecía roto. No lo estaba: el panel de pruebas tiene **el reloj de animaciones congelado**, así que la `CSSTransition` de `background-color` se queda en `running` para siempre y el valor computado no pasa del de partida — ni siquiera con un `background-color: red` en línea. Se confirma anulando la transición (da el valor correcto) o clonando el elemento. **Cualquier medición de una propiedad con `transition` en este entorno miente**; hay que anular la transición antes de leer.
+
+
+## D-275 · La marquesina siempre, el aleatorio fuera de Lista, y volver de un local de un solo evento
+
+### La marquesina no se activaba en celdas cortadas por poco
+
+El umbral estaba en 8px de sobrante. El propietario apuntó que las que fallan están cortadas «máximo 4 letras», y **4 letras no son 8 píxeles sino unos 25**: el umbral no explicaba lo que veía. El sospechoso pasó a ser otro y es el mismo mecanismo que el punto siguiente del roadmap sobre la galería: **la tabla se mide contra un ancho que luego cambia**. Cuando se llena aparece su barra de desplazamiento vertical, que se lleva unos 15px de cada celda **sin que la ventana cambie de tamaño** — y solo se remedía al cambiar el tamaño de la ventana. Con 15px de más en la cuenta, justo las cortadas por poco caían bajo el umbral.
+
+Dos cambios, y el importante es el segundo: un `ResizeObserver` sobre el envoltorio de la tabla (no solo el `resize` de ventana), y **un suelo de duración** de 0,25s. Ese suelo es el arreglo de fondo del umbral: el problema nunca fue la distancia sino que un sobrante de 4px daba un tirón de siete centésimas, que se lee como un temblor. Con suelo, un recorrido corto se hace despacio en vez de no hacerse, y el umbral puede bajar a lo mínimo. Medido: sobrantes de 1, 4, 10, 25 y 100px, todos marcados, y la duración nunca baja de 0,25s.
+
+### El aleatorio desaparece de la vista de Lista
+
+En escritorio la Lista es una tabla con columnas ordenables, así que un orden aleatorio compite con ellas y además se lee como que algo se ha roto. **El mecanismo ya existía**: el ciclo del botón ya se recortaba a asc/desc con una búsqueda activa. Se reutiliza tal cual, con la propiedad que el propietario pidió expresamente: **no reordena nada por debajo**. Si se llega a Lista con el aleatorio puesto desde la galería, ese orden se conserva —la norma del proyecto es que el orden se mantiene hasta que el visitante pida otro— y lo único que desaparece es poder volver a elegirlo desde ahí.
+
+### Volver de un local que solo tenía ese evento cierra el panel A LA VISTA
+
+Si el panel tenía un único evento y es el que abriste, al volver no hay nada que enseñar: repetiría el título que acabas de cerrar y en móvil tapa el mapa entero. El propietario pidió expresamente **ver cómo se cierra**, no llegar con él ya cerrado: «cerrar evento, ver cerrar panel, mapa como estaba debajo».
+
+Se reutiliza el manejador de la X, que ya limpia `?location=`, devuelve el marcador a reposo y —clave— no toca la cámara.
+
+**Este punto costó cuatro intentos y todos los fallos merecen quedar escritos, porque son trampas de este código, no descuidos sueltos:**
+
+1. **Suprimir la apertura no vale**: el panel se abre por DOS caminos (la apertura automática desde `?location=` y la resincronización cuando `activeSidePanelKey` revive del estado persistente). Tapar solo el primero dejaba el segundo abierto.
+2. **No se puede tocar el `?location=` de la URL** para evitar la reapertura: ese parámetro es además el sello con el que la cámara comprueba que vuelve al local correcto (D-272), y no hay garantía de orden entre quien lo borraría y quien lo lee. Habría arreglado el panel a costa del encuadre.
+3. **No se puede enganchar a `updateMapMarkers()`**: en la vuelta SUAVE esa función **no llega a ejecutarse en el documento nuevo** —comprobado con una traza: el código está en el HTML servido y la traza sale vacía— y aun así el panel acaba abierto. Con recarga dura sí corría, y de ahí que el arreglo pareciera bueno al probarlo así. Va en `astro:page-load`, que ocurre en las dos.
+4. **No se puede memorizar el resultado** en una variable del módulo: el ámbito del script sobrevive a la navegación suave, así que un `false` recordado en la primera visita bloquea todas las vueltas posteriores. La idempotencia la da que la clave de sesión se borra al leerla.
+
+Y dos más sobre el CUÁNDO cerrar:
+
+5. **Sondear con un plazo no vale.** El panel tardaba 2937ms en abrirse (no los ~1300 que parecía al leer el código) y los tics del sondeo llegaban retrasados por la carga — uno que tocaba a 3000ms llegó a 3936ms y se rindió aunque el panel ya estuviera abierto. Se reacciona con un `MutationObserver`: ni plazo que agotar ni tic que se retrase.
+6. **No se puede esperar a `html.mel-vuelta`.** Es la señal natural de «la vuelta sigue en vuelo», y hacía falta esperarla porque por debajo de 1024px el sheet lleva `view-transition-name` propio: cerrarlo durante la transición enseña DOS paneles bajando, la foto congelada y el vivo (lo vio el propietario). Pero esa clase **no se retira en la vuelta al mapa** — ver la deuda técnica del roadmap; medido: seguía puesta 51 segundos después. Esperarla era esperar para siempre, y de ahí que el cierre funcionara una vez (llegando por recarga dura) y nunca más. Se le pregunta al navegador por sus animaciones de transición (`getAnimations()` filtrando pseudoelementos `::view-transition`), que además acaba antes: cuando la animación termina de verdad, no cuando vence un plazo de seguridad.
+
+**Verificación.** Flujo real completo en navegador, tres rondas seguidas: Tropicana → cierra; Tropicana otra vez → cierra; Tirol Rock Bar → cierra; con la URL limpia y la cámara conservada en las tres. Control con El Gran Café (4 eventos): el panel se queda abierto con sus cuatro tarjetas. Más cuatro guiones que extraen las funciones reales del fichero y las ejecutan contra dobles: entre sus casos, uno que falla si alguien vuelve a meter la lógica en `updateMapMarkers`, otro si vuelve a memorizar el resultado y otro si vuelve a esperar a `mel-vuelta`. Un quinto fallo —un `ReferenceError` cuando el panel ya estaba abierto al pedir el cierre— **lo cazó el guion, no el navegador**.
+
+### Y los enlaces de navegación de la ficha
+
+`Anterior`/`Siguiente` en el primer y último evento: con un solo lado navegable, el rótulo salía centrado y el título pegado a un lado. La regla que debía centrarlos usaba `justify-content` sobre `.marquee-cell`, **que no es un contenedor flex** (deliberadamente, D-228). Es `text-align`: el enlace es `inline-flex`, o sea una caja de nivel en línea, y a esas sí las centra el `text-align` del bloque que las contiene. Medido: con el arreglo, rótulo y título a 0px del centro; deshaciendo solo esa propiedad, el título salta a −189px, que es exactamente la captura del propietario.

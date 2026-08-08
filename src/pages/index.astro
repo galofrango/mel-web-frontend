@@ -1435,6 +1435,7 @@ const tags = [
       // Misma razón: un F5 que no viene de una ficha empieza de cero, y una
       // cámara guardada de antes secuestraría el encuadre inicial.
       sessionStorage.removeItem('mel-camara-mapa');
+      sessionStorage.removeItem('mel-volver-sin-panel');
     }
   } catch (e) {}
 
@@ -1787,6 +1788,7 @@ const tags = [
   let galleryOrderedCache = [];
   let sentinelObserver = null;
   let mapResizeObserver = null;
+  let observadorTabla = null;   // ver más abajo: el ancho de la tabla, no el de la ventana
 
   // Proporción real de cada cartel, por idMel, medida una sola vez en toda la
   // sesión.
@@ -4864,6 +4866,13 @@ const tags = [
           // coincidía con lo que el visitante acababa de ver en la lista).
           try {
             sessionStorage.setItem('mel-active-nav-sequence', JSON.stringify(group.events.map(x => x.idMel)));
+            // Si el panel tenía UN SOLO evento y es este, al volver no hay nada
+            // que enseñar: el panel repetiría el mismo título que acabas de
+            // cerrar, y en móvil además tapa el mapa entero. Se anota aquí, que
+            // es el único sitio donde se sabe cuántos había. Con dos o más sí
+            // se reabre: ahí el panel sirve para seguir mirando los otros.
+            if (group.events.length === 1) sessionStorage.setItem(CLAVE_SIN_PANEL, '1');
+            else sessionStorage.removeItem(CLAVE_SIN_PANEL);
           } catch (e) {}
           navigateToEvent(evt.idMel, { location: evt.lugar });
         });
@@ -4939,6 +4948,141 @@ const tags = [
   // queda una cámara vieja al acecho para secuestrar una llegada posterior
   // que sí debería encuadrarse sola.
   const CLAVE_CAMARA = 'mel-camara-mapa';
+  // "Vuelve al mapa, pero no abras el panel." Va aparte del `?location=` de la
+  // URL a propósito: ese parámetro es además el SELLO de la cámara, así que
+  // quitarlo para no abrir el panel se llevaría por delante el encuadre.
+  const CLAVE_SIN_PANEL = 'mel-volver-sin-panel';
+
+  // La marca se lee desde `astro:page-load` y NO desde `updateMapMarkers()`,
+  // que fue donde estuvo primero y no funcionaba. El motivo, medido: en la
+  // vuelta SUAVE desde una ficha, `updateMapMarkers()` **no llega a ejecutarse
+  // en ese documento** —comprobado con una traza: el código está en el HTML
+  // servido y la traza sale vacía— y aun así el panel acaba abierto. Con una
+  // recarga dura sí corría, y de ahí que el arreglo pareciera bueno al probarlo
+  // así. `astro:page-load` ocurre en las dos.
+  //
+  // Y se lee y se consume EN EL SITIO, sin recordar el resultado en una
+  // variable del módulo. Recordarlo fue el otro fallo: si el ámbito del script
+  // sobrevive a la navegación suave —y aquí lo hace—, un `false` memorizado en
+  // la primera visita al mapa bloquea todas las vueltas posteriores. La
+  // idempotencia la da que la clave se borra al leerla, no una bandera.
+  //
+  // OJO: aquí NO se toca `mel-volviendo-al-panel`. Se hizo, y costó caro: esa
+  // clave la lee quien decide si el panel se abre EN EL ACTO (vuelta de una
+  // ficha) o con la coreografía de un segundo (llegada por "Lugar"). Consumirla
+  // antes de tiempo mandaba la vuelta por el camino largo — medido: el panel
+  // tardaba 2937ms en abrirse en vez de aparecer ya abierto.
+  //
+  // Y tampoco se toca el `?location=` de la URL, que fue lo primero que se me
+  // ocurrió: ese parámetro es además el sello con el que la cámara comprueba
+  // que vuelve al local correcto. Borrarlo habría arreglado el panel a costa
+  // del encuadre, que es justo lo que el propietario pidió conservar.
+  function atenderVueltaSinPanel() {
+    try {
+      if (!sessionStorage.getItem(CLAVE_SIN_PANEL)) return;
+      sessionStorage.removeItem(CLAVE_SIN_PANEL);
+    } catch (e) {
+      return;
+    }
+    cerrarPanelAlVolver();
+  }
+
+  // El panel se abre como estaba y se cierra A LA VISTA. Que es lo que pidió el
+  // propietario: «cerrar evento, ver cerrar panel, mapa como estaba debajo».
+  //
+  // El primer intento fue el contrario —impedir que se abriera— y no valía por
+  // dos razones. La de comportamiento: llegar con el panel ya cerrado no explica
+  // nada, el visitante no ve que se cierre y no entiende por qué el mapa está
+  // donde está. Y la técnica: el panel se abre por DOS caminos, la apertura
+  // automática desde `?location=` y la resincronización cuando
+  // `activeSidePanelKey` revive del estado persistente. Tapar solo el primero
+  // dejaba el segundo abierto, que es exactamente lo que el propietario vio.
+  //
+  // Cerrar, en cambio, es un solo camino y ya existe: el mismo manejador que la
+  // X. Limpia `?location=`, devuelve el marcador a reposo y —esto importa
+  // aquí— NO toca la cámara, así que el encuadre recuperado se queda como está.
+  //
+  // Se REACCIONA a que el panel se abra, no se cuenta el tiempo que tarda.
+  // Este fue el fallo de la primera versión, y merece quedar escrito porque es
+  // de los que se repiten: sondeaba cada 60ms con un plazo de 3 segundos, y
+  // falló por dos motivos a la vez. El panel tardaba 2937ms en abrirse (no los
+  // ~1300 que yo había supuesto leyendo el código), y además el plazo se
+  // comprobaba ANTES que el estado del panel, así que un tic retrasado por la
+  // carga —llegó a 3936ms cuando le tocaba a 3000— se rendía aunque el panel ya
+  // estuviera abierto. Con un observador no hay ni plazo que agotar ni tic que
+  // se retrase: se entera en el momento, tarde lo que tarde.
+  const PAUSA_ANTES_DE_CERRAR = 150;    // lo justo para leerlo como un cierre
+  const ESPERA_MAXIMA = 10000;          // red: si nunca se abre, se deja de vigilar
+
+  function cerrarPanelAlVolver() {
+    const panel = document.getElementById('map-side-panel');
+    if (!panel || typeof MutationObserver === 'undefined') return;
+
+    // `reloj` se declara ANTES de `alAbrirse` y no después: si el panel ya
+    // estaba abierto, `alAbrirse()` corre de inmediato —antes de la línea que
+    // crea el temporizador— y un `const` declarado más abajo revienta ahí con
+    // un ReferenceError. Lo cazó el guion de comprobación, no el navegador: en
+    // la prueba de vuelta el panel todavía no estaba abierto a esas alturas.
+    let reloj = null;
+    let hecho = false;
+
+    // No se puede cerrar mientras la transición de vuelta sigue en vuelo. Por
+    // debajo de 1024px el sheet lleva `view-transition-name: mel-side-panel`,
+    // así que durante la transición el navegador lo promociona a la capa
+    // superior como una foto congelada — y si el elemento real se pone a bajar
+    // a la vez, se ven DOS paneles descendiendo, la foto y el vivo.
+    //
+    // Se le pregunta al NAVEGADOR si queda alguna animación de transición
+    // corriendo, en vez de fiarse de la clase `html.mel-vuelta`. Se intentó con
+    // ella y no vale, por un motivo que conviene tener escrito: esa clase la
+    // pone la ficha en el documento entrante y la retira un temporizador del
+    // código de arranque de ESTA página… que en una navegación suave no vuelve
+    // a ejecutarse. Medido: `mel-vuelta` seguía puesta 51 segundos después de
+    // volver. Esperarla era esperar para siempre — de ahí que el cierre
+    // funcionara una vez (llegando por recarga dura) y nunca más.
+    //
+    // `getAnimations()` no depende de ninguna clase ni de ningún reloj nuestro,
+    // y además acaba ANTES: cuando la animación termina de verdad, no cuando
+    // vence un plazo de seguridad.
+    const ESPERA_TRANSICION_MAX = 1500;
+    const finEspera = Date.now() + ESPERA_TRANSICION_MAX;
+    const transicionEnVuelo = () => {
+      if (typeof document.getAnimations !== 'function') return false;
+      return document.getAnimations().some((a) => {
+        const p = a.effect && a.effect.pseudoElement;
+        return a.playState === 'running' && typeof p === 'string' && p.startsWith('::view-transition');
+      });
+    };
+    const cerrarDeVerdad = () => {
+      // El tope existe para que un fallo al detectar la transición no deje el
+      // panel abierto para siempre: mejor un solape feo que un panel colgado.
+      if (transicionEnVuelo() && Date.now() < finEspera) {
+        setTimeout(cerrarDeVerdad, 50);
+        return;
+      }
+      // Puede haberlo cerrado ya el propio visitante: entonces no hay nada
+      // que hacer, y volver a cerrarlo reescribiría la URL sin motivo.
+      if (!panel.classList.contains('side-panel-open')) return;
+      if (window._melClosePanelHandler) window._melClosePanelHandler();
+    };
+
+    const alAbrirse = () => {
+      if (hecho) return;
+      hecho = true;
+      observador.disconnect();
+      clearTimeout(reloj);
+      setTimeout(cerrarDeVerdad, PAUSA_ANTES_DE_CERRAR);
+    };
+
+    const observador = new MutationObserver(() => {
+      if (panel.classList.contains('side-panel-open')) alAbrirse();
+    });
+    observador.observe(panel, { attributes: true, attributeFilter: ['class'] });
+    // Y por si ya estaba abierto antes de empezar a mirar.
+    if (panel.classList.contains('side-panel-open')) alAbrirse();
+    // La red solo deja de vigilar; nunca cierra nada por su cuenta.
+    if (!hecho) reloj = setTimeout(() => observador.disconnect(), ESPERA_MAXIMA);
+  }
 
   // Vale `true` entre que el mapa nace con una cámara recuperada y el primer
   // `updateMapMarkers()` que corre después, que es quien tiene que saber que
@@ -5871,6 +6015,27 @@ const tags = [
       });
     }, { signal: wSig });
 
+    // Y vigilar el ancho de la TABLA además del de la ventana. No son lo mismo,
+    // y la diferencia es la que dejaba celdas sin deslizar: cuando la tabla se
+    // llena aparece su barra de desplazamiento vertical, que se lleva unos 15px
+    // de cada celda **sin que la ventana cambie de tamaño**. Nadie volvía a
+    // medir, así que la cuenta seguía usando un ancho 15px mayor del real y las
+    // celdas cortadas por poco caían por debajo del umbral y se quedaban
+    // quietas. Vale igual para cualquier otro reajuste que estreche la tabla sin
+    // tocar la ventana.
+    //
+    // Mismo cuidado que con el observador de precarga (D-270) y el del mapa
+    // (D-075): en una navegación suave el DOM se renueva entero, así que hay que
+    // comprobar que el observador no se quedó apuntando a un nodo difunto.
+    const envoltorioTabla = document.getElementById('list-table-wrapper');
+    if (envoltorioTabla && typeof ResizeObserver !== 'undefined') {
+      if (observadorTabla) observadorTabla.disconnect();
+      observadorTabla = new ResizeObserver(() => {
+        medirMarquee(document.getElementById('list-table-body'));
+      });
+      observadorTabla.observe(envoltorioTabla);
+    }
+
     // Every AdaptiveTagsRow's equal-vs-content decision (D-060) is measured
     // against real rendered text widths — at page-load time that's still
     // the fallback font, narrower than the real Lora serif values. Once
@@ -6388,6 +6553,12 @@ const tags = [
       rejilla.querySelectorAll('.gallery-item').forEach(c => sizeGalleryCard(c, ancho));
     }));
 
+    // Vuelta de un local que solo tenía ese evento: el panel se abre como
+    // estaba y acto seguido se cierra a la vista. Aquí, en `astro:page-load`,
+    // porque es lo único que ocurre tanto en la vuelta suave como en la dura
+    // — ver el comentario de `atenderVueltaSinPanel`.
+    atenderVueltaSinPanel();
+
     if (relatoBusqueda) {
       setTimeout(() => {
         // La marca se borra AQUÍ y no al leerla, y no es un detalle: el orden
@@ -6546,10 +6717,26 @@ const tags = [
     return 'asc';   // el archivo se sirve cronológico ascendente
   }
 
-  // El barajado NO se ofrece mientras hay una búsqueda activa: barajar un puñado
-  // de resultados que el visitante acaba de acotar no le dice nada.
+  // El barajado NO se ofrece en dos situaciones:
+  //
+  //  - Con una búsqueda activa: barajar un puñado de resultados que el visitante
+  //    acaba de acotar no le dice nada.
+  //  - En la vista de Lista: en escritorio es una tabla con sus propias columnas
+  //    ordenables, así que un orden aleatorio compite con ellas y además se lee
+  //    como que algo se ha roto (una columna de fechas revuelta). En móvil, donde
+  //    la tabla es una lista simple, tampoco tiene sentido ofrecerlo ahí.
+  //
+  // Ojo a lo que esto NO hace: no reordena nada por debajo. Si se llega a Lista
+  // con el aleatorio puesto desde la galería, ese orden se conserva —es la norma
+  // del proyecto: el orden se mantiene hasta que el visitante pida otro— y lo
+  // único que desaparece es la posibilidad de volver a elegirlo desde aquí. De
+  // eso se encarga `siguienteOrden()`, que ante un orden fuera del ciclo ofrece
+  // ascendente sin tocar el actual.
   function cicloActual() {
-    return (searchQuery && searchQuery.trim()) ? ['asc', 'desc'] : CICLO_ORDEN;
+    if (searchQuery && searchQuery.trim()) return ['asc', 'desc'];
+    const vista = document.querySelector('.view-panel:not(.hidden)')?.id?.replace('view-', '');
+    if (vista === 'lista') return ['asc', 'desc'];
+    return CICLO_ORDEN;
   }
 
   function siguienteOrden() {
