@@ -173,7 +173,8 @@
 
 14 bis. **(Descartado, se conserva el razonamiento)** ¿Reencuadrar al soltar el slider? (2026-08-07, duda planteada por el propietario). Hoy no lo hace, y es deliberado: `filterArchives()` pasa `shouldFitBounds = false`, así que arrastrar el slider no mueve la cámara. Reencuadrar en cada tirón la convertiría en un pogo. La propuesta sobre la mesa es reencuadrar **solo al soltar** —el slider ya distingue `input` (cada movimiento) de `change` (al soltar, D-086)—, con una línea en el InfoBanner como alternativa si se prefiere que la cámara no se mueva nunca. **Sin decidir.**
 
-15. **El tope de ancho de los marcadores deja dos plazas de toros indistinguibles** (2026-08-07). Con `max-width: 100px` en `.mel-marker-nombre` (el ancho de "Valdepiélago", que fue lo que pidió el propietario), tanto "Plaza de toros de León" como "Plaza de toros de Astorga" se leen "Plaza de toros …". Se le señaló y decidió mantenerlo. **Subirlo a 180px deja solo Astorga truncada**; es cambiar ese número y nada más. Ver D-271 bis.
+15. **Marcadores que muestren el nombre ENTERO cuando hay sitio** (idea del propietario, 2026-08-09). Hoy el nombre se trunca siempre a un ancho fijo (`max-width` en `.mel-marker-nombre`, D-271 bis), que es una regla ciega: recorta igual cuando el marcador está solo en mitad del mapa que cuando compite con otros cinco. La idea es que el tope **deje de aplicarse** en las dos situaciones en las que no hace falta: a partir de cierto nivel de zoom, o cuando no haya ningún otro marcador a menos de N píxeles. Los dos datos ya se calculan en el mapa —el zoom es directo y la distancia entre cajas la mide `zoomParaDespejar()` (D-271) para decidir si acercar—, así que sería reutilizar esa medición en vez de inventar otra.
+   - **Queda cerrado con esto** el apunte anterior sobre las dos plazas de toros leyéndose iguales: el propietario da por buena la regla de truncar, y lo que quiere es esta mejora, no subir el número.
 
 ---
 
