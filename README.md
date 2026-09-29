@@ -38,7 +38,7 @@ No hay variables de entorno: la hoja de Google Sheets es pública (lectura vía 
 │   ├── data/                # resolved_coordinates.json (caché de geocoding)
 │   ├── layouts/Layout.astro # <head> común, tema claro/oscuro, Maps bootstrap, ClientRouter
 │   ├── pages/
-│   │   ├── index.astro      # Home SPA: Galería/Mapa/Lista + overlay de detalle (monolito, ~3600 líneas)
+│   │   ├── index.astro      # Home SPA: Galería/Mapa/Lista con el mapa y su panel (monolito, más de 7000 líneas)
 │   │   ├── event/[id].astro # Página estática de detalle de evento (por idMel)
 │   │   ├── info.astro       # Proyecto / Equipo / Contacto (contenido desde la hoja)
 │   │   └── exposiciones.astro # Sala de Exposiciones (en construcción, EmptyState)

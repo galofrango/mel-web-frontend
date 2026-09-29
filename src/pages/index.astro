@@ -3973,6 +3973,10 @@ const tags = [
           nombrarHuecos(true);
         }
         const transition = document.startViewTransition(performDOMUpdates);
+        // Una transición saltada (pestaña en segundo plano, u otra que la sustituye)
+        // rechaza `ready` con InvalidStateError; sin este catch salía en la consola
+        // como «Uncaught (in promise)». No cambia nada de lo que se ve.
+        transition.ready.catch(() => {});
         transition.finished.catch(() => {}).finally(() => {
           if (lenta) {
             document.documentElement.classList.remove('orden-cambiando');

@@ -1,4 +1,8 @@
 ---
+// Página de laboratorio: solo existe con `npm run dev`. En producción responde
+// 404 (D-281); sin esto era pública y enseñaba el trabajo a medias. Mismo
+// guarda que `/panel`.
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
 import Layout from '../layouts/Layout.astro';
 ---
 

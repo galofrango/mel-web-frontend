@@ -1,6 +1,7 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
+import quitarComentarios from './plugins/quitar-comentarios.mjs';
 
 import vercel from '@astrojs/vercel';
 
@@ -8,7 +9,8 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   output: 'server',
   vite: {
-    plugins: [tailwindcss()],
+    // Producción sale sin comentarios (D-280); `astro dev` los conserva.
+    plugins: [tailwindcss(), quitarComentarios()],
     server: {
       watch: {
         // El panel ESCRIBE estos dos ficheros mientras trabaja: la caché de
@@ -35,7 +37,14 @@ export default defineConfig({
   //
   // `exclude` deja fuera la API del mapa si alguna vez existe una ruta dinámica
   // que no deba cachearse.
+  // Analítica de Vercel (D-283): visitantes, páginas, países y de dónde llegan.
+  // El adaptador ya la trae: inyecta un script en el <head> que en producción se
+  // pide a `/_vercel/insights/script.js`, o sea a NUESTRO dominio, no a un
+  // tercero. Sin cookies ni almacenamiento en el navegador. Solo cuenta cuando
+  // está activada en el panel de Vercel (proyecto → Analytics → Enable); hasta
+  // entonces esa URL da 404. En `astro dev` no cuenta nada (script de depuración).
   adapter: vercel({
+    webAnalytics: { enabled: true },
     isr: {
       expiration: 300,
     },

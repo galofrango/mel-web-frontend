@@ -41,6 +41,14 @@
 
 ## En Progreso / Pendiente de Contenido
 
+- **🔴 URGENTE — Aviso de cookies / información de privacidad** (2026-09-29, decidido por el propietario: hay que ponerlo **antes de dar publicidad a la web**). Inventario de lo que la web hace hoy, para redactarlo (medido en el navegador con `performance.getEntriesByType('resource')` y `grep` del código):
+  - **Cookies propias: ninguna** (`document.cookie` vacío).
+  - **Almacenamiento propio en el navegador**: `localStorage['mel-color-scheme']` (modo claro/oscuro, `SideMenu.astro` y `Layout.astro`) y `sessionStorage` con el estado de navegación (`mel-return-state`, `mel-session-order`, `mel-orden-galeria`, `mel-sort-state`, `mel-relato-busqueda`; solo dura la pestaña). Son funcionales, no de seguimiento.
+  - **Terceros a los que el navegador del visitante se conecta (y por tanto ven su IP)**: Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`: Lora y Space Grotesk, `Layout.astro` línea 37), Google Maps (`maps.googleapis.com`, `maps.gstatic.com`, `mapsresources-pa.googleapis.com`), imágenes de los carteles desde Google Drive (`lh3.googleusercontent.com`) y `unpkg.com` (el script del agrupador de marcadores, `Layout.astro` línea 48). Mapa y carteles NO se pueden evitar; **fuentes y agrupador sí** (ver abajo).
+  - **Analítica**: Vercel Web Analytics (D-283), sin cookies ni almacenamiento; se sirve desde el propio dominio.
+  - **Sin verificar**: si los servidores de Google ponen cookies propias de tercero al cargar el mapa o las fuentes; desde este entorno no se ven.
+  - **Vías para tener menos que declarar** (ninguna hecha): alojar Lora y Space Grotesk en el propio proyecto (`public/fonts`, mejora también la carga y quita a Google Fonts del asunto) y copiar el script del agrupador a `public/`. Decisión del propietario si compensa.
+  - El texto conviene revisarlo con alguien que conozca la normativa española/europea (LSSI y RGPD): este apunte es un inventario técnico, no asesoramiento legal.
 - **Sala de Exposiciones (`/exposiciones`)**: Actualmente muestra el estado vacante `<EmptyState variant="construction" />`. Pendiente de definir los contenidos definitivos por parte del equipo editorial.
 - **Fotografías del Equipo en `/info`**: Requiere que las celdas de imagen en la pestaña de la hoja contengan URLs públicas de Google Drive o enlaces directos.
 
@@ -177,6 +185,8 @@
    - **Queda cerrado con esto** el apunte anterior sobre las dos plazas de toros leyéndose iguales: el propietario da por buena la regla de truncar, y lo que quiere es esta mejora, no subir el número.
    - **Gana peso con D-278**: los puntos con varios locales («Zinc / Gabanna», «Tempo Club / Sala Gravity», «Rojo Bar / Caño Santana») se recortan casi siempre, y con ellos la segunda mitad del nombre, que es la que se añadió.
 
+16. **Al volver de una ficha a la galería en móvil, el cartel de origen no está en su sitio o tarda en cargar** (2026-09-29, visto por el propietario en **Chrome móvil con navegación privada**; en Safari «va mejor»). En escritorio, bien. Se comprobó con una prueba A/B en el mismo teléfono que ocurre **igual en la versión anterior a D-280** (la 1.1.0), así que no lo causó quitar los comentarios. Sin diagnosticar, **pendiente de una sesión propia**. Punto de partida: es el mismo terreno de D-119 a D-122 (`volverAlFlyer()`, el masonry que mide cada tarjeta al cargar su imagen, la galería que se repinta al restaurar), y `docs/traspaso.md` §4 avisa de que solo se ve bien en un móvil real. Lo más útil: una **grabación de pantalla** del propietario (`scripts/extraer-fotogramas.swift` saca los fotogramas) y anotar si el navegador privado influye (sin caché de imágenes, las tarjetas miden tarde).
+
 ---
 
 ## Deuda Técnica Registrada
@@ -220,6 +230,9 @@
 - **Índices de Columna de la Hoja Hardcodeados**: El parseador SSR depende de los índices absolutos de columna en el Google Sheet; reordenar columnas en la hoja rompería la extracción de datos.
 - **Clave de Google Maps en Frontend**: Incrustada en `Layout.astro` (pendiente de restringir por dominio autorizado en Google Cloud Console).
 - ~~**Ausencia de Caché SSR**~~ → **Mitigada con caché de CDN (D-258, 06-08-2026)**: las tres páginas que leen la hoja (home, ficha, info) responden `s-maxage=300, stale-while-revalidate=600` — Vercel sirve la copia cacheada al instante y renueva por detrás; un cambio en la hoja tarda ≤5 min en verse (plazo fijado por el propietario). El SSR sigue pidiendo la hoja en vivo cuando la CDN sí le pregunta; una caché en el propio servidor sigue sin existir (y con la CDN delante probablemente no haga falta nunca).
+
+- **Minificar los `<script>` en línea** (2026-09-29, aparcado por el propietario para más adelante). Tras D-280 los scripts en línea son 253 KB de los 350 KB del HTML de la portada; con `esbuild` minificado serían 188 KB (−65 KB sin comprimir; con brotli la ganancia real es menor). **Riesgo**: cualquier código que dependa de nombres de función, de `Function.name` o de cadenas que se parezcan a identificadores. Hay que hacerlo con `esbuild` (no con expresiones regulares), verificar el AST/DOM igual que en D-280 y probar el recorrido completo en móvil. Ampliaría el plugin de `plugins/quitar-comentarios.mjs`.
+- ~~**`InvalidStateError: Transition was aborted because of invalid state` en la consola**~~ → **RESUELTO (D-281)** el 29/09/2026 con `transition.ready.catch(() => {})` en `index.astro`, junto al `finished.catch` que ya había. Era el navegador avisando de que una View Transition se saltó (pestaña en segundo plano a mitad del cambio, o otra que la sustituye): rechaza la promesa `ready`, que nadie recogía. No cambiaba nada de lo que ve el visitante. Comprobado: la consola queda limpia con la pestaña oculta, que era donde salía en cada carga. Si reaparece, sería de las transiciones propias del `ClientRouter` de Astro, no de esta.
 
 ---
 

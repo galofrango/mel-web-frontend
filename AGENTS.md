@@ -59,6 +59,8 @@ npm run build    # compilación de producción (SSR)
 npm run preview  # previsualiza el build local
 ```
 
+**Producción sale sin comentarios** (D-280): en `astro build`, `plugins/quitar-comentarios.mjs` los quita del HTML y de los scripts en línea. La fuente de verdad es `src/`, que los conserva y es donde se escriben y se leen; `npm run dev` no ejecuta el plugin. No actives `build.sourcemap` en Vite: los mapas de código publicarían `src/` entero, comentarios incluidos, y anularían todo esto (hoy no se genera ninguno). Nunca edites un archivo de `dist/` o `.vercel/` ni des por perdido un comentario porque no salga en el navegador. Ojo con `npm run preview`: no sirve la salida del adaptador de Vercel; cómo probar el build en local está en D-280.
+
 ### RTK (Rust Token Killer)
 
 CLI que comprime la salida de comandos de terminal antes de que llegue al contexto del agente — mismas respuestas, menos tokens. Instalado como `rtk-lite-cc` vía cargo.
@@ -129,7 +131,7 @@ Todo `<img>` remoto debe incluir `referrerpolicy="no-referrer"`.
 
 Ver el árbol comentado en [README.md](README.md#estructura-general). Puntos críticos:
 
-- `src/pages/index.astro` es un **monolito deliberado** (~4900 líneas): contiene las tres vistas de la home (Galería, Mapa, Lista), el buscador, los filtros y el mapa con su panel lateral. **Nunca lo leas entero de golpe; usa `grep` para localizar secciones.** Ya no contiene ningún overlay de detalle — abrir un cartel navega a `/event/[id]` (D-154).
+- `src/pages/index.astro` es un **monolito deliberado** (más de 7000 líneas): contiene las tres vistas de la home (Galería, Mapa, Lista), el buscador, los filtros y el mapa con su panel lateral. **Nunca lo leas entero de golpe; usa `grep` para localizar secciones.** Ya no contiene ningún overlay de detalle — abrir un cartel navega a `/event/[id]` (D-154).
 - `src/lib/mel.ts` es la **capa de datos, y es la única**: lectura de la hoja, parseo del JSON-P, mapa de columnas, agrupado por evento y los ayudantes de fecha/imagen/escape. Las tres páginas que leen la hoja importan de aquí (D-153). Ojo con el límite de la regla 7: los scripts de cliente **no pueden importar de este módulo**.
 - `src/components/` contiene los componentes Astro de presentación, anotados con su nodo de Figma en `data-node-id`. Todos se importan desde algún sitio: si añades uno que no se use, bórralo o no lo añadas — un componente huérfano que dice ser "la referencia" de un marcado acaba mintiendo (D-154).
 

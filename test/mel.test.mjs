@@ -99,10 +99,31 @@ test('un año imposible también invalida la fecha', () => {
 
 test('el srcset ofrece la misma imagen a varios anchos', () => {
   const s = srcSetDrive('https://drive.google.com/file/d/ABC/view', [700, 1400]);
-  assert.equal(s, 'https://drive.google.com/thumbnail?id=ABC&sz=w700 700w, https://drive.google.com/thumbnail?id=ABC&sz=w1400 1400w');
+  // Endpoint directo lh3 desde D-258; el test seguía esperando el redirect viejo.
+  assert.equal(s, 'https://lh3.googleusercontent.com/d/ABC=w700 700w, https://lh3.googleusercontent.com/d/ABC=w1400 1400w');
 });
 
 test('sin URL de Drive no se inventa un srcset', () => {
   assert.equal(srcSetDrive(''), '');
   assert.equal(srcSetDrive(undefined), '');
+});
+
+import { filasDeRespuesta } from '../src/lib/mel.ts';
+
+const envolver = (json) => `/*O_o*/\ngoogle.visualization.Query.setResponse(${json});`;
+
+test('una celda con `);` dentro no corta la respuesta de la hoja (D-282)', () => {
+  const json = JSON.stringify({ table: { rows: [{ c: [{ v: 'cae en 2016 (y en 2011); y sigue' }] }, { c: [{ v: 'otra' }] }] } });
+  const filas = filasDeRespuesta(envolver(json));
+  assert.equal(filas.length, 2);
+  assert.equal(filas[0].c[0].v, 'cae en 2016 (y en 2011); y sigue');
+});
+
+test('la respuesta normal sigue funcionando', () => {
+  assert.equal(filasDeRespuesta(envolver('{"table":{"rows":[{"c":[]}]}}')).length, 1);
+});
+
+test('lo que no es la respuesta de la hoja da cero filas, sin lanzar', () => {
+  assert.deepEqual(filasDeRespuesta(''), []);
+  assert.deepEqual(filasDeRespuesta('<html>rate limited</html>'), []);
 });

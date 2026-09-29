@@ -29,6 +29,22 @@ export function sheetUrl(sheet?: string): string {
 }
 
 /**
+ * Las filas dentro de la respuesta JP-S de la hoja (`…setResponse({…});`).
+ * Se corta por el PRIMER `setResponse(` y el ÚLTIMO `);`, no por el primero que
+ * aparezca: una celda con `);` dentro de un texto (una nota como «… 2016 (y en
+ * 2011); …») cortaba el JSON a la mitad, `JSON.parse` fallaba, la función
+ * devolvía cero filas y la web entera se quedaba vacía (D-282). Lanza si el
+ * contenido no es JSON: quien llama ya lo recoge.
+ */
+export function filasDeRespuesta(texto: string): any[] {
+  const marca = 'setResponse(';
+  const ini = texto.indexOf(marca);
+  const fin = texto.lastIndexOf(');');
+  if (ini < 0 || fin <= ini) return [];
+  return JSON.parse(texto.slice(ini + marca.length, fin)).table.rows || [];
+}
+
+/**
  * Filas crudas de una hoja. La respuesta NO es JSON: es JSON-P, el objeto viene
  * envuelto en `/*O_o*\/\ngoogle.visualization.Query.setResponse( … );`, así que
  * hay que extraer el interior antes de parsear.
@@ -58,9 +74,7 @@ export async function fetchSheetRows(sheet?: string): Promise<any[]> {
   let filas: any[] = [];
   try {
     const response = await fetch(sheetUrl(sheet));
-    const text = await response.text();
-    const match = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]*?)\);/);
-    if (match && match[1]) filas = JSON.parse(match[1]).table.rows || [];
+    filas = filasDeRespuesta(await response.text());
   } catch (e) {
     console.error(`[mel] no se pudo leer la hoja ${sheet ? `"${sheet}"` : '(primera)'}`, e);
   }

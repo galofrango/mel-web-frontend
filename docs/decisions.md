@@ -4991,3 +4991,84 @@ Además el nombre dependía del orden de la secuencia: barajando o con una colum
 **Primera aplicación**: esta subida (D-278) es la **1.1.0**. Es MENOR y no PARCHE porque, además de arreglar fallos, cambia lo que significa `?location=` y lo que muestran el marcador y el panel.
 
 **Verificación**: el menú muestra «MEL® Web v1.1.0» en la home y en `/info`, y el bundle de servidor lleva solo `version = "1.1.0"`, no el `package.json` entero. Cambiar `package.json` tumbó el `astro dev` en marcha y hubo que relanzarlo, así que está apuntado.
+
+## D-280 · Producción sale sin comentarios: un plugin de build los quita del HTML y de los scripts en línea, y `src/` no se toca
+
+**Contexto**: el HTML que recibía el visitante llevaba los comentarios de desarrollo: la portada 656 KB con 318 comentarios `<!-- -->` (126 KB) y 2.452 comentarios JS (157 KB) dentro de 9 `<script>` en línea; la ficha, 168 KB con 80 y 481. Casi la mitad de la página, visible con «Inspeccionar». Los `/_astro/*` y el `<style>` en línea ya salían minificados. Los comentarios son la documentación que usan los agentes (y `AGENTS.md` los exige para justificar bugs históricos), así que la fuente **no** se limpia: se quita solo lo que sale.
+
+**Decisión**: `plugins/quitar-comentarios.mjs`, registrado en `astro.config.mjs`, con `apply: 'build'` (`astro dev` no ejecuta el plugin). Para cada `.astro`:
+
+- **Plantilla**: el compilador de Astro (`@astrojs/compiler-rs`, `parse`) devuelve los nodos `AstroComment` con su posición y se recortan.
+- **`<script>` en línea** (`define:vars`, `is:inline`, que no pasan por Vite): `acorn` da los rangos exactos de cada comentario, respetando cadenas, regex y URLs con `//`. Los `<script>` normales los procesa Vite, los `type` no-JS (JSON-LD) y los que no se pueden analizar se dejan como están (los últimos, con aviso en el build).
+- **Plantillas de texto dentro de esos scripts** (p. ej. ``card.innerHTML = `…<!-- -->…` ``): no son comentarios de JS, pero al ejecutarse crean nodos de comentario en el DOM (350 en la portada). Se buscan solo dentro de los `TemplateElement` que acorn delimita.
+
+Sin expresiones regulares sobre el código. Un `/* */` con salto de línea dentro se sustituye por un salto (cuenta como fin de sentencia para ASI) y `a/**/b` no se funde en `ab`. Test: `test/quitar-comentarios.test.mjs`.
+
+**Alternativa descartada: middleware que reescriba la respuesta.** Habría que leer entera cada página (unos 660 KB) antes de emitirla, lo que rompe el streaming de Astro; el ISR de 300 s lo taparía en las visitas cacheadas, pero cada regeneración pagaría el análisis del HTML ya renderizado (con datos de la hoja y JSON enorme dentro de los scripts), y el riesgo de tocar contenido dinámico es mayor. El build lo resuelve una vez, sin coste por visita.
+
+**Lo que costó descubrir**:
+- El plugin va en **`load`**, no en `transform`. El `transform` de Astro también es `enforce: 'pre'` y corre antes que cualquier plugin de usuario, así que un `transform` propio recibe el componente ya compilado y no encuentra nada (la primera versión no cambió ni un byte).
+- Las posiciones que da el compilador son **bytes**, no letras: con tildes delante, cortar por índice de cadena descuadra. 260 de 281 comentarios fallaban la comprobación hasta convertir.
+- `acorn` y `@astrojs/compiler-rs` ya estaban en el lock como transitivas; se declaran en `devDependencies` porque el plugin las importa directamente.
+
+**Nada dependía de los comentarios**: sin `nodeType`, `COMMENT_NODE`, `createComment`, `TreeWalker`, comentarios condicionales ni islas de Astro. Los recorridos por `nextSibling`/`firstChild` de `index.astro` (reconciliación de galería y lista) saltan cualquier nodo sin `dataset.id`, o sea texto y comentarios ya eran «estorbos».
+
+**Verificación** (build de producción servido en local, antes/después):
+
+| | Portada | Ficha | Info |
+|---|---|---|---|
+| Sin comprimir | 641,1 → 350,4 KB | 164,3 → 98,3 KB | 52,0 → 41,7 KB |
+| Brotli q4 | 142,7 → 60,5 KB | 41,5 → 20,9 KB | 12,1 → 7,9 KB |
+| Comentarios HTML | 318 → 0 | 80 → 0 | 61 → 0 |
+| Comentarios JS | 2.452 → 0 | 481 → 0 | 46 → 0 |
+| Nodos de comentario en el DOM vivo | 350 → 0 | (sin medir) → 0 | |
+
+- **Mismo marcado y mismo comportamiento**: se parsearon las respuestas de 8 rutas (portada en sus tres vistas, ficha, 404 de ficha, info, exposiciones, 404) y se compararon árbol DOM (sin comentarios, texto colapsado) y AST de cada script en línea (sin posiciones; en las plantillas, sin `<!-- -->`): **iguales en todas**. El comparador se probó con un control negativo (cambia de atributo, de literal, de plantilla: detecta los tres).
+- **Navegador real**, escritorio, 375 px, recarga dura y navegación suave: Galería, Mapa (marcadores, panel, filtro de años), Lista, ficha, «Lugar» → mapa con el panel abierto, volver de la ficha al panel, Info, Exposiciones y 404. La consola solo da el `InvalidStateError` de View Transition (pestaña en segundo plano, ver `traspaso.md` §4.5), **idéntico en el build anterior**, y el 404 buscado.
+
+**Lo que no se ha medido ni se puede**: la compresión real de Vercel (se usó brotli q4 como aproximación); el móvil físico. Los mapas de fuente de los `.astro` se descartan (`map: null`): en producción los números de línea de un error del servidor ya no coinciden con `src/`.
+
+**Nota de entorno**: `npm run preview` no sirve la salida del adaptador de Vercel. Para probar el build en local se sirve `.vercel/output` con un servidor mínimo que llama al `fetch` de `functions/_render.func`. La clave de Google Maps está restringida por referente (revisión de seguridad del 10/08/2026, documentada en el commit `2024914` de la rama local `experiment/galeria-parallax`, aún fuera de `main`) y solo admite `melweb.vercel.app`, `melweb-*.vercel.app`, `localhost:4321`, `localhost:4500` y `192.168.1.167:4500`: el build local hay que servirlo en uno de esos puertos o el mapa da `RefererNotAllowedMapError` (comprobado en `localhost:4602`).
+
+## D-281 · Las páginas de laboratorio no existen en producción, y un test caducado desde D-258 se pone al día
+
+**Contexto**: al comprobar D-280 se vio que `melweb.vercel.app/intro-lab`, `/intro-v2`, `/preview` y `/preview-v2` respondían 200: son las pantallas de experimentos de la animación de entrada (`preview.astro` lo dice en su primera línea: «NOT linked from the main site»). Nadie enlazaba a ellas, pero eran públicas y enseñaban trabajo a medias — justo lo que D-280 quería evitar. `/panel` ya estaba cerrado con `if (!import.meta.env.DEV) return new Response(null, { status: 404 })`.
+
+**Decisión**: el mismo guarda, como primera línea del frontmatter, en las cuatro páginas. Con `npm run dev` siguen funcionando; en producción responden 404. Ninguna otra página del sitio las enlazaba (comprobado con `grep`).
+
+**Verificación**: build de producción servido en local: las cuatro dan 404 (y `/`, `/info`, `/exposiciones` siguen en 200).
+
+**De paso, sin relación con lo anterior:**
+- **`test/mel.test.mjs` › «el srcset ofrece la misma imagen a varios anchos» fallaba en `main`.** No era un fallo del código: D-258 cambió `extractDriveImage` (y su gemelo de `index.astro`) del redirect `drive.google.com/thumbnail?id=ID&sz=wANCHO` al endpoint directo `lh3.googleusercontent.com/d/ID=wANCHO`, y el test seguía esperando el formato viejo. Se comprobó que `mel.ts`, `[id].astro` y el gemelo de `index.astro` usan todos lh3. Se actualiza la expectativa.
+- **`InvalidStateError: Transition was aborted…` en la consola**: `transition.ready.catch(() => {})` en el `startViewTransition(performDOMUpdates)` de `index.astro` (una línea y su comentario). Con la pestaña oculta —donde salía un error en cada carga— la consola queda limpia, también tras arrastrar el filtro de años y cambiar de vista.
+- **Mapas de código**: comprobado que el build no genera ninguno (0 archivos `.map`, ningún `sourceMappingURL`). Es lo correcto y es lo que hace que D-280 sirva: un mapa publicaría `src/` con sus comentarios. Queda avisado en `AGENTS.md` para que nadie active `build.sourcemap`.
+- **Documentación desfasada** corregida: `development.md` y `README.md` hablaban de un overlay SPA de detalle (borrado en D-154), de `renderOverlayEvent` (ya no existe), de un prefijo `lightbox-` (sin usos) y de `index.astro` con «~3600 líneas»; `AGENTS.md` decía «~4900». Hoy son 7.101. El espejo que queda, según la regla 7, es `FlyerCard.astro` ⇄ `buildGalleryCard()`.
+
+## D-282 · Una celda con `);` dentro dejaba la web vacía: la respuesta de la hoja se corta por el ÚLTIMO `);`
+
+**Qué pasó (observado el 29/09/2026 hacia las 14:00; no se sabe cuándo empezó)**: `melweb.vercel.app` dejó de pintar datos. La portada salía con el rango de años por defecto (2004–2019) y sin tarjetas, y `/event/MEL-00011` —que existe— daba 404. Se vio al levantar un servidor recién arrancado durante la verificación de D-280 (el build nuevo salía con 196 KB y el antiguo con 359 KB). **No tenía que ver con D-280**: el mismo síntoma salió con un proceso que no llevaba el plugin.
+
+**Causa**: `fetchSheetRows` recortaba la respuesta JSON-P de Google con `/setResponse\(([\s\S]*?)\);/`, y el `*?` es perezoso: para en el **primer** `);` que encuentre. La fila 166 de la hoja (MEL-00172, «Zadig en La Vaca Club», columna «Notas del ejemplar») dice «…que cae en 2016 (y en 2011); por la serie…». Ese `);` está DENTRO de una cadena JSON: el recorte quedaba a mitad de la cadena, `JSON.parse` lanzaba `Unterminated string`, `fetchSheetRows` lo recogía y devolvía cero filas. Da igual que esa columna no la use el sitio: la respuesta se analiza entera.
+
+**Por qué no se notó antes en la web**: D-259 guarda en memoria la última copia buena y la sirve si la hoja da cero filas. Las instancias «calientes» siguieron sirviendo la copia vieja; las nuevas (o las que se reinician) no tenían ninguna y se quedaban vacías. Es el peor tipo de fallo: parece que funciona hasta que una instancia nueva arranca.
+
+**Decisión**: `filasDeRespuesta()` en `src/lib/mel.ts` corta por el **primer** `setResponse(` y el **último** `);`. Un texto de una celda puede contener cualquier cosa, pero la respuesta de Google termina siempre en `);`. Tres tests nuevos (`test/mel.test.mjs`): una celda con `);`, la respuesta normal, y una respuesta que no es de la hoja (vacía o el shell de rate-limit) que da cero filas sin lanzar. Comprobado además a mano contra la hoja real de ese momento: 174 filas leídas, cuando antes fallaba.
+
+**Verificación**: build con el arreglo servido en local, con la nota conflictiva todavía en la hoja: portada 374 KB con todos los datos y `/event/MEL-00011` en 200.
+
+**Lo que queda por hacer fuera del código**: mientras la producción siga con el código anterior, la celda sigue rompiéndola. Se resuelve con el despliegue de este arreglo o cambiando `2011);` por `2011),` en la celda (lo segundo es inmediato y lo primero lo protege para siempre).
+
+**Lección para el catalogado** (memoria del puente `Claude.gs`, criterios de catalogación): una nota puede llevar cualquier texto ya, pero mientras el arreglo no esté en producción, conviene evitar `);` en las celdas escritas por el puente.
+
+## D-283 · Vercel Web Analytics, con la opción que ya trae el adaptador
+
+**Contexto**: el propietario quería saber cuánta gente pasa por la web y de dónde viene, y la web no tenía ninguna analítica (comprobado el 29/09/2026: ni script en el HTML ni dependencia). Vercel solo enseña totales de peticiones, no visitantes. Al valorar el aviso de cookies (ver «URGENTE» en `roadmap.md`) decidió activarla igualmente.
+
+**Decisión**: `webAnalytics: { enabled: true }` en `vercel({…})` de `astro.config.mjs`. El adaptador (`@astrojs/vercel` 11) inyecta en el `<head>` un pequeño script en línea que carga `/_vercel/insights/script.js`: **del propio dominio**, no de un tercero, y sin cookies ni almacenamiento en el navegador (Vercel lo calcula en su servidor). Cero dependencias nuevas; la alternativa, `@vercel/analytics`, habría añadido un paquete para hacer lo mismo.
+
+**Paso manual imprescindible**: activarla en el panel de Vercel (proyecto → *Analytics* → *Enable*). Hasta entonces `/_vercel/insights/script.js` responde 404 y sale en la consola de quien inspeccione. No cuenta el pasado: solo desde que se activa.
+
+**Verificación**: en el build local el script aparece en `/`, `/info`, la ficha y el 404, el objeto `window.va` existe y la página se comporta igual; el único cambio en consola es ese 404 (mi servidor local no es Vercel). **No verificado**: que Vercel lo sirva y cuente de verdad, y que cuente bien las navegaciones suaves del `ClientRouter`; solo se puede comprobar en producción, con el panel abierto.
+
+**Versión**: la subida sigue siendo 1.1.1; el visitante no nota nada.
+

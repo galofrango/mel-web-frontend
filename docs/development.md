@@ -22,7 +22,7 @@ La documentación es un **componente vivo de primer nivel** en este proyecto. To
 ## Organización del Código
 
 - **Páginas (`src/pages/`)**: Cada página incluye su lógica de cliente dentro de etiquetas `<script>` al final del archivo.
-  - `index.astro` es el **monolito principal** (~3600 líneas) que gestiona el estado global de la home, el filtrado, las vistas de Galería/Mapa/Lista y el overlay SPA de detalle. **Navega mediante `grep`** por ids (`#overlay-…`, `#gallery-grid`), funciones (`filterArchives`, `performDOMUpdates`, `renderOverlayEvent`, `switchView`) o atributos `data-name`.
+  - `index.astro` es el **monolito principal** (más de 7000 líneas) que gestiona el estado global de la home, el filtrado, el mapa con su panel y las vistas de Galería/Mapa/Lista. No tiene overlay de detalle: abrir un cartel navega a `/event/[id]` (D-154). **Navega mediante `grep`** por ids (`#gallery-grid`, `#view-mapa`), funciones (`filterArchives`, `switchView`), la constante `performDOMUpdates` o atributos `data-name`.
   - `event/[id].astro` renderiza la vista estática SSR para enlaces directos por evento.
   - `exposiciones.astro` implementa el componente `<EmptyState variant="construction" />`.
   - `info.astro` genera el contenido narrativo desplegable desde la hoja de Google Sheets.
@@ -34,20 +34,20 @@ La documentación es un **componente vivo de primer nivel** en este proyecto. To
 ## Convenciones de Código y Naming
 
 - **Idioma**: La interfaz y los contenidos están redactados exclusivamente en **español**. El código (variables, funciones) utiliza inglés o español descriptivo siguiendo el contexto local del archivo. Los mensajes de commit se escriben en inglés (estilo `feat:`, `fix:` o modo imperativo).
-- **Naming de elementos DOM**: Identificadores en `kebab-case` con prefijo de módulo (`overlay-…`, `search-…`, `slider-…`, `lightbox-…`). Los elementos que replican Figma llevan atributos `data-node-id` y `data-name`.
+- **Naming de elementos DOM**: Identificadores en `kebab-case` con prefijo de módulo (`overlay-…` en la ficha, `search-…`, `slider-…`). Los elementos que replican Figma llevan atributos `data-node-id` y `data-name`.
 - **Eventos Personalizados**: Los eventos del bus global en `window` utilizan el prefijo `mel-` (`mel-search`, `mel-switch-view`, `mel-trigger-intro`, etc.).
-- **Comentarios en el Código**: Obligatorios para justificar soluciones a bugs históricos o comportamientos no triviales del navegador (p. ej., workarounds de View Transitions, clipping o blend modes).
+- **Comentarios en el Código**: Obligatorios para justificar soluciones a bugs históricos o comportamientos no triviales del navegador (p. ej., workarounds de View Transitions, clipping o blend modes). Escríbelos sin miedo al peso: `astro build` los quita del HTML publicado (D-280), y `src/` es su única copia.
 
 ---
 
 ## Patrones de Ingeniería Obligatorios
 
-Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir código nuevo:
+Consulta las reglas de [AGENTS.md](../AGENTS.md) antes de escribir código nuevo:
 1. Lifecycle idempotente vía `astro:page-load`.
 2. `AbortController` (`window._melAbortCtrl`) para limpiar event listeners de `window`.
 3. Animaciones de reordenamiento con FLIP (`transform`), evitando `view-transition-name` en contenedores con overflow.
 4. Uso de `isolation: isolate` en contenedores con capas `mix-blend-multiply` o `mix-blend-screen`.
-5. Replicación estricta del marcado HTML de componentes Astro en renderers dinámicos de JavaScript de cliente (como en `index.astro` para filas de tabla y estados vacíos).
+5. Replicación estricta del marcado HTML de componentes Astro en renderers dinámicos de JavaScript de cliente. Hoy la única réplica viva es `FlyerCard.astro` ⇄ `buildGalleryCard()` (regla 7); donde se pueda, se renderiza en SSR y el JS solo escribe valores.
 
 ---
 
@@ -55,7 +55,7 @@ Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir códig
 
 1. **Revisar Figma**: Localiza el nodo de diseño (`data-node-id`) y extrae valores reales de tipografía, color y espaciado.
 2. **Reutilización de Componentes**: Comprueba si el patrón ya existe (`EmptyState`, `TagWithLink`, `Link`, duotono fotográfico).
-3. **Mantenimiento en Espejo**: Si modificas el detalle de un evento, aplica los cambios tanto en la página estática (`event/[id].astro`) como en el overlay SPA en `index.astro`. Si modificas un componente usado en cliente, actualiza su plantilla JS.
+3. **Mantenimiento en Espejo**: la ficha de evento vive solo en `event/[id].astro` (el overlay SPA que la duplicaba ya no existe, D-154). El espejo que queda es la tarjeta de galería: si tocas `FlyerCard.astro` o `buildGalleryCard()` en `index.astro`, toca y compara la otra (regla 7).
 4. **Desarrollo Responsive**: Implementa escritorio y móvil simultáneamente utilizando los breakpoints `md` (768px) y `lg` (1024px).
 5. **Verificación Manual en Navegador**.
 6. **Comprobación de Definition of Done (DoD)**:
