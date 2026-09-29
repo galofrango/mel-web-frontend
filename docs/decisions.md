@@ -4949,3 +4949,45 @@ Y dos más sobre el CUÁNDO cerrar:
 ### Y los enlaces de navegación de la ficha
 
 `Anterior`/`Siguiente` en el primer y último evento: con un solo lado navegable, el rótulo salía centrado y el título pegado a un lado. La regla que debía centrarlos usaba `justify-content` sobre `.marquee-cell`, **que no es un contenedor flex** (deliberadamente, D-228). Es `text-align`: el enlace es `inline-flex`, o sea una caja de nivel en línea, y a esas sí las centra el `text-align` del bloque que las contiene. Medido: con el arreglo, rótulo y título a 0px del centro; deshaciendo solo esa propiedad, el título salta a −189px, que es exactamente la captura del propietario.
+
+
+## D-278 · Un punto del mapa se llama con todos sus locales, y `?location=` encuentra el punto por cualquiera de ellos
+
+**Contexto**: un mismo portal puede haber sido varios locales. Calle Conde Guillén 10 fue «Zinc» (2005) y después «Gabanna» (2006–2024); Calle Caño Badillo 19, «Tempo Club» y «Sala Gravity»; Plaza Caño de Sta. Ana 1, «Rojo Bar» y «Caño Santana». El mapa agrupa por coordenadas, pero el punto se llamaba como el `lugar` del **primer evento filtrado**, y `?location=` exigía coincidencia exacta con ese nombre. Tres fallos comprobados en producción el 29/09/2026:
+
+- **Sin filtros, «Lugar: Gabanna» no abría nada** (el punto se llamaba «Zinc»). Tampoco la X de cerrar una ficha de Gabanna abierta desde el panel, porque el panel abre cada evento con `location=<su propio lugar>`, ni la celda «Lugar» de la Lista.
+- **Buscando «gabanna», el panel volvía titulado «Zinc»**. Medido con una traza: al volver por navegación suave el primer repintado aún tiene la búsqueda en memoria, el punto se llama «Gabanna» y coincide; ~150ms después el buscador anuncia búsqueda vacía (la URL del enlace no trae `search=`, y es a propósito: el enlace de un lugar nunca busca), el grupo recupera sus 12 eventos y el panel se repinta como «Zinc».
+- **Con filtro desde 2012 funcionaba por casualidad**: el primer evento visible ya era de Gabanna.
+
+Además el nombre dependía del orden de la secuencia: barajando o con una columna de Lista, el marcador podía pasar a llamarse «Gabanna».
+
+**Decisión** (del propietario):
+
+1. **Nombre del punto** (`nombreDelPunto()`): los `lugar` distintos de sus eventos **visibles**, sin «Desconocido», en orden de su primer evento visible (los eventos del grupo ya van en cronológico) y unidos con « / ». Si no queda ninguno, el de siempre (`lugar || localidad || 'Lugar desconocido'`). Todos los años → «Zinc / Gabanna»; solo 2005 → «Zinc»; desde 2006 → «Gabanna». El mismo nombre va en la etiqueta del marcador (con su «(n)»), en su `title` y en el título del panel.
+2. **`?location=X`** (`puntoContieneLugar()`) abre el punto cuyo nombre es X o que tiene algún evento visible cuyo `lugar` es X, sin distinguir mayúsculas y con trim. Si dos puntos casan (el mismo local en dos direcciones), gana el primero, como antes.
+3. **El panel identifica su local por coordenadas, no por nombre** (`dataset.locKey` en vez de `dataset.locName`). El nombre cambia con el filtro de años, y eso no es cambiar de local: el panel se refresca en silencio. Antes, al mover el slider de modo que cambiara el primer evento, hacía el fundido y el `panTo` de «cambiar de local».
+4. **El sello de la cámara lleva todos los locales del punto abierto** (`lugares`), no solo el del evento. Desde un evento de Zinc se puede pasar con Siguiente a uno de Gabanna y pulsar su «Lugar»: es volver al mismo portal y se conserva el encuadre (antes caía a zoom 15).
+5. **Pulsar un marcador anula cualquier vuelta pendiente** (`mel-volviendo-al-panel`). Fallo previo encontrado de camino: esa marca solo se consume si `?location=` encuentra su punto; si no lo encuentra se quedaba viva y anulaba la clave activa en cada repintado, así que después **ningún marcador abría su panel** (se abría y se cerraba en el acto). Se borra en el clic del marcador y no donde falla la coincidencia, porque en el caso de la búsqueda el primer repintado puede no coincidir y el segundo sí.
+
+**No cambia**: la clave del grupo (coordenadas a 4 decimales), las tarjetas del panel (siguen sin mostrar el lugar), la Lista, la ficha, el buscador (buscar «Zinc» solo muestra eventos de Zinc) ni qué filtros sobreviven a la navegación. Tampoco la apertura asíncrona ni el SSR del flujo Evento → Mapa (regla 15).
+
+**Caso límite, decidido por el propietario: lo más sencillo.** Si «Lugar» apunta a un local sin eventos visibles con el filtro activo, no se abre nada (ni siquiera el otro local del mismo punto). Navegando normalmente no se llega: con el filtro puesto, ni Galería, ni Lista, ni panel, ni Anterior/Siguiente enseñan ese evento, y entrando a la ficha por URL no hay estado de vuelta, así que el filtro se reinicia y el local vuelve a ser visible (comprobado).
+
+**Consecuencia asumida**: el doble repintado del caso de la búsqueda sigue existiendo; ahora el título pasa de «Gabanna» a «Zinc / Gabanna» sin fundido ni cierre. El propietario lo quiere así: si el filtro mete o saca un local del punto, el nombre lo refleja. En la etiqueta del marcador (100px) los nombres compuestos se recortan con puntos suspensivos; el `title` del marcador conserva el nombre entero, y mostrarlo entero queda para la idea 15 del roadmap. **El título del panel pasa de una línea a dos** (`line-clamp-2` en vez de `truncate`, a petición del propietario): a 375px «Tempo Club / Sala Gravity» se lee entero en dos líneas; en el panel lateral de escritorio todos los nombres actuales caben en una. Afecta también a los nombres largos de un solo local («Plaza de toros de Astorga»), que ya no se recortan en móvil.
+
+**Verificación** (navegador, servidor local del worktree): comprobación de los tres puntos compuestos (falla antes del cambio, pasa después; 41 puntos); `?location=` con Zinc, Gabanna, «  zinc / GABANNA », Tempo Club, Sala Gravity y Caño Santana abre el punto con recarga dura, y un nombre inexistente no abre nada; casos A, B (por «Lugar» y por la X) y C con navegación suave y traza del título; slider 2000→2006→2000 con el panel abierto sin pasar por opacidad 0; marca de vuelta colgada seguida de clic en un marcador; cámara a zoom 17 conservada tras Siguiente + «Lugar»; 375px y 1440px; `npm run build`.
+
+
+## D-279 · La versión se sube en cada subida a producción, y vive solo en `package.json`
+
+**Contexto**: el pie del menú lateral decía «MEL® Web v1.0», escrito a mano en `SideMenu.astro` y sin tocar nunca. `package.json` seguía en `0.0.1`, y la única versión con sentido era la etiqueta git `v1.0.0` («MEL 1.0.0», 09/08/2026), puesta sobre el `main` que hoy está en producción. Las etiquetas anteriores (`galeria-1.0` … `lista-y-panel-v3.5`) eran puntos de recuperación con su propia numeración.
+
+**Decisión** (el propietario pidió que la versión se actualice con cada subida y dejó la nomenclatura al agente): `MAYOR.MENOR.PARCHE`, continuando `v1.0.0`. Las reglas están en «Versionado» de `docs/development.md` y el recordatorio en el DoD de `CLAUDE.md`. Lo esencial:
+
+- **PARCHE** para arreglos, **MENOR** para novedades o cambios de comportamiento, y **MAYOR** solo si lo decide el propietario.
+- **Fuente única**: `package.json`, que el menú importa al compilar. Si hubiera dos copias del número, acabarían separándose, como pasó con el «v1.0» a mano.
+- Se sube **justo antes de mezclar a `main`**, no al abrir la rama, para que dos ramas en paralelo no reclamen el mismo número. El commit lleva su etiqueta `vX.Y.Z`.
+
+**Primera aplicación**: esta subida (D-278) es la **1.1.0**. Es MENOR y no PARCHE porque, además de arreglar fallos, cambia lo que significa `?location=` y lo que muestran el marcador y el panel.
+
+**Verificación**: el menú muestra «MEL® Web v1.1.0» en la home y en `/info`, y el bundle de servidor lleva solo `version = "1.1.0"`, no el `package.json` entero. Cambiar `package.json` tumbó el `astro dev` en marcha y hubo que relanzarlo, así que está apuntado.

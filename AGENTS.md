@@ -225,6 +225,7 @@ Antes de dar cualquier tarea importante por finalizada, debes verificar internam
 - [ ] **Las decisiones importantes han quedado registradas** en `docs/decisions.md`.
 - [ ] **El roadmap está actualizado** en `docs/roadmap.md` si procede.
 - [ ] **Si el cambio afecta al comportamiento de navegación, el Contrato de Navegación de `docs/architecture.md` lo refleja.**
+- [ ] **Si va a producción, la versión está subida** en `package.json` y con su etiqueta `vX.Y.Z` preparada para el commit (ver «Versionado» en [docs/development.md](docs/development.md#versionado)). El número sale en el pie del menú lateral.
 
 ---
 

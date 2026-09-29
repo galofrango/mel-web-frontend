@@ -64,4 +64,30 @@ Consulta las reglas 1 a 14 de [AGENTS.md](../AGENTS.md) antes de escribir códig
    - [ ] Documentación actualizada (`decisions.md`, `architecture.md`, `roadmap.md`).
    - [ ] Si el cambio toca la navegación, el **Contrato de Navegación** (`architecture.md`) sigue siendo cierto.
 7. **Comprobación cross-browser antes de publicar** (D-067 — no basta con verificar en uno solo): al menos un navegador basado en Chromium y uno distinto (Safari/WebKit, Firefox), y en modo táctil/dispositivo real siempre que el cambio toque interacción por gesto (sliders, drag, scroll). Presta atención especial a dos puntos ya detectados como inconsistentes entre navegadores: la paginación de la vista Lista (D-067) y la cabecera sticky de su tabla (D-066, aparcada — ver "Problemas Conocidos" en `roadmap.md`).
-8. **Commit descriptivo**.
+8. **Subir la versión** (ver «Versionado», abajo) si el trabajo va a producción.
+9. **Commit descriptivo**.
+
+## Versionado
+
+Desde la 1.1.0 (D-279), **cada subida a producción sube la versión**. La decide
+el agente y la confirma el propietario al dar la orden de commit.
+
+- **Formato `MAYOR.MENOR.PARCHE`**, el de la etiqueta `v1.0.0` que ya existía:
+  - **PARCHE** (1.1.0 → 1.1.1): arreglos y retoques que no cambian cómo se usa la
+    web.
+  - **MENOR** (1.1.1 → 1.2.0): algo nuevo o un cambio de comportamiento que el
+    visitante nota. Si una subida junta arreglos y novedades, manda la novedad.
+  - **MAYOR** (1.x → 2.0.0): un salto grande (un rediseño, una sección nueva de
+    peso). **La decide el propietario**, nunca el agente.
+- **Una sola fuente**: `version` en `package.json`. El pie del menú lateral
+  («MEL® Web vX.Y.Z», `SideMenu.astro`) la importa al compilar; no se escribe a
+  mano en ningún otro sitio. Se cambia con
+  `npm version X.Y.Z --no-git-tag-version`, que actualiza a la vez
+  `package-lock.json` y no crea ni commit ni etiqueta por su cuenta (regla 16).
+  Ojo: cambiar `package.json` tumba el `astro dev` en marcha; hay que relanzarlo.
+- **Se sube en la rama que va a `main`**, justo antes de mezclar, y no al empezar
+  la rama: si hay dos ramas abiertas a la vez, las dos pedirían el mismo número.
+- **Con el commit que llega a `main` va su etiqueta** `vX.Y.Z` (anotada, con una
+  línea de qué trae), igual que `v1.0.0`. Las etiquetas con nombre
+  (`lista-y-panel-v3.5`…) eran puntos de recuperación con otra numeración
+  anterior; no se siguen.

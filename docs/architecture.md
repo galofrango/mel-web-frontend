@@ -284,15 +284,36 @@ Dos excepciones deliberadas a "una sola secuencia", ambas acotadas al panel:
    ve en el panel, que es la regla que importa.
 2. **El enlace de un lugar nunca busca texto**: ni el tag "Lugar" de la ficha de
    evento ni la celda *Lugar* de la Lista. Ambos llevan a
-   `/?view=mapa&location=<nombre>`, que encuadra el local y despliega su panel.
+   `/?view=mapa&location=<nombre>`, que encuadra el **punto** del local y
+   despliega su panel (ver abajo, «El panel del mapa se restaura por URL»).
    El parámetro dedicado existe justo para esto (D-075); usar `?search=` además
    dejaba un filtro activo sobre todo el archivo como efecto colateral. Las
    demás celdas de la Lista (Localidad, Organiza, Diseño) sí fijan búsqueda.
 
 ### El panel del mapa se restaura por URL
 
-`?location=` transporta el **nombre** del local; `activeSidePanelKey` se indexa
-por **coordenadas**. La traducción entre ambos la hace `updateMapMarkers()`, y su
+`?location=` transporta el **nombre** de un local; `activeSidePanelKey` se indexa
+por **coordenadas**, y un mismo punto puede reunir varios locales (el mismo portal
+con otro nombre en otra época, D-278).
+
+- **El punto se llama con todos sus locales visibles**: los `lugar` distintos de
+  sus eventos visibles con los filtros de ese momento, sin «Desconocido», en
+  orden de su primer evento y unidos con « / » («Zinc / Gabanna»). Ese nombre es
+  el del marcador y el del título del panel. Si el filtro de años mete o saca un
+  local, el nombre cambia **sin cerrar el panel ni repetir la llegada**: el panel
+  reconoce su local por coordenadas, no por nombre.
+- **`?location=X` abre el punto que contiene X**: el que se llama X (también el
+  nombre compuesto entero) o el que tiene algún evento visible cuyo `lugar` es X,
+  sin distinguir mayúsculas y con trim. Así el tag «Lugar» de la ficha, su X de
+  cerrar y la celda *Lugar* de la Lista —que llevan el `lugar` de su evento—
+  abren siempre el panel de su punto.
+- **Si X no tiene eventos visibles** con el filtro activo, no se abre nada: ni
+  siquiera otro local del mismo punto. Navegando normalmente no se llega a ese
+  caso.
+- **Pulsar un marcador anula cualquier vuelta pendiente** (`mel-volviendo-al-panel`),
+  que solo se consume cuando `?location=` encuentra su punto.
+
+La traducción entre nombre y coordenadas la hace `updateMapMarkers()`, y su
 guard es `!activeSidePanelKey`: por eso `initHomePage()` **no debe** sembrar esa
 clave desde la URL. Cuando lo hacía, la traducción se saltaba, el grupo no se
 encontraba por nombre y el panel no llegaba a abrirse nunca por URL — ni al

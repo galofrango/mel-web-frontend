@@ -447,7 +447,10 @@ const tags = [
               id="side-panel-header-toggle"
               class="flex flex-col gap-[8px] items-start justify-center w-full lg:cursor-pointer lg:select-none"
             >
-              <h2 id="side-panel-title" class="typo-h2 text-mel-text-primary truncate w-full"></h2>
+              <!-- Hasta dos líneas y no una (D-278): un punto puede llamarse con
+                   varios locales, «Tempo Club / Sala Gravity», y truncado a una
+                   se perdía justo el segundo. -->
+              <h2 id="side-panel-title" class="typo-h2 text-mel-text-primary line-clamp-2 w-full"></h2>
               <p id="side-panel-address" class="typo-body-roman text-mel-text-secondary truncate w-full"></p>
             </div>
           </div>
@@ -4780,7 +4783,7 @@ const tags = [
       // Identidad del local que el panel está mostrando ahora mismo: es lo que
       // permite distinguir "cambiar de local" (con fundido) de "refrescar el
       // mismo" (en silencio) — ver la bifurcación más abajo.
-      sidePanel.dataset.locName = group.locationName;
+      sidePanel.dataset.locKey = group.key;
       // Populate side panel fields
       document.getElementById('side-panel-title').textContent = group.locationName;
       const sampleEvt = group.events[0];
@@ -4895,7 +4898,10 @@ const tags = [
     // otro distinto). Repoblar el mismo local — cosa que pasa en cada
     // re-render: arrastrar el slider, filtrar, volver de un evento — debe
     // actualizar en silencio, sin parpadear ni re-encuadrar la cámara.
-    const sameLocation = sidePanel.dataset.locName === group.locationName;
+    // Por coordenadas y no por nombre (D-278): el nombre de un punto cambia con
+    // el filtro de años («Zinc / Gabanna» → «Gabanna») y eso NO es cambiar de
+    // local — tiene que refrescarse en silencio, sin fundido ni `panTo`.
+    const sameLocation = sidePanel.dataset.locKey === group.key;
 
     if (isAlreadyOpen && sameLocation) {
       updateSidePanelDOM();
@@ -5164,8 +5170,13 @@ const tags = [
     try {
       const c = googleMap.getCenter();
       if (!c) return;
+      // El sello lleva TODOS los locales del punto abierto, no solo el del
+      // evento (D-278): desde un evento de Zinc se puede pasar con Siguiente a
+      // uno de Gabanna y pulsar su "Lugar", y eso es volver al MISMO portal.
+      const grupo = locationMarkers.get(activeSidePanelKey)?.group;
+      const lugares = grupo ? grupo.events.map(e => e.lugar || '') : [];
       sessionStorage.setItem(CLAVE_CAMARA, JSON.stringify({
-        lat: c.lat(), lng: c.lng(), zoom: googleMap.getZoom(), lugar: lugar || '',
+        lat: c.lat(), lng: c.lng(), zoom: googleMap.getZoom(), lugares: [lugar || '', ...lugares],
       }));
     } catch (e) {}
   }
@@ -5182,7 +5193,7 @@ const tags = [
       if (!Number.isFinite(c?.lat) || !Number.isFinite(c?.lng) || !Number.isFinite(c?.zoom)) return null;
       // El sello: solo vale si se vuelve al MISMO local del que se salió.
       const destino = (new URLSearchParams(window.location.search).get('location') || '').toLowerCase().trim();
-      if ((c.lugar || '').toLowerCase().trim() !== destino) return null;
+      if (!(c.lugares || []).some(l => l.toLowerCase().trim() === destino)) return null;
       return c;
     } catch (e) {
       return null;
@@ -5279,6 +5290,31 @@ const tags = [
     zoomAnimFrame = requestAnimationFrame(step);
   }
 
+  // Nombre de un punto del mapa (D-278): un mismo portal puede haber sido
+  // varios locales («Zinc» en 2005, «Gabanna» después). El punto se llama con
+  // TODOS los que tienen eventos visibles, en orden de su primer evento — por
+  // eso recibe los eventos ya ordenados cronológicamente — y unidos con « / ».
+  // «Desconocido» no cuenta. Devuelve '' si no queda ninguno, y entonces quien
+  // llama se queda con el nombre de siempre.
+  function nombreDelPunto(eventos) {
+    const nombres = new Map();
+    eventos.forEach(e => {
+      const n = (e.lugar || '').trim();
+      const clave = n.toLowerCase();
+      if (n && clave !== 'desconocido' && !nombres.has(clave)) nombres.set(clave, n);
+    });
+    return [...nombres.values()].join(' / ');
+  }
+
+  // ¿Es este punto el que pide `?location=`? (D-278). El parámetro trae UN
+  // local —el "Lugar" de una ficha, la X de cerrarla o la celda de la Lista
+  // llevan el `lugar` del evento— o el nombre compuesto entero. Vale
+  // cualquiera de los dos. `buscado` llega ya en minúsculas y sin espacios.
+  function puntoContieneLugar(grupo, buscado) {
+    return grupo.locationName.toLowerCase() === buscado
+      || grupo.events.some(e => (e.lugar || '').toLowerCase().trim() === buscado);
+  }
+
   function updateMapMarkers(shouldFitBounds = true) {
     if (!googleMap || !markerLib) return;
 
@@ -5317,6 +5353,7 @@ const tags = [
       const locKey = `${coords[0].toFixed(4)},${coords[1].toFixed(4)}`;
       if (!locationGroups[locKey]) {
         locationGroups[locKey] = {
+          key: locKey,
           coords: { lat: coords[0], lng: coords[1] },
           locationName: item.lugar || item.localidad || 'Lugar desconocido',
           events: []
@@ -5333,6 +5370,7 @@ const tags = [
     // también avanza cronológicamente — que es justo lo que se ve en la lista.
     Object.values(locationGroups).forEach(g => {
       g.events.sort((a, b) => fechaAMs(a.fecha) - fechaAMs(b.fecha));
+      g.locationName = nombreDelPunto(g.events) || g.locationName;
     });
 
     // Auto-open side panel if loading with a ?location= parameter matching a
@@ -5371,9 +5409,7 @@ const tags = [
     if (urlView === 'mapa' && !activeSidePanelKey) {
       const matchName = (urlLocation || '').toLowerCase().trim();
       if (matchName) {
-        const matchKey = Object.keys(locationGroups).find(key => {
-          return locationGroups[key].locationName.toLowerCase() === matchName;
-        });
+        const matchKey = Object.keys(locationGroups).find(key => puntoContieneLugar(locationGroups[key], matchName));
         if (matchKey) {
           activeSidePanelKey = matchKey;
           justAutoOpened = true;
@@ -5530,6 +5566,13 @@ const tags = [
             if (window._melClosePanelHandler) window._melClosePanelHandler();
             return;
           }
+          // Pulsar un marcador es una elección del visitante: cualquier vuelta
+          // pendiente queda anulada. Hace falta porque la marca de vuelta solo
+          // se consume si `?location=` encuentra su punto, y si no lo encuentra
+          // (un local sin eventos visibles con el filtro de años) se quedaba
+          // viva y anulaba la clave activa en cada repintado: el panel se abría
+          // y se cerraba en el acto, y ningún marcador funcionaba (D-278).
+          try { sessionStorage.removeItem('mel-volviendo-al-panel'); } catch (e) {}
           activeSidePanelKey = locKey;
           // Si este marcador está pisándose con algún vecino, se acerca lo
           // justo para despejarlo (ver zoomParaDespejar) y la cámara la lleva

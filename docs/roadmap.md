@@ -175,6 +175,7 @@
 
 15. **Marcadores que muestren el nombre ENTERO cuando hay sitio** (idea del propietario, 2026-08-09). Hoy el nombre se trunca siempre a un ancho fijo (`max-width` en `.mel-marker-nombre`, D-271 bis), que es una regla ciega: recorta igual cuando el marcador está solo en mitad del mapa que cuando compite con otros cinco. La idea es que el tope **deje de aplicarse** en las dos situaciones en las que no hace falta: a partir de cierto nivel de zoom, o cuando no haya ningún otro marcador a menos de N píxeles. Los dos datos ya se calculan en el mapa —el zoom es directo y la distancia entre cajas la mide `zoomParaDespejar()` (D-271) para decidir si acercar—, así que sería reutilizar esa medición en vez de inventar otra.
    - **Queda cerrado con esto** el apunte anterior sobre las dos plazas de toros leyéndose iguales: el propietario da por buena la regla de truncar, y lo que quiere es esta mejora, no subir el número.
+   - **Gana peso con D-278**: los puntos con varios locales («Zinc / Gabanna», «Tempo Club / Sala Gravity», «Rojo Bar / Caño Santana») se recortan casi siempre, y con ellos la segunda mitad del nombre, que es la que se añadió.
 
 ---
 
