@@ -5300,3 +5300,17 @@ lo que ya no es `.unsized` (sigue cubriendo la galería que nace oculta, `?view=
 **Sin verificar**: un móvil real. Y en escritorio la 4.ª columna (`.galeria-cuatro`)
 se decide más tarde y vuelve a medir todas las tarjetas, así que ahí puede quedar un
 salto pequeño (PageSpeed mide móvil).
+
+## D-289 · El panel recuerda qué tarjeta estaba activa
+
+**Contexto**: al cerrar el resumen de un arreglo, el panel recarga la página para
+volver a auditar (`.modal-cerrar`) y al arrancar activaba siempre «Falta
+información». Quien estaba arreglando «Bajo rendimiento» tenía que volver a pulsarla
+cada vez (aviso del propietario, 30/09/2026).
+
+**Decisión**: la tarjeta activa se guarda en `sessionStorage` (`mel-panel-nivel`), con
+el mismo criterio que las secciones abiertas (`mel-panel-secciones-abiertas`): dura la
+pestaña, no es una preferencia. Al arrancar se activa la guardada, o la de nivel 1.
+
+**Verificación**: marcar «Bajo rendimiento» y recargar deja activa esa tarjeta y
+visibles solo sus secciones.

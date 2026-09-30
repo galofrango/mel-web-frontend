@@ -676,6 +676,9 @@ const tarjetas = [
     document.querySelectorAll('.tarj').forEach((t) => marcarTarjeta(t as HTMLElement, false));
     marcarTarjeta(tarj, true);
     const nivel = tarj.dataset.nivel!;
+    // Cerrar el resumen de un arreglo recarga la página (el servidor vuelve a
+    // auditar), y sin esto se volvía siempre a «Falta información».
+    try { sessionStorage.setItem(LLAVE_NIVEL, nivel); } catch { /* sin memoria */ }
 
     const cont = document.getElementById('secciones');
 
@@ -819,6 +822,8 @@ const tarjetas = [
    *  Se guarda la lista de abiertas y no un «recuerda la última»: en el panel se
    *  trabaja con dos o tres secciones a la vez. */
   const LLAVE_ABIERTAS = 'mel-panel-secciones-abiertas';
+  /** La tarjeta activa, con el mismo criterio que las secciones abiertas. */
+  const LLAVE_NIVEL = 'mel-panel-nivel';
 
   function recordarAbiertas() {
     const abiertas = Array.from(document.querySelectorAll('.sec-cab[aria-expanded="true"]'))
@@ -2011,8 +2016,12 @@ const tarjetas = [
     // por carga, reutilizando `pulsarTarjeta` en vez de duplicar su filtrado.
     // No reintroduce el conmutador de apagarla al repulsarla: esa guarda
     // (`if (tarj.dataset.activa === 'true') return;`) sigue intacta arriba.
-    const tarjNivel1 = document.querySelector('.tarj[data-nivel="1"]') as HTMLElement | null;
-    if (tarjNivel1) pulsarTarjeta(tarjNivel1);
+    // La de la última vez en esta pestaña, si la hay (ver LLAVE_NIVEL).
+    let nivelGuardado = '1';
+    try { nivelGuardado = sessionStorage.getItem(LLAVE_NIVEL) || '1'; } catch { /* sin memoria */ }
+    const tarjInicial = (document.querySelector(`.tarj[data-nivel="${CSS.escape(nivelGuardado)}"]`)
+      ?? document.querySelector('.tarj[data-nivel="1"]')) as HTMLElement | null;
+    if (tarjInicial) pulsarTarjeta(tarjInicial);
 
     // Cancela los oyentes de una inicialización anterior (vuelta a /panel con
     // el ClientRouter) antes de poner los nuevos: si no, se acumula un
