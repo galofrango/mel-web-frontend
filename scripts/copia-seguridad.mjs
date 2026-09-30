@@ -17,19 +17,26 @@
  *   node scripts/copia-seguridad.mjs                    al destino por defecto
  *   node scripts/copia-seguridad.mjs /otra/ruta         a donde le digas
  *
+ * Una sola copia que se pisa en cada pasada (D-286), no una carpeta por fecha:
+ * iCloud no da para ~125 MB por semana. Lo que se pisa es lo que no duele:
+ *   - `originales/` solo AÑADE y sobrescribe; nunca borra. Un cartel que
+ *     desaparezca de Drive sigue aquí — que es justo para lo que está la copia.
+ *   - `hoja.xlsx` pasa a `hoja-anterior.xlsx` antes de escribir la nueva: si la
+ *     hoja se estropea y la copia corre ese día, la buena sigue una pasada atrás.
+ *
  * OJO: `curl` recibe 0 bytes del endpoint de Drive y `fetch` de Node no.
  */
 
-import { mkdirSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync, statSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { SHEET_ID, fetchSheetRows, mapSheetRow } from '../src/lib/mel.ts';
 
-const DESTINO_POR_DEFECTO = '/Users/galo/Library/Mobile Documents/com~apple~CloudDocs/M.E.L.';
+const DESTINO_POR_DEFECTO = '/Users/galo/Library/Mobile Documents/com~apple~CloudDocs/M.E.L./Site Backups';
 const LOTE = 8;
 
 const base = process.argv[2] || DESTINO_POR_DEFECTO;
 const hoy = new Date().toISOString().slice(0, 10);
-const carpeta = join(base, hoy);
+const carpeta = join(base, 'copia');
 const originales = join(carpeta, 'originales');
 
 /** El id de Drive de una URL de la hoja, en cualquiera de sus dos formas. */
@@ -64,6 +71,7 @@ console.log(`Copia en ${carpeta}\n`);
 const xlsx = await fetch(`https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=xlsx`);
 if (!xlsx.ok) throw new Error(`la hoja no se pudo exportar: HTTP ${xlsx.status}`);
 const bytesHoja = Buffer.from(await xlsx.arrayBuffer());
+if (existsSync(join(carpeta, 'hoja.xlsx'))) renameSync(join(carpeta, 'hoja.xlsx'), join(carpeta, 'hoja-anterior.xlsx'));
 writeFileSync(join(carpeta, 'hoja.xlsx'), bytesHoja);
 console.log(`hoja.xlsx  ${(bytesHoja.length / 1024).toFixed(0)} KB`);
 
