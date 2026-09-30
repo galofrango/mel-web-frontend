@@ -8,8 +8,11 @@ interface Props {
 
 const { id } = Astro.props;
 ---
+<!-- `aria-label`: por debajo de `md` la palabra «Menú» se oculta y el botón se
+     queda con el icono solo, sin nombre para un lector de pantalla (D-295). -->
 <button
   id={id}
+  aria-label="Menú"
   class="flex gap-4 h-10 items-center relative bg-transparent border-none cursor-pointer group outline-none select-none text-left"
   data-node-id="Menú Item"
 >

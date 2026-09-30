@@ -45,6 +45,7 @@ const { min = 2004, max = 2019 } = Astro.props;
   <input 
     type="range" 
     id="slider-min" 
+    aria-label="Año desde"
     min={min} 
     max={max} 
     value={min} 
@@ -53,6 +54,7 @@ const { min = 2004, max = 2019 } = Astro.props;
   <input 
     type="range" 
     id="slider-max" 
+    aria-label="Año hasta"
     min={min} 
     max={max} 
     value={max} 

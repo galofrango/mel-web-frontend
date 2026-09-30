@@ -5474,3 +5474,29 @@ que lleva la versión en la carpeta. Poco peso (17 KB comprimidos); se deja así
 
 **Efecto**: ninguno en PageSpeed, que mide una primera visita. Lo nota quien vuelve:
 el navegador ya no pregunta por esos archivos.
+
+## D-295 · Accesibilidad: nombre al botón del menú y etiquetas a los deslizadores de años
+
+**Medido antes** (Lighthouse 12.8.2, producción v1.1.7, móvil): portada 84 (y 86 con el
+mapa), ficha 100, Info y Exposiciones 88. Fallos: el botón del menú sin nombre
+accesible (por debajo de `md` la palabra «Menú» se oculta y queda solo el icono; en
+todas las páginas con cabecera), los dos `<input type="range">` del deslizador de
+años sin etiqueta, el contraste del título «M.E.L.» (2,92, aparcado a propósito por el
+propietario, ver roadmap) y, en el mapa, `label-content-name-mismatch` en un marcador.
+«Falta `<main>`», que decía PageSpeed, no sale en esta versión de Lighthouse:
+`landmark-one-main` pasa.
+
+**Decisión**: `aria-label="Menú"` en `MenuItem.astro` (coincide con el texto visible en
+escritorio) y `aria-label="Año desde"` / `"Año hasta"` en los dos deslizadores de
+`TimeSlider.astro`. Nada visible cambia.
+
+**Probado y retirado**: poner la cifra en el `title` de cada marcador («Voloko (1)»,
+como su etiqueta) para el aviso del mapa. No cambió nada: Lighthouse seguía marcando
+el mismo marcador, y axe, lanzado a mano, marca los 11 marcadores del mapa aunque su
+nombre y su texto sean idénticos, con el recorte del nombre y sin él. El aviso nace
+dentro de `<gmp-advanced-marker>` de Google, no en nuestro código. Se deshizo para no
+cambiar sin motivo la etiqueta que sale al pasar el ratón.
+
+**Verificación** (build local): portada y lista **95**, Info y Exposiciones **100**;
+lo único que queda es el contraste aparcado. Menú en 375 px: tiene nombre y se abre.
+109/109 tests.
