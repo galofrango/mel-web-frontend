@@ -239,7 +239,7 @@ import Layout from '../layouts/Layout.astro';
     const scaledLineHeight = lineHeight * dpr;
 
     layerCtx.save();
-    layerCtx.font = `bold ${scaledFontSize}px "Space Grotesk", sans-serif`;
+    layerCtx.font = `bold ${scaledFontSize}px ${getComputedStyle(document.body).fontFamily}`;
     layerCtx.letterSpacing = `${-8 * dpr}px`;
     layerCtx.textAlign = 'left';
     layerCtx.textBaseline = 'top';
@@ -258,7 +258,7 @@ import Layout from '../layouts/Layout.astro';
       if (line.includes("Leonesa")) {
         const textWidth = layerCtx.measureText("Leonesa").width;
         layerCtx.save();
-        layerCtx.font = `bold ${scaledFontSize * 0.4}px "Space Grotesk", sans-serif`;
+        layerCtx.font = `bold ${scaledFontSize * 0.4}px ${getComputedStyle(document.body).fontFamily}`;
         layerCtx.fillText("®", x + textWidth + (10 * dpr), y);
         layerCtx.restore();
       }

@@ -204,6 +204,8 @@ Si detectas discrepancias entre la documentación, el código o conversaciones p
 15. **Estabilidad de la Navegación Evento → Mapa (NUNCA ALTERAR SSR/ANIMACIONES DE ESTE FLUJO):** No intentar añadir transiciones ni cambiar las clases activas de SSR al navegar desde "Lugar" en la ficha del evento a la vista de Mapa. Cambiar la vista SSR por defecto o el flujo de inicialización rompe los event listeners del panel lateral, dejándolo atascado. Conservar siempre la apertura asíncrona cliente (`populateSidePanel`) y la gestión manual del listener de cierre.
 16. **Control Estricto de Commits y Validación:** NUNCA realizar commits en Git, ni crear tags, ni dar por validado un cambio por iniciativa propia. Ningún trabajo se considera validado hasta que el usuario lo revise visualmente y dé su conformidad u orden explícita de commit.
 
+17. **Las fuentes nunca por su nombre a mano (D-284):** Space Grotesk y Lora las descarga Astro al compilar (`fonts` en `astro.config.mjs`) y las sirve desde `/_astro`. Astro les pone un sufijo con hash al nombre de familia, así que `font-family: 'Space Grotesk'` o `'Lora'` escrito a mano **no encuentra la fuente y cae a la del sistema sin avisar** (pasó con `.mel-marker-label`, las etiquetas del mapa). Usa `var(--font-sans)` / `var(--font-serif)`; en un canvas, `getComputedStyle(document.body).fontFamily`. Para una fuente nueva: añadirla a `fonts`, un `<Font>` en `Layout.astro`, y comprobar en el navegador que los textos no cambian de ancho.
+
 ---
 
 ## Qué Evitar

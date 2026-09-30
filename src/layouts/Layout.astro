@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import { ClientRouter } from 'astro:transitions';
+import { Font } from 'astro:assets';
 
 interface Props {
   title: string;
@@ -21,9 +22,11 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
     <meta name="description" content={description} />
     <title>{title} | Memoria Electrónica Leonesa</title>
     
-    <!-- Google Fonts & Maps Preconnect -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Fuentes propias (D-284): Astro las descarga al compilar y las sirve desde
+         /_astro; `preload` adelanta las del subconjunto latin. Antes eran una
+         hoja de estilos de Google (render-blocking) y dos preconnect. -->
+    <Font cssVariable="--font-space-grotesk" preload={[{ subset: 'latin' }]} />
+    <Font cssVariable="--font-lora" preload={[{ subset: 'latin' }]} />
     <link rel="preconnect" href="https://maps.googleapis.com">
     <link rel="preconnect" href="https://maps.gstatic.com" crossorigin>
     <link rel="dns-prefetch" href="https://maps.googleapis.com">
@@ -34,7 +37,6 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
          crossorigin), y un preconnect crossorigin abriría una conexión que
          esas peticiones no pueden reutilizar. -->
     <link rel="preconnect" href="https://lh3.googleusercontent.com">
-    <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
     <!-- Google Maps Platform Bootstrap Script -->
     <script is:inline>
@@ -269,7 +271,7 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
 
 <style is:global>
   body {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: var(--font-sans);
   }
 
   /* Blocks the browser's native "drag this image out" gesture site-wide,

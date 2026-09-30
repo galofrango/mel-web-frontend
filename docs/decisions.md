@@ -5072,3 +5072,31 @@ Sin expresiones regulares sobre el código. Un `/* */` con salto de línea dentr
 
 **Versión**: la subida sigue siendo 1.1.1; el visitante no nota nada.
 
+## D-284 · Las fuentes se sirven desde nuestro dominio con la API de fuentes de Astro, y no desde Google Fonts
+
+**Contexto**: `Layout.astro` pedía Lora y Space Grotesk a `fonts.googleapis.com` (hoja de estilos, bloqueante) y `fonts.gstatic.com` (los archivos), con dos `preconnect`. Eso obliga a otros dos orígenes de terceros antes de tener la letra definitiva y añade Google Fonts a lo que hay que declarar en el aviso de cookies. El propietario pidió estudiarlo (29/09/2026) y eligió la opción de la API integrada de Astro.
+
+**Qué se usa de verdad** (medido en el DOM de galería, lista, mapa, ficha e info, no leyendo el código): Space Grotesk 400, 500, 600 y 700; Lora **solo 500**; nada en cursiva. Lo que se pedía y sobraba: Space Grotesk 300, y de Lora 400, 600, 700 y toda la cursiva.
+
+**Decisión**: `fonts` en `astro.config.mjs` con `fontProviders.google()`. Astro descarga los archivos **al compilar**, los guarda en `/_astro/fonts/` con nombre único (caché inmutable de un año, como el resto de `/_astro`), genera el `@font-face` con `unicode-range` y una letra de reserva con el tamaño ajustado (`size-adjust`) para que el texto no salte al cambiar. En `Layout.astro`, `<Font cssVariable=… preload={[{ subset: 'latin' }]} />` precarga solo el subconjunto latin.
+- **Pesos**: Space Grotesk `400 700` y Lora `400 700` (Lora solo usa el 500, pero es la misma fuente variable y pesa lo mismo; así un futuro `font-bold` no se sintetiza).
+- **Subconjuntos: TODOS los que Google ofrece para cada familia** (Space Grotesk: latin, latin-ext, vietnamese; Lora: además cyrillic, cyrillic-ext, math y symbols). No cuesta nada al visitante —el navegador solo descarga el subconjunto cuyo rango de caracteres aparece en la página— y evita que un nombre de artista con un carácter raro caiga a la letra del sistema «por ahorrar unos KB». Con solo `latin` (el valor por defecto de la API) la «ū» de «Yūko» (MEL-00073) y el acento combinado de MEL-00015 habrían caído a la letra del sistema.
+- **Los nombres de familia dejan de ser `Space Grotesk` / `Lora`**: Astro les pone un sufijo con hash (`Space Grotesk-0e5abd89…`). Cualquier `font-family: 'Space Grotesk'` a mano **deja de funcionar sin avisar**. Se cambiaron: `.mel-marker-label` de `index.astro` (las etiquetas de los marcadores del mapa) y el `body` de `Layout.astro` pasan a `var(--font-sans)`; `--font-sans` y `--font-serif` de `global.css` pasan a apuntar a las variables de Astro (`--font-space-grotesk`, `--font-lora`); los canvas de `intro-v2` y `preview-v2` (laboratorio, solo en desarrollo) leen la familia de `getComputedStyle(document.body)`.
+
+**Verificación** (build de producción servido en local frente al de producción, ambos con la misma hoja):
+- Los archivos descargados son **byte a byte del mismo tamaño** que los de Google (22.320 y 37.792 bytes), así que el dibujo tiene que ser idéntico.
+- Se midieron anchura, altura y posición de **469 textos en 7 pantallas** (galería, lista, mapa, ficha MEL-00011, ficha MEL-00073 con la «ū», ficha MEL-00015 con el acento combinado, info): **0,00 px de diferencia en todos**. La galería salió distinta en posición vertical en una primera pasada (48 tarjetas) por el masonry, que mide cada tarjeta cuando carga su foto; con 6 s de espera, 0 diferencias.
+- En la página no queda ninguna petición a `fonts.googleapis.com` ni `fonts.gstatic.com` **salvo cuando se abre el mapa**: Google Maps trae por su cuenta su propia Roboto (`fonts.googleapis.com`), fuera de nuestro control.
+- Los subconjuntos raros se descargan bajo demanda: forzando la carga de la «ū» bajó `f71625cb….woff2` (latin-ext de Lora, 19,7 KB) desde `/_astro/fonts/`.
+- Coste: las 10 reglas `@font-face` van dentro de cada HTML (~+7,5 KB sin comprimir, **+1,7 KB en brotli** por página: portada 64,6 → 66,3 KB), a cambio de quitar una hoja de estilos externa bloqueante y dos conexiones a terceros. Las fuentes en disco: 224 KB, de los que el visitante baja unos 59 KB (los dos latin).
+
+- **iPhone real** (iOS 18.7, Safari 26.5, navegación privada, 29/09/2026): las dos fuentes cargan (`FontFace.load` correcto) y la frase de prueba mide 283 px, igual que en Chrome de escritorio. Al principio se vio «todo más grande y la barra Galería/Mapa/Lista se sale», pero **también salía en la versión de producción con Google Fonts** servida desde el mismo Mac: era el **tamaño de texto por sitio de Safari** (botón «Aa») guardado para `192.168.1.167`, no las fuentes. Al volver a 100 % desapareció.
+
+**Lo que NO se ha verificado**:
+- **Modo desarrollo**: comprobado el 30/09/2026 arrancando `astro dev` desde el worktree (con `lsof` se comprobó que su directorio era el correcto): las fuentes salen de `/_astro/fonts/`, sin peticiones a Google Fonts, la consola limpia, los comentarios se conservan y las cuatro páginas de laboratorio (D-281) responden 200. En desarrollo la analítica de Vercel carga un script de depuración desde `cdn.vercel-insights.com` (no cuenta nada).
+- Que el latin-ext se descargue **solo** ante la «ū» en un navegador con la pestaña visible: el navegador de pruebas está en segundo plano y no lo dispara ni con Google Fonts (comprobado con la versión de producción); forzado, funciona.
+- La ganancia de velocidad. **Punto de partida medido en PageSpeed móvil (30/09/2026, producción v1.1.1)**: rendimiento 64, FCP 2,9 s, LCP 13,6 s, CLS 0,105, Speed Index 4,9 s y «solicitudes que bloquean el renderizado: ahorro estimado 1.310 ms». Se espera modesta (se quita una petición encadenada y dos conexiones a terceros; los bytes son los mismos) y se medirá con Lighthouse antes/después. PageSpeed público no respondió (cuota).
+- Que el build de Vercel pueda descargar las fuentes (necesita salir a Google al compilar; hoy también depende de Google, pero en cada visita).
+
+**Regla nueva para el código**: nunca escribir `font-family: 'Space Grotesk'` ni `'Lora'` a mano; usar `var(--font-sans)` o `var(--font-serif)` (`AGENTS.md`, regla 17).
+

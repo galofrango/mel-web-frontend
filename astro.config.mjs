@@ -1,5 +1,5 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig, fontProviders } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import quitarComentarios from './plugins/quitar-comentarios.mjs';
 
@@ -8,6 +8,33 @@ import vercel from '@astrojs/vercel';
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
+
+  // Fuentes alojadas en nuestro dominio (D-284). Astro las descarga de Google
+  // AL COMPILAR, las guarda en /_astro con nombre único y caché de un año, y
+  // genera el @font-face con sus subconjuntos (`unicode-range`): el navegador
+  // solo baja el que necesita el texto de la página. Los pesos son los que se
+  // usan de verdad (medido el 29/09/2026): Space Grotesk 400-700 y Lora 500;
+  // Lora se declara 400-700 porque es la misma fuente variable y pesa igual.
+  fonts: [
+    {
+      provider: fontProviders.google(),
+      name: 'Space Grotesk',
+      cssVariable: '--font-space-grotesk',
+      weights: ['400 700'],
+      styles: ['normal'],
+      subsets: ['latin', 'latin-ext', 'vietnamese'],
+      fallbacks: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'sans-serif'],
+    },
+    {
+      provider: fontProviders.google(),
+      name: 'Lora',
+      cssVariable: '--font-lora',
+      weights: ['400 700'],
+      styles: ['normal'],
+      subsets: ['latin', 'latin-ext', 'vietnamese', 'cyrillic', 'cyrillic-ext', 'math', 'symbols'],
+      fallbacks: ['Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
+    },
+  ],
   vite: {
     // Producción sale sin comentarios (D-280); `astro dev` los conserva.
     plugins: [tailwindcss(), quitarComentarios()],
