@@ -168,7 +168,7 @@ a mano desde la web.
 
 ## 4. Lo que este entorno NO puede reproducir
 
-Siete cosas, y todas han costado horas por darlas por buenas:
+Ocho cosas, y todas han costado horas por darlas por buenas:
 
 1. **La barra de URL que se repliega** (Chrome/Safari móvil). Es la causa de que
    los elementos `position: fixed` se descoloquen al desplazar. Aquí no existe.
@@ -222,6 +222,16 @@ Siete cosas, y todas han costado horas por darlas por buenas:
    dev` (Astro 7) no ve los cambios del worktree (la ruta pasa por `.claude/`,
    carpeta con punto que el watcher ignora) — tras cada edición hay que
    `npx astro dev stop` y relanzar, o se prueba código rancio.
+
+8. **RTK reescribe la salida de `curl`, `wc`, `tail`, `grep`… del agente** (30/09/2026,
+   costó una falsa alarma). `curl URL > fichero` o `curl URL | node …` no guardan la
+   página: guardan un **resumen de ~10 KB** que termina con el texto literal
+   `... (N more lines, M bytes total)`. Parecía una portada cortada dentro del
+   `<head>`, en producción. **Para bajar una página entera: `curl -o fichero URL`**, y
+   medirla con `python3` (no con `wc`, que también sale resumido). Ojo: el síntoma de
+   la trampa 7 (una «carcasa» con la cabecera y sin tarjetas) se parece mucho; puede
+   que alguna de aquellas lecturas fuera esto y no la hoja saturada. Lo que sí es
+   real: con la hoja caída, la portada sale **completa pero con 0 tarjetas**.
 
 **Corolario**: si una prueba sintética dice que algo funciona y el propietario
 dice que no, **tiene razón él**. Y al revés: que aquí no se reproduzca un fallo
