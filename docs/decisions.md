@@ -5362,3 +5362,39 @@ oscuro y vuelta (reconstruye el mapa): agrupador nuevo cada vez. En el build, la
 petición sale a nuestro dominio con prioridad baja y sin unpkg.
 
 **Para actualizarla**: carpeta nueva con la versión en el nombre, nunca pisar esta.
+
+## D-292 · Los carteles se piden en WebP (`-rw`)
+
+**Contexto**: Google sirve el original **tal cual, byte a byte** cuando es más estrecho
+que el ancho pedido. En la primera pantalla eran 11 de 32 carteles, 2,6 MB de 5,1; el
+elemento LCP de PageSpeed era uno de ellos («Kne' Deep Tour», JPEG de 540×960 y 524 KB).
+Probado el 30/09/2026: con `-rw` detrás del ancho, Google devuelve WebP recomprimido
+también en ese caso (524 → 104 KB); las 32 bajan de 5,10 a 2,26 MB a `w700` y de 7,50 a
+3,07 MB a `w1000`. Con `-rw-l90` se sube la calidad (~+45 % de peso). Los GIF no los
+convierte.
+
+**Decisión del propietario**: tras comparar a ciegas, a ×4, seis carteles en tres
+versiones (JPEG de hoy, WebP, WebP calidad 90), solo notó diferencias mínimas en los
+fondos rojos, imperceptibles para otra persona y sin afectar a la lectura. Eligió la
+compresión mayor (`-rw` sin `-l`) porque el archivo sigue creciendo y el peso importa.
+**Si algún día se ven mal, se revisa** (la salida es `-rw-l90`, en una línea).
+
+**Cambio**: `extractDriveImage()` en `mel.ts` y su gemelo de `index.astro` (regla 7)
+añaden `-rw`. Todo lo demás (galería, ficha, lista, panel) pasa por ahí. `-rw` es tan
+poco documentado como el propio endpoint `lh3` (D-258); la respuesta mantiene
+`private, max-age=86400`.
+
+**Dos fallos de D-258 que salieron al revisar quién toca esas URL**: dos reemplazos
+seguían buscando `sz=w`, el formato anterior, y desde agosto no cambiaban nada:
+- En la ficha, en móvil, tocar el cartel lo abre como imagen suelta para ampliarlo, y
+  debía pedirlo a 2000 px: se abría a 1000. Ahora `=w\d+` → `=w2000`.
+- En el panel, las miniaturas de los modales debían agrandarse a 1000: salían a 200
+  estiradas. Mismo arreglo.
+
+**Verificación**: test de `srcSetDrive` actualizado primero (falló) y luego verde,
+109/109. Build con D-288 a D-292, Lighthouse, 3 pasadas: Rendimiento **79 / 81 / 81**
+(producción: 63–64), LCP **4,8–5,2 s** (10,8–13,6), CLS 0,002, FCP 2,0 s (2,2), peso
+**2,5 MB** (5,7); los 32 carteles llegan como `image/webp` (2,2 MB).
+
+**Sin verificar**: Safari en iPhone (WebP lo soporta desde iOS 14) y si la
+prevención de rastreo trata distinto estas URL (roadmap, problema 12).

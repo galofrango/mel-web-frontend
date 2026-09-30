@@ -107,6 +107,14 @@ export async function fetchSheetRows(sheet?: string): Promise<any[]> {
  * ~679 KB de media por cartel (el peor del archivo, 2 MB) para pintarlo en una
  * tarjeta de 342px o, peor, en una miniatura de 56px.
  *
+ * `-rw` = que Google la devuelva recomprimida en WebP (D-292). Sin él, un
+ * original más estrecho que `ancho` llegaba TAL CUAL, byte a byte: 11 de las 32
+ * tarjetas de la primera pantalla, 2,6 MB (un JPEG de 540×960 pesaba 524 KB; en
+ * WebP, 104). Las 32 bajan de 5,1 a 2,3 MB. El propietario comparó a ciegas a
+ * máximo zoom y eligió esta compresión: solo notó diferencias mínimas en fondos
+ * rojos. Si se quiere más calidad, `-rw-l90` (~+45 % de peso). Los GIF no los
+ * convierte: llegan enteros igual.
+ *
  * Devuelve '' si no hay URL o no se reconoce el id.
  */
 export function extractDriveImage(url?: string, ancho = 1000): string {
@@ -117,7 +125,7 @@ export function extractDriveImage(url?: string, ancho = 1000): string {
   } else if (url.includes('/d/')) {
     fileId = url.split('/d/')[1].split('/')[0];
   }
-  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}` : '';
+  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}-rw` : '';
 }
 
 /**

@@ -1566,7 +1566,8 @@ const tarjetas = [
    *  tabla se piden a 200px porque ahí se ven a 40, pero los modales las
    *  enseñan a 400 y salían al doble de su tamaño real — pixeladas. Drive
    *  sirve el tamaño que se le pida en la URL, así que basta con cambiarlo. */
-  const enGrande = (src) => String(src || '').replace(/([?&]sz=w)\d+/, '$11000');
+  // Buscaba `sz=w`, el formato anterior a D-258: desde agosto no agrandaba nada.
+  const enGrande = (src) => String(src || '').replace(/=w\d+/, '=w1000');
 
   /** «JPG» y «jpeg» son lo mismo —la extensión de tres letras viene de cuando
    *  los nombres de fichero no admitían más— pero enseñar las dos formas en la

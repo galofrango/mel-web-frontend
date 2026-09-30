@@ -1695,7 +1695,8 @@ const tags = [
     } else if (url.includes('/d/')) {
       fileId = url.split('/d/')[1].split('/')[0];
     }
-    return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}` : '';
+    // `-rw`: en WebP (D-292), igual que la fuente de verdad.
+    return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}-rw` : '';
   }
 
   // Escapa HTML para insertarlo de forma segura en innerHTML — usado por

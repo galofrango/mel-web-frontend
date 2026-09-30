@@ -99,8 +99,8 @@ test('un año imposible también invalida la fecha', () => {
 
 test('el srcset ofrece la misma imagen a varios anchos', () => {
   const s = srcSetDrive('https://drive.google.com/file/d/ABC/view', [700, 1400]);
-  // Endpoint directo lh3 desde D-258; el test seguía esperando el redirect viejo.
-  assert.equal(s, 'https://lh3.googleusercontent.com/d/ABC=w700 700w, https://lh3.googleusercontent.com/d/ABC=w1400 1400w');
+  // Endpoint directo lh3 desde D-258, y en WebP (`-rw`) desde D-292.
+  assert.equal(s, 'https://lh3.googleusercontent.com/d/ABC=w700-rw 700w, https://lh3.googleusercontent.com/d/ABC=w1400-rw 1400w');
 });
 
 test('sin URL de Drive no se inventa un srcset', () => {

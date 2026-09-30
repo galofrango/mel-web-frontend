@@ -1398,7 +1398,9 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
           // elemento. Se pide a Drive un tamaño mayor que el de la ficha: es
           // una vista para mirar de cerca, y a w1000 no habría nada que ampliar.
           if (raizPagina.scrollTop <= 0) {
-            const url = (imageUrls[currentIndex] || '').replace(/sz=w\d+/, 'sz=w2000');
+            // `=w1000-rw` → `=w2000-rw`. Buscaba `sz=w`, el formato anterior a
+            // D-258, así que desde agosto no cambiaba nada y se abría a 1000 (D-292).
+            const url = (imageUrls[currentIndex] || '').replace(/=w\d+/, '=w2000');
             if (url) window.open(url, '_blank', 'noopener,noreferrer');
             return;
           }
