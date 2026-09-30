@@ -34,11 +34,26 @@ llegan con orientación normal.
 
 ### JPEG y no PNG — esto es lo más importante
 
-**La web nunca sirve el fichero original.** Todo pasa por el generador de
-miniaturas de Google (`lh3.googleusercontent.com/d/ID=w700` desde D-258; es el
-mismo generador al que `drive.google.com/thumbnail` redirigía), que redimensiona
-al vuelo. Pero **conserva el formato**: si subes un PNG, el visitante descarga un
-PNG a cualquier tamaño.
+> **Desde D-292 (30/09/2026) la web pide las imágenes en WebP** (`-rw` al final de
+> la URL). Google recomprime entonces **todo lo que no sea GIF**: ni los PNG ni los
+> originales pequeños llegan ya tal cual al visitante, y la primera pantalla bajó de
+> 5,1 a 2,3 MB. Lo que sigue explica cómo era antes y por qué las reglas siguen
+> valiendo: el original es la copia de preservación del archivo, y un GIF sigue
+> llegando entero.
+
+Todo pasa por el generador de miniaturas de Google
+(`lh3.googleusercontent.com/d/ID=w700` desde D-258; es el mismo generador al que
+`drive.google.com/thumbnail` redirigía), que redimensiona al vuelo. Pero **conserva
+el formato**: si subes un PNG, el visitante descarga un PNG a cualquier tamaño.
+
+**Y a veces sirve el fichero original tal cual.** Si el ancho que se pide es igual
+o mayor que el del original, Google no lo toca: devuelve **el mismo fichero, byte a
+byte**. No es solo al ampliar: la galería pide `w700`, así que **cualquier cartel de
+700 px de ancho o menos llega entero a la galería**. Medido el 30/09/2026: 11 de las
+32 tarjetas de la primera pantalla (2,6 MB de 5,1), entre ellas un JPEG de 540×960
+que pesaba 524 KB. Y los **GIF llegan siempre enteros**, a cualquier ancho (uno de
+500×500 pesaba 14,4 MB y se descargaba al abrir su ficha). Por eso, en un original
+pequeño, el peso **sí** importa (ver «Por qué el peso importa poco», abajo).
 
 Medido en este archivo (84 imágenes, julio 2026):
 
@@ -121,14 +136,15 @@ para la que se piensa, pero **lo único que cambia en el fichero es el recuento 
 píxeles**. Así que en vez de pensar «lo exporto a @2x», piensa «necesito que el
 lado largo tenga 2000–2400».
 
-**En este sitio, además, tú no sirves el original.** Todo pasa por el
-redimensionador de Drive, que sirve el ancho que se le pida en la URL:
+**En este sitio, además, casi nunca se sirve el original.** Todo pasa por el
+redimensionador de Drive, que sirve el ancho que se le pida en la URL (salvo que el
+original sea más estrecho: entonces lo sirve tal cual, ver «JPEG y no PNG»):
 
 | dónde | se pide | hueco en pantalla |
 |---|---|---|
-| Tarjeta de galería | `sz=w700` | ~390 CSS → sobra para 1,8× |
-| Miniatura de lista | `sz=w200` | 56 CSS → de sobra |
-| Ficha y visor | `sz=w1000` | hasta 496 CSS → 2× justo |
+| Tarjeta de galería | `=w700` (o `=w1000` en pantallas 3×) | ~390 CSS → sobra para 1,8× |
+| Miniatura de lista | `=w200` | 56 CSS → de sobra |
+| Ficha y visor | de `=w1000` a `=w2000` | hasta 496 CSS → 2× justo |
 
 Por eso el original tiene que ser grande aunque el visitante nunca lo descargue:
 **Drive no puede servir píxeles que el original no tenga.** Si subes 800, la
@@ -225,17 +241,25 @@ La caja de imagen de la ficha se ajusta a la proporción del cartel, así que
 **cualquier margen blanco del escaneo se convierte en hueco desperdiciado** en
 pantalla. Antes daba igual porque la caja era de alto fijo; ahora no.
 
-### Por qué el peso no importa
+### Por qué el peso importa poco (con una excepción)
 
-Lo que descarga el visitante lo decide Drive al redimensionar, no tu fichero. El
-original es la copia de preservación: que esté bien de dimensiones y de formato
-importa; que pese 800 KB o 1,4 MB, no.
+En un cartel **grande** (más ancho que lo que se pide, 700 en la galería y hasta 2000
+en la ficha), lo que descarga el visitante lo decide Drive al redimensionar, no tu
+fichero. El original es la copia de preservación: que esté bien de dimensiones y de
+formato importa; que pese 800 KB o 1,4 MB, no.
+
+**La excepción eran los originales pequeños** (hasta D-292, que pide WebP y los
+recomprime): Drive los servía tal cual (ver «JPEG y no PNG», arriba), así que su
+peso era exactamente lo que se descargaba (un JPEG de 540×960 llegaba con sus 524
+KB; en WebP son 104). **La que queda es el GIF**: no se reduce ni se convierte
+nunca, a ningún ancho.
 
 ---
 
 ## Lo que NO hay que hacer
 
 - **No subir PNG** de material escaneado o fotografiado
+- **No subir GIF**: Drive no los reduce y llegan enteros al visitante
 - **No ampliar** un original pequeño antes de subirlo. No añade información y
   engaña sobre la calidad real que hay
 - **No pasar de ~3000px** de lado mayor: no lo muestra nada
