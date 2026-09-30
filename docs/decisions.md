@@ -5398,3 +5398,49 @@ seguían buscando `sz=w`, el formato anterior, y desde agosto no cambiaban nada:
 
 **Sin verificar**: Safari en iPhone (WebP lo soporta desde iOS 14) y si la
 prevención de rastreo trata distinto estas URL (roadmap, problema 12).
+
+## D-293 · La cabecera de la portada se decide antes de pintar (CLS de escritorio)
+
+**Contexto**: tras D-288, en escritorio seguía un salto de **CLS 0,435** (Lighthouse,
+1350 px, producción v1.1.5), que ya existía antes (medido quitando D-288 al vuelo: el
+mismo 0,435). Con Chrome sin pantalla y el JavaScript apagado se vio la causa: el
+servidor pinta la fila de etiquetas (Eventos, Artistas…) a su ancho natural, 1182 px,
+más que la barra (1134). El selector Galería/Mapa/Lista cae a un segundo renglón y la
+galería queda en 3 columnas. Después `updateHomeToolbarLayout()` (en `initHomePage`,
+tras `astro:page-load`) mide, reparte las etiquetas en 748 px, sube el selector a su
+renglón y enciende `.galeria-cuatro`: la cabecera pierde 80 px y la galería sube y
+cambia de columnas delante del visitante. Salía entre 0,25 y 0,43 en 1280, 1350, 1366,
+1600 y 1920 px, según el momento del primer pintado. El deslizador de años no se
+mueve (y=135 en los dos casos).
+
+**Decisión**: la misma solución que D-288. `updateAdaptiveTagsRow()` y la decisión de
+la cabecera (antes `updateHomeToolbarLayout`, ahora `decidirCabecera`) se **mueven
+sin cambiar su lógica** al script en línea de detrás de `#gallery-grid`, junto con el
+dimensionado de tarjetas (`dimensionar`, antes el cuerpo de `sizeGalleryCard`).
+Allí se ejecutan una vez antes de pintar, en este orden: primero la cabecera (que
+decide 3 o 4 columnas) y luego el alto de las tarjetas. Se publican en `window`
+(`__melTagsAdaptativas`, `__melDecidirCabecera`, `__melSizeGalleryCard`,
+`__melSpanTarjeta`), y en el script grande quedan tres funciones de una línea con los
+nombres de siempre que llaman a esas, así que ninguna llamada existente cambia: la
+carga, el cambio de tamaño, `document.fonts.ready`, «sin resultados» y el panel del
+mapa. Comprobado con un script que el código movido es idéntico al original salvo el
+nombre de la función y la llamada al dimensionado.
+
+**Descartado**: dar a la cabecera un estado inicial por CSS con un corte por ancho de
+ventana. Solo es seguro a partir de ~1430 px (donde el cálculo garantiza que todo cabe
+en una fila sean cuales sean los datos), así que habría dejado el salto entre 1250 y
+1430 px, que incluye los portátiles de 1366 y el propio PageSpeed (1350). Y el
+propietario ya había dejado escrito que esa decisión no debe colgar de un corte fijo.
+
+**Verificación**:
+- CLS en 12 anchos, de 1024 a 1920 px (Chrome sin pantalla): **0 en todos**; antes,
+  hasta 0,43. El estado final (selector en la fila, 4 columnas desde 1250 px) es
+  idéntico al de antes.
+- Lighthouse, build local, escritorio: **96 / 98 / 97**, CLS 0 (producción: 75–79).
+  Móvil: 79–80, CLS 0 (sin cambio).
+- Ventana de 1350 a 1100 y a 1440: el selector baja y sube, y la galería pasa a 3 y a
+  4 columnas como antes. «Sin resultados», etiquetas del panel del mapa, móvil a
+  375 px, y galería → ficha → vuelta: igual que antes y sin errores en la consola.
+- 109/109 tests.
+
+**Sin verificar**: un navegador real con ratón, y Safari de escritorio.

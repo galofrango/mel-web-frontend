@@ -374,7 +374,14 @@ const tags = [
              de PageSpeed (0,18–0,30; medido con la traza de Lighthouse, D-288).
              No engancha oyentes (regla 1): solo pone alturas, y
              `dimensionarConocidas()` se salta las que ya no son `.unsized`.
-             La fórmula vive SOLO aquí; `sizeGalleryCard()` la usa. -->
+             La fórmula vive SOLO aquí; `sizeGalleryCard()` la usa.
+             Y antes que las tarjetas, la CABECERA (D-293): en escritorio el
+             servidor pinta las etiquetas a su ancho natural, el selector cae a
+             un segundo renglón y la galería a 3 columnas; al medir, todo subía
+             80 px y pasaba a 4 columnas delante del visitante (CLS 0,43 a
+             1350 px). Por eso `updateAdaptiveTagsRow` y la decisión de la
+             cabecera viven aquí, publicadas en `window` para el script grande,
+             que las sigue llamando al cargar, al redimensionar y con las fuentes. -->
         <script is:inline>
           (() => {
             // Filas de 4px (`auto-rows-[4px]` de la rejilla) y hueco de 24px, que
@@ -384,16 +391,208 @@ const tags = [
             // era L) se movió la clase, no el número.
             const FILA = 4;
             const HUECO = 24;
-            window.__melSpanTarjeta = (ancho, ratio) => Math.max(1, Math.round((ancho / ratio + HUECO) / FILA));
+            const span = (ancho, ratio) => Math.max(1, Math.round((ancho / ratio + HUECO) / FILA));
+
+            // Fija el row-span de una tarjeta a partir de su proporción y el ancho
+            // de columna. `width` es opcional (una pasada lee el ancho una sola
+            // vez: todas las columnas miden lo mismo).
+            function dimensionar(card, width) {
+              const ratio = parseFloat(card.dataset.ratio);
+              const w = width || card.clientWidth;
+              if (!ratio || !w) return;
+              card.style.gridRowEnd = 'span ' + span(w, ratio);
+              card.classList.remove('unsized');
+            }
+
+            // Adaptive TagWithLink row (D-059/D-060): decides between the "equal
+            // width" grid mode (default, Figma 341:26425 — every highlight-unit the
+            // same width) and the "content-sized" flex fallback (each unit hugs its
+            // own content, row bleeds+scrolls right) by REAL measurement, not a
+            // fixed breakpoint. Generic over the number of units (the CSS uses
+            // grid-auto-columns, not a hardcoded column count) and over whether the
+            // row shares its line with another element (a Toggle, say) via
+            // `opts.getReservedWidth` — pass it when there's a sibling to negotiate
+            // space with, omit it for a row that's always alone (event detail tags,
+            // map side panel). Duplicated by hand into event/[id].astro's own
+            // <script> (AGENTS.md rule 7 — no shared client JS module system here).
+            const ADAPTIVE_ROW_GAP = 32; // between highlight-units, in either mode
+
+            function updateAdaptiveTagsRow(rowId, opts = {}) {
+              const row = document.getElementById(rowId);
+              if (!row) return;
+              const container = opts.containerId ? document.getElementById(opts.containerId) : row.parentElement;
+              if (!container) return;
+
+              // 1. Force content-sized mode first — this is the only state in which
+              // each highlight-unit's rendered width reliably reflects its own
+              // natural (max-content) size, unaffected by any grid-equal sizing
+              // this function may have applied on an earlier tick.
+              row.classList.remove('highlights-grid-equal');
+              row.classList.add('highlights-flex-content');
+              row.style.width = '';
+
+              const units = [...row.querySelectorAll('.highlight-unit')];
+              if (!units.length) return;
+              const naturalWidths = units.map(u => u.getBoundingClientRect().width);
+              const maxNatural = Math.max(...naturalWidths);
+              // Hard cap per highlight-unit is 176px (D-061 / global.css). The bar for
+              // the share test skips any unit whose value is ALREADY ellipsised at that
+              // cap: such a unit renders cut in BOTH modes, so letting it set the bar
+              // only blocked the equal layout for the whole row and left dead space at
+              // the right in exchange for nothing (D-099). The test is the value's own
+              // overflow, not "is it 176px wide" — a unit that happens to measure 175.9
+              // and fits perfectly must still count, and a width comparison with a
+              // tolerance gets that wrong in one direction or the other.
+              const stillFits = units.filter(u => {
+                const val = u.querySelector('.tag-count-val');
+                return !val || val.scrollWidth <= val.clientWidth + 1;
+              }).map(u => u.getBoundingClientRect().width);
+              const barAlone = stillFits.length ? Math.max(...stillFits) : Math.min(maxNatural, 176);
+              // Sharing a line is the asymmetric case: guessing "yes" wrongly bumps the
+              // Toggle onto a second line (D-091, a real bug), while guessing wrongly
+              // when alone costs nothing but a slightly narrower column. So the sharing
+              // branch keeps the conservative bar — which also closes the window where
+              // fallback fonts make SOME units overflow and not others, dropping the
+              // bar mid-load only to raise it again on fonts.ready.
+              const effectiveMaxNatural = Math.min(maxNatural, 176);
+              // Content width, not border box: some of these containers carry their own
+              // side padding (the map side panel's is px-6/sm:px-12/lg:px-6), and the
+              // border box hands the row up to 96px it does not have — it would go
+              // equal-width on a share that does not exist and overflow the columns.
+              const cs = getComputedStyle(container);
+              const containerWidth = container.clientWidth
+                - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+
+              // 2. Would an equal share still fit each unit's own content if the
+              // row shares its line with whatever opts.getReservedWidth() reserves
+              // (e.g. a Toggle + the gap to it)? Skipped entirely when there's
+              // nothing to share with (reserved === 0) — falls straight through to
+              // the "alone" check below, which is then just the same math against
+              // the row's own full container width.
+              const reserved = opts.getReservedWidth ? opts.getReservedWidth(containerWidth) : 0;
+              if (reserved > 0) {
+                const spaceIfSharing = containerWidth - reserved;
+                const equalShareIfSharing = (spaceIfSharing - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
+                if (equalShareIfSharing >= effectiveMaxNatural) {
+                  row.classList.remove('highlights-flex-content');
+                  row.classList.add('highlights-grid-equal');
+                  row.style.width = `${spaceIfSharing}px`;
+                  return true;
+                }
+              }
+
+              // 3. Sharing doesn't work (or there's nothing to share with) — would
+              // an equal share of the FULL container width work once any sibling
+              // has wrapped away (native flex-wrap resolves that on its own, purely
+              // from the row's rendered width no longer leaving it room)?
+              const equalShareAlone = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
+              if (equalShareAlone >= barAlone) {
+                row.classList.remove('highlights-flex-content');
+                row.classList.add('highlights-grid-equal');
+                row.style.width = '100%';
+                return false;
+              }
+
+              // 4. Neither fits — stay in content-sized mode (already applied in
+              // step 1): each unit keeps its own natural width, and the row bleeds
+              // + scrolls past the right edge instead of compressing anything
+              // unreadable.
+              return false;
+            }
+
+            // Home toolbar specifically: the Toggle's own target width if it had
+            // room is capped at 4/12 grid columns (same formula as the map side
+            // panel, D-026 — 4 cols with a 24px gap out of 12 cols/11 gaps total,
+            // hence -264/3+72), but never below its 320px floor even when that
+            // exceeds the cap — and that cap ONLY applies while it's actually
+            // sharing the line with the tags row (toggled via .toggle-shares-line):
+            // once it wraps onto its own line, it should fill the FULL width
+            // instead, same padding as everything else on the page (the propietario
+            // was explicit about this), which is exactly what plain `grow` already
+            // gives it once nothing is competing for space on that line.
+            function decidirCabecera() {
+              const toolbar = document.getElementById('home-highlights-toolbar');
+              const toggleWrapper = document.getElementById('home-toggle-wrapper');
+              if (!toolbar || !toggleWrapper) return;
+              const toggleOculto = toggleWrapper.classList.contains('hidden');
+              const isSharing = updateAdaptiveTagsRow('home-highlights-tags', {
+                containerId: 'home-highlights-toolbar',
+                getReservedWidth: (toolbarWidth) => {
+                  if (toggleOculto) return 0;   // sin selector, el renglón es entero para las tags
+                  const fourColWidth = (toolbarWidth - 264) / 3 + 72;
+                  const toggleWidth = Math.max(320, fourColWidth);
+                  return toggleWidth + 24; // + the row↔Toggle gap
+                },
+              });
+              toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
+
+              // El cálculo puede decir que caben y el navegador plegarlos igualmente.
+              // El hueco reservado se calcula clavado, sin holgura: hay anchos en los
+              // que tags + hueco + selector suman EXACTAMENTE el ancho disponible
+              // (medido a 1190: 630 + 24 + 320 = 974) y el redondeo de subpíxel basta
+              // para que `flex-wrap` se lo lleve abajo. Cuando pasaba eso, el selector
+              // quedaba plegado PERO con su tope de ancho puesto: abajo y estrecho, que
+              // es lo peor de las dos opciones. El propietario lo cazó entre 1170 y 1215.
+              //
+              // En vez de afinar la fórmula, se comprueba el resultado REAL: si han
+              // acabado en renglones distintos, se le quita el tope y ocupa el ancho
+              // entero, que es lo que debe hacer al plegarse. No oscila: sin tope el
+              // selector es más ancho todavía, así que sigue plegado.
+              const filaTags = document.getElementById('home-highlights-tags');
+              let comparteDeVerdad = isSharing;
+              if (isSharing && filaTags) {
+                const plegado = Math.abs(toggleWrapper.getBoundingClientRect().top - filaTags.getBoundingClientRect().top) > 4;
+                if (plegado) {
+                  toggleWrapper.classList.remove('toggle-shares-line');
+                  comparteDeVerdad = false;
+                  // Y las tags se recalculan SIN reserva. Se habían repartido dejando
+                  // hueco para un selector que ya no está en su renglón, así que se
+                  // quedaban apretadas a la izquierda con el resto de la línea vacío
+                  // (el propietario lo vio entre 1170 y 1260). Cuando algo se pliega a
+                  // su propia línea, cada línea usa el ancho entero: es el mismo caso
+                  // que cuando el selector está oculto, y se resuelve igual.
+                  updateAdaptiveTagsRow('home-highlights-tags', {
+                    containerId: 'home-highlights-toolbar',
+                    getReservedWidth: () => 0,
+                  });
+                }
+              }
+
+              // La galería pasa a cuatro columnas en el mismo momento. Se cuelga de si
+              // comparten renglón DE VERDAD, no de si el cálculo decía que cabían: a
+              // 1190 el selector está plegado, así que allí tocan tres columnas.
+              // Se hace aquí y no con un `:has()` en CSS porque al cambiar el ancho de
+              // columna TODOS los row-span quedan viejos (regla 11): hay que volver a
+              // medirlos, y así el remedido va enganchado al cambio y no a que alguien
+              // se acuerde.
+              const rejilla = document.getElementById('gallery-grid');
+              if (rejilla && rejilla.classList.contains('galeria-cuatro') !== comparteDeVerdad) {
+                rejilla.classList.toggle('galeria-cuatro', comparteDeVerdad);
+                const primera = rejilla.querySelector('.gallery-item');
+                const ancho = primera ? primera.clientWidth : 0;
+                if (ancho) rejilla.querySelectorAll('.gallery-item').forEach(c => dimensionar(c, ancho));
+              }
+            }
+
+            // Lo usa el script grande de la página (sizeGalleryCard,
+            // updateAdaptiveTagsRow, updateHomeToolbarLayout). Se publica ANTES de
+            // intentar nada, para que un fallo de abajo no deje la página sin ellas.
+            window.__melSpanTarjeta = span;
+            window.__melSizeGalleryCard = dimensionar;
+            window.__melTagsAdaptativas = updateAdaptiveTagsRow;
+            window.__melDecidirCabecera = decidirCabecera;
+
+            // Antes del primer pintado, y en este orden: la cabecera decide si
+            // la galería va a 3 o 4 columnas (D-293), y con ese ancho ya se
+            // puede dar a cada tarjeta su alto (D-288). El script grande repite
+            // las dos cosas en `astro:page-load`; aquí solo se adelantan.
+            try { decidirCabecera(); } catch (e) { /* lo rehará initHomePage */ }
             const tarjetas = document.querySelectorAll('#gallery-grid > .gallery-item.unsized[data-ratio]');
             // Con la galería oculta (entrar por ?view=mapa) mide 0: ya lo hará
             // `dimensionarConocidas()` al enseñarla.
             const ancho = tarjetas[0] && tarjetas[0].clientWidth;
             if (!ancho) return;
-            tarjetas.forEach((t) => {
-              t.style.gridRowEnd = 'span ' + window.__melSpanTarjeta(ancho, parseFloat(t.dataset.ratio));
-              t.classList.remove('unsized');
-            });
+            tarjetas.forEach((t) => dimensionar(t, ancho));
           })();
         </script>
         <!-- Centinela del scroll infinito: cuando entra en el margen de
@@ -1859,11 +2058,7 @@ const tags = [
   // ancho de columna actual. `width` es opcional (una pasada de resize lo
   // lee una sola vez: todas las columnas miden lo mismo).
   function sizeGalleryCard(card, width) {
-    const ratio = parseFloat(card.dataset.ratio);
-    const w = width || card.clientWidth;
-    if (!ratio || !w) return;
-    card.style.gridRowEnd = 'span ' + window.__melSpanTarjeta(w, ratio);
-    card.classList.remove('unsized');
+    window.__melSizeGalleryCard(card, width);
   }
 
   // Precarga con margen amplio (D-270).
@@ -5789,100 +5984,12 @@ const tags = [
   // -------------------------------------------------------
   // initHomePage — re-runs on every astro:page-load
   // -------------------------------------------------------
-  // Adaptive TagWithLink row (D-059/D-060): decides between the "equal
-  // width" grid mode (default, Figma 341:26425 — every highlight-unit the
-  // same width) and the "content-sized" flex fallback (each unit hugs its
-  // own content, row bleeds+scrolls right) by REAL measurement, not a
-  // fixed breakpoint. Generic over the number of units (the CSS uses
-  // grid-auto-columns, not a hardcoded column count) and over whether the
-  // row shares its line with another element (a Toggle, say) via
-  // `opts.getReservedWidth` — pass it when there's a sibling to negotiate
-  // space with, omit it for a row that's always alone (event detail tags,
-  // map side panel). Duplicated by hand into event/[id].astro's own
-  // <script> (AGENTS.md rule 7 — no shared client JS module system here).
-  const ADAPTIVE_ROW_GAP = 32; // between highlight-units, in either mode
-
-  function updateAdaptiveTagsRow(rowId, opts = {}) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-    const container = opts.containerId ? document.getElementById(opts.containerId) : row.parentElement;
-    if (!container) return;
-
-    // 1. Force content-sized mode first — this is the only state in which
-    // each highlight-unit's rendered width reliably reflects its own
-    // natural (max-content) size, unaffected by any grid-equal sizing
-    // this function may have applied on an earlier tick.
-    row.classList.remove('highlights-grid-equal');
-    row.classList.add('highlights-flex-content');
-    row.style.width = '';
-
-    const units = [...row.querySelectorAll('.highlight-unit')];
-    if (!units.length) return;
-    const naturalWidths = units.map(u => u.getBoundingClientRect().width);
-    const maxNatural = Math.max(...naturalWidths);
-    // Hard cap per highlight-unit is 176px (D-061 / global.css). The bar for
-    // the share test skips any unit whose value is ALREADY ellipsised at that
-    // cap: such a unit renders cut in BOTH modes, so letting it set the bar
-    // only blocked the equal layout for the whole row and left dead space at
-    // the right in exchange for nothing (D-099). The test is the value's own
-    // overflow, not "is it 176px wide" — a unit that happens to measure 175.9
-    // and fits perfectly must still count, and a width comparison with a
-    // tolerance gets that wrong in one direction or the other.
-    const stillFits = units.filter(u => {
-      const val = u.querySelector('.tag-count-val');
-      return !val || val.scrollWidth <= val.clientWidth + 1;
-    }).map(u => u.getBoundingClientRect().width);
-    const barAlone = stillFits.length ? Math.max(...stillFits) : Math.min(maxNatural, 176);
-    // Sharing a line is the asymmetric case: guessing "yes" wrongly bumps the
-    // Toggle onto a second line (D-091, a real bug), while guessing wrongly
-    // when alone costs nothing but a slightly narrower column. So the sharing
-    // branch keeps the conservative bar — which also closes the window where
-    // fallback fonts make SOME units overflow and not others, dropping the
-    // bar mid-load only to raise it again on fonts.ready.
-    const effectiveMaxNatural = Math.min(maxNatural, 176);
-    // Content width, not border box: some of these containers carry their own
-    // side padding (the map side panel's is px-6/sm:px-12/lg:px-6), and the
-    // border box hands the row up to 96px it does not have — it would go
-    // equal-width on a share that does not exist and overflow the columns.
-    const cs = getComputedStyle(container);
-    const containerWidth = container.clientWidth
-      - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-
-    // 2. Would an equal share still fit each unit's own content if the
-    // row shares its line with whatever opts.getReservedWidth() reserves
-    // (e.g. a Toggle + the gap to it)? Skipped entirely when there's
-    // nothing to share with (reserved === 0) — falls straight through to
-    // the "alone" check below, which is then just the same math against
-    // the row's own full container width.
-    const reserved = opts.getReservedWidth ? opts.getReservedWidth(containerWidth) : 0;
-    if (reserved > 0) {
-      const spaceIfSharing = containerWidth - reserved;
-      const equalShareIfSharing = (spaceIfSharing - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
-      if (equalShareIfSharing >= effectiveMaxNatural) {
-        row.classList.remove('highlights-flex-content');
-        row.classList.add('highlights-grid-equal');
-        row.style.width = `${spaceIfSharing}px`;
-        return true;
-      }
-    }
-
-    // 3. Sharing doesn't work (or there's nothing to share with) — would
-    // an equal share of the FULL container width work once any sibling
-    // has wrapped away (native flex-wrap resolves that on its own, purely
-    // from the row's rendered width no longer leaving it room)?
-    const equalShareAlone = (containerWidth - ADAPTIVE_ROW_GAP * (units.length - 1)) / units.length;
-    if (equalShareAlone >= barAlone) {
-      row.classList.remove('highlights-flex-content');
-      row.classList.add('highlights-grid-equal');
-      row.style.width = '100%';
-      return false;
-    }
-
-    // 4. Neither fits — stay in content-sized mode (already applied in
-    // step 1): each unit keeps its own natural width, and the row bleeds
-    // + scrolls past the right edge instead of compressing anything
-    // unreadable.
-    return false;
+  // La fila de etiquetas adaptable vive en el script en línea de detrás de
+  // `#gallery-grid` (D-293), para que la cabecera se decida ANTES de pintar.
+  // Aquí queda el nombre de siempre, que es el que llaman el panel del mapa y
+  // la cabecera.
+  function updateAdaptiveTagsRow(rowId, opts) {
+    return window.__melTagsAdaptativas(rowId, opts);
   }
 
   function initHomePage() {
@@ -6002,78 +6109,12 @@ const tags = [
       });
     }, { signal: wSig });
 
-    // Home toolbar specifically: the Toggle's own target width if it had
-    // room is capped at 4/12 grid columns (same formula as the map side
-    // panel, D-026 — 4 cols with a 24px gap out of 12 cols/11 gaps total,
-    // hence -264/3+72), but never below its 320px floor even when that
-    // exceeds the cap — and that cap ONLY applies while it's actually
-    // sharing the line with the tags row (toggled via .toggle-shares-line):
-    // once it wraps onto its own line, it should fill the FULL width
-    // instead, same padding as everything else on the page (the propietario
-    // was explicit about this), which is exactly what plain `grow` already
-    // gives it once nothing is competing for space on that line.
+    // La decisión de la cabecera (selector en el renglón de las etiquetas, y
+    // con ella la 4.ª columna) vive en el script en línea de detrás de
+    // `#gallery-grid` (D-293): allí corre una vez antes de pintar, y aquí se
+    // repite en cada carga, al cambiar el tamaño y cuando llegan las fuentes.
     function updateHomeToolbarLayout() {
-      const toolbar = document.getElementById('home-highlights-toolbar');
-      const toggleWrapper = document.getElementById('home-toggle-wrapper');
-      if (!toolbar || !toggleWrapper) return;
-      const toggleOculto = toggleWrapper.classList.contains('hidden');
-      const isSharing = updateAdaptiveTagsRow('home-highlights-tags', {
-        containerId: 'home-highlights-toolbar',
-        getReservedWidth: (toolbarWidth) => {
-          if (toggleOculto) return 0;   // sin selector, el renglón es entero para las tags
-          const fourColWidth = (toolbarWidth - 264) / 3 + 72;
-          const toggleWidth = Math.max(320, fourColWidth);
-          return toggleWidth + 24; // + the row↔Toggle gap
-        },
-      });
-      toggleWrapper.classList.toggle('toggle-shares-line', isSharing);
-
-      // El cálculo puede decir que caben y el navegador plegarlos igualmente.
-      // El hueco reservado se calcula clavado, sin holgura: hay anchos en los
-      // que tags + hueco + selector suman EXACTAMENTE el ancho disponible
-      // (medido a 1190: 630 + 24 + 320 = 974) y el redondeo de subpíxel basta
-      // para que `flex-wrap` se lo lleve abajo. Cuando pasaba eso, el selector
-      // quedaba plegado PERO con su tope de ancho puesto: abajo y estrecho, que
-      // es lo peor de las dos opciones. El propietario lo cazó entre 1170 y 1215.
-      //
-      // En vez de afinar la fórmula, se comprueba el resultado REAL: si han
-      // acabado en renglones distintos, se le quita el tope y ocupa el ancho
-      // entero, que es lo que debe hacer al plegarse. No oscila: sin tope el
-      // selector es más ancho todavía, así que sigue plegado.
-      const filaTags = document.getElementById('home-highlights-tags');
-      let comparteDeVerdad = isSharing;
-      if (isSharing && filaTags) {
-        const plegado = Math.abs(toggleWrapper.getBoundingClientRect().top - filaTags.getBoundingClientRect().top) > 4;
-        if (plegado) {
-          toggleWrapper.classList.remove('toggle-shares-line');
-          comparteDeVerdad = false;
-          // Y las tags se recalculan SIN reserva. Se habían repartido dejando
-          // hueco para un selector que ya no está en su renglón, así que se
-          // quedaban apretadas a la izquierda con el resto de la línea vacío
-          // (el propietario lo vio entre 1170 y 1260). Cuando algo se pliega a
-          // su propia línea, cada línea usa el ancho entero: es el mismo caso
-          // que cuando el selector está oculto, y se resuelve igual.
-          updateAdaptiveTagsRow('home-highlights-tags', {
-            containerId: 'home-highlights-toolbar',
-            getReservedWidth: () => 0,
-          });
-        }
-      }
-
-      // La galería pasa a cuatro columnas en el mismo momento. Se cuelga de si
-      // comparten renglón DE VERDAD, no de si el cálculo decía que cabían: a
-      // 1190 el selector está plegado, así que allí tocan tres columnas.
-      // Se hace aquí y no con un `:has()` en CSS porque al cambiar el ancho de
-      // columna TODOS los row-span quedan viejos (regla 11): hay que volver a
-      // medirlos, y así el remedido va enganchado al cambio y no a que alguien
-      // se acuerde.
-      const rejilla = document.getElementById('gallery-grid');
-      if (rejilla && rejilla.classList.contains('galeria-cuatro') !== comparteDeVerdad) {
-        rejilla.classList.toggle('galeria-cuatro', comparteDeVerdad);
-        const primera = rejilla.querySelector('.gallery-item');
-        const ancho = primera ? primera.clientWidth : 0;
-        if (ancho) rejilla.querySelectorAll('.gallery-item').forEach(c => sizeGalleryCard(c, ancho));
-      }
+      window.__melDecidirCabecera();
     }
     // filterArchives() es hermana de initHomePage, no hija: sin esta referencia
     // no puede pedir el recálculo del reparto al entrar o salir de "sin resultados".
