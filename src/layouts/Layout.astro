@@ -46,8 +46,14 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
       });
     </script>
     
-    <!-- Marker Clusterer for Google Maps -->
-    <script is:inline src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
+    <!-- Agrupador de marcadores del mapa (D-291). Copia fija de la 2.6.2, con su
+         licencia al lado, servida desde nuestro dominio. Antes venía de unpkg
+         sin versión: una redirección al «último» en cada visita, un tercero más
+         que ve la IP del visitante y, siendo síncrono en el <head>, ~0,8 s de
+         bloqueo del primer pintado. `defer` es seguro: el mapa solo se crea al
+         abrir la vista Mapa, mucho después de que se ejecute. Para actualizarlo,
+         carpeta nueva con la versión en el nombre, nunca pisar esta. -->
+    <script is:inline defer src="/vendor/markerclusterer-2.6.2/index.min.js"></script>
 
     <!-- Theme initialization script to prevent flash of light theme -->
     <script is:inline>

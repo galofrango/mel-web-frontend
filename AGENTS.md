@@ -44,7 +44,7 @@ No existe base de datos ni backend propio. Los datos se leen en cada request des
 | Scripts de cliente | JavaScript Vanilla (sin React, Vue ni librerías de UI externas) |
 | CMS | Google Sheets — endpoint público `gviz/tq` |
 | Imágenes | Google Drive — endpoint directo `https://lh3.googleusercontent.com/d/ID=w1000` (D-258) |
-| Mapa | Google Maps JS API + `@googlemaps/js-api-loader` + MarkerClusterer |
+| Mapa | Google Maps JS API (cargador en línea de `Layout.astro`) + MarkerClusterer 2.6.2 copiado en `public/vendor/` (D-291) |
 | Navegación | View Transitions (`ClientRouter` de Astro) |
 | Deploy | Vercel (SSR) |
 | Tests | Sin framework automatizado; verificación manual en navegador real |

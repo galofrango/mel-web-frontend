@@ -5333,3 +5333,32 @@ peticiones. Buscando «zzzqqqxx» sale el estado vacío con su foto cargada; en
 **Aparcado**: la foto se muestra a 320×208 y pesa como una de 1024×768. Pasarla a
 JPEG de 640×480 la dejaría en unos 40 KB para cuando sí se ve; es un cambio de
 recurso gráfico y no hacía falta para la carga inicial.
+
+## D-291 · El agrupador de marcadores se sirve desde nuestro dominio, fijado y diferido
+
+**Contexto**: `Layout.astro` cargaba
+`https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js` **sin versión** y
+síncrono en el `<head>`. Comprobado el 30/09/2026: unpkg responde con una
+redirección al último (2.6.2) cacheable solo 60 s, así que cada visita pagaba otro
+origen, un salto extra y ~0,8 s de bloqueo del primer pintado (Lighthouse, 3 de 3
+pasadas). Una versión nueva publicada en npm habría cambiado el mapa sin desplegar
+nada. Y es un tercero que ve la IP del visitante (inventario del aviso de cookies).
+
+**Decisión**: copia de `@googlemaps/markerclusterer@2.6.2` (paquete de npm, idéntica
+byte a byte a la de unpkg) en `public/vendor/markerclusterer-2.6.2/` junto a su
+`LICENSE` (Apache-2.0), con `defer`. Diferirla es seguro porque el mapa solo se crea
+al entrar en la vista Mapa, mucho después de que se ejecute. La comprobación
+`typeof markerClusterer` de `createGoogleMapInstance()` ahora avisa en la consola si
+falta, porque sin agrupador el mapa funciona sin burbujas «+N» y nadie lo notaría.
+De paso se quita `@googlemaps/js-api-loader` de `package.json`: nada la usaba (el
+mapa se carga con el cargador en línea de `Layout.astro`).
+
+**Descartado**: cargarla solo al abrir el mapa (más código por 17 KB) e importarla
+con Vite (añade una dependencia y un módulo más por lo mismo).
+
+**Verificación**: `?view=mapa`: 50 marcadores en 12 grupos, 7 con «+N», consola
+limpia. `?location=Voloko`: panel lateral abierto y mapa centrado. Cambio a modo
+oscuro y vuelta (reconstruye el mapa): agrupador nuevo cada vez. En el build, la
+petición sale a nuestro dominio con prioridad baja y sin unpkg.
+
+**Para actualizarla**: carpeta nueva con la versión en el nombre, nunca pisar esta.

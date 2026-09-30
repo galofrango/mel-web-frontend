@@ -4653,6 +4653,10 @@ const tags = [
         // spread out enough to stand on their own without piling up.
         algorithm: new markerClusterer.SuperClusterAlgorithm({ radius: 110 }),
       });
+    } else {
+      // Sin agrupador el mapa funciona, pero sin burbujas «+N» y sin avisar a
+      // nadie. Que al menos quede en la consola (D-291: sale de /vendor).
+      console.warn('[mapa] No se cargó el agrupador de marcadores (/vendor/markerclusterer-*)');
     }
     _s.googleMapClusterer = googleMapClusterer;
 
