@@ -79,6 +79,16 @@ const nextEvent = eventIndex < eventsList.length - 1 ? evento(eventsList[eventIn
 // —según su propio comentario, "lo único que se ve tardar"— no ha funcionado
 // nunca. Resolviéndola en el servidor no hace falta ninguna copia cliente de la
 // función, y el cliente solo tiene que leer una cadena.
+//
+// Aquí se llega hasta 2000: es UNA imagen, no 32 como en la galería, así que el
+// coste de servir la grande solo a quien la aprovecha es asumible (medido el
+// 04/08/2026: 161 KB de media a w1000, 421 KB a w2000). La caja de la ficha son
+// 496 px CSS en escritorio y el ancho completo en móvil; el visor, unos 684.
+// Van antes de `allEvents` porque la precarga de vecinos también los usa.
+const ANCHOS_FICHA = [1000, 1400, 2000];
+const TAMANOS_FICHA = '(min-width: 1024px) 496px, 100vw';
+const TAMANOS_VISOR = '(min-width: 1024px) 684px, 92vw';
+
 const allEvents = eventsList.map((e: any) => ({
   idMel: e.idMel,
   title: e.evento,
@@ -87,7 +97,11 @@ const allEvents = eventsList.map((e: any) => ({
   artists: e.artistas || '',
   organizer: e.organiza || '',
   designer: e.disenador || '',
-  fotoUrl: extractDriveImage(e.carruselItems?.[0]?.urlDrive) || '',
+  // La primera que enseña la ficha del vecino (`carruselVisibles`, como su
+  // carrusel), con el mismo srcset: si la precarga pide otra URL que la que
+  // luego elige la ficha, se descarga dos veces (D-296).
+  fotoUrl: extractDriveImage((e.carruselVisibles?.[0] ?? e.carruselItems?.[0])?.urlDrive) || '',
+  fotoSrcset: srcSetDrive((e.carruselVisibles?.[0] ?? e.carruselItems?.[0])?.urlDrive, ANCHOS_FICHA),
 }));
 
 // `carruselVisibles`, no `carruselItems`: deja fuera lo que está en el archivo
@@ -95,13 +109,6 @@ const allEvents = eventsList.map((e: any) => ({
 // hace de portada ligera — ver `visiblesDelCarrusel` en mel.ts). La PORTADA
 // sigue saliendo de `carruselItems[0]`, unas líneas más arriba.
 const imageUrls = eventData.carruselVisibles.map(i => extractDriveImage(i.urlDrive)).filter(Boolean);
-// Aquí se llega hasta 2000: es UNA imagen, no 32 como en la galería, así que el
-// coste de servir la grande solo a quien la aprovecha es asumible (medido el
-// 04/08/2026: 161 KB de media a w1000, 421 KB a w2000). La caja de la ficha son
-// 496 px CSS en escritorio y el ancho completo en móvil; el visor, unos 684.
-const ANCHOS_FICHA = [1000, 1400, 2000];
-const TAMANOS_FICHA = '(min-width: 1024px) 496px, 100vw';
-const TAMANOS_VISOR = '(min-width: 1024px) 684px, 92vw';
 const imageSrcsets = eventData.carruselVisibles.map(i => srcSetDrive(i.urlDrive, ANCHOS_FICHA));
 
 // Dimensiones reales de cada cartel, medidas offline por
@@ -420,6 +427,10 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                     const tope = Array.isArray(d) && d[0] > 0
                       ? `max-width: ${d[0]}px; max-height: ${d[1]}px;` : '';
                     const nombre = idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : '';
+                    // La 1.ª con prioridad alta y el resto baja (D-296): siguen sin
+                    // ser diferidas (D-258, que no haya hueco al deslizar), pero ya
+                    // no le quitan línea a la que se ve. Medido con 4G lenta: la
+                    // 1.ª llega en ~1,16 s en vez de ~1,56 s.
                     return (
                     <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
                       <img
@@ -428,7 +439,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                         sizes={imageSrcsets[idx] ? TAMANOS_FICHA : undefined}
                         alt={eventData.title}
                         referrerpolicy="no-referrer"
-                        fetchpriority={idx === 0 ? 'high' : undefined}
+                        fetchpriority={idx === 0 ? 'high' : 'low'}
                         class="w-full h-full object-contain"
                         style={`${tope}${nombre}`}
                       />
@@ -666,6 +677,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
                   sizes={imageSrcsets[idx] ? TAMANOS_VISOR : undefined}
                   alt={eventData.title}
                   referrerpolicy="no-referrer"
+                  loading="lazy"
                   class="w-full h-full object-contain"
                 />
               </div>
@@ -691,7 +703,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
 </Layout>
 
 
-<script define:vars={{ ssrImageUrls: imageUrls, ssrEventId: eventData.idMel, allEvents }}>
+<script define:vars={{ ssrImageUrls: imageUrls, ssrEventId: eventData.idMel, allEvents, tamanosFicha: TAMANOS_FICHA }}>
   function initPage() {
     // astro:page-load dispara en TODAS las páginas tras una navegación suave
     // (los listeners viven en `document` y sobreviven al salto). Sin este
@@ -1168,14 +1180,21 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         const l = document.createElement('link');
         l.rel = rel;
         l.href = href;
-        if (comoImagen) { l.as = 'image'; l.referrerPolicy = 'no-referrer'; }
+        if (comoImagen) {
+          l.as = 'image';
+          l.referrerPolicy = 'no-referrer';
+          // Sin esto, la precarga pedía w1000 y la ficha vecina, en un móvil,
+          // elegía w1400 de su srcset: dos descargas y el aviso de «precarga
+          // no usada» en la consola (D-296).
+          if (comoImagen.srcset) { l.imageSrcset = comoImagen.srcset; l.imageSizes = tamanosFicha; }
+        }
         document.head.appendChild(l);
       };
       meter('prefetch', `/event/${item.idMel}`, false);
       // `fotoUrl` la resuelve el servidor al construir `allEvents` — ver el
       // comentario de ahí: esta línea llamaba a extractDriveImage(), que no
       // existe en el cliente, sobre un carruselItems que tampoco se pasaba.
-      if (item.fotoUrl) meter('preload', item.fotoUrl, true);
+      if (item.fotoUrl) meter('preload', item.fotoUrl, { srcset: item.fotoSrcset });
     }
 
     const prevContainer = document.getElementById('nav-prev-container');

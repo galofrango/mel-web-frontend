@@ -5500,3 +5500,46 @@ cambiar sin motivo la etiqueta que sale al pasar el ratón.
 **Verificación** (build local): portada y lista **95**, Info y Exposiciones **100**;
 lo único que queda es el contraste aparcado. Menú en 375 px: tiene nombre y se abre.
 109/109 tests.
+
+## D-296 · La ficha no descarga fotos que no va a usar
+
+**Medido** (Chrome sin pantalla, `/event/MEL-00074`, FIV XII, 3 fotos):
+- **Escritorio Retina**: cada foto bajaba **dos veces**, a `w1000` para el carrusel
+  (496 px × 2) y a `w1400` para el visor a pantalla completa (684 px × 2), que está
+  oculto (`hidden`) hasta que se abre. 8 imágenes y 498 KB al abrir la ficha.
+- **Móvil (375 px × 3)**: la precarga del evento vecino (`adelantarVecino`, D-090)
+  pedía `fotoUrl` a `w1000` sin `srcset`, y la ficha vecina, en esa pantalla, elige
+  `w1400` de su `srcset`: la precarga no servía y al pasar al vecino la foto se bajaba
+  otra vez. Es también el aviso de «preload no usado» que veía el propietario.
+- En móvil y en escritorio sin Retina el visor y el carrusel coinciden en tamaño y el
+  navegador no duplica nada. Las fotos 2+ del carrusel siguen `eager` a propósito
+  (D-258: que no haya hueco en blanco al deslizar).
+
+**Decisión**:
+- Las imágenes del visor, `loading="lazy"`: dentro de un contenedor `hidden` no se
+  piden hasta que se abre.
+- La precarga del vecino lleva `imagesrcset` + `imagesizes`, los mismos que su
+  carrusel (`fotoSrcset` en `allEvents`, calculado en el servidor, y `tamanosFicha`
+  por `define:vars`, regla 7). Así el navegador precarga la misma URL que elegirá la
+  ficha vecina.
+- La foto precargada es la primera de `carruselVisibles` del vecino (la que enseña su
+  carrusel), no `carruselItems[0]`, que pueden no coincidir.
+- `ANCHOS_FICHA` y los `TAMANOS_*` suben por encima de `allEvents`, que ahora los usa.
+- Las fotos 2+ del carrusel, `fetchpriority="low"` (la 1.ª sigue en `high`). Siguen
+  sin ser diferidas (D-258), pero dejan de competir con la que se ve. Medido en móvil
+  con 4G lenta simulada, 6 pasadas por variante: la 1.ª foto llega en **~1,16 s** en
+  vez de **~1,56 s**, y el total no cambia. Safari lo entiende desde la 17.2; donde no,
+  se ignora y queda como antes.
+
+**Verificación** (build local):
+- Retina: 5 imágenes y **359 KB** (antes 8 y 498). Ninguna `w1400` hasta abrir el
+  visor; al abrirlo carga sus 3 fotos.
+- Móvil: la precarga pide `w1400` y, al pulsar Siguiente, la foto principal del
+  vecino se pide **una sola vez**. En «abrir y pasar al siguiente», ~430 KB frente a
+  ~600.
+- 109/109 tests.
+
+**Queda**: el aviso «preloaded but not used within a few seconds» sigue saliendo en la
+consola, antes y después. Salta porque la foto es para la página siguiente, no para
+esta. Quitarlo pediría precargar con un `new Image()` con `srcset` en vez de `<link
+rel=preload>`; es solo un aviso de las herramientas de desarrollo y no se hace.
