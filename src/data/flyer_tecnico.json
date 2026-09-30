@@ -1311,5 +1311,343 @@
   "alfa": false,
   "gris": false,
   "bytes": 581783
+ },
+ "1_Wd_aZWTz7q8tJe9esY447MtnSDP9n6f": {
+  "tipo": "jpeg",
+  "px": [
+   720,
+   708
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 74429
+ },
+ "1-CdvqC6adcmvLkIjdV3DSQHD9kBIsZnR": {
+  "tipo": "jpeg",
+  "px": [
+   851,
+   315
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": "sRGB IEC61966-2.1",
+  "alfa": false,
+  "gris": false,
+  "bytes": 175707
+ },
+ "13gka6xnOH3j0jGUq7J611n-_oK1XQDlq": {
+  "tipo": "jpeg",
+  "px": [
+   1181,
+   591
+  ],
+  "comp": 1,
+  "noSrgb": false,
+  "perfil": "Dot Gain 20%",
+  "alfa": false,
+  "gris": true,
+  "bytes": 156163
+ },
+ "1p2IrsNlQ-G7fKS8dXgvNQzYVx1KgiEjR": {
+  "tipo": "jpeg",
+  "px": [
+   1697,
+   2400
+  ],
+  "comp": 1,
+  "noSrgb": false,
+  "perfil": "Generic Gray Gamma 2.2 Profile",
+  "alfa": false,
+  "gris": true,
+  "bytes": 1273171
+ },
+ "1kfpZTNdQ3mHWJ0-s8ZNZK4xSmJLe7fmI": {
+  "tipo": "jpeg",
+  "px": [
+   1181,
+   1181
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": "sRGB IEC61966-2.1",
+  "alfa": false,
+  "gris": false,
+  "bytes": 1328702
+ },
+ "1xrnUIBc0VQnRZ1mN7y5JhSr_HyGtPW57": {
+  "tipo": "jpeg",
+  "px": [
+   1744,
+   2400
+  ],
+  "comp": 1,
+  "noSrgb": false,
+  "perfil": "Generic Gray Gamma 2.2 Profile",
+  "alfa": false,
+  "gris": true,
+  "bytes": 1995684
+ },
+ "18ryRIXa4kx0GQaVOcNpVGgrNlDRkW85Z": {
+  "tipo": "jpeg",
+  "px": [
+   2400,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 943532
+ },
+ "1Xw8ySqRsbFw0wr4KPOfkZcLbbHf_5Z8V": {
+  "tipo": "jpeg",
+  "px": [
+   1697,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 2074654
+ },
+ "1wvxveKahmO87wjQZRJrFf3Gklw49zLgm": {
+  "tipo": "jpeg",
+  "px": [
+   680,
+   960
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 157881
+ },
+ "1V8SjHKL4jxAO62TmUuctj7GIAg6UmX6q": {
+  "tipo": "jpeg",
+  "px": [
+   682,
+   960
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 122731
+ },
+ "1FK76RI_K_qVE4VITs2vksSFJz_qIzf_C": {
+  "tipo": "jpeg",
+  "px": [
+   682,
+   960
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 124838
+ },
+ "1ezwqeEHVPikZZIjCq37aQMadKFgw8McW": {
+  "tipo": "jpeg",
+  "px": [
+   842,
+   1191
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": "sRGB IEC61966-2.1",
+  "alfa": false,
+  "gris": false,
+  "bytes": 944160
+ },
+ "1KhW2SeewMFtOvnxvr0GEcnSnAU07Obah": {
+  "tipo": "jpeg",
+  "px": [
+   1697,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 1010089
+ },
+ "1PDuiH_brLfDWlH3kDmklBi0lvAxkUBTQ": {
+  "tipo": "jpeg",
+  "px": [
+   1581,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 1425696
+ },
+ "1poTlEUC4_N8EZE0-L_5FKPMaRLuL8LHX": {
+  "tipo": "jpeg",
+  "px": [
+   1697,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 1979778
+ },
+ "1_CWqr-gpGBMQHvQopsuI6hDj-ILyQsP5": {
+  "tipo": "jpeg",
+  "px": [
+   1697,
+   2400
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 1938526
+ },
+ "160-DnqvDrfBPbiqsqaTJvKM41570lpfZ": {
+  "tipo": "jpeg",
+  "px": [
+   1275,
+   1875
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 389244
+ },
+ "1_U67YFSELqe78UDqf2MPVi88_df2gkhJ": {
+  "tipo": "jpeg",
+  "px": [
+   1367,
+   969
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 176624
+ },
+ "1MHExNmqy_ebJ1x_ee0bLu1PjNyLYqgrb": {
+  "tipo": "jpeg",
+  "px": [
+   1124,
+   1600
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 368106
+ },
+ "1IKKjOroZuxbx_qy8dmgazrSeo3QHTD8L": {
+  "tipo": "jpeg",
+  "px": [
+   1088,
+   1600
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 429296
+ },
+ "1fFcnpQ_e5HxYj1GFU8bNdDuGpFCJ-Tdd": {
+  "tipo": "jpeg",
+  "px": [
+   664,
+   960
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 176464
+ },
+ "1UqytDf1KGb9H-x-Qd6oOAqCT1WgBVA2T": {
+  "tipo": "jpeg",
+  "px": [
+   1455,
+   2048
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 470036
+ },
+ "1Y00sE_WGySf7rGx-jgSG7egoM8LzK8RM": {
+  "tipo": "jpeg",
+  "px": [
+   652,
+   960
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 101590
+ },
+ "1xsfhYzVGpB_UXraXInAAGJGS7IBjTzCs": {
+  "tipo": "jpeg",
+  "px": [
+   1134,
+   1600
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 164273
+ },
+ "1d4R1mcWjjLb6Be_Gq_YvyeMKELKqAlk7": {
+  "tipo": "jpeg",
+  "px": [
+   898,
+   1294
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 100733
+ },
+ "1gSPomLp1s3oIk7_z5rUZJUYmpCQNK_7q": {
+  "tipo": "jpeg",
+  "px": [
+   1288,
+   1841
+  ],
+  "comp": 3,
+  "noSrgb": false,
+  "perfil": null,
+  "alfa": false,
+  "gris": false,
+  "bytes": 190451
  }
 }

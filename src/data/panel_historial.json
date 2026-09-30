@@ -931,5 +931,193 @@
    "tipo": "png",
    "perfil": null
   }
+ },
+ {
+  "fecha": "2026-09-27T17:59:42.597Z",
+  "idMel": "MEL-00107",
+  "acciones": [
+   "no-srgb",
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2859500,
+   "tipo": "jpeg",
+   "perfil": "Adobe RGB (1998)"
+  },
+  "despues": {
+   "bytes": 943532,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:14.040Z",
+  "idMel": "MEL-00119",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 6739123,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 1425696,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:21.672Z",
+  "idMel": "MEL-00104",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 8718759,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 2074654,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:25.512Z",
+  "idMel": "MEL-00111",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 4403570,
+   "tipo": "jpeg",
+   "perfil": "Dot Gain 20%"
+  },
+  "despues": {
+   "bytes": 1273171,
+   "tipo": "jpeg",
+   "perfil": "Generic Gray Gamma 2.2 Profile"
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:28.827Z",
+  "idMel": "MEL-00115",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 4923179,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 1010089,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:33.187Z",
+  "idMel": "MEL-00117",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 25603190,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 3250454,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:39.320Z",
+  "idMel": "MEL-00118",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 27933700,
+   "tipo": "jpeg",
+   "perfil": "sRGB IEC61966-2.1"
+  },
+  "despues": {
+   "bytes": 3316550,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:00:44.559Z",
+  "idMel": "MEL-00106",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 2365048,
+   "tipo": "jpeg",
+   "perfil": "EPSON  Gray - Gamma 2.2"
+  },
+  "despues": {
+   "bytes": 2390067,
+   "tipo": "jpeg",
+   "perfil": "Generic Gray Gamma 2.2 Profile"
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:01:57.818Z",
+  "idMel": "MEL-00118",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 3316550,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1979778,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:02:02.027Z",
+  "idMel": "MEL-00117",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 3250454,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 1938526,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-27T18:02:05.645Z",
+  "idMel": "MEL-00106",
+  "acciones": [
+   "pesado"
+  ],
+  "antes": {
+   "bytes": 2390067,
+   "tipo": "jpeg",
+   "perfil": "Generic Gray Gamma 2.2 Profile"
+  },
+  "despues": {
+   "bytes": 1995684,
+   "tipo": "jpeg",
+   "perfil": "Generic Gray Gamma 2.2 Profile"
+  }
  }
 ]
