@@ -366,6 +366,36 @@ const tags = [
             );
           })}
         </div>
+        <!-- Las tarjetas con proporción conocida toman su alto AQUÍ, en cuanto
+             existe la rejilla y antes del primer pintado. El script grande de la
+             página espera a `astro:page-load`, que llega DESPUÉS de pintar: el
+             visitante veía primero los bloques provisionales de 280px
+             (`.unsized`) y luego la rejilla saltaba a su sitio. Era todo el CLS
+             de PageSpeed (0,18–0,30; medido con la traza de Lighthouse, D-288).
+             No engancha oyentes (regla 1): solo pone alturas, y
+             `dimensionarConocidas()` se salta las que ya no son `.unsized`.
+             La fórmula vive SOLO aquí; `sizeGalleryCard()` la usa. -->
+        <script is:inline>
+          (() => {
+            // Filas de 4px (`auto-rows-[4px]` de la rejilla) y hueco de 24px, que
+            // TIENE QUE VALER LO MISMO que el `gap-x-mel-m` de la rejilla: si
+            // dejan de coincidir, los row-span salen mal y el masonry se
+            // descuadra. Al cambiar la escala del DS (M pasó a ser 24, antes lo
+            // era L) se movió la clase, no el número.
+            const FILA = 4;
+            const HUECO = 24;
+            window.__melSpanTarjeta = (ancho, ratio) => Math.max(1, Math.round((ancho / ratio + HUECO) / FILA));
+            const tarjetas = document.querySelectorAll('#gallery-grid > .gallery-item.unsized[data-ratio]');
+            // Con la galería oculta (entrar por ?view=mapa) mide 0: ya lo hará
+            // `dimensionarConocidas()` al enseñarla.
+            const ancho = tarjetas[0] && tarjetas[0].clientWidth;
+            if (!ancho) return;
+            tarjetas.forEach((t) => {
+              t.style.gridRowEnd = 'span ' + window.__melSpanTarjeta(ancho, parseFloat(t.dataset.ratio));
+              t.classList.remove('unsized');
+            });
+          })();
+        </script>
         <!-- Centinela del scroll infinito: cuando entra en el margen de
              precarga del IntersectionObserver (~1200px antes de ser visible)
              se añade el siguiente lote de tarjetas. -->
@@ -1779,13 +1809,9 @@ const tags = [
   // Galería masonry 2.1 (ver decisions.md D-015): grid + row-span medido,
   // orden aleatorio estable y scroll infinito.
   // -------------------------------------------------------
-  const GALLERY_ROW = 4;   // grid-auto-rows del contenedor, en px
-  // Hueco entre tarjetas, horizontal y vertical. TIENE QUE VALER LO MISMO que el
-  // `gap-x-mel-m` de la rejilla: si dejan de coincidir, los row-span salen mal y
-  // el masonry se descuadra. Dos números que deben ser el mismo, escritos por
-  // separado — la trampa nº 2 del traspaso. Al cambiar la escala del DS
-  // (M pasó a ser 24, antes lo era L) se movió la clase, no el número.
-  const GALLERY_GAP = 24;
+  // El alto de fila y el hueco de la rejilla viven en el script en línea que va
+  // justo detrás de `#gallery-grid` (`window.__melSpanTarjeta`), que es el que
+  // dimensiona las tarjetas antes del primer pintado (D-288).
 
   let galleryVisibleCount = PAGE_SIZE;
   let galleryOrderedCache = [];
@@ -1835,7 +1861,7 @@ const tags = [
     const ratio = parseFloat(card.dataset.ratio);
     const w = width || card.clientWidth;
     if (!ratio || !w) return;
-    card.style.gridRowEnd = 'span ' + Math.max(1, Math.round((w / ratio + GALLERY_GAP) / GALLERY_ROW));
+    card.style.gridRowEnd = 'span ' + window.__melSpanTarjeta(w, ratio);
     card.classList.remove('unsized');
   }
 
@@ -6474,7 +6500,9 @@ const tags = [
     // (data-ratio, D-259) — se les fija el alto AHORA, en síncrono, no cuando
     // la primera pasada de filtro llegue por su requestAnimationFrame un
     // fotograma después. Es la diferencia entre una rejilla que nace colocada
-    // y una que se coloca delante del visitante.
+    // y una que se coloca delante del visitante. En una carga normal ya lo ha
+    // hecho el script en línea de detrás de la rejilla, ANTES de pintar (D-288);
+    // esto cubre la galería que nació oculta y las tarjetas que queden sin hacer.
     dimensionarConocidas(document.getElementById('gallery-grid'));
     // Y se vigila desde el arranque, que es lo que cubre las tarjetas servidas
     // por el SSR — incluidas las que al volver de una ficha quedan por encima

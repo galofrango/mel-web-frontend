@@ -5257,3 +5257,46 @@ tocarlo):
 **Regla que queda**: nunca `git push --tags` (publicaría la etiqueta de archivo);
 las etiquetas se suben por nombre. Y cada sesión comprueba al empezar en qué rama
 está la carpeta, y la deja en `main` al terminar.
+
+---
+
+## D-288 · Las tarjetas de la galería toman su alto antes del primer pintado
+
+**Contexto**: PageSpeed móvil daba CLS 0,105 con v1.1.1 y 0,18 con v1.1.2. La sospecha
+era la letra de D-284. **Medido el 30/09/2026 con Lighthouse 12.8.2** (el motor de
+PageSpeed, mismo móvil simulado), en 6 pasadas contra producción y contra el build
+local: los causantes son **solo imágenes sin tamaño**, nunca la letra. La traza lo
+explica. Primer pintado a los 165 ms con las tarjetas como bloques provisionales de
+280 px (`.unsized`); los saltos, a 270, 287 y 316 ms, cuando se les pone el alto real.
+Ese alto lo ponía `dimensionarConocidas()` dentro de `initHomePage()`, que espera a
+`astro:page-load` (300 ms), o el `onload` de cada imagen: los dos, **después** de
+pintar. D-259 decía que la rejilla «nace colocada» y no era verdad. D-284 no causó
+el salto: adelantó el primer pintado y lo dejó más a la vista (deducido, no medido
+con v1.1.1).
+
+**Descartado con medición**: que fueran las 14 tarjetas de la primera tanda sin
+proporción en `flyer_tecnico.json`. Con las 192 medidas (v1.1.4) el CLS seguía en
+0,19–0,29.
+
+**Decisión**: un `<script is:inline>` justo detrás de `#gallery-grid` da el alto a las
+tarjetas que traen `data-ratio` en cuanto existe la rejilla, antes de pintar. La
+fórmula del row-span y sus dos números (fila de 4 px, hueco de 24 px) pasan a vivir
+**solo ahí**, en `window.__melSpanTarjeta`; `sizeGalleryCard()` la usa en vez de sus
+antiguas `GALLERY_ROW`/`GALLERY_GAP`, así que no hay dos copias que se puedan separar.
+No engancha oyentes (regla 1): solo pone alturas, y `dimensionarConocidas()` se salta
+lo que ya no es `.unsized` (sigue cubriendo la galería que nace oculta, `?view=mapa`).
+
+**Verificación**:
+- Lighthouse, build local, 3 pasadas: Rendimiento 60–62 → **72 / 72 / 72**, CLS
+  0,21–0,25 → **0,002** en las tres.
+- 1024 px y 375 px: 32 tarjetas, ninguna `.unsized`, ninguna descuadrada (el alto
+  reservado coincide con la imagen cargada).
+- Galería → ficha → X (navegación suave): vuelve al cartel, 32 tarjetas, 0 duplicadas.
+- 109/109 tests.
+- En la consola sale `InvalidStateError: Transition was aborted`. **Sale igual sin el
+  cambio** (comprobado quitándolo): es la transición del `ClientRouter` con la pestaña
+  de pruebas en segundo plano.
+
+**Sin verificar**: un móvil real. Y en escritorio la 4.ª columna (`.galeria-cuatro`)
+se decide más tarde y vuelve a medir todas las tarjetas, así que ahí puede quedar un
+salto pequeño (PageSpeed mide móvil).
