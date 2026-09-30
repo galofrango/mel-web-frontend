@@ -1119,5 +1119,195 @@
    "tipo": "jpeg",
    "perfil": "Generic Gray Gamma 2.2 Profile"
   }
+ },
+ {
+  "fecha": "2026-09-30T17:10:25.245Z",
+  "idMel": "MEL-00138",
+  "acciones": [
+   "png"
+  ],
+  "antes": {
+   "bytes": 1466688,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 436828,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:10:28.259Z",
+  "idMel": "MEL-00137",
+  "acciones": [
+   "png"
+  ],
+  "antes": {
+   "bytes": 1261225,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 572155,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:10:31.569Z",
+  "idMel": "MEL-00136",
+  "acciones": [
+   "png"
+  ],
+  "antes": {
+   "bytes": 401627,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 349370,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:10:34.647Z",
+  "idMel": "MEL-00159",
+  "acciones": [
+   "png"
+  ],
+  "antes": {
+   "bytes": 280798,
+   "tipo": "png",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 163546,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:12:36.370Z",
+  "idMel": "MEL-00139",
+  "acciones": [
+   "no-srgb",
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 6868965,
+   "tipo": "jpeg",
+   "perfil": "Adobe RGB (1998)"
+  },
+  "despues": {
+   "bytes": 801368,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:12:43.982Z",
+  "idMel": "MEL-00145",
+  "acciones": [
+   "no-srgb",
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 1084932,
+   "tipo": "jpeg",
+   "perfil": "Cinema HD Display calibrado"
+  },
+  "despues": {
+   "bytes": 627062,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:12:47.078Z",
+  "idMel": "MEL-00147",
+  "acciones": [
+   "no-srgb",
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 439144,
+   "tipo": "jpeg",
+   "perfil": "Cinema HD Display calibrado"
+  },
+  "despues": {
+   "bytes": 226720,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:13:54.850Z",
+  "idMel": "MEL-00133",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 6369118,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 950747,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:13:59.648Z",
+  "idMel": "MEL-00154",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 834672,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 881751,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:14:05.091Z",
+  "idMel": "MEL-00148",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 634242,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 867697,
+   "tipo": "jpeg",
+   "perfil": null
+  }
+ },
+ {
+  "fecha": "2026-09-30T17:14:08.224Z",
+  "idMel": "MEL-00164",
+  "acciones": [
+   "enorme"
+  ],
+  "antes": {
+   "bytes": 447049,
+   "tipo": "jpeg",
+   "perfil": null
+  },
+  "despues": {
+   "bytes": 584479,
+   "tipo": "jpeg",
+   "perfil": null
+  }
  }
 ]
