@@ -5314,3 +5314,22 @@ pestaña, no es una preferencia. Al arrancar se activa la guardada, o la de nive
 
 **Verificación**: marcar «Bajo rendimiento» y recargar deja activa esa tarjeta y
 visibles solo sus secciones.
+
+## D-290 · La foto de «sin resultados» ya no se descarga en cada visita
+
+**Contexto**: `EmptyState` vive en la portada, oculto hasta que una búsqueda no da
+nada, pero su `<img>` no era diferida: el navegador se bajaba `empty-state-no-results.png`
+(1024×768, 571 KB) en cada visita, el 10 % de toda la carga, compitiendo con los
+carteles de la primera pantalla. Medido con Lighthouse (30/09/2026).
+
+**Decisión**: `loading="lazy"` en la imagen del componente. Una imagen diferida
+dentro de algo oculto no se pide hasta que se enseña. En `/exposiciones` y el 404,
+donde está a la vista, carga igual.
+
+**Verificación**: en las 3 pasadas del build, `empty-state` no aparece entre las
+peticiones. Buscando «zzzqqqxx» sale el estado vacío con su foto cargada; en
+`/exposiciones` también.
+
+**Aparcado**: la foto se muestra a 320×208 y pesa como una de 1024×768. Pasarla a
+JPEG de 640×480 la dejaría en unos 40 KB para cuando sí se ve; es un cambio de
+recurso gráfico y no hacía falta para la carga inicial.

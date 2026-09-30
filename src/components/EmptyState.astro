@@ -74,10 +74,14 @@ const imgFitClass = cfg.fit;
       data-node-id="821:72317"
       data-name="Empty State Image"
     >
-      <!-- Black and white image asset -->
-      <img 
-        src={imageSrc} 
-        alt="" 
+      <!-- Black and white image asset. `lazy`: en la portada este estado vive
+           oculto hasta que una búsqueda no da nada, y sin él el navegador se
+           bajaba la foto (571 KB, el 10 % de la carga) en cada visita. Una
+           imagen diferida dentro de algo oculto no se pide (D-290). -->
+      <img
+        src={imageSrc}
+        alt=""
+        loading="lazy"
         class={`absolute inset-0 size-full pointer-events-none ${imgFitClass}`} 
         referrerpolicy="no-referrer"
       />
