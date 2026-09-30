@@ -5444,3 +5444,33 @@ propietario ya había dejado escrito que esa decisión no debe colgar de un cort
 - 109/109 tests.
 
 **Sin verificar**: un navegador real con ratón, y Safari de escritorio.
+
+## D-294 · Los archivos de `/_astro` se guardan un año en el navegador (adaptador 11.0.11)
+
+**Contexto**: en producción, los CSS, JS y fuentes de `/_astro` salían con
+`cache-control: public, max-age=0, must-revalidate` (visto en D-284): cada visita
+repetida preguntaba por cada archivo. `@astrojs/vercel` 11.0.3 escribía la regla del
+año (`immutable`) en `.vercel/output/config.json` **después** de `{"handle":
+"filesystem"}`, y Vercel sirve los estáticos en ese paso, antes de llegar a ella.
+
+**Decisión**: actualizar el adaptador a **11.0.11**. Su código genera esa cabecera con
+`getTransformedRoutes({ headers })`, que la coloca delante de `filesystem`
+(comprobado en el `config.json` del build: ruta 0 la cabecera, ruta 1 `filesystem`).
+Arrastra en el lock `@vercel/routing-utils` 5 → 6 y `@vercel/analytics` 1.6 → 2.0; el
+script de analítica que se inserta en el HTML sale idéntico al de producción.
+
+**Verificación**, en una previsualización de Vercel (rama temporal
+`prueba/cache-astro`, borrada después; la abrió el propietario con su sesión y las
+cabeceras se leyeron desde el propio navegador):
+- `/_astro/*` (dos fuentes, dos CSS y dos JS): `public, max-age=31536000, immutable`.
+- Páginas (`/`, `/event/MEL-00100`, `/info`): `public, max-age=60` y la caché de Vercel
+  en HIT, como en producción.
+- `/event/NO-EXISTE` 404; `/panel` y `/intro-lab` siguen en 404; la galería carga con
+  sus tarjetas medidas y los carteles en WebP. 109/109 tests.
+
+**Queda fuera**: `public/` (el agrupador de D-291, el favicon) sigue en `max-age=0`;
+no llevan hash en el nombre, así que un año sería peligroso salvo para el agrupador,
+que lleva la versión en la carpeta. Poco peso (17 KB comprimidos); se deja así.
+
+**Efecto**: ninguno en PageSpeed, que mide una primera visita. Lo nota quien vuelve:
+el navegador ya no pregunta por esos archivos.
