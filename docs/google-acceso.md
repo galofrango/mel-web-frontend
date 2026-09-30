@@ -26,6 +26,36 @@ está en `.gitignore`, y lo que se commitea es la ruta, no el contenido.
 
 ---
 
+## La OTRA clave de Google: la del mapa
+
+No tiene nada que ver con la cuenta de servicio y conviene no confundirlas. Todo
+el porqué está en D-285.
+
+| | |
+|---|---|
+| Dónde está | `src/layouts/Layout.astro`, a la vista, **y así debe ser** |
+| Proyecto | El de demostración que crea Google al darse de alta en Maps Platform, **no** `mel-panel` |
+| Referentes permitidos | `melweb.vercel.app`, `melweb-*.vercel.app`, `localhost:4321`, `localhost:4500`, `192.168.1.167:4500` (el móvil en la red local) |
+| APIs permitidas | solo `maps-backend` y `mapstools` |
+
+**Esta clave es pública por naturaleza**: el mapa se dibuja en el navegador, así
+que la clave viaja en el HTML y cualquiera la ve con Ver código fuente. Sacarla a
+una variable de entorno no la escondería de nadie. Lo que la protege está en la
+consola de Google: solo funciona desde los referentes de arriba y solo para el mapa.
+
+**Si se añade un dominio propio o cambia el puerto de desarrollo, hay que añadirlo a
+los referentes ANTES**, o el mapa saldrá en gris con `RefererNotAllowedMapError`.
+
+**Si el mapa sale gris a todo el mundo** (y no solo en un dominio nuevo), lo primero
+es mirar si se ha agotado la cuota diaria de cargas del mapa: es un tope puesto a
+propósito para que el gasto no se dispare, y al llegar a él el mapa se apaga hasta
+el día siguiente. La galería y la lista siguen funcionando. Las cifras del tope, del
+aviso de gasto y la orden para subir la cuota están en la **nota privada del
+propietario** (iCloud, `M.E.L./Privado/google-mapa.md`), no aquí: este repositorio
+es público.
+
+---
+
 ## Comprobado
 
 **Verificado el 02/08/2026 contra los datos reales**, con `scripts/probar-google.mjs`:

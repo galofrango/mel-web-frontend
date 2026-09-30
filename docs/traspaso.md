@@ -5,7 +5,7 @@ repite lo que ya está en el resto de la documentación: recoge lo que se pierde
 cerrar una conversación — el estado de las ramas, cómo probar en un teléfono de
 verdad, y qué técnicas de diagnóstico funcionan aquí y cuáles engañan.
 
-Última actualización: **28 de julio de 2026**.
+Última actualización de §1: **30 de septiembre de 2026**.
 
 ---
 
@@ -13,13 +13,30 @@ verdad, y qué técnicas de diagnóstico funcionan aquí y cuáles engañan.
 
 | | |
 |---|---|
-| Producción | `https://melweb.vercel.app` — despliega de `main` |
-| Rama estable | `main` |
-| Etiquetas de recuperación | `detalles-v2.2`, `estados-pressed-v2.3` |
-| ~~Rama a medias~~ | `feat/volver-al-flyer` — **terminada y mezclada en `main`**; su contenido ya está en producción |
-| Rama aparcada de antes | `experiment/gallery-3d-tilt` (efecto 3D, ver problemas conocidos) |
+| Producción | `https://melweb.vercel.app` — despliega de `main`; la versión sale en el pie del menú lateral |
+| Rama estable | `main`. En GitHub **solo** existe `main` (el repositorio es público) |
+| Carpeta de trabajo | `/Users/galo/Desktop/Projects/MEL/site`, **siempre sobre `main`** |
+| Etiquetas | `vX.Y.Z` por cada subida (ver «Versionado» en `development.md`); las de nombre (`estados-pressed-v2.3`…) son puntos de recuperación antiguos |
+| Experimento archivado | `archivo/galeria-parallax` + etiqueta `archivo-parallax-2026-09-30` — **solo local, no se sube nunca, no se toca** (D-287) |
+| Copia completa del repositorio | iCloud, `M.E.L./Site Backups/repo-2026-09-30/mel-repo.bundle` (todas las ramas y etiquetas) |
+| Datos privados de Google | iCloud, `M.E.L./Privado/google-mapa.md` (fuera del repositorio a propósito, D-285) |
 
-Volver a un punto estable: `git checkout estados-pressed-v2.3`.
+### Reglas de ramas (costó siete semanas aprenderlas, D-287)
+
+- **Al empezar, `git branch --show-current`.** El 09/08/2026 una sesión dejó la
+  carpeta de trabajo sobre el experimento del parallax y nadie lo notó hasta el
+  30/09: todo lo hecho en medio cayó dentro del experimento.
+- **Al terminar, la carpeta vuelve a `main`.** Si hace falta una rama, se crea, se
+  trabaja, se mezcla y se vuelve.
+- **Nunca `git push --tags`**: publicaría la etiqueta de archivo, y con ella el
+  experimento. Las etiquetas se suben por nombre (`git push origin v1.1.3`).
+- **El guardián `.git/hooks/pre-push`** bloquea cualquier subida que contenga el
+  experimento. Vive solo en este Mac: ni se publica ni va en el bundle. Si el
+  repositorio se descarga de cero, hay que volver a ponerlo: hay una copia en
+  iCloud, `M.E.L./Site Backups/repo-2026-09-30/pre-push` (copiarla a
+  `.git/hooks/` y `chmod +x`).
+- `preview_start` arranca el servidor en `site/`, sea cual sea el worktree de la
+  sesión. Antes de decir «lo probé», `lsof -p PID | grep cwd`.
 
 ### Sesión del 5 de agosto de 2026 — cerrada y en producción
 

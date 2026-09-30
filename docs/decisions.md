@@ -5028,7 +5028,7 @@ Sin expresiones regulares sobre el código. Un `/* */` con salto de línea dentr
 
 **Lo que no se ha medido ni se puede**: la compresión real de Vercel (se usó brotli q4 como aproximación); el móvil físico. Los mapas de fuente de los `.astro` se descartan (`map: null`): en producción los números de línea de un error del servidor ya no coinciden con `src/`.
 
-**Nota de entorno**: `npm run preview` no sirve la salida del adaptador de Vercel. Para probar el build en local se sirve `.vercel/output` con un servidor mínimo que llama al `fetch` de `functions/_render.func`. La clave de Google Maps está restringida por referente (revisión de seguridad del 10/08/2026, documentada en el commit `2024914` de la rama local `experiment/galeria-parallax`, aún fuera de `main`) y solo admite `melweb.vercel.app`, `melweb-*.vercel.app`, `localhost:4321`, `localhost:4500` y `192.168.1.167:4500`: el build local hay que servirlo en uno de esos puertos o el mapa da `RefererNotAllowedMapError` (comprobado en `localhost:4602`).
+**Nota de entorno**: `npm run preview` no sirve la salida del adaptador de Vercel. Para probar el build en local se sirve `.vercel/output` con un servidor mínimo que llama al `fetch` de `functions/_render.func`. La clave de Google Maps está restringida por referente (revisión de seguridad del 10/08/2026, ver D-285) y solo admite `melweb.vercel.app`, `melweb-*.vercel.app`, `localhost:4321`, `localhost:4500` y `192.168.1.167:4500`: el build local hay que servirlo en uno de esos puertos o el mapa da `RefererNotAllowedMapError` (comprobado en `localhost:4602`).
 
 ## D-281 · Las páginas de laboratorio no existen en producción, y un test caducado desde D-258 se pone al día
 
@@ -5105,3 +5105,155 @@ Sin expresiones regulares sobre el código. Un `/* */` con salto de línea dentr
 **Hallazgo (no es de las fuentes, afecta a todos los `/_astro`)**: en producción los CSS, los JS y ahora las fuentes de `/_astro` se sirven con `cache-control: public, max-age=0, must-revalidate`, no con `immutable`. En `.vercel/output/config.json` la ruta que pone la caché de un año está DESPUÉS de `{"handle": "filesystem"}`, así que los archivos estáticos se sirven antes de llegar a ella. Consecuencia: cada visita repetida hace una petición condicional (304, diminuta y por una conexión ya abierta) por cada archivo. Antes las fuentes de Google sí llevaban un año de caché, así que para las fuentes es un retroceso mínimo. Pendiente de arreglar para todo `/_astro` (ver roadmap).
 
 **Medición real tras el despliegue** (PageSpeed móvil, 30/09/2026, una sola medición; antes → después): FCP 2,9 → **2,2 s**, Speed Index 4,9 → **2,4 s**, bloqueo de renderizado 1.310 → **900 ms**, LCP 13,6 → 12,9 s, TBT 0 → 0, **CLS 0,105 → 0,18 (peor)**, puntuación de rendimiento 64 → 64. Las fuentes propias adelantan el primer pintado y lo estable, como se esperaba, pero no tocan el LCP (que depende de las imágenes) y el CLS empeoró: la letra definitiva llega ahora DESPUÉS de un primer pintado más temprano, y la reserva (Arial con `size-adjust`) no ocupa lo mismo que Space Grotesk en todos los textos (en una prueba local, con solo la reserva, el título de la cabecera pasaba de 299 a 483 px). **Si al repetir la medición el CLS sigue por encima de 0,1, esto es una regresión de D-284** y se corrige ajustando la reserva o cambiando la estrategia de carga (`font-display`), no volviendo a Google.
+
+---
+
+## D-285 · La clave del mapa se queda a la vista, pero restringida
+
+> Escrita el 10/08/2026 como D-276 en la rama del experimento del parallax, que
+> nunca llegó a `main` (D-287). Se trae aquí con el número libre siguiente y **sin
+> las cifras** del tope de gasto: ver «Lo que no se publica», al final.
+
+**Contexto**: revisión de seguridad del repositorio, que es **público**
+(`galofrango/mel-web-frontend`). El disparador fue la clave de Google Maps escrita
+en `src/layouts/Layout.astro`, presente además en los ~40 commits del historial.
+
+**El reflejo equivocado, y por qué se descartó**: sacar la clave a una variable de
+entorno y reescribir el historial. No sirve de nada. El mapa se dibuja en el
+navegador, así que la clave **acaba impresa en el HTML pase lo que pase** — la ve
+cualquiera con Ver código fuente, venga de un literal o de `import.meta.env`.
+Borrarla del historial de git es esconder de GitHub algo que el propio sitio
+publica en cada visita. Habría dado la sensación de arreglo sin arreglar nada, y
+con un rebase de por medio.
+
+**El problema real, que era otro**: la clave **no tenía restricciones**. Comprobado
+llamando a la API de Geocoding desde una máquina cualquiera, sin `Referer`:
+respondía `OK`. Cualquiera podía copiarla del repositorio y gastar contra la
+facturación. Y encima alcanzaba Geocoding, Places, Routes y Weather, que este sitio
+no usa: el código solo toca `Map`, `Marker`, `LatLngBounds` y `ColorScheme`.
+
+**Decisión**: la clave se queda escrita en el código, y la seguridad se pone donde
+de verdad vive, que es la consola de Google:
+
+1. **Referentes HTTP**: `melweb.vercel.app`, `melweb-*.vercel.app` (previsualizaciones
+   de rama; el comodín es `melweb-*` y no `*.vercel.app` a propósito, que dejaría
+   usarla a cualquier aplicación alojada en Vercel), `localhost:4321`,
+   `localhost:4500` y `192.168.1.167:4500` para el móvil en la red local.
+2. **APIs alcanzables**: solo `maps-backend` y `mapstools`. Segunda capa a
+   propósito, porque un referente se falsea desde un servidor en dos líneas: aun
+   falseándolo, lo único que se puede pedir es el mapa, no las APIs caras.
+
+Detalle que costó encontrar: la clave **no es del proyecto `mel-panel`** sino del
+proyecto de demostración que Google crea solo al darse de alta en Maps Platform.
+`mel-panel` no tiene ninguna clave.
+
+**Verificación**: la misma llamada de Geocoding responde ahora `REQUEST_DENIED —
+API keys with referer restrictions cannot be used with this API`; y
+`melweb.vercel.app/?view=mapa` pinta el mapa y sus marcadores, con la consola
+limpia de `RefererNotAllowedMapError`.
+
+**Consecuencia**: si aparece un dominio propio o cambia el puerto de desarrollo,
+hay que añadirlo a la lista de referentes **antes**, o el mapa saldrá en gris.
+Anotado en [docs/google-acceso.md](google-acceso.md) y en la lista de migración a
+dominio propio del roadmap.
+
+### Lo que se revisó y estaba bien
+
+- **La clave de la cuenta de servicio nunca ha entrado en git.** Buscada en *todos*
+  los commits del historial (`BEGIN PRIVATE KEY`, `private_key`, `.env`, ficheros
+  de credenciales): cero resultados. Lo versionado es la ruta, no el contenido.
+  Repetido el 30/09/2026 en todas las ramas locales: igual.
+- **El panel no existe en producción.** Los dos guardas (`import.meta.env.DEV` y
+  `Host` en localhost) están en las cuatro rutas, y contra el sitio real `/panel`,
+  `/panel/historial`, `/api/panel/ocultar` y `POST /api/panel/arreglar` devuelven
+  los cuatro `404`.
+- **La hoja pública no filtra datos personales.** Tiene que seguir siendo pública:
+  toda la capa de datos la lee sin identificarse por `gviz/tq`. Eso expone las 27
+  columnas, no solo las 16 que el sitio pinta. Auditadas: `Enviado por` está vacía,
+  no hay ningún correo, y lo que sobra son valoraciones internas y
+  `Permiso para publicar`. **La regla que queda es de contenido, no de código: lo
+  que se escriba en esa hoja es público.**
+
+### El tope de gasto, y por qué son dos piezas
+
+Un referente se falsea desde un servidor en dos líneas, así que hacía falta además
+un suelo económico. **Un presupuesto de Google Cloud no corta el gasto, solo
+avisa**: no existe el botón de «no cobres más de X». Por eso son dos cosas:
+
+1. **Un presupuesto con avisos** por correo, acotado *solo* al proyecto del mapa.
+2. **Una cuota diaria de cargas del mapa**, que es la que de verdad frena. Salió del
+   uso real medido, con margen sobre el peor día registrado.
+
+**El coste, dicho claro**: con un pico real de visitas, el mapa se apaga ese día al
+llegar a la cuota. La galería y la lista siguen funcionando. **Si el mapa sale gris
+a todo el mundo, lo primero es mirar la cuota del día.**
+
+### Lo que no se publica
+
+Las cifras del presupuesto y de la cuota, el uso medido, los identificadores del
+proyecto del mapa y la orden para subir la cuota viven en una **nota privada del
+propietario, fuera del repositorio** (iCloud, `M.E.L./Privado/google-mapa.md`).
+Publicar la cuota junto con «al agotarse, el mapa se apaga» es decirle a
+cualquiera cuántas cargas hacen falta para apagarlo.
+
+---
+
+## D-286 · La copia de seguridad se pisa a sí misma
+
+> Escrita como D-277 en la carpeta de trabajo mientras estaba, por error, sobre la
+> rama del parallax (D-287). El script ya se usaba así: la copia del 28/09/2026 la
+> hizo esta versión.
+
+**Contexto**: `scripts/copia-seguridad.mjs` creaba una carpeta por fecha en iCloud
+(~140 MB cada una). Para correrla cada semana no hay almacenamiento que aguante.
+
+**Decisión**: una sola carpeta, `Site Backups/copia`, que cada pasada actualiza.
+Lo que se pisa está elegido para que no duela:
+
+- `originales/` solo añade y sobrescribe, **nunca borra**. Un cartel que desaparezca
+  de Drive sigue en la copia, que es para lo que está.
+- `hoja.xlsx` se renombra a `hoja-anterior.xlsx` antes de escribir la nueva: si la
+  hoja se estropea y la copia corre ese día, la versión buena queda una pasada atrás.
+  Para daños más viejos está el historial de versiones de Google Sheets.
+
+El destino por defecto pasa a `M.E.L./Site Backups`, que es donde el propietario
+tenía la única copia (31/07/2026, renombrada a `copia` para reaprovecharla).
+
+**Ojo, lo que esta copia NO guarda**: los originales a máxima resolución de los
+carteles que el panel ya ha reducido. El panel sustituye el fichero en Drive, así
+que la copia siguiente recoge la versión reducida. Quien quiera conservar el
+escaneo grande tiene que guardarlo aparte **antes** de arreglarlo en el panel.
+
+---
+
+## D-287 · El experimento del parallax se archiva solo en local, y la carpeta de trabajo vuelve a `main`
+
+**Contexto**: el 09/08/2026 una sesión cambió la carpeta de trabajo del
+propietario (`site/`) a la rama `experiment/galeria-parallax` y no la devolvió a
+`main`. Durante siete semanas todo lo hecho en esa carpeta —arreglos del panel,
+la copia de seguridad— cayó dentro del experimento sin que nadie lo notara. La
+rama se quitó de GitHub el 29/09/2026 (el repositorio es público).
+
+**Decisión** (30/09/2026, a petición del propietario, que no quiere volver a
+tocarlo):
+
+- La rama pasa a llamarse `archivo/galeria-parallax`, con la etiqueta
+  `archivo-parallax-2026-09-30`. **Las dos solo existen en local y no se suben
+  nunca.** Hay además una copia completa del repositorio (`git bundle`) en iCloud,
+  `M.E.L./Site Backups/repo-2026-09-30/`.
+- Lo que había dentro y **no** era parallax se trajo a `main`: la revisión de
+  seguridad (D-285), la copia que se pisa (D-286), los datos técnicos de 26
+  carteles más y el historial del panel del 27/09. Se revisaron los 8 commits
+  archivo por archivo; el resto es solo parallax y se queda archivado.
+- Dos cosas del experimento que no son parallax quedan apuntadas en el roadmap:
+  un fallo de la vuelta al cartel tras muchas pulsaciones de Siguiente (junto al
+  problema 16) y la lámina blanca de la inclinación 3D.
+- **Un guardián local** (`.git/hooks/pre-push`, no se publica ni viaja en el
+  bundle) bloquea cualquier subida que contenga el experimento: su rama, su
+  etiqueta o un commit que lleve dentro su primer commit (`9aa4423`). Si se
+  descarga el repositorio de cero hay que volver a ponerlo; hay copia junto al
+  bundle (ver `docs/traspaso.md` §1).
+
+**Regla que queda**: nunca `git push --tags` (publicaría la etiqueta de archivo);
+las etiquetas se suben por nombre. Y cada sesión comprueba al empezar en qué rama
+está la carpeta, y la deja en `main` al terminar.
