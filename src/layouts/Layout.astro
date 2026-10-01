@@ -174,6 +174,218 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
     </script>
 
     <script is:inline>
+      // Precarga de páginas que funciona también en el iPhone (D-299).
+      //
+      // Las tarjetas, las filas y la ficha vecina se precargaban con
+      // `<link rel="prefetch">`, y Safari NO lo entiende: lo ignora en
+      // silencio. Y en un iPhone todos los navegadores son Safari por dentro
+      // (Apple obliga a usar su motor, WebKit), Chrome incluido. Así que la
+      // precarga al posar el dedo (D-161) no existía en ningún iPhone: la
+      // ficha empezaba a pedirse al soltar. Donde el navegador no entiende
+      // `prefetch`, se pide con `fetch`, igual que hace el propio Astro con su
+      // precarga; la respuesta (`max-age=60`, D-259) queda en la caché del
+      // navegador y la navegación la reutiliza.
+      //
+      // Lo que Astro no hace y aquí hace falta: un toque dura ~100-150 ms y una
+      // ficha en frío tarda más en llegar, así que al soltar el dedo la
+      // precarga suele estar A MEDIAS. La navegación pediría la misma página
+      // otra vez, en paralelo, y no se ganaría nada. Por eso, si hay una
+      // precarga de la página a la que se va, el cargador de Astro (`e.loader`,
+      // sustituible en `astro:before-preparation`) la espera y se la entrega
+      // tal cual: durante esa carga, el `fetch` de esa misma dirección devuelve
+      // la página ya descargada. No se fía de la caché del navegador porque en
+      // las ventanas privadas de WebKit no la hay (medido: dos `fetch` seguidos
+      // de la misma ficha salían los dos a la red), y ahí la espera solo habría
+      // servido para pedirla dos veces. El resto lo hace el cargador de Astro de
+      // siempre (leer la página, esperar a sus estilos…), sin copiarlo aquí.
+      //
+      // Una vez por documento: este script no se reevalúa en las navegaciones
+      // suaves; la bandera evita duplicados si alguna vez lo hiciera.
+      (function () {
+        if (window.__melPrecargar) return;
+        var prueba = document.createElement('link');
+        var conLink = !!(prueba.relList && prueba.relList.supports && prueba.relList.supports('prefetch'));
+        var enCurso = new Map();   // URL absoluta, sin # → { p: promesa, t: cuándo se pidió }
+        var VIGENCIA_MS = 60000;   // el max-age de las páginas (D-259)
+        // Prioridad: en una pantalla táctil, normal — se precarga lo que se va a
+        // tocar enseguida (la foto bajo el dedo, las vecinas de la ficha), y en
+        // «baja» esperaría detrás de las fotos que aún cargan: medido en el
+        // iPhone del propietario, una vecina en baja tardó 945 ms en llegar
+        // (las demás, 90-180) porque el carrusel seguía descargando. Solo va en
+        // baja lo que dispara el ratón al pasar por la galería en Safari de
+        // ordenador, que es una suposición y no un toque.
+        var tactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        var ultimoToque = 0;
+        addEventListener('touchstart', function () { ultimoToque = Date.now(); }, { passive: true, capture: true });
+        function clave(url) {
+          var u = new URL(url, location.href);
+          u.hash = '';
+          return u.href;
+        }
+        // Con «ahorro de datos» activado en el móvil, no se precarga nada.
+        var ahorro = !!(navigator.connection && navigator.connection.saveData);
+        // Precargas lanzadas durante el toque en curso: si el dedo acaba
+        // desplazando la página en vez de tocar, se cancelan (abajo). Empezar
+        // a desplazar con el dedo sobre una foto o un enlace no debe gastar
+        // datos en una página que nadie va a abrir.
+        var delToque = [];
+        window.__melPrecargar = function (url) {
+          if (!url || ahorro) return;
+          var k;
+          try { k = clave(url); } catch (e) { return; }
+          if (conLink) {
+            // Por la dirección completa: la misma página puede llegar escrita
+            // de dos formas (relativa desde la ficha, absoluta desde un enlace).
+            var ya1 = document.head.querySelectorAll('link[rel="prefetch"]');
+            for (var i = 0; i < ya1.length; i++) if (ya1[i].href === k) return;
+            var l = document.createElement('link');
+            l.rel = 'prefetch';
+            l.href = k;
+            document.head.appendChild(l);
+            return;
+          }
+          // Fuera las caducadas: cada copia es una página entera (~160 KB) y
+          // pasando el ratón por la galería se acumularían decenas.
+          var ya = Date.now();
+          enCurso.forEach(function (v, c) { if (ya - v.t >= VIGENCIA_MS) enCurso.delete(c); });
+          if (enCurso.has(k)) return;
+          var conDedo = tactil || Date.now() - ultimoToque < 100;
+          var corte = window.AbortController ? new AbortController() : null;
+          if (Date.now() - ultimoToque < 100) delToque.push({ k: k, corte: corte });
+          var opciones = conDedo ? {} : { priority: 'low' };
+          if (corte) opciones.signal = corte.signal;
+          // Solo se guarda una respuesta buena y directa; con cualquier otra
+          // cosa la navegación la pide de nuevo, como siempre.
+          enCurso.set(k, {
+            t: Date.now(),
+            p: fetch(k, opciones).then(function (r) {
+              if (!r.ok || r.redirected) return null;
+              var tipo = r.headers.get('content-type') || 'text/html';
+              return r.text().then(function (html) { return { html: html, tipo: tipo }; });
+            }).catch(function () { return null; }),
+          });
+        };
+        // Los enlaces internos se precargan aquí, no con la precarga de Astro
+        // (apagada en astro.config.mjs, ver allí por qué): al posar el dedo, y
+        // con ratón tras 80 ms encima, como hacía Astro. Así la X de la ficha,
+        // las etiquetas o el menú adelantan su página igual que las tarjetas,
+        // y la navegación se la queda en vez de pedirla otra vez.
+        function enlaceInterno(el) {
+          var a = el && el.closest ? el.closest('a[href]') : null;
+          if (!a || (a.target && a.target !== '_self') || a.hasAttribute('download') || a.hasAttribute('data-astro-reload')) return null;
+          var h = a.getAttribute('href');
+          if (!h || h.charAt(0) === '#') return null;
+          var u;
+          try { u = new URL(a.href, location.href); } catch (e) { return null; }
+          if (u.origin !== location.origin) return null;
+          if (u.pathname === location.pathname && u.search === location.search) return null;
+          return u.href;
+        }
+        var x0 = 0, y0 = 0;
+        addEventListener('touchstart', function (e) {
+          delToque = [];
+          var t = e.touches && e.touches[0];
+          if (t) { x0 = t.clientX; y0 = t.clientY; }
+          var u = enlaceInterno(e.target);
+          if (u) window.__melPrecargar(u);
+        }, { passive: true, capture: true });
+        // El dedo se mueve más que un temblor (el mismo umbral de 8 px que
+        // `mel-desplazando`): era un desplazamiento, no un toque. Fuera las
+        // precargas de este toque que aún no hayan llegado.
+        addEventListener('touchmove', function (e) {
+          if (!delToque.length) return;
+          var t = e.touches && e.touches[0];
+          if (!t || (Math.abs(t.clientX - x0) <= 8 && Math.abs(t.clientY - y0) <= 8)) return;
+          delToque.forEach(function (d) {
+            if (d.corte) d.corte.abort();
+            enCurso.delete(d.k);
+          });
+          delToque = [];
+        }, { passive: true });
+        var intencion = null;
+        addEventListener('pointerover', function (e) {
+          if (e.pointerType !== 'mouse') return;
+          clearTimeout(intencion);
+          var u = enlaceInterno(e.target);
+          if (u) intencion = setTimeout(function () { window.__melPrecargar(u); }, 80);
+        }, { passive: true });
+        addEventListener('pointerout', function (e) {
+          if (e.pointerType === 'mouse') clearTimeout(intencion);
+        }, { passive: true });
+        // Un clic más rápido que los 80 ms: se precarga al pulsar, y la
+        // navegación que viene detrás se la queda (si no, el reloj saltaría
+        // después y pediría la página otra vez).
+        addEventListener('pointerdown', function (e) {
+          if (e.pointerType !== 'mouse') return;
+          clearTimeout(intencion);
+          var u = enlaceInterno(e.target);
+          if (u) window.__melPrecargar(u);
+        }, { passive: true, capture: true });
+        // Con el teclado, al llegar al enlace (como hacía Astro).
+        document.addEventListener('focusin', function (e) {
+          var u = enlaceInterno(e.target);
+          if (u) window.__melPrecargar(u);
+        }, { passive: true });
+
+        document.addEventListener('astro:before-preparation', function (e) {
+          var k = clave(e.to.href);
+          var previa = enCurso.get(k);
+          // Ni para enviar un formulario (no hay ninguno hoy, pero sería
+          // devolver la página en vez de enviarlo) ni con una copia caducada.
+          // La caducidad se mira con el reloj y no con un temporizador: en una
+          // pestaña en segundo plano del iPhone los temporizadores se paran.
+          if (!previa || e.formData || Date.now() - previa.t >= VIGENCIA_MS) return;
+          // No se borra al usarla: si una navegación cancela a otra hacia la
+          // misma página (un doble toque), la segunda también la aprovecha.
+          var cargar = e.loader;
+          e.loader = function () {
+            return previa.p.then(function (pagina) {
+              if (!pagina || e.signal.aborted) return cargar();
+              // El cargador de Astro llega a su `fetch` sin esperar a nada, así
+              // que el préstamo se pone y se quita en el mismo instante.
+              var real = window.fetch;
+              var prestamo = function (pedido) {
+                var dir = pedido && pedido.url ? pedido.url : String(pedido);
+                if (clave(dir) === k) {
+                  window.fetch = real;
+                  window.__melUltimaPrecargada = k;   // lo lee el cronómetro (crono.js)
+                  return Promise.resolve(new Response(pagina.html, { headers: { 'content-type': pagina.tipo } }));
+                }
+                return real.apply(this, arguments);
+              };
+              window.fetch = prestamo;
+              return Promise.resolve(cargar()).finally(function () {
+                if (window.fetch === prestamo) window.fetch = real;
+              });
+            });
+          };
+        });
+      })();
+    </script>
+
+    <script is:inline>
+      // Cronómetro en pantalla (D-299), APAGADO para todo el mundo. Se
+      // enciende abriendo cualquier página con `?crono` y dura lo que la
+      // pestaña; `?crono=0` (o su ×) lo apaga. Solo entonces se descarga
+      // `/crono.js`: a un visitante normal no le cuesta nada. Para medir en un
+      // teléfono de verdad, sin cable, dónde se va el tiempo de cada navegación.
+      (function () {
+        try {
+          var q = new URLSearchParams(location.search).get('crono');
+          if (q !== null) {
+            if (q === '0') sessionStorage.removeItem('mel-crono');
+            else sessionStorage.setItem('mel-crono', '1');
+          }
+          if (sessionStorage.getItem('mel-crono') !== '1') return;
+        } catch (e) { return; }
+        var s = document.createElement('script');
+        s.src = '/crono.js';
+        s.defer = true;
+        document.head.appendChild(s);
+      })();
+    </script>
+
+    <script is:inline>
       // Nada se ve pulsado mientras el dedo está desplazando. El navegador
       // enciende `:active` en cuanto tocas y lo mantiene durante todo el gesto,
       // así que arrastrar para hacer scroll sobre una lista dejaba sus filas
@@ -243,8 +455,16 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
 
         addEventListener('touchstart', function (e) {
           limpiarPulsado();   // un toque nuevo cancela el anterior
+          // Las tarjetas de la galería no son botones (son `div` con un clic),
+          // así que se nombran aparte (D-299). Sin esto su único pulsado era
+          // el "hover" que el móvil se inventa al tocar, con 300 ms de
+          // transición: desde que la ficha llega antes (París, D-298) la página
+          // se congela para la transición antes de que se vea.
+          // `[data-mel-tocable]` (D-299): una caja entera que responde al toque
+          // aunque el enlace de dentro sea pequeño (Anterior/Siguiente de la
+          // ficha). Manda sobre el enlace: se marca la caja, que es lo tocado.
           candidato = e.target && e.target.closest
-            ? e.target.closest('button, a[href], [role="button"]')
+            ? (e.target.closest('[data-mel-tocable]') || e.target.closest('button, a[href], [role="button"], .gallery-item'))
             : null;
         }, { passive: true, capture: true });
 

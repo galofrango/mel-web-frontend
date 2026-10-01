@@ -322,8 +322,17 @@ llegar por un enlace "Lugar" ni al volver de un evento abierto desde el panel.
 ### Fluidez
 
 Las navegaciones home ⇄ evento y evento ⇄ evento usan el enrutado nativo de
-Astro (`window.__melNavigate`, View Transitions) con precarga `<link
-rel="prefetch">` de los colindantes, para que no haya pantallas en blanco.
+Astro (`window.__melNavigate`, View Transitions) con precarga de los
+colindantes, de la ficha que se toca y de cualquier enlace interno (al posar el
+dedo; con ratón, tras 80 ms encima o al pulsar; con teclado, al llegar), para que
+no haya pantallas en blanco; si el dedo acaba desplazando, se cancela. La
+precarga propia de Astro está apagada (`prefetch: false`, D-299): en el iPhone se
+disparaba a la vez que la navegación y pedía la página dos veces. Toda precarga pasa por `window.__melPrecargar(url)`
+(`Layout.astro`, D-299): `<link rel="prefetch">` donde el navegador lo entiende y
+`fetch` donde no (Safari y cualquier navegador del iPhone), y si al navegar la
+precarga sigue en marcha, la navegación la espera y la usa en vez de pedir la
+página otra vez. La precarga y el enlace tienen que pedir **la misma dirección**,
+parámetros incluidos, o la precarga no sirve.
 
 ## Bus de Eventos (Eventos Personalizados en `window`)
 

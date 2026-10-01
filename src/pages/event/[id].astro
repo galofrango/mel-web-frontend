@@ -605,7 +605,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
              eventos cualesquiera del archivo, y pulsarlos ahí sacaba de la
              navegación acotada. Los títulos SSR se conservan solo como
              contenido de reemplazo; el cliente los sobrescribe. -->
-        <div class="lg:col-span-5 flex justify-end text-right items-center invisible" id="nav-prev-container">
+        <div class="lg:col-span-5 flex justify-end text-right items-center invisible cursor-pointer pointer-fine:cursor-auto" id="nav-prev-container" data-mel-tocable>
           <TagWithLink
             label="Anterior"
             count={prevEvent ? prevEvent.title : "Anterior"}
@@ -617,7 +617,7 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         </div>
 
         <!-- Siguiente (Left-aligned under right column with 24px left padding on desktop) -->
-        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center invisible" id="nav-next-container">
+        <div class="lg:col-span-5 flex justify-start text-left pl-0 lg:pl-6 items-center invisible cursor-pointer pointer-fine:cursor-auto" id="nav-next-container" data-mel-tocable>
           <TagWithLink
             label="Siguiente"
             count={nextEvent ? nextEvent.title : "Siguiente"}
@@ -1190,7 +1190,12 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         }
         document.head.appendChild(l);
       };
-      meter('prefetch', `/event/${item.idMel}`, false);
+      // El HTML, con la función común de Layout.astro (D-299): `<link
+      // rel="prefetch">` no funciona en ningún iPhone. Y con la MISMA dirección
+      // que el enlace de Anterior/Siguiente, `?…` incluido: se precargaba
+      // `/event/ID` a secas, la navegación pedía `/event/ID?view=…`, y para la
+      // caché son dos páginas distintas — la precarga no se usaba nunca.
+      if (typeof window.__melPrecargar === 'function') window.__melPrecargar(`/event/${item.idMel}?${navParam}`);
       // `fotoUrl` la resuelve el servidor al construir `allEvents` — ver el
       // comentario de ahí: esta línea llamaba a extractDriveImage(), que no
       // existe en el cliente, sobre un carruselItems que tampoco se pasaba.
@@ -1239,6 +1244,26 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
         if (deadLink) deadLink.href = '#';
       }
     }
+
+    // La caja ENTERA de Anterior/Siguiente responde al toque (D-299), no solo
+    // el título. En un móvil el enlace era el texto del título, 77-104 × 27 px
+    // (Apple pide 44 × 44), y su halo de `mel-link-hit-expand` no servía: lo
+    // recorta la `marquee-cell` que corta los títulos largos. Medido: solo
+    // respondía el 7-13 % de la caja, y el propietario veía que «me hace caso
+    // la mitad de las veces». Un toque en cualquier otro punto de la caja (la
+    // palabra «Anterior», el hueco junto al título) hace lo mismo que el título.
+    [prevContainer, nextContainer].forEach((caja) => {
+      if (!caja) return;
+      caja.addEventListener('click', (e) => {
+        if (e.target.closest('a')) return;   // el propio enlace ya navega
+        // Con ratón, no: en escritorio la caja es mucho más ancha que el
+        // enlace (y el halo del enlace sí funciona allí), así que su zona vacía
+        // no debe navegar. Y Cmd/Ctrl/Mayús-clic se deja al navegador.
+        if (window.matchMedia('(pointer: fine)').matches || e.metaKey || e.ctrlKey || e.shiftKey) return;
+        const enlace = caja.querySelector('a');
+        if (enlace && enlace.getAttribute('href') && enlace.getAttribute('href') !== '#') enlace.click();
+      }, { signal: wSig });
+    });
 
     // El bloque entero (divisor + espacio reservado) corrige aquí el cálculo
     // de partida hecho en el servidor con el orden cronológico: la secuencia

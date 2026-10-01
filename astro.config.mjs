@@ -9,6 +9,16 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   output: 'server',
 
+  // La precarga de Astro, APAGADA (D-299). Con el enrutador de Astro viene
+  // encendida para todos los enlaces (`prefetchAll`), al pasar el ratón 80 ms.
+  // En un iPhone el navegador simula ese «pasar el ratón» al tocar, así que la
+  // precarga salía a la vez que la propia navegación y sin coordinarse con
+  // ella: cada cierre de una ficha pedía la portada DOS veces (visto en el
+  // registro del servidor con el iPhone del propietario). La sustituye la
+  // precarga propia de `Layout.astro` (`__melPrecargar`), que cubre los mismos
+  // enlaces y entrega a la navegación la página que ya trae.
+  prefetch: false,
+
   // Fuentes alojadas en nuestro dominio (D-284). Astro las descarga de Google
   // AL COMPILAR, las guarda en /_astro con nombre único y caché de un año, y
   // genera el @font-face con sus subconjuntos (`unicode-range`): el navegador

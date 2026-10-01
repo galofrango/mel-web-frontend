@@ -5637,3 +5637,145 @@ tandas de 15 fichas: 70 ms, 61–195; y 65 ms, 57–80). En caché siguen en ~30
 producción, 0 oyentes `hashchange` fuera de /info.
 
 **Verificación**: 109/109 tests, build correcto.
+
+## D-299 · Interacciones de la ficha en el iPhone: pulsado inmediato, precarga que funciona, Anterior/Siguiente tocables y un cronómetro en pantalla
+
+**Contexto** (01/10/2026, tras v1.1.11): el propietario, en Chrome privado del iPhone, ve
+que abrir y cerrar una ficha tarda (la X «pulsada» varios segundos), que el pulsado de
+las fotos «prácticamente no se pinta ya» y que Anterior/Siguiente le hace caso «la
+mitad de las veces». Lo que se averiguó primero: **Chrome en el iPhone es Safari por
+dentro** (Apple obliga a todos los navegadores a usar su motor, WebKit), así que no
+es «Safari sí, Chrome no» sino «iPhone sí, ordenador no». Se midió con WebKit 26
+(Playwright 1.63, simulando un iPhone) además de con Chrome. Entre v1.1.9 y v1.1.11
+no cambió ni una línea del código de abrir una ficha.
+
+**1. Pulsado inmediato de las fotos.** En el móvil, el pulsado de una tarjeta era el
+«hover» que el navegador se inventa al tocar: la sombra que la levanta, con
+`transition-all duration-300`. Con las páginas fabricándose en París (D-298) la ficha
+llega antes y la página se congela para la transición cuando la sombra apenas ha
+empezado. Medido: en `astro:before-preparation` (empieza a pedirse la ficha) la
+tarjeta no tenía ni clase ni sombra. Las tarjetas no son botones, así que el pulsado
+que sobrevive al dedo (D-274, `.mel-pulsado` en `Layout.astro`) nunca les llegaba:
+ahora `.gallery-item` entra en su selector, y `.gallery-item.mel-pulsado` pinta la
+misma sombra de golpe (`index.astro`). La etiqueta con el nombre no entra: en
+tarjetas de menos de 240 px está apagada a propósito. Con ratón no cambia nada.
+**El propietario lo validó pero prefería la sombra animada**: apuntado retomarlo con
+una transición corta (~150 ms).
+
+**2. Precarga que funciona en el iPhone.** `<link rel="prefetch">` (tarjetas, filas,
+ficha vecina; D-161, D-090) **no existe en WebKit**: se ignora en silencio, así que en
+ningún iPhone se adelantaba nada al posar el dedo. Nueva función común en
+`Layout.astro`, `window.__melPrecargar(url)`: con `<link rel="prefetch">` donde el
+navegador lo entiende, como siempre, y con `fetch` donde no (lo mismo que hace la
+precarga del propio Astro). Y lo que Astro no hace: si al soltar el dedo la precarga
+sigue en marcha, el cargador de la navegación (`e.loader` de
+`astro:before-preparation`, sustituible) la espera y **se la entrega**: durante esa
+carga, el `fetch` de esa dirección devuelve la página ya descargada. No se confía en
+la caché del navegador porque en las ventanas privadas de WebKit no la hay (medido:
+dos `fetch` seguidos de la misma ficha salían los dos a la red; con un perfil normal,
+uno). La copia vale 60 s, como el `max-age` de las páginas, contados con el reloj (en
+una pestaña en segundo plano del iPhone los temporizadores se paran) y se limpian
+las caducadas en cada precarga, que cada una es una página entera. El préstamo no se
+hace para un envío de formulario ni si la navegación ya se canceló. Prioridad: normal en
+pantallas táctiles (la foto bajo el dedo y las vecinas se van a tocar enseguida; en
+«baja», una vecina tardó 945 ms en el iPhone del propietario, detrás de las fotos del
+carrusel), y baja solo al pasar el ratón en Safari de ordenador.
+
+**3. La Lista del móvil navegaba dos veces por toque.** Sus filas tenían un oyente de
+clic propio y además las atendía el delegado de la Lista
+(`_melListClickHandlerBound`): la segunda navegación cancelaba la primera, con su
+transición a medias, y volvía a pedir la ficha. Se quita el de la fila.
+
+**4. La ficha vecina se precargaba con otra dirección.** `adelantarVecino()` pedía
+`/event/ID` y el enlace navega a `/event/ID?view=…`: para la caché son páginas
+distintas, así que la precarga no se usaba nunca, **tampoco en Chrome**. Ahora usa
+la misma dirección que el enlace.
+
+**5. Anterior/Siguiente, tocables en toda su caja.** En el móvil el enlace era solo el
+título: 77-104 × 27 px (Apple pide 44 × 44). Su halo (`mel-link-hit-expand`, 12 px)
+no servía: lo recorta la `marquee-cell` que corta los títulos largos. Medido: respondía
+el 7-13 % de la caja. Y cuando el pulsado de D-274 creía que se había tocado el
+enlace pero el navegador decidía que no, el texto se quedaba «pulsado» sin navegar
+(hasta su reloj de 4 s). Ahora la caja entera (`data-mel-tocable`, 157 × 48 px)
+reenvía el toque al enlace (solo en táctil: en escritorio la caja es mucho más ancha
+que el enlace y allí el halo sí funciona; Cmd/Ctrl-clic se deja al navegador), y se marca como pulsada (el título en
+`--mel-action-primary`, regla en `global.css`); el mecanismo de D-274 prefiere
+`[data-mel-tocable]` al enlace de dentro. No se tocó `TagWithLink`, que se usa en
+más sitios.
+
+**6. La precarga de Astro, apagada (`prefetch: false` en `astro.config.mjs`).** Con su
+enrutador viene encendida para TODOS los enlaces (`prefetchAll`, comprobado en el
+paquete compilado): precarga al pasar el ratón 80 ms. En un iPhone el navegador
+simula ese «pasar el ratón» al tocar, así que la precarga salía a la vez que la
+navegación y sin coordinarse con ella. Visto en el registro del servidor de pruebas
+con el iPhone del propietario: cada cierre de una ficha pedía la portada dos veces.
+Ahora todos los enlaces internos (la X, las etiquetas, el menú…) pasan por
+`__melPrecargar`: al posar el dedo; con ratón, tras 80 ms encima o en el acto al
+pulsar (si no, un clic rápido la pediría dos veces); y con el teclado, al llegar al
+enlace. Con «ahorro de datos» activado no se precarga nada. Si el dedo, en vez de
+tocar, desplaza la página (más de 8 px), las precargas de ese toque se cancelan.
+Medido al cerrar con la X (WebKit, dedo 120 ms, servidor 300 ms): producción pide la
+portada **2 veces** y la tiene a los 372-386 ms de soltar; esta versión, **1 vez** y a
+los 204-211 ms. En Chrome de escritorio el ratón sobre la X sigue precargando la
+portada. De propina, unos 200 oyentes menos por página (los que Astro ponía en cada
+enlace).
+
+**7. Cronómetro en pantalla** (`public/crono.js`), apagado para todo el mundo: se
+enciende con `?crono` en cualquier página (dura la pestaña, `sessionStorage`) y se
+apaga con `?crono=0` o su ×. Solo entonces se descarga el fichero, así que a un
+visitante no le cuesta nada. Pinta, para las últimas navegaciones, cuándo llegó la
+página (y lo que tardó el servidor, o si vino de la precarga), cuándo se cambió,
+cuándo terminaron los scripts, cuándo se destapó la galería y los parones de más de
+100 ms del hilo principal. Los toques lo atraviesan (solo responden sus botones),
+porque tapaba Anterior/Siguiente; «mover» lo lleva arriba o abajo; y «copiar» lleva
+todas las navegaciones de la pestaña (hasta 30), con el portapapeles moderno en
+https y, en el servidor de pruebas (http), con el método antiguo (`execCommand`),
+porque allí el moderno no existe y daba «no se pudo». Sirve para cazar en un
+teléfono real, sin cable, los parones de segundos que no se reproducen fuera de él.
+Vive en `public/` y se publica tal cual, comentarios incluidos (D-280 los quita para
+no cargar a cada visitante; este solo lo descarga quien lo enciende).
+
+**Medido** (WebKit simulando un iPhone, con un intermediario que retrasa las fichas
+300 ms como una ficha en frío vista desde el móvil, `proxy-lento.mjs`; dedo apoyado
+150 ms):
+
+| | Producción v1.1.11 | Esta versión |
+|---|---|---|
+| Galería: ficha descargada tras soltar | 380-440 ms | 165-230 ms |
+| Lista: ficha descargada tras soltar | 380-390 ms, dos peticiones | 165-170 ms, una |
+| Siguiente: ficha vecina | 367 ms, dos peticiones | 8 ms (de la precarga) |
+| Toques al azar en la caja de «Siguiente» | WebKit 6/10, Chrome 3/10 | 10/10 y 10/10 |
+
+En Chrome no cambia nada medible (~245 ms abrir, ~250 cerrar, como antes). Sin fugas
+nuevas (nodos estables en idas y vueltas). 109/109 tests, build correcto.
+
+**Coste nuevo**: en el iPhone cada ficha abierta precarga ahora sus dos vecinas
+(unos 30 KB cada una), que es lo que D-090 quería y Chrome ya hacía; y cada enlace o
+foto que se toca adelanta su página al posar el dedo (si el dedo acaba desplazando,
+se cancela). En Safari de ordenador, pasar el ratón por encima (con prioridad baja).
+Las páginas vienen casi siempre de la caché de Vercel.
+
+**Visto y descartado**: la letra «más grande» unas décimas al recargar en Safari es
+del servidor de desarrollo (allí los estilos los inyecta un script después de pintar;
+en producción van en la página).
+
+**Medido por el propietario con el cronómetro**, antes de los puntos 6 y de la
+prioridad normal en táctil (iPhone, iOS 26.5, Chrome, contra el servidor de pruebas,
+01/10/2026): 13 aperturas de ficha (galería, Lista, panel del
+local, Anterior/Siguiente), todas «precargadas», en 90-180 ms del toque a la página
+descargada, salvo una vecina en 945 ms (la prioridad baja; corregido arriba); el
+cambio de página, 10-20 ms después. Volver a la portada, 325-480 ms (no se precarga, y
+en el servidor de pruebas pesa 855 KB sin comprimir; en producción, 72 KB). **Ningún
+parón de más de 100 ms** en ninguna navegación.
+
+**Segunda medición del propietario, ya con todo** (iPhone, Safari 26.5.2, servidor de
+pruebas): 6 aperturas de ficha precargadas en 82-133 ms, volver a la galería tras una
+búsqueda en 82 ms, y solo dos parones de ~100 ms segundos después de navegar. La más
+lenta, ir al mapa por «Lugar» (931 ms, precargada): es la portada entera, que en el
+servidor de pruebas pesa 855 KB sin comprimir (72 KB en producción). «Va todo
+rapidísimo»; base para trabajar animaciones.
+
+**Sin resolver**: los parones de varios segundos al cerrar en el iPhone no
+aparecieron en esas sesiones; queda medir en producción con `?crono`. Volver a la
+portada ya se adelanta al posar el dedo en la X (punto 6); precargarla antes, al
+abrir la ficha, sigue siendo la idea en espera si aún se nota.

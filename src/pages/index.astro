@@ -1131,6 +1131,25 @@ const tags = [
                 0 10px 21px 0 rgb(var(--mel-shadow-rgb) / 0.10) !important;
   }
 
+  /* El pulsado de la tarjeta en táctil (D-299): el mismo aspecto que el
+     "hover" que el móvil se inventa al tocar —levantada con su sombra—, pero
+     DE GOLPE. (La etiqueta con el nombre no entra: en tarjetas de menos de
+     240 px está apagada a propósito, ver `.flyer-label` arriba.) Con los 300 ms de
+     transición de la tarjeta, la página se congelaba para la transición a la
+     ficha cuando la sombra apenas había empezado, y el propietario dejó de
+     ver que había acertado. `.mel-pulsado` lo pone Layout.astro al soltar el
+     dedo (nunca con ratón) y lo quita al navegar. La sombra es la de
+     `.gallery-item:hover` de arriba: si cambia allí, aquí también. */
+  .gallery-item.mel-pulsado {
+    z-index: 30 !important;
+    transition: none !important;
+    box-shadow: 0 239px 67px 0 rgb(var(--mel-shadow-rgb) / 0.00),
+                0 153px 61px 0 rgb(var(--mel-shadow-rgb) / 0.01),
+                0 86px 52px 0 rgb(var(--mel-shadow-rgb) / 0.05),
+                0 38px 38px 0 rgb(var(--mel-shadow-rgb) / 0.09),
+                0 10px 21px 0 rgb(var(--mel-shadow-rgb) / 0.10) !important;
+  }
+
   /* Donde el efecto ACTÚA, la sombra de hover es la del efecto y no la vieja
      (D-264). No se solapaban por ningún motivo bueno: yo escribía la nueva en
      línea encima de aquella, y en el hueco entre que el ratón entra y llega el
@@ -2238,7 +2257,7 @@ const tags = [
     // antes de que se suelte: justo el margen que hace falta para adelantarla.
     ['pointerenter', 'touchstart'].forEach((evento) => card.addEventListener(evento, () => {
       prefetchEventUrl(item.idMel, { search: searchQuery });
-    }, { once: true, passive: true }));
+    }, { passive: true }));
     card.addEventListener('click', () => {
       abrirFicha(item);
     });
@@ -3044,15 +3063,17 @@ const tags = [
     return `/event/${idMel}?${params.toString()}`;
   }
 
+  // Precarga con la función común de Layout.astro (D-299): con
+  // `<link rel="prefetch">` donde el navegador lo entiende y con `fetch` donde
+  // no (Safari, o sea cualquier navegador del iPhone), y la navegación espera
+  // a la precarga en marcha en vez de pedir la ficha dos veces.
+  // Los oyentes que llaman aquí ya no son de un solo uso: si un toque acaba
+  // siendo un desplazamiento, Layout cancela su precarga, y el siguiente toque
+  // de verdad tiene que poder lanzarla otra vez. Repetir no cuesta nada: la
+  // función común no pide dos veces la misma página.
   function prefetchEventUrl(idMel, { search = '', location = '' } = {}) {
-    if (!idMel) return;
-    const url = eventUrl(idMel, { search, location });
-    if (!document.querySelector(`link[rel="prefetch"][href="${url}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'prefetch';
-      link.href = url;
-      document.head.appendChild(link);
-    }
+    if (!idMel || typeof window.__melPrecargar !== 'function') return;
+    window.__melPrecargar(eventUrl(idMel, { search, location }));
   }
 
   function navigateToEvent(idMel, { search = '', location = '' } = {}) {
@@ -3285,7 +3306,7 @@ const tags = [
       ['pointerenter', 'touchstart'].forEach((evento) => card.addEventListener(evento, () => {
         const id = card.dataset.id;
         if (id) prefetchEventUrl(id, { search: searchQuery });
-      }, { once: true, passive: true }));
+      }, { passive: true }));
       card.addEventListener('click', () => {
         const id = card.dataset.id;
         const item = archives.find(x => x.idMel === id);
@@ -4078,10 +4099,12 @@ const tags = [
               // antes de que se suelte: justo el margen que hace falta para adelantarla.
               ['pointerenter', 'touchstart'].forEach((evento) => row.addEventListener(evento, () => {
                 prefetchEventUrl(item.idMel, { search: searchQuery });
-              }, { once: true, passive: true }));
-              row.addEventListener('click', () => {
-                navigateToEvent(item.idMel, { search: searchQuery });
-              });
+              }, { passive: true }));
+              // Sin oyente de clic propio (D-299): el delegado de la Lista
+              // (`_melListClickHandlerBound`, más abajo) ya abre la ficha de
+              // cualquier fila de `#list-mobile-cards`. Con los dos, cada toque
+              // navegaba DOS veces seguidas: la segunda cancelaba la primera
+              // (y su transición) y volvía a pedir la ficha.
               colocarTarjeta(row);
             }
             const divisor = row.querySelector('.border-b.border-mel-border');
@@ -5089,7 +5112,7 @@ const tags = [
         // antes de que se suelte: justo el margen que hace falta para adelantarla.
         ['pointerenter', 'touchstart'].forEach((evento) => card.addEventListener(evento, () => {
           prefetchEventUrl(evt.idMel, { location: evt.lugar });
-        }, { once: true, passive: true }));
+        }, { passive: true }));
         card.addEventListener('click', () => {
           // Al entrar desde el panel, Anterior/Siguiente queda acotado a los
           // eventos DE ESE LOCAL, en el mismo orden en que se ven en el panel.

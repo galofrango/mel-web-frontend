@@ -1196,3 +1196,11 @@ html::view-transition-old(mel-slider),
 html::view-transition-new(mel-slider) {
   animation-duration: 0s;
 }
+
+/* Pulsado de una caja tocable entera (`[data-mel-tocable]`, D-299): su enlace
+   se pinta como al pasar el ratón, sin esperar a ninguna transición. Lo marca
+   `.mel-pulsado` (Layout.astro) al soltar el dedo y se quita al navegar. */
+[data-mel-tocable].mel-pulsado .mel-link-active {
+  color: var(--mel-action-primary);
+  transition: none;
+}
