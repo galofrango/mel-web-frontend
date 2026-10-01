@@ -160,6 +160,22 @@ import IconButton from './IconButton.astro';
 
 <script>
   function initSearch() {
+    // Regla 1: los oyentes de `window` y `document` van con AbortController.
+    // Esto se ejecuta en CADA `astro:page-load`, y sin la señal cada portada
+    // dejaba enganchados sus tres oyentes (resize, mel-set-search, click) a un
+    // window y un document que sobreviven a la navegación suave. Cada uno
+    // recordaba los elementos de SU portada, así que ninguna portada vieja se
+    // podía liberar: +3.350 nodos por ida y vuelta a una ficha, 70.000 tras
+    // veinte (D-297). Y seguían actuando: un `mel-set-search` hacía filtrar la
+    // galería una vez por cada portada acumulada. Se aborta ANTES de mirar si
+    // hay buscador, para que entrar en una ficha (que no lo tiene) también
+    // suelte los de la portada que se deja. Clave propia, no `_melAbortCtrl`:
+    // compartirla hace que unos scripts aborten los oyentes de otros.
+    const w = window as any;
+    if (w._melSearchAbortCtrl) w._melSearchAbortCtrl.abort();
+    w._melSearchAbortCtrl = new AbortController();
+    const signal = w._melSearchAbortCtrl.signal;
+
     const container = document.getElementById('search-box-container');
     const stateDefault = document.getElementById('search-state-default');
     const stateActive = document.getElementById('search-state-active');
@@ -215,7 +231,7 @@ import IconButton from './IconButton.astro';
       applyContainerWidth();
     }
 
-    window.addEventListener('resize', remeasure);
+    window.addEventListener('resize', remeasure, { signal });
 
     // Con el campo vacío se enseña el caret FALSO (grueso y parpadeante, igual
     // que la Pica del título) y se esconde el nativo; en cuanto hay una letra
@@ -339,7 +355,7 @@ import IconButton from './IconButton.astro';
       } else {
         setState('default');
       }
-    });
+    }, { signal });
 
     // On initialization, check if search query parameter exists.
     //
@@ -368,7 +384,7 @@ import IconButton from './IconButton.astro';
           setState('default');
         }
       }
-    });
+    }, { signal });
 
     function limpiarSearchDeLaUrl() {
       const url = new URL(window.location.href);

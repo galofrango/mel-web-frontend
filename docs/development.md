@@ -44,7 +44,7 @@ La documentación es un **componente vivo de primer nivel** en este proyecto. To
 
 Consulta las reglas de [AGENTS.md](../AGENTS.md) antes de escribir código nuevo:
 1. Lifecycle idempotente vía `astro:page-load`.
-2. `AbortController` (`window._melAbortCtrl`) para limpiar event listeners de `window`.
+2. `AbortController` propio de cada script (`window._mel<Script>AbortCtrl`) para limpiar los event listeners de `window` y `document` al re-inicializar (regla 1, D-297).
 3. Animaciones de reordenamiento con FLIP (`transform`), evitando `view-transition-name` en contenedores con overflow.
 4. Uso de `isolation: isolate` en contenedores con capas `mix-blend-multiply` o `mix-blend-screen`.
 5. Replicación estricta del marcado HTML de componentes Astro en renderers dinámicos de JavaScript de cliente. Hoy la única réplica viva es `FlyerCard.astro` ⇄ `buildGalleryCard()` (regla 7); donde se pueda, se renderiza en SSR y el JS solo escribe valores.

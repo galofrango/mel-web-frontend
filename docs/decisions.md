@@ -5543,3 +5543,57 @@ lo único que queda es el contraste aparcado. Menú en 375 px: tiene nombre y se
 consola, antes y después. Salta porque la foto es para la página siguiente, no para
 esta. Quitarlo pediría precargar con un `new Image()` con `srcset` en vez de `<link
 rel=preload>`; es solo un aviso de las herramientas de desarrollo y no se hace.
+
+## D-297 · El buscador no soltaba nunca sus oyentes: cada vuelta de una ficha dejaba la portada entera en memoria
+
+**Contexto**: diagnóstico del cierre lento de la ficha en Safari móvil (roadmap, entrada
+PageSpeed). En el vídeo del propietario (01/10/2026), uno de siete cierres se queda
+**4,2 s congelado antes de que empiece la transición** (la X marcada y nada más); los
+demás, en menos de 1 s. Midiendo idas y vueltas repetidas (Chrome sin pantalla, 375 px,
+CPU ×4, producción v1.1.9; herramienta `idas-vueltas.mjs`, fuera del repositorio) salió
+una fuga de memoria: **+3.350 nodos y +390 oyentes por cada ida y vuelta**, nunca
+liberados. Tras 20 vueltas, 70.000 nodos para una portada de 3.300: las 20 portadas
+viejas, enteras.
+
+**Causa**: `initSearch()` (`HeaderTitle.astro`) corre en cada `astro:page-load` y
+añadía tres oyentes a objetos que sobreviven a la navegación suave —`resize` y
+`mel-set-search` en `window`, `click` en `document`— sin `AbortController` (regla 1).
+Cada uno recordaba los elementos de SU portada, así que ninguna se podía liberar.
+Comprobado que eran los únicos culpables: tras 5 vueltas, quitando a mano solo esos
+duplicados, los nodos bajan de 20.457 a 7.257 (`retencion.mjs`). Y no era solo
+memoria: los oyentes viejos seguían actuando. Tras 3 vueltas, un `mel-set-search`
+(celda de búsqueda de la Lista, relato de búsqueda D-267, «sin resultados») hacía que
+cada buscador muerto lanzara su propio `mel-search`: **la galería filtraba 4 veces por
+un solo toque**.
+
+**Decisión**: el buscador guarda su propio `AbortController` en
+`window._melSearchAbortCtrl` (clave propia, como `_melDetailAbortCtrl` de la ficha:
+compartir `_melAbortCtrl` hace que unos scripts aborten los oyentes de otros), lo
+aborta al principio de cada `initSearch()` y pasa su `signal` a los tres oyentes. Se
+aborta ANTES de comprobar si hay buscador, para que al entrar en una ficha (que no lo
+tiene) también se suelten los de la portada que se deja.
+
+**Verificación** (servidor de desarrollo y build local):
+- 6 idas y vueltas a la galería: nodos **10.228 → 10.570 estables** (sin el arreglo, en el
+  mismo servidor de desarrollo: +3.700 por vuelta; la cifra de +3.350 de arriba es
+  la de producción). Lista, igual. Ningún oyente de `window`/`document` crece ya entre la
+  galería y una ficha (`oyentes.mjs`).
+- Tras 3 vueltas, `searchInListView('Voloko')` lanza **1** `mel-search` (producción: 4).
+- Escribir, la X del buscador en dos tiempos, clic fuera con el campo vacío y cambio de
+  tamaño: igual que en producción, a 375 y a 1350 px. Galería → ficha → X a 375 px:
+  vuelve a su cartel.
+- 109/109 tests; build correcto.
+
+**Queda fuera, a propósito**:
+- **El mapa tiene su propia fuga**, mayor: cada vuelta al panel del local crea un mapa
+  de Google nuevo, y Google engancha oyentes `visibilitychange` al documento que no
+  suelta nunca (no hay forma de destruir un mapa; Google recomienda reutilizarlo).
+  Medido con este arreglo puesto: +5.700 nodos, +670 oyentes y +2,6 MB por vuelta al
+  panel. Arreglarlo es reutilizar el mismo mapa entre navegaciones, zona de la regla 15
+  y del problema 13: tanda propia.
+- Si esto quita los parones de Safari no está demostrado: es el candidato junto al
+  **Relay privado de iCloud** del propietario (solo afecta a Safari, y el parón cae
+  justo mientras se espera la portada). Lo dirá su prueba en el iPhone.
+- `TypeError: Cannot read properties of null (reading 'classList')` en
+  `performDOMUpdates` al volver de una ficha: sale igual en producción, no lo causa
+  esto. Apuntado en el roadmap.
