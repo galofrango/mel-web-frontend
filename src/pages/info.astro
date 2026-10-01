@@ -321,6 +321,17 @@ function linkify(s) {
 
 <script>
   function initInfoPage() {
+    // Regla 1 (D-298): este script, una vez visitada /info, corre en CADA
+    // `astro:page-load` de la sesión, también en la portada y en las fichas,
+    // y sumaba un `hashchange` a `window` en cada una (dos por ida y vuelta a
+    // una ficha). Se aborta lo de la vez anterior y, si esta página no es
+    // Info, no se engancha nada: ni el oyente ni el ancla diferida.
+    const w = window as any;
+    if (w._melInfoAbortCtrl) w._melInfoAbortCtrl.abort();
+    w._melInfoAbortCtrl = new AbortController();
+    const signal = w._melInfoAbortCtrl.signal;
+    if (!document.querySelector('section[data-info-section]')) return;
+
     // 2. Setup manual accordion clicks
     document.querySelectorAll('.accordion-header').forEach(header => {
       header.addEventListener('click', () => {
@@ -344,6 +355,9 @@ function linkify(s) {
 
     // 3. Setup dynamic anchor scroll and auto-accordion open logic
     function handleAnchorNavigation() {
+      // El primer intento va diferido 150 ms: si en ese hueco ya se ha salido
+      // de Info, no hay nada que desplegar en la página nueva.
+      if (signal.aborted) return;
       const hash = window.location.hash;
       if (!hash) return;
       
@@ -385,7 +399,7 @@ function linkify(s) {
 
     // Call on load and hash change
     setTimeout(handleAnchorNavigation, 150);
-    window.addEventListener('hashchange', handleAnchorNavigation);
+    window.addEventListener('hashchange', handleAnchorNavigation, { signal });
   }
 
   // Bind init function on page-load for View Transitions compatibility

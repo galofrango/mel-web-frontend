@@ -46,7 +46,7 @@ No existe base de datos ni backend propio. Los datos se leen en cada request des
 | Imágenes | Google Drive — endpoint directo `https://lh3.googleusercontent.com/d/ID=w1000` (D-258) |
 | Mapa | Google Maps JS API (cargador en línea de `Layout.astro`) + MarkerClusterer 2.6.2 copiado en `public/vendor/` (D-291) |
 | Navegación | View Transitions (`ClientRouter` de Astro) |
-| Deploy | Vercel (SSR) |
+| Deploy | Vercel (SSR); las funciones corren en París (`cdg1`, `vercel.json`, D-298) |
 | Tests | Sin framework automatizado; verificación manual en navegador real |
 
 ---

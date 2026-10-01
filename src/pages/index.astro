@@ -7123,7 +7123,9 @@ const tags = [
   // El registro es IDEMPOTENTE, y sin eso se acumulaba una copia por visita.
   //
   // El script en línea de esta página se **reevalúa en cada navegación suave**
-  // que vuelva aquí, mientras que `document` sobrevive al intercambio de cuerpo.
+  // que vuelva aquí (matiz de D-298: hoy Astro solo lo reevalúa si su TEXTO
+  // cambia, o sea si cambian los datos de la hoja; cuando se midió esto, el
+  // HTML salía distinto en cada petición), mientras que `document` sobrevive al intercambio de cuerpo.
   // Así que cada vuelta a la home dejaba enganchado otro initHomePage, y en el
   // siguiente page-load corrían TODOS. Medido con tres idas y vueltas a una
   // ficha, contando corridas por carga:
@@ -7159,21 +7161,33 @@ const tags = [
   // página se evalúa UNA vez y sigue vivo mientras dure la sesión de navegación,
   // incluso estando en una ficha de evento — que es justo cuando hace falta,
   // porque el que se va es el que tiene que preparar al que llega.
-  document.addEventListener('astro:before-swap', (e) => {
-    try {
-      const crudo = sessionStorage.getItem('mel-return-state');
-      if (!crudo) return;
-      // Solo cuando la vuelta va a llevar la galería hasta un flyer: es
-      // volverAlFlyer() quien la revela, y sin él no la revelaría nadie.
-      if (!JSON.parse(crudo).flyer) return;
-      const galeria = e.newDocument && e.newDocument.getElementById('view-galería');
-      if (!galeria) return;
-      galeria.style.transition = 'none';
-      galeria.style.opacity = '0';
-      // Red de seguridad, por si alguna ruta imprevista no llegara a revelarla:
-      // una galería invisible para siempre es mucho peor que cualquier parpadeo.
-      setTimeout(() => revelarColocado(document.getElementById('view-galería')), 3000);
-    } catch (err) {}
-  });
+  //
+  // Con guardia de registro único (D-298): Astro solo vuelve a ejecutar un
+  // script en línea si su TEXTO ha cambiado, y el de esta página lleva dentro
+  // los datos de la hoja (`define:vars`). Si la hoja cambia a mitad de una
+  // visita, la siguiente vuelta a la portada lo reevalúa, y sin la guardia se
+  // sumaba otro oyente (y otro temporizador de 3 s) cada vez. El oyente no
+  // guarda nada de la ejecución que lo creó (`revelarColocado` trabaja sobre
+  // el elemento que recibe y el documento vivo), así que la primera copia
+  // sirve para siempre.
+  if (!window._melBeforeSwapGaleriaBound) {
+    window._melBeforeSwapGaleriaBound = true;
+    document.addEventListener('astro:before-swap', (e) => {
+      try {
+        const crudo = sessionStorage.getItem('mel-return-state');
+        if (!crudo) return;
+        // Solo cuando la vuelta va a llevar la galería hasta un flyer: es
+        // volverAlFlyer() quien la revela, y sin él no la revelaría nadie.
+        if (!JSON.parse(crudo).flyer) return;
+        const galeria = e.newDocument && e.newDocument.getElementById('view-galería');
+        if (!galeria) return;
+        galeria.style.transition = 'none';
+        galeria.style.opacity = '0';
+        // Red de seguridad, por si alguna ruta imprevista no llegara a revelarla:
+        // una galería invisible para siempre es mucho peor que cualquier parpadeo.
+        setTimeout(() => revelarColocado(document.getElementById('view-galería')), 3000);
+      } catch (err) {}
+    });
+  }
 
 </script>

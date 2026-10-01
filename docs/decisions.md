@@ -5597,3 +5597,41 @@ tiene) también se suelten los de la portada que se deja.
 - `TypeError: Cannot read properties of null (reading 'classList')` en
   `performDOMUpdates` al volver de una ficha: sale igual en producción, no lo causa
   esto. Apuntado en el roadmap.
+
+## D-298 · Info dejaba de sumar oyentes, la portada protege su `before-swap`, y las páginas se fabrican en París
+
+Tres cosas pequeñas que salieron al diagnosticar el cierre lento (D-297), en una
+sola tanda por decisión del propietario.
+
+**1. La fuga de `info.astro`** (encontrada en la revisión de D-297). `initInfoPage()`
+es un script procesado: una vez visitada /info, corre en **cada** `astro:page-load`
+de la sesión, también en la portada y en las fichas, y cada vez sumaba un
+`hashchange` a `window` sin señal (regla 1). Medido (`fuga-info.mjs`, fuera del
+repositorio): /info, portada y 4 idas y vueltas a una ficha → **10 oyentes** y
+subiendo. Ahora el script guarda su propio `AbortController`
+(`window._melInfoAbortCtrl`), lo aborta al empezar y sale si la página no tiene
+secciones de Info: ni oyente ni ancla diferida fuera de /info. Después: 1 oyente
+en /info, **0** en el resto. El ancla (`/info#contacto` por navegación suave) sigue
+abriendo su sección y plegando las otras; el acordeón se abre al tocarlo.
+
+**2. Guardia de registro único en el `astro:before-swap` de la portada**
+(`index.astro`, el que oculta la galería entrante en una vuelta). Astro solo vuelve
+a ejecutar un script en línea si su texto ha cambiado
+(`swap-functions.js`, `detectScriptExecuted`), y el de la portada lleva dentro los
+datos de la hoja: si la hoja cambia a mitad de visita, cada reevaluación sumaba otro
+oyente y otro temporizador de 3 s. Ahora se registra una vez
+(`window._melBeforeSwapGaleriaBound`). La vuelta a la galería sigue destapándose
+igual (medido, 4 vueltas, nodos estables).
+
+**3. Funciones en París** (`vercel.json`, `"regions": ["cdg1"]`). Las páginas se
+fabricaban en Washington (`iad1`, el valor por defecto de Vercel) y se servían
+desde París (`cdg1`, el punto de la red más cercano a León): cada ficha que no
+estaba en la caché cruzaba el Atlántico. Medido antes (`fichas-frio.mjs`, 15 fichas
+sin visitar, desde el Mac): **315 ms de mediana en frío** (228–443) y ~30 ms ya en
+caché. El plan gratuito admite una región; va en el repositorio y no en el panel de
+Vercel para que quede escrito y viaje con el despliegue (y solo afecta a este
+proyecto). Google Sheets sirve desde su red global, así que la lectura de la hoja
+no se aleja. **Verificación pendiente del despliegue**: `x-vercel-id` debe pasar de
+`cdg1::iad1::…` a `cdg1::cdg1::…`, y remedir las fichas en frío.
+
+**Verificación**: 109/109 tests, build correcto.
