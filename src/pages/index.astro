@@ -3016,13 +3016,12 @@ const tags = [
     restoreScroll('list-table-wrapper', s.listaTable);
     restoreScroll('list-mobile-cards', s.listaCards);
 
-    // La cámara del mapa solo se restaura si el mapa ya existe. Si se vuelve a
-    // la vista Mapa, se crea de forma diferida: en ese caso el paneo hacia el
-    // local de `?location=` (D-075) ya deja la cámara donde corresponde.
-    if (st.map && googleMap && typeof googleMap.setCenter === 'function') {
-      googleMap.setCenter({ lat: st.map.lat, lng: st.map.lng });
-      if (Number.isFinite(st.map.zoom)) googleMap.setZoom(st.map.zoom);
-    }
+    // Aquí se restauraba la cámara del mapa guardada en el estado de vuelta.
+    // Desde D-300 sobra: o el mapa es el reutilizado, que no se ha movido de
+    // donde lo dejó el visitante (y llegando por «Lugar» esa cámara vieja pisaba
+    // el encuadre del local, D-272), o es uno nuevo que recupera su cámara al
+    // nacer (`initGoogleMap`). Antes de D-300 caía siempre sobre el mapa viejo,
+    // el que ya no se veía.
   }
 
   // Real navigation to the static, server-rendered /event/[id] page — this
@@ -4441,7 +4440,24 @@ const tags = [
         // sitio, y salir a Galería y volver no es motivo para devolverlo al
         // plano general. El `resize` sí, siempre.
         google.maps.event.trigger(googleMap, 'resize');
-        if (!activeSidePanelKey) fitMapToMarkers();
+        if (_s.mapaPorRearmar) {
+          // El mapa viene de antes de ir a una ficha (D-300): hay que rearmar
+          // sus marcadores (ver la función). Y mientras se restaura la vuelta,
+          // nada de encuadre general: la cámara está donde la dejó el
+          // visitante. Fuera de una vuelta (volver a la Galería y, más tarde,
+          // pasar a Mapa) se encuadra como siempre.
+          rearmarMapaRecuperado();
+          if (!activeSidePanelKey && !restaurandoVuelta()) fitMapToMarkers();
+          // OJO (regla 15): a diferencia de `initGoogleMap()`, esta rama NO llama
+          // a `updateMapMarkers()`. El panel del local se reabre en el pase que
+          // viene detrás (`filterArchives()` durante una vuelta, o el anuncio de
+          // arranque del buscador, HeaderTitle, cuando no la hay: celda «Lugar»
+          // de la Lista, ficha a la que no se llegó desde la portada). Si alguno
+          // de esos dos desaparece, aquí hay que añadir `updateMapMarkers(false)`.
+
+        } else if (!activeSidePanelKey) {
+          fitMapToMarkers();
+        }
       }
     }
   }
@@ -4840,12 +4856,56 @@ const tags = [
     }
   };
 
+  // El mapa de Google se crea UNA vez por visita y se reutiliza (D-300).
+  // Antes, cada vuelta de una ficha traía un `#map-container` nuevo y vacío y
+  // `switchView()` creaba otro `google.maps.Map`; el viejo no se puede destruir
+  // (Google engancha oyentes al documento y no da forma de soltarlos) y se
+  // quedaba en memoria con toda su portada: +10.000 nodos por vuelta al panel
+  // de un local, medido. Ahora la caja vieja, con su mapa dentro, ocupa el
+  // sitio de la nueva al intercambiar la página (el oyente de `astro:after-swap`
+  // del final de este script), y aquí se pone a punto.
+  //
+  // Lo que hay que rehacer, y por qué: los marcadores de Google son elementos
+  // de la página que se QUITAN SOLOS del mapa en cuanto salen del documento
+  // (su `disconnectedCallback`), y eso pasa al cambiar a la ficha. Al volver,
+  // `locationMarkers` y el agrupador creen que siguen puestos, y el agrupador
+  // no repinta si nada ha cambiado (mismo zoom, mismos marcadores): el mapa se
+  // quedaba vacío. Vaciarlo y volver a llenarlo le obliga a pintar; el marcador
+  // del local activo, que va fuera del agrupador, se pone a mano.
+  //
+  // La cámara guardada al salir (`guardarCamaraDelMapa`) se consume igual que
+  // la consume `initGoogleMap()`: es de un solo uso y le dice a
+  // `updateMapMarkers()` que no recoloque la cámara sobre el local. Aquí no
+  // hace falta aplicarla: el mapa nunca se movió.
+  function rearmarMapaRecuperado() {
+    _s.mapaPorRearmar = false;
+    camaraDelVisitante = true;
+    camaraRecuperadaEnEsteMapa = !!recuperarCamaraDelMapa();
+    if (googleMapClusterer) {
+      googleMapClusterer.clearMarkers();
+      const enAgrupador = [];
+      locationMarkers.forEach(entry => { if (entry.inClusterer) enAgrupador.push(entry.marker); });
+      googleMapClusterer.addMarkers(enAgrupador);
+    }
+    locationMarkers.forEach(entry => {
+      if (entry.inClusterer && googleMapClusterer) return;
+      // A null primero: hoy ya lo está (lo dejó así Google al salir del
+      // documento), pero eso es lo observado, no algo que Google prometa, y
+      // asignar el mismo mapa que ya tiene podría no hacer nada.
+      entry.marker.map = null;
+      entry.marker.map = googleMap;
+    });
+    requestAnimationFrame(reordenarMarcadoresPorPantalla);
+  }
+
   // Creates (or re-creates) the Map + its MarkerClusterer in #map-container.
   // Split out of initGoogleMap() so the color-scheme-change handler below
   // can call it again — colorScheme can't be swapped live via setOptions()
   // on an existing Map instance, Google keeps rendering tiles from whichever
   // scheme it was created with, so switching it means building a new one.
   function createGoogleMapInstance(colorScheme, center, zoom) {
+    _s.mapaPorRearmar = false;   // un mapa recién creado no tiene nada que rearmar (D-300)
+    camaraDelVisitante = false;
     mapContainerEl = document.getElementById("map-container");
     _s.mapContainerEl = mapContainerEl;
     googleMap = new google.maps.Map(mapContainerEl, {
@@ -5347,6 +5407,10 @@ const tags = [
   // `updateMapMarkers()` que corre después, que es quien tiene que saber que
   // no debe recolocar nada. Lo apaga ese mismo pase.
   let camaraRecuperadaEnEsteMapa = false;
+  // El mapa visible es uno reutilizado de antes de ir a una ficha (D-300), con
+  // la cámara que dejó el visitante. Lo pone `rearmarMapaRecuperado()` y lo
+  // quita crear un mapa nuevo.
+  let camaraDelVisitante = false;
 
   // Llegar a un local desde el enlace de "Lugar" no se resuelve centrando UNA
   // vez: `setCenter()` centra en el contenedor tal y como está en ese
@@ -5996,8 +6060,15 @@ const tags = [
     // (`camaraColocada`): el que llama pedía encuadrar porque el mapa acababa
     // de nacer y no sabía que había un destino, pero lo hay, y encuadrar aquí
     // lo borra. Es el bug de raíz del roadmap 13.
+    // Ni con el mapa reutilizado mientras se restaura la vuelta (D-300): ese
+    // mapa está donde lo dejó el visitante, y el que pide encuadrar aquí es el
+    // anuncio de arranque del buscador (una búsqueda vacía), no el visitante.
+    // Antes no se notaba porque caía sobre el mapa viejo, el que ya no se veía.
+    // Pasada la vuelta —o en cuanto el visitante hace algo, que la cancela—,
+    // se encuadra como siempre.
     const mapContainer = document.getElementById('view-mapa');
-    if (shouldFitBounds && !camaraColocada && mapContainer && !mapContainer.classList.contains('hidden')) {
+    const camaraQueRespetar = camaraDelVisitante && restaurandoVuelta();
+    if (shouldFitBounds && !camaraColocada && !camaraQueRespetar && mapContainer && !mapContainer.classList.contains('hidden')) {
       fitMapToMarkers();
     }
 
@@ -6213,6 +6284,15 @@ const tags = [
     // current view, and rebuild the markers on it.
     window.addEventListener('mel-color-scheme-change', (e) => {
       if (!googleMap) return;
+      // Cambiado desde otra página (Info, Exposiciones, una ficha…): el mapa
+      // está fuera del documento y no hay caja donde crear el nuevo. Se renuncia
+      // a reutilizarlo (D-300): la próxima vez que se muestre se creará uno con
+      // el esquema bueno, como antes de D-300, en vez de un error en la consola.
+      if (!_s.mapContainerEl || !_s.mapContainerEl.isConnected) {
+        _s.mapContainerEl = null;
+        _s.mapaPorRearmar = false;
+        return;
+      }
       const center = googleMap.getCenter();
       const zoom = googleMap.getZoom();
       // createGoogleMapInstance() drops the old markers/locationMarkers
@@ -7169,6 +7249,24 @@ const tags = [
   if (!window._melHomeInitBound) {
     window._melHomeInitBound = true;
     document.addEventListener('astro:page-load', initHomePage);
+  }
+
+  // Al volver a la portada, el mapa de antes ocupa el sitio de la caja vacía
+  // nueva (D-300, ver `rearmarMapaRecuperado()`). En `after-swap`, con la página
+  // nueva ya puesta y antes de que arranquen sus scripts: así `switchView()` ya
+  // encuentra el mapa en su sitio y no crea otro. Una vez por documento, con
+  // la misma guardia que el oyente de abajo.
+  if (!window._melMapaReutilizadoBound) {
+    window._melMapaReutilizadoBound = true;
+    document.addEventListener('astro:after-swap', () => {
+      const estado = window._melState;
+      const viejo = estado && estado.mapContainerEl;
+      const nuevo = document.getElementById('map-container');
+      if (viejo && nuevo && viejo !== nuevo && !viejo.isConnected) {
+        nuevo.replaceWith(viejo);
+        estado.mapaPorRearmar = true;
+      }
+    });
   }
 
   // La galería entrante nace OCULTA, antes de que el navegador la pinte.

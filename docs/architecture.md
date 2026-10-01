@@ -197,6 +197,12 @@ cabe en una URL viaja en ese blob: **rango de años, orden de columna, página d
 Lista, lotes cargados del scroll infinito, posición de scroll de cada vista,
 cámara del mapa y qué flyer se estaba mirando**.
 
+**El mapa no se reconstruye al volver** (D-300). Se crea una vez por visita y,
+al volver de una ficha, el mismo mapa ocupa su sitio con la cámara donde se dejó;
+sus marcadores se rearman (Google los retira al salir de la página). La cámara
+guardada en el blob ya no se aplica sobre un mapa reutilizado: no se ha movido.
+Llegar por la etiqueta «Lugar» sigue encuadrando el local (D-272).
+
 **Se vuelve al flyer que se cierra, no al que se abrió.** Desde la Galería, el
 punto de retorno es la tarjeta, no un píxel: el píxel es frágil por construcción
 aquí, porque el masonry mide cada tarjeta cuando su imagen carga y el alto sigue

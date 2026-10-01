@@ -5779,3 +5779,128 @@ rapidísimo»; base para trabajar animaciones.
 aparecieron en esas sesiones; queda medir en producción con `?crono`. Volver a la
 portada ya se adelanta al posar el dedo en la X (punto 6); precargarla antes, al
 abrir la ficha, sigue siendo la idea en espera si aún se nota.
+
+## D-300 · El mapa de Google se crea una vez por visita: al volver de una ficha se reutiliza
+
+**Contexto**: segunda fuga encontrada al medir el cierre lento (D-297). Cada vuelta de
+una ficha al panel de un local traía un `#map-container` nuevo y vacío;
+`switchView('mapa')` lo veía «caducado» y `initGoogleMap()` creaba otro
+`google.maps.Map`. El viejo no se puede destruir (Google engancha oyentes
+`visibilitychange` al documento y no ofrece forma de soltarlos) y retenía su portada
+entera: en Chrome, con el local «Perfil», de 22.672 a 64.681 nodos en 5 vueltas
+(+10.000 por vuelta). Además el mapa se reconstruía delante del visitante: medido,
+~300 ms sin marcadores al volver (el problema 13). Regla 15: se diagnosticó y se
+probó desde fuera (`herramientas-medicion/mapa-reutilizar.mjs`, inyectando el
+arreglo) antes de tocar el código, y el diseño lo aprobó el propietario.
+
+**Lo que se descubrió por el camino, y explica el diseño**:
+- **Los marcadores de Google se quitan solos del mapa al salir del documento**
+  (`AdvancedMarkerElement` es un elemento de la página y su `disconnectedCallback`
+  pone `map = null`; visto con una traza al cambiar a la ficha). Al volver,
+  `locationMarkers` y el agrupador creen que siguen puestos, y el agrupador **no
+  repinta si nada ha cambiado** (mismo zoom, mismos marcadores): reutilizar la caja
+  sin más dejaba el mapa casi vacío.
+- **Tres cosas movían la cámara al volver y nunca se habían notado**, porque caían
+  sobre el mapa viejo, el que ya no se veía: el encuadre general de `switchView()`
+  para un mapa existente, el anuncio de arranque del buscador (una búsqueda vacía →
+  `filterArchives(true)` → `fitMapToMarkers()`), y la cámara del estado de vuelta
+  que restaura `applyReturnState()`.
+
+**Decisión** (todo en `index.astro`):
+- Un oyente de `astro:after-swap` (una vez por documento, `_melMapaReutilizadoBound`)
+  pone la caja vieja, con su mapa dentro, en el sitio de la nueva y marca
+  `_s.mapaPorRearmar`. Así `switchView()` ya no la ve caducada y no crea otro mapa.
+- `switchView('mapa')` con esa marca llama a `rearmarMapaRecuperado()`: vacía el
+  agrupador y vuelve a llenarlo (le obliga a pintar), pone en el mapa el marcador
+  activo (que va fuera del agrupador), consume la cámara guardada
+  (`recuperarCamaraDelMapa()`, de un solo uso) y marca `camaraDelVisitante`.
+  Mientras dure la restauración de la vuelta (`restaurandoVuelta()`, hasta 4 s o
+  hasta que la cancele ordenar o el relato de una búsqueda) no encuadra; pasada,
+  encuadra como siempre (volver a la Galería y, más tarde, pasar a Mapa). Esta rama
+  no llama a `updateMapMarkers()`: el panel se reabre en el pase que viene detrás
+  (avisado en el código, regla 15).
+- El encuadre general del final de `updateMapMarkers()` no corre con el mapa
+  reutilizado mientras `restaurandoVuelta()` (la misma señal de D-121 que calla los
+  reseteos de arranque): el que lo pedía era el buscador al arrancar, no el
+  visitante. Pasada esa ventana (4 s, o antes si se cancela la vuelta), encuadra
+  como siempre. Matiz aceptado: una búsqueda escrita dentro de esos 4 s tampoco
+  reencuadra (buscar no cancela la vuelta).
+- `applyReturnState()` ya no restaura la cámara del estado de vuelta: con el mapa
+  reutilizado sobra, y un mapa nuevo la recupera al nacer (`initGoogleMap`). Antes
+  de D-300 caía siempre sobre el mapa viejo y nunca tuvo efecto visible.
+- `createGoogleMapInstance()` (primera vez, y el cambio a modo oscuro, que crea un
+  mapa nuevo a propósito) limpia las dos marcas. Si el modo oscuro se cambia desde
+  otra página (Info, una ficha…), el mapa está fuera del documento: se renuncia a
+  reutilizarlo y la próxima vez se crea uno con el esquema bueno (antes, un error en
+  la consola).
+
+**Medido** (desarrollo, Chrome móvil y WebKit simulando un iPhone, local con dos
+eventos):
+- Mismo mapa en cada vuelta; nodos estables desde la 3.ª vuelta (antes, +10.000 por
+  vuelta); panel abierto con su local en 52-87 ms, como antes.
+- Cámara intacta (zoom 15 donde se dejó; antes, el mapa nuevo la recuperaba de
+  `sessionStorage`); los marcadores en pantalla, desde el primer instante a partir de
+  la 2.ª vuelta (antes, ~300 ms sin ellos). Alejando la cámara tras dos vueltas se
+  ven los mismos 10 marcadores y burbujas que en producción.
+- Casos especiales (`mapa-casos.mjs`), iguales que en producción: cambio a modo
+  oscuro y vuelta posterior; Mapa → Galería → foto → volver → pasar a Mapa (encuadre
+  general, como siempre); local de un solo evento (el panel se cierra a la vista,
+  D-275); buscar tras volver. Sin errores en la página.
+- **Arreglo de rebote**: en producción, llegar por la etiqueta «Lugar» con el mapa ya
+  abierto antes en la visita terminaba en el encuadre general (zoom 9,5) y no en el
+  local; ahora, zoom 15 sobre el local en los dos casos, como describe D-272. Lo
+  mismo con la celda «Lugar» de la Lista (producción: zoom 9,5; ahora: 15).
+- 109/109 tests, build correcto.
+
+**Ojo al probar**: un local con **un solo evento** cierra el panel al volver de su
+ficha, a propósito (D-275); para probar la vuelta al panel, un local con dos o más.
+
+**Sin verificar**: un iPhone y un ordenador de verdad (el propietario).
+
+## D-301 · Los estilos que Google Maps mete en la cabecera sobreviven a la navegación (problema 17)
+
+**Síntoma** (propietario, 01/10/2026, con captura): tras abrir un evento desde el mapa
+y volver, los botones de zoom salen descuadrados: el «+» y el «−» suben unos píxeles y
+asoma un trazo vertical bajo el «+». Era el problema 17 del roadmap («los botones de
+zoom a veces se rompen», 30/09). **Pasaba igual en producción** (v1.1.12, Chrome y
+WebKit), no lo trajo D-300.
+
+**Causa, medida**: Google Maps añade al `<head>`, una sola vez al crear el primer
+mapa, 9 elementos de estilo (7 `<style>`: controles, marcadores, atajos de teclado…;
+y 2 `<link>` de fuentes, Roboto y Google Sans). Al cambiar de página, Astro borra de
+la cabecera todo lo que la página nueva no trae (`swapHeadElements`): en la ficha y al
+volver había 0. Sin sus estilos, las imágenes de los botones de zoom (una por estado:
+normal, encima, pulsado…) caen bajo la regla general de Tailwind (`img { display:
+block; max-width: 100% }`) y se apilan. Ni creando un mapa nuevo vuelven: Google no
+los repone.
+
+**Decisión**: un script en línea de `Layout.astro` (una vez por documento) clasifica
+los elementos de la cabecera por ORIGEN y no por nombre (los de Google cambian, y dos
+ni llevan «gm-»): lo que hay al terminar de cargar la página, o justo después de cada
+cambio de página, es nuestro; lo que aparece después lo ha puesto otro. En
+`astro:before-swap`, a cada `<style>` o `<link rel="stylesheet">` ajeno se le da una
+marca de persistencia de Astro (`data-astro-transition-persist="mel-terceros-N"`) y se
+le pone pareja en la página entrante; Astro conserva el elemento que tiene pareja. Los
+conservados siguen contando como ajenos en la página nueva. Los estilos que inyecta el
+servidor de desarrollo (`data-vite-dev-id`) se dejan a Astro, y un elemento con una
+marca de persistencia ajena se deja a quien la puso. El marcado se hace dentro del
+intercambio (envolviendo `e.swap`), no al avisar de él: sin transiciones nativas, Astro
+espera a su animación entre el aviso y el intercambio.
+
+**Alcance, para que no sorprenda**: se conserva CUALQUIER `<style>` o hoja de estilos que
+un tercero añada a la cabecera, durante toda la visita, no solo los de Google. Hoy solo
+lo hace Google Maps; si algún día otro script inyecta estilos propios de una página,
+viajarán a las demás.
+
+**Verificación**:
+- Chrome y WebKit (desarrollo): los 9 elementos de Google se conservan en la ficha, de
+  ficha a ficha, en tres vueltas, en Info y de Info al mapa; nunca se duplican. Las
+  imágenes del zoom mantienen `position: absolute`. Capturas: producción descuadrada
+  tras volver; la rama, igual que antes de salir.
+- Build servido en local: la portada tiene 14 estilos al inicio, en la ficha y al
+  volver (9 de Google + los propios de cada página; los de la portada vuelven al
+  volver). Sin errores.
+- 109/109 tests, build correcto.
+
+**Efecto lateral, a favor**: los demás estilos de Google (avisos, atajos de teclado,
+marcadores) ya no se pierden tras una vuelta.
