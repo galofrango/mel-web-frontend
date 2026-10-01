@@ -298,8 +298,13 @@ import IconButton from './IconButton.astro';
       }
     }
 
+    // `arranque` (D-302): el anuncio que hace el buscador al arrancar la
+    // página, con lo que trae la dirección, va marcado. No es algo que haga el
+    // visitante, y quien escucha no debe tratarlo como una búsqueda nueva (la
+    // cámara del mapa no se mueve por él: volver a un panel, llegar por «Lugar»).
+    let anunciandoArranque = false;
     function dispatchSearch(query: string) {
-      window.dispatchEvent(new CustomEvent('mel-search', { detail: { query } }));
+      window.dispatchEvent(new CustomEvent('mel-search', { detail: { query, arranque: anunciandoArranque } }));
     }
 
     // Event Listeners attached directly
@@ -369,11 +374,13 @@ import IconButton from './IconButton.astro';
     const urlQuery = params.get('search');
     let hayRelato = false;
     try { hayRelato = !!sessionStorage.getItem('mel-relato-busqueda'); } catch (e) {}
+    anunciandoArranque = true;
     if (urlQuery && urlQuery.trim().length > 0 && !hayRelato) {
       setState('filled', urlQuery.trim());
     } else {
       setState('default');
     }
+    anunciandoArranque = false;
 
     // Blur logic: if click outside and empty, return to default
     document.addEventListener('click', (e) => {

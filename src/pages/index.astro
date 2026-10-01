@@ -4942,6 +4942,7 @@ const tags = [
     // Reordenar EN VIVO durante el gesto y una vez más al pararse (D-242):
     // `bounds_changed` cubre desplazar e inclinar, `heading_changed` el giro,
     // e `idle` remata por si algún reajuste final movió algo.
+    googleMap.addListener('dragstart', pararAnimacionCamara);
     googleMap.addListener('bounds_changed', pedirReordenMarcadores);
     googleMap.addListener('heading_changed', pedirReordenMarcadores);
     googleMap.addListener('idle', pararReordenMarcadores);
@@ -5226,6 +5227,7 @@ const tags = [
         updateSidePanelDOM();
         sidePanel.style.opacity = '1';
         if (googleMap && muevoYoLaCamara) {
+          pararAnimacionCamara();   // D-302
           googleMap.panTo(group.coords); // panTo animates smoothly on its own
         }
       }, 150);
@@ -5254,7 +5256,7 @@ const tags = [
       // jumping once it already has. Keeping the map's own tiles in step
       // with the panel's width transition is handled by the ResizeObserver
       // set up in createGoogleMapInstance() (D-075), not by a timer here.
-      if (googleMap && muevoYoLaCamara) googleMap.panTo(group.coords);
+      if (googleMap && muevoYoLaCamara) { pararAnimacionCamara(); googleMap.panTo(group.coords); }
     }
   }
 
@@ -5572,6 +5574,13 @@ const tags = [
   // of a separate panTo() fired first) so the map doesn't jump to the target
   // instantly before the zoom even starts.
   let zoomAnimFrame = null;
+  // Corta una animación de cámara en curso (D-302): el encuadre suave de una
+  // búsqueda dura 700 ms y, sin esto, pisaba fotograma a fotograma el arrastre
+  // del visitante o el `panTo` del panel al tocar un marcador en ese rato.
+  function pararAnimacionCamara() {
+    if (zoomAnimFrame) cancelAnimationFrame(zoomAnimFrame);
+    zoomAnimFrame = null;
+  }
   function smoothZoomTo(targetZoom, targetCenter, duration = 550) {
     if (zoomAnimFrame) cancelAnimationFrame(zoomAnimFrame);
     const startZoom = googleMap.getZoom();
@@ -5605,6 +5614,78 @@ const tags = [
       zoomAnimFrame = t < 1 ? requestAnimationFrame(step) : null;
     };
     zoomAnimFrame = requestAnimationFrame(step);
+  }
+
+  // La cámara del mapa ante una búsqueda (D-302, petición del propietario).
+  // Antes, cada letra filtraba Y encuadraba de golpe (`fitBounds`): con una o
+  // dos letras casi todo coincide y el mapa daba tumbos sin sentido, y cada
+  // tumbo era un salto. Ahora los marcadores siguen a cada letra, como la
+  // galería, pero la cámara:
+  //  - solo se mueve con 3 letras o más, o al borrar la búsqueda (para volver
+  //    a la vista general);
+  //  - espera a que se deje de escribir (`ESPERA_ENCUADRE_MS` sin teclas);
+  //  - se mueve con `smoothZoomTo` en vez de saltar;
+  //  - y solo si la búsqueda ha cambiado de verdad: el buscador se anuncia al
+  //    arrancar con la misma búsqueda de antes, y ese anuncio no puede mover la
+  //    cámara (volver a un panel, llegar por «Lugar»…). Por eso quien llama
+  //    compara con la búsqueda anterior.
+  const LETRAS_PARA_MOVER_MAPA = 3;
+  const ESPERA_ENCUADRE_MS = 350;
+  let relojEncuadreBusqueda = null;
+  function programarEncuadreBusqueda() {
+    clearTimeout(relojEncuadreBusqueda);
+    relojEncuadreBusqueda = null;
+    if (searchQuery.length > 0 && searchQuery.length < LETRAS_PARA_MOVER_MAPA) return;
+    relojEncuadreBusqueda = setTimeout(() => {
+      relojEncuadreBusqueda = null;
+      const vistaMapa = document.getElementById('view-mapa');
+      if (!googleMap || !vistaMapa || vistaMapa.classList.contains('hidden')) return;
+      // La misma salvedad que el encuadre de `updateMapMarkers()` (D-300).
+      if (camaraDelVisitante && restaurandoVuelta()) return;
+      encuadrarSuave();
+    }, ESPERA_ENCUADRE_MS);
+  }
+
+  // El mismo encuadre que `fitMapToMarkers()` —mismos márgenes, el del banner
+  // incluido—, pero recorrido con `smoothZoomTo` en vez de saltar. `fitBounds`
+  // no anima, así que el zoom y el centro se calculan aquí: la proyección de
+  // Mercator que usa Google, en coordenadas de «mundo» (256 px a zoom 0).
+  // Mismo tope que un solo marcador en `fitMapToMarkers()`: zoom 15.
+  function encuadrarSuave() {
+    if (!googleMap || mapMarkers.length === 0) return;
+    const proyeccion = googleMap.getProjection();
+    const caja = document.getElementById('map-container');
+    if (!proyeccion || !caja) return fitMapToMarkers();
+    const bounds = new google.maps.LatLngBounds();
+    mapMarkers.forEach(m => { if (m.position) bounds.extend(m.position); });
+    const ne = bounds.getNorthEast();
+    const sw = bounds.getSouthWest();
+    if (ne.equals(sw)) return smoothZoomTo(15, ne, 700);
+
+    const bannerEl = document.getElementById('info-banner');
+    const altoBanner = bannerEl && getComputedStyle(bannerEl).display !== 'none'
+      ? Math.round(bannerEl.getBoundingClientRect().height)
+      : 0;
+    const margen = { top: 80 + (altoBanner ? altoBanner + 24 : 0), bottom: 40, left: 80, right: 80 };
+    const ancho = caja.clientWidth - margen.left - margen.right;
+    const alto = caja.clientHeight - margen.top - margen.bottom;
+    if (ancho <= 0 || alto <= 0) return fitMapToMarkers();
+
+    const pNE = proyeccion.fromLatLngToPoint(ne);
+    const pSW = proyeccion.fromLatLngToPoint(sw);
+    const anchoMundo = Math.abs(pNE.x - pSW.x) || 1e-9;
+    const altoMundo = Math.abs(pSW.y - pNE.y) || 1e-9;
+    const zoom = Math.min(15, Math.log2(ancho / anchoMundo), Math.log2(alto / altoMundo));
+
+    // El hueco visible no está centrado en la caja (más margen arriba que
+    // abajo): se desplaza el centro para que la caja de los marcadores caiga
+    // en el centro del HUECO, como hace `fitBounds` con su padding.
+    const escala = Math.pow(2, zoom);
+    const centroMundo = new google.maps.Point(
+      (pNE.x + pSW.x) / 2 - (margen.left - margen.right) / 2 / escala,
+      (pNE.y + pSW.y) / 2 - (margen.top - margen.bottom) / 2 / escala
+    );
+    smoothZoomTo(zoom, proyeccion.fromPointToLatLng(centroMundo), 700);
   }
 
   // Nombre de un punto del mapa (D-278): un mismo portal puede haber sido
@@ -6163,6 +6244,9 @@ const tags = [
       clearTimeout(window._melAutoOpenTimeout);
       window._melAutoOpenTimeout = null;
     }
+    // Y el encuadre de una búsqueda que se quedó esperando (D-302).
+    clearTimeout(relojEncuadreBusqueda);
+    relojEncuadreBusqueda = null;
 
     // En la segunda pasada de initHomePage() la vuelta ya está viva y este
     // reseteo la pisaría, que es la segunda ronda de 32 → 50 que se veía.
@@ -6308,6 +6392,7 @@ const tags = [
 
     // Listen for search events
     window.addEventListener('mel-search', (e) => {
+      const busquedaAnterior = searchQuery;
       searchQuery = e.detail.query.toLowerCase().trim();
       _s.searchQuery = searchQuery;
       try {
@@ -6324,7 +6409,12 @@ const tags = [
       // El buscador se anuncia también al arrancar, y ese anuncio llega en mitad
       // de una vuelta: por eso el reseteo entero tiene que pasar por el guard.
       reiniciarPosicion();
-      filterArchives(true);
+      // Galería, lista y marcadores, con cada letra; la cámara del mapa, aparte
+      // y con calma (D-302, ver `programarEncuadreBusqueda`).
+      filterArchives(false);
+      // Solo búsquedas del visitante (escribir, borrar, un enlace de búsqueda):
+      // el anuncio de arranque del buscador va marcado y no mueve la cámara.
+      if (!(e.detail && e.detail.arranque) && searchQuery !== busquedaAnterior) programarEncuadreBusqueda();
 
     }, { signal: wSig });
 
@@ -6697,9 +6787,13 @@ const tags = [
     let relatoBusqueda = null;
     try { relatoBusqueda = sessionStorage.getItem('mel-relato-busqueda'); } catch (e) {}
 
-    if (searchParam !== null && searchParam !== searchQuery && !relatoBusqueda) {
-      searchQuery = searchParam;
-      _s.searchQuery = searchParam;
+    // Normalizada igual que la guarda el oyente de `mel-search` (minúsculas, sin
+    // espacios a los lados): si no, `?search=Gabanna` contaba como búsqueda
+    // distinta de la que anuncia el buscador.
+    const busquedaUrl = searchParam !== null ? searchParam.toLowerCase().trim() : null;
+    if (busquedaUrl !== null && busquedaUrl !== searchQuery && !relatoBusqueda) {
+      searchQuery = busquedaUrl;
+      _s.searchQuery = busquedaUrl;
     }
 
     // OJO: aquí NO se asigna activeSidePanelKey a partir de ?location=.

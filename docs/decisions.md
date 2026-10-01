@@ -5904,3 +5904,55 @@ viajarán a las demás.
 
 **Efecto lateral, a favor**: los demás estilos de Google (avisos, atajos de teclado,
 marcadores) ya no se pierden tras una vuelta.
+
+## D-302 · La cámara del mapa ante una búsqueda: desde la 3.ª letra, al dejar de escribir y con movimiento suave
+
+**Petición del propietario** (01/10/2026): «suavizar los movimientos del mapa cuando se
+usa el buscador y que solo se empiece a mover a partir de la tercera letra». Decidido
+con él que los **marcadores** sigan filtrándose desde la 1.ª letra, como la galería:
+lo que espera es solo la cámara.
+
+**Antes**: cada letra lanzaba `mel-search` → `filterArchives(true)` →
+`updateMapMarkers(true)` → `fitMapToMarkers()` → `fitBounds`, que salta sin animar.
+Medido escribiendo «Jotón» a ritmo de tecleo (140 ms entre teclas): 5 saltos de
+cámara, uno por letra, el primero a los 0,47 s.
+
+**Decisión** (`index.astro`):
+- El buscador filtra sin encuadrar (`filterArchives(false)`): galería, lista y
+  marcadores siguen a cada letra.
+- `programarEncuadreBusqueda()`: la cámara se mueve solo si la búsqueda tiene 3
+  letras o más (`LETRAS_PARA_MOVER_MAPA`), o si se ha borrado (vuelta a la vista
+  general); espera a que se deje de escribir (`ESPERA_ENCUADRE_MS`, 350 ms sin
+  teclas); solo con el mapa a la vista; y nunca sobre el mapa reutilizado mientras se
+  restaura una vuelta (la salvedad de D-300).
+- **Solo búsquedas del visitante.** El buscador se anuncia al arrancar la página con
+  lo que trae la dirección, y ese anuncio no puede mover la cámara (volver a un
+  panel, llegar por «Lugar»). El primer intento comparaba con la búsqueda anterior y
+  no bastaba: llegando por «Lugar» la dirección no trae `search=` (D-278), el
+  anuncio es `''` y la búsqueda guardada era otra; con el mapa recién creado, el
+  encuadre suave pisaba la llegada al local (lo cazó la revisión; reproducido: zoom
+  9,5 en vez de 15). Ahora HeaderTitle marca ese anuncio (`detail.arranque`) y el
+  oyente lo ignora; además la búsqueda de la dirección se guarda normalizada
+  (minúsculas, sin espacios a los lados), como la del oyente.
+- El encuadre suave se corta si el visitante arrastra el mapa o se abre un panel
+  (`pararAnimacionCamara()`), y el reloj pendiente se anula si la portada vuelve a
+  arrancar.
+- `encuadrarSuave()`: el encuadre de `fitMapToMarkers()` —mismos márgenes,
+  el del aviso de eventos sin ubicar incluido— calculado a mano (Mercator, con la
+  proyección del propio mapa, y el centro desplazado para que la caja de los
+  marcadores caiga en el centro del hueco visible, como hace `fitBounds` con su
+  padding) y recorrido con `smoothZoomTo` (700 ms). Una diferencia, a propósito: tope
+  de zoom 15 también para resultados distintos pero muy cercanos (`fitBounds` podía
+  acercarse a 17-19 con dos locales a 50 m).
+- Matiz aceptado: una búsqueda deliberada de 1-2 letras (Intro, un enlace de búsqueda)
+  filtra los marcadores pero no mueve la cámara.
+
+**Medido** (WebKit, escritorio, «Jotón» a 140 ms por tecla): mientras se escribe la
+cámara no se mueve y los marcadores se filtran letra a letra; al parar, un movimiento
+suave de ~0,7 s (44 fotogramas) que acaba **exactamente** donde acababa
+`fitBounds` en producción (zoom 9,94, mismo centro). «jo» y parar: la cámara no se
+mueve. Borrar letra a letra hasta vacío: vuelve a la vista general (zoom 9,5). Los
+casos del mapa de D-300 (vuelta al panel, modo oscuro, «Lugar», local de un solo
+evento, buscar tras volver), iguales y sin errores. 109/109 tests, build correcto.
+
+**Sin verificar**: un móvil de verdad (el propietario).
