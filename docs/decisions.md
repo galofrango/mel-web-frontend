@@ -5631,7 +5631,9 @@ sin visitar, desde el Mac): **315 ms de mediana en frío** (228–443) y ~30 ms 
 caché. El plan gratuito admite una región; va en el repositorio y no en el panel de
 Vercel para que quede escrito y viaje con el despliegue (y solo afecta a este
 proyecto). Google Sheets sirve desde su red global, así que la lectura de la hoja
-no se aleja. **Verificación pendiente del despliegue**: `x-vercel-id` debe pasar de
-`cdg1::iad1::…` a `cdg1::cdg1::…`, y remedir las fichas en frío.
+no se aleja. **Medido tras desplegar v1.1.11**: `x-vercel-id` pasa de `cdg1::iad1::…` a
+`cdg1::cdg1::…`, y las fichas en frío bajan de **315 ms a 65–70 ms de mediana** (dos
+tandas de 15 fichas: 70 ms, 61–195; y 65 ms, 57–80). En caché siguen en ~30 ms. En
+producción, 0 oyentes `hashchange` fuera de /info.
 
 **Verificación**: 109/109 tests, build correcto.
