@@ -364,6 +364,70 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
     </script>
 
     <script is:inline>
+      // Los estilos que Google Maps mete en la cabecera sobreviven a la
+      // navegación (D-301). Google los añade al <head> UNA vez, al crear el
+      // primer mapa (7 <style> y 2 <link> de fuentes: sus controles, los
+      // marcadores, los atajos de teclado…), y Astro, al cambiar de página,
+      // borra de la cabecera todo lo que la página nueva no trae. Al volver al
+      // mapa, sin esos estilos, las imágenes de los botones de zoom caían bajo
+      // la regla general de Tailwind (`img { display:block; max-width:100% }`):
+      // se apilaban las de cada estado y el «+»/«−» se descuadraban. Es el
+      // problema 17 del roadmap; pasaba también antes de D-300.
+      //
+      // Cómo se reconocen sin depender de sus nombres (cambian, y dos ni llevan
+      // «gm-»): lo que está en la cabecera al terminar de cargar la página, o
+      // justo después de cada cambio de página, es nuestro; lo que aparece
+      // después lo ha puesto otro. Justo antes de cada cambio, a lo ajeno se le
+      // da una marca de persistencia de Astro y se le pone pareja en la página
+      // entrante: Astro conserva el elemento que tiene pareja. Los estilos que
+      // inyecta el servidor de desarrollo (`data-vite-dev-id`) se dejan a Astro.
+      (function () {
+        if (window.__melTercerosListo) return;
+        window.__melTercerosListo = true;
+        var propios = new WeakSet();
+        var n = 0;
+        function marcarPropios() {
+          for (var i = 0; i < document.head.children.length; i++) {
+            var el = document.head.children[i];
+            // Los ajenos ya conservados siguen siendo ajenos en la página nueva.
+            if ((el.getAttribute('data-astro-transition-persist') || '').indexOf('mel-terceros-') === 0) continue;
+            propios.add(el);
+          }
+        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', marcarPropios);
+        else marcarPropios();
+        document.addEventListener('astro:after-swap', marcarPropios);
+        function conservarAjenos(nuevoDoc) {
+          var hijos = Array.prototype.slice.call(document.head.children);
+          hijos.forEach(function (el) {
+            if (propios.has(el) || el.hasAttribute('data-vite-dev-id')) return;
+            if (!el.matches('style, link[rel="stylesheet"]')) return;
+            var id = el.getAttribute('data-astro-transition-persist');
+            // Con una marca de persistencia que no es nuestra, manda quien la puso.
+            if (id && id.indexOf('mel-terceros-') !== 0) return;
+            if (!id) {
+              id = 'mel-terceros-' + (++n);
+              el.setAttribute('data-astro-transition-persist', id);
+            }
+            var pareja = nuevoDoc.createElement('meta');
+            pareja.setAttribute('data-astro-transition-persist', id);
+            nuevoDoc.head.appendChild(pareja);
+          });
+        }
+        // Se marca DENTRO del intercambio y no al avisar de él: sin transiciones
+        // nativas, Astro espera a su animación entre el aviso y el intercambio,
+        // y un estilo que Google añadiera en ese hueco se perdería.
+        document.addEventListener('astro:before-swap', function (e) {
+          var intercambiar = e.swap;
+          e.swap = function () {
+            conservarAjenos(e.newDocument);
+            return intercambiar.apply(this, arguments);
+          };
+        });
+      })();
+    </script>
+
+    <script is:inline>
       // Cronómetro en pantalla (D-299), APAGADO para todo el mundo. Se
       // enciende abriendo cualquier página con `?crono` y dura lo que la
       // pestaña; `?crono=0` (o su ×) lo apaga. Solo entonces se descarga
