@@ -6404,3 +6404,231 @@ antes. Toggle: volviendo a la Lista, ninguna transición del indicador; al pulsa
 siempre. Build correcto.
 
 **Sin verificar**: Safari y un iPhone de verdad.
+
+## D-314 · Vuelta animada: el cartel vuela de la ficha a su tarjeta (T5, segundo intento)
+
+**Antecedente**: el primer intento (02/10, redactado como D-309 y aparcado en
+`herramientas-medicion/vuelta-d309.patch`) funcionaba en Chrome sin pantalla, pero el propietario
+vio dos fallos: el cartel salía a veces de un sitio raro y aterrizaba sobre una tarjeta blanca.
+Se aparcó para afinar antes la ida (D-308, D-310 a D-312).
+
+**Por qué no vale la transición automática** (comprobado en `astro/dist/transitions`): Astro no
+espera a nada tras el intercambio (`event.swap()` no se aguarda), así que la foto final se hace
+con la portada recién servida —la galería en otro orden, sin colocar y oculta—, antes de que
+`volverAlFlyer()` coloque la tarjeta (traspaso §2).
+
+**Mecánica** (la de D-309, reaplicada a mano sobre la ida nueva):
+- **La ficha**, al irse a la portada (`astro:before-preparation`, `prepararVueloDeVuelta`), le da
+  a su primer cartel el nombre `mel-vuelo` (la transición lo fotografía aparte) y apunta su caja y
+  la del cartel de dentro en `sessionStorage` (`mel-vuelo`). **Solo si**: es la ficha por la que
+  se entró (`mel-vuelo-origen`, que apunta `navigateToEvent()` y borra cualquier otra ficha al
+  cargarse: tras Anterior/Siguiente no hay vuelo, aunque se vuelva a la primera); no se vuelve al
+  mapa (regla 15, D-300); el carrusel está **quieto en la 1.ª foto** (es automático); el visor está
+  cerrado; la foto está cargada y a la vista; y no hay «reducir movimiento».
+- **`global.css`**: `html.mel-vuelta::view-transition-old(mel-vuelo)` se funde con el compás de la
+  ficha (120 + 500 ms): si el vuelo no despega, la vuelta es la de siempre.
+- **La portada** (`volarDeVuelta`, oyentes de `before-swap`/`after-swap` de registro único) busca
+  la tarjeta de destino —galería, o miniatura de la Lista del móvil o de la tabla—, espera a que su
+  contenedor deje de estar oculto y a que la tarjeta esté quieta, cancela el fundido del cartel y
+  anima el grupo `::view-transition-group(mel-vuelo)` hasta ella (500 ms, la curva de la ida)
+  mientras la ficha se disuelve. Si el fundido no existe (el navegador se saltó la transición, p. ej.
+  el gesto de volver del iPhone), no hay vuelo y nada se esconde.
+
+**Lo nuevo en este intento**:
+- **Tarjeta blanca → arreglado.** Se escondía solo la imagen, y quedaba a la vista el fondo de su
+  caja. Ahora se esconde la tarjeta entera (en la Lista, la caja de la miniatura), y con una regla
+  por id en un `<style>` del `<body>`, no sobre el elemento: la portada repinta la galería durante
+  la vuelta y la tarjeta puede ser otra igual. En el `<body>` porque la cabecera conserva entre
+  páginas los estilos añadidos después de cargar (D-301). Red de 3 s por si el vuelo no terminara.
+- **Despegue**: la tarjeta tiene que llevar quieta tres lecturas seguidas (90 ms), no dos.
+- **El «sitio raro» → causa encontrada y arreglada.** El propietario lo volvió a ver («la foto
+  empieza desde donde le da la gana»). Se reproducía **a partir de la 2.ª vuelta seguida** (las
+  pruebas anteriores hacían una por navegador): el vuelo es una animación `fill: forwards` colgada
+  de `<html>` apuntando a `::view-transition-group(mel-vuelo)`; terminada la transición seguía
+  ahí, y en la siguiente vuelta la foto nueva con ese mismo nombre la heredaba: el cartel arrancaba
+  desde donde aterrizó el anterior. Medido: 1.ª vuelta, grupo en (0, 253) = la caja de la ficha;
+  2.ª, en (207, 300) con 159 px de ancho = el aterrizaje anterior. Arreglo: la animación se retira
+  (`cancel()`) al terminar la transición (`e.viewTransition.finished`, que la portada guarda en
+  `before-swap`); y el vuelo arranca desde la caja que apunta la ficha (`v.E`, ahora con x e y), no
+  desde el estilo calculado del grupo, que además dependía de que el navegador lo informara.
+  Comprobado con `herramientas-medicion/vueltas-seguidas.mjs`: cinco vueltas seguidas en galería y
+  Lista, 0 animaciones colgadas tras cada una, y en la 4.ª el cartel sale de su sitio en la ficha.
+- **El panel del local no vuela**, a propósito (regla 15).
+
+**Medido** (Chrome sin pantalla, `herramientas-medicion/vuelo-vuelta.mjs`, a cámara lenta):
+galería del móvil (tarjeta arriba y tarjeta muy abajo), galería con la ficha desplazada hasta el
+final (foto encogida y fija), galería de escritorio, Lista del móvil (también con la ficha
+desplazada) y tabla de escritorio. En todos, el grupo `mel-vuelo` se anima, el cartel sale de su
+sitio en la ficha y aterriza en su tarjeta, que a mitad de vuelo está escondida; y la tarjeta no
+se mueve después de aterrizar (misma caja al aterrizar y 6 s después). Build correcto.
+
+**Sin verificar**: Safari y un iPhone de verdad (animar la foto de la transición: si Safari no lo
+deja, el cartel se funde como siempre).
+
+## D-315 · «El telón», más largo; y el cronómetro apunta cómo fue cada telón
+
+**Nombre**: desde aquí, **«el telón»** es todo lo que pasa por debajo del cartel mientras vuela:
+a la ida, la página que se va y la ficha que llega; a la vuelta, la ficha que se disuelve sobre la
+portada. Así se puede pedir «telón más lento» o «el telón se cuelga».
+
+**Más largo** (propietario: «suavizar, prolongar un pelín, tanto a la ida como a la vuelta»):
+- Ida (`event/[id].astro`): la página que se va, 300 ms (antes 200); la ficha que llega espera
+  200 ms (antes 150) y aparece en 500 (antes 400). Total, 700 ms.
+- Vuelta (`global.css`, `html.mel-vuelta::view-transition-old(root)` y el de `mel-vuelo`): 120 ms
+  de tapa y 700 ms de fundido (antes 500). Total, 820 ms. La retirada de `mel-vuelta` (1200 ms)
+  sigue llegando después.
+- El vuelo del cartel no cambia (500 ms).
+
+**El telón que «se cuelga, no se ve o se salta» en Safari a partir de la 2.ª vuelta a la Lista**
+(propietario, iPhone): **no se reproduce** en WebKit simulando un iPhone 13
+(`herramientas-medicion/vueltas-webkit.mjs`): tres y cuatro idas y vueltas seguidas a la Lista y a
+la galería, todas con el telón completo (820 ms) y el cartel volando, ninguna abortada. Para
+cazarlo en el teléfono, el cronómetro en pantalla (`?crono`, `public/crono.js`) apunta ahora en
+cada navegación una línea **«telón»**: si se abortó (y por qué), cuánto duró, si era una vuelta y
+si voló o viajó el cartel; también va en «copiar».
+
+**Medido** (WebKit): ida 300/700 ms, vuelta 820 ms, cartel volando en cada vuelta. Build correcto.
+
+## D-316 · Desde la galería, la copia que vuela sale del tamaño del cartel levantado (SUSTITUIDA por D-319)
+
+**Propietario**: «desde galería se llega a apreciar la copia que realmente viaja, quizá porque es
+del tamaño de la foto sin hover». Exacto: con el ratón encima, la tarjeta crece un 4,5 % en su capa
+de dentro (`.carta-3d`, `--escala-3d: 1.045`, D-264), y la transición mide la caja de la tarjeta
+y su `transform`, no lo que crece dentro. La copia arrancaba un 4,5 % más pequeña que el cartel
+que se veía.
+
+**Decisión** (`index.astro`, solo con ratón): al salir (`html.mel-ida` + `.mel-viajando`, D-311),
+la escala pasa de la capa a la propia tarjeta (`transform: scale(1.045)`, sin transiciones) en el
+mismo fotograma; a la vista no cambia nada, y la transición la recoge en el punto de partida del
+grupo. La inclinación ya la endereza `__melSoltarTilt()` al pulsar.
+
+**Medido** (Chrome, ratón encima): cartel visible antes de pulsar, 282 px; al salir, la tarjeta
+con `matrix(1.045…)` y 282 px, la capa sin transformar, y el grupo de la transición arrancando
+con escala 1,045 sobre 270 px (= 282). Build correcto.
+
+## D-317 · El telón de la vuelta se sujeta hasta que la portada está colocada (Safari: «se corta» y el cartel parpadea)
+
+**Síntoma** (propietario, vídeo de Safari en el iPhone, 02/10): a partir de cierto momento —con la
+Lista ya desplazada— el telón de la vuelta «deja de verse o se corta», y el cartel «parpadea un
+momento antes de viajar, como si viésemos su copia desaparecer por debajo». Fotogramas 18,30–18,35
+del vídeo: el cartel se vuelve semitransparente (se ven las filas a través) y luego recupera la
+opacidad y despega.
+
+**Causa, medida** (WebKit simulando un iPhone, `herramientas-medicion/vueltas-webkit.mjs` con la
+lista desplazada 600 px): la portada recoloca la vista ESCONDIDA (`ocultarParaColocar`) hasta que
+se queda quieta: la lista se esconde a los 23 ms, llega a su sitio a los 64 y se destapa a los 225.
+La ficha empezaba a disolverse a los 120 ms sobre una portada vacía, y la lista aparecía de golpe a
+mitad (el telón «cortado»). Y el cartel despegaba a los ~310 ms, cuando su fundido de reserva ya
+llevaba 190 ms: al cancelarlo volvía de golpe a opaco (el parpadeo). Con la lista arriba del todo no
+hay nada que recolocar y el cartel despegaba a los 88 ms: por eso las primeras vueltas iban bien.
+
+**Decisión** (`index.astro`, `sujetarTelon()`): en una vuelta a la galería o la Lista, el fundido de
+la ficha y el de reserva del cartel (`::view-transition-old(root|mel-vuelo)`) se ponen en pausa en
+cuanto arranca la transición, y siguen cuando la vista está pintada y destapada (tope, 400 ms). La
+vista sale de la dirección (`?view=`): al empezar la transición la portada aún no ha cambiado a la
+suya. El cartel despega con la caja igual dos lecturas seguidas (30 ms), no tres: la vista solo se
+destapa cuando ya está quieta. El mapa, como estaba (regla 15).
+
+**Medido** (WebKit): lista desplazada: lista a la vista a los 222 ms con la ficha aún opaca (1,00);
+el cartel despega a los 278 ms, antes de que empiece ningún fundido; la ficha se disuelve después,
+entera, sobre la lista; total 1,1 s (antes 0,89, pero con el corte). Lista sin desplazar: despega a
+los 55 ms, total 0,9 s, como antes. Galería desplazada: despega a los 118 ms. Chrome: Lista con la
+ficha desplazada, aterrizaje en su sitio; cinco vueltas seguidas sin animaciones colgadas. Build
+correcto.
+
+**Sin verificar**: el iPhone de verdad.
+
+## D-318 · El telón de la vuelta reacciona al instante: el contenido de la ficha, en su propia capa
+
+**Propietario** (con D-317 ya bien): «que los elementos de la ficha como textos y demás empiecen a
+disolverse antes a la vuelta; así no parece que tarde tanto en reaccionar». Con D-317 la ficha
+entera esperaba opaca a que la portada estuviera colocada (hasta ~225 ms con la lista desplazada).
+
+**Decisión**: al irse a la galería o la Lista, la ficha da nombre propio a su contenido
+(`#detail-page-container` → `mel-ficha`, en `astro:before-preparation`). La transición lo fotografía
+aparte de la raíz, que se queda solo con el fondo de la página. `global.css`:
+`html.mel-vuelta::view-transition-old(mel-ficha)` se desvanece en 350 ms sin esperar a nada; el
+fondo (la raíz) sigue sujeto por `sujetarTelon()` hasta que la portada está colocada, y el cartel
+(`mel-vuelo`) va por encima. Hacia el mapa no se nombra (regla 15).
+
+**Medido** (WebKit, lista desplazada): capas `root` 820 ms, `mel-ficha` 350 ms, `mel-vuelo`; lista a
+la vista a los 225 ms con el fondo aún opaco; el cartel despega a los 277 ms. Chrome: fotogramas con
+los textos de la ficha yéndose desde el primer instante y el cartel aterrizando en su fila.
+
+## D-319 · El aterrizaje: con el ratón, la tarjeta levantada baja a su sitio antes de salir hacia la ficha
+
+**Propietario**: «que al presionar la tarjeta esta baje desde el hover a su posición original y de
+ahí salga hacia la ficha; sería un efecto físico hiperrealista. Además se sigue viendo raro por lo
+del efecto tilt». Con miedo, sobre todo, al móvil.
+
+**Decisión** (`index.astro`): `abrirFicha()` llama a `aterrizarTarjeta()`. Solo con ratón
+(`hover: hover` y `pointer: fine`), si la tarjeta está bajo el ratón y sin «reducir movimiento»: le
+pone `.mel-aterrizando` —escala de la capa a 1 y sin sombra, con 140 ms de transición— y endereza
+la inclinación con su transición (`__melSoltarTiltSuave`), y la ficha se abre a los 140 ms
+(`ATERRIZAJE_MS`). Mientras aterriza no se vuelve a inclinar, y un segundo clic no hace nada. **En
+táctil no cambia nada**: allí no hay hover ni inclinación. Sustituye a D-316, que agrandaba la copia
+que vuela en vez de bajar la tarjeta.
+
+**Medido** (Chrome, ratón encima): antes de pulsar, capa a ×1,045 e inclinada, 292 px, sombra 0,48;
+a los 70 ms, 284 px y sombra 0,23; la transición a la ficha arranca a los ~157 ms con la capa a
+×1,000 y derecha. Coste: la ficha empieza a abrirse ~150 ms más tarde, solo con ratón (la precarga
+empieza al pasar por encima).
+
+## D-320 · Galería de escritorio con más aire: 40 px entre columnas y 16 px más bajo la barra
+
+**Propietario**: probar a separar 16 px más los carteles entre sí en escritorio, en horizontal y en
+vertical, y también del arranque bajo la barra de herramientas (los de arriba, al crecer con el
+hover, quedaban bajo la barra; se descartó sacarlos por encima).
+
+**Decisión** (desde `lg`, 1024 px): `lg:gap-x-10` (40 px) en la rejilla y, su pareja en el masonry
+(regla 11), `HUECO` 40 en vez de 24 en el script que calcula los `row-span` (función del ancho;
+al redimensionar se rehacen todos). `#view-galería`: `lg:mt-[32px]` (antes 16). Móvil y tablet,
+igual.
+
+**Medido** (Chrome, 1440): huecos verticales 39–42 px y horizontales 40 (antes 22–25 y 24); primera
+fila a 48 px de la barra (antes 32). A 390 px, idéntico antes y después (24 / 22–26 / 16). Build
+correcto.
+
+**Revisión del propietario**: el vertical de 40 le sobraba. Se queda el horizontal (40) y el
+vertical vuelve a 24 (`HUECO` del masonry, ya no es el mismo número que el `gap-x` desde `lg`); el
+aire bajo la barra se queda en 48. Medido: verticales 23–26, horizontales 40, barra 48; móvil igual.
+
+## D-321 · El aterrizaje empieza al pulsar: la tarjeta se aprieta contra el fondo
+
+**Propietario** (sobre D-319): «más que aterrizaje es antes del despegue; ¿puede suceder al hacer
+clic en vez de al soltar, como si presionáramos la card contra el fondo?». Y un caso raro: con el
+botón pulsado y moviendo el ratón aparecía un velo negro en la mitad derecha del cartel (la
+inclinación seguía actuando mientras se pulsaba).
+
+**Decisión** (`index.astro`, `engancharPresion()` en las dos clases de tarjeta, las del servidor y
+las del script): en `pointerdown` con el ratón, `presionarTarjeta()` aprieta la tarjeta
+(`.mel-aterrizando`: escala 1, sin inclinación, sin sombra, 140 ms) y retiene el puntero
+(`setPointerCapture`) para que, al encogerse, el ratón no salga y la haga rebotar. Mientras está
+apretada, la inclinación no actúa. Al soltar encima, el clic abre la ficha esperando solo lo que le
+falte de los 140 ms. Soltar fuera no abre, como en cualquier botón (con el puntero retenido el
+navegador mandaría el clic igual: se apunta dónde se soltó y se corta en captura), y la tarjeta se
+suelta. Teclado o un clic sin pulsación previa: como D-319.
+
+**Medido** (Chrome, ratón): pulsar y mantener 300 ms → apretada, 276 px, sin giro, también moviendo
+el ratón; soltar encima → la transición arranca a los 23 ms; arrastrar fuera y soltar → no abre y
+se suelta. Build correcto.
+
+## D-322 · Las tarjetas de la galería no se seleccionan (el «velo» que se quedaba puesto)
+
+**Propietario**: pulsando una tarjeta, arrastrando fuera y soltando (el caso de D-321 que no abre),
+el cartel se quedaba con un velo oscuro «para siempre»; antes, con el botón pulsado y moviendo el
+ratón, aparecía en la mitad derecha.
+
+**Causa**: era la **selección** del navegador. Arrastrar con el botón pulsado selecciona la tarjeta
+como si fuera texto, y el sitio pinta la selección en burdeos (`selection:bg-mel-action-secondary`
+del `<body>`): una imagen seleccionada se tiñe de ese color, y así se queda hasta pinchar en otro
+sitio. Medido (Chrome): tras arrastrar fuera, la selección contenía la tarjeta («Tropicana
+15/09/2000»).
+
+**Decisión**: `.gallery-item` con `user-select: none` (y `-webkit-user-select`), en el CSS común a
+las dos clases de tarjeta (`index.astro`). Una tarjeta no es texto que copiar. Medido: tras
+arrastrar fuera, selección vacía.
+
+**De paso** (propietario): se queda con la separación de D-320 tal como quedó —40 px entre
+columnas, 24 entre carteles de una misma columna—: «como cuatro carriles verticales, ayuda a
+escanear la página».

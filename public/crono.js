@@ -62,6 +62,7 @@
         ' · cambio ' + (n.cambio != null ? n.cambio : '…') +
         ' · listo ' + (n.listo != null ? n.listo : '…') +
         (n.galeria != null ? ' · galería ' + n.galeria : '');
+      if (n.telon) l += '\n  telón ' + n.telon;
       if (n.paradas.length) l += '\n  parones ' + n.paradas.join(', ');
       return l;
     }).join('\n') || 'crono: toca algo para medir';
@@ -98,6 +99,30 @@
       nav.precargada = true;   // la entregó la precarga de Layout.astro, sin pedirla
     }
     pintar();
+  });
+  // El telón (D-315): la transición de vista de cada navegación. Si se abortó,
+  // cuánto duró, si era una vuelta (`mel-vuelta`) y si voló el cartel
+  // (`mel-vuelo`, D-314) o viajó a la ficha (`flyer-img-…`).
+  document.addEventListener('astro:before-swap', function (e) {
+    if (!nav) return;
+    var n = nav, vt = e.viewTransition;
+    if (!vt || !vt.ready) { n.telon = 'sin transición'; pintar(); return; }
+    var t0 = ahora();
+    n.telon = '…';
+    vt.ready.then(function () {
+      n.telon = 'en marcha' + (document.documentElement.classList.contains('mel-vuelta') ? ' (vuelta)' : '');
+      pintar();
+      setTimeout(function () {
+        var capas = document.getAnimations().map(function (a) { return a.effect && a.effect.pseudoElement; })
+          .filter(function (x) { return x && /group\((mel-vuelo|flyer-img)/.test(x); });
+        if (capas.length) { n.vuelo = /mel-vuelo/.test(capas[0]) ? 'cartel volando' : 'cartel viajando'; pintar(); }
+      }, 300);
+    }, function (err) { n.telon = 'ABORTADO (' + (err && err.name) + ')'; pintar(); });
+    vt.finished.then(function () {
+      if (/^ABORTADO/.test(n.telon)) return;
+      n.telon = Math.round(ahora() - t0) + ' ms' + (n.telon.indexOf('vuelta') > -1 ? ' (vuelta)' : '') + (n.vuelo ? ', ' + n.vuelo : '');
+      pintar();
+    });
   });
   document.addEventListener('astro:after-swap', function () { if (nav) { nav.cambio = desde(); pintar(); } });
   document.addEventListener('astro:page-load', function () {
@@ -151,7 +176,7 @@
     var todas = historial.map(function (n) {
       return n.destino + ' | descarga ' + v(n.descarga) + (n.servidor != null ? ' (servidor ' + n.servidor + (n.cache ? ', caché' : '') + ')' : '') +
         (n.precargada ? ' (precargada)' : '') + ' | cambio ' + v(n.cambio) + ' | listo ' + v(n.listo) +
-        (n.galeria != null ? ' | galería ' + n.galeria : '') + (n.paradas.length ? ' | parones ' + n.paradas.join(', ') : '');
+        (n.galeria != null ? ' | galería ' + n.galeria : '') + (n.telon ? ' | telón ' + n.telon : '') + (n.paradas.length ? ' | parones ' + n.paradas.join(', ') : '');
     }).join('\n');
     copiarTexto(navigator.userAgent + '\n' + location.href + '\n' + todas).then(function () {
       copiar.textContent = 'copiado';

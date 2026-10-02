@@ -334,13 +334,13 @@ const tags = [
            pt-0 (D-067, was pt-[24px]): on mobile the gap up to the toolbar
            already comes from the page's own flex layout — this extra 24px on
            top of that was pushing the grid down further than intended.
-           lg:mt-[16px]/lg:pt-[8px] (D-064) still stand on desktop, where the
+           lg:mt-[32px]/lg:pt-[8px] (D-064; 32 desde D-320) still stand on desktop, where the
            opposite problem existed (cards sitting too close during scroll).
            -mb-[3vh] cancels the page's own pb-[3vh] (the calibrated top/bottom
            breathing room, rule 9 — not touching that) so the scroll
            container's own box reaches the literal bottom of the screen
            instead of stopping 3vh short of it. -->
-      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[16px] relative">
+      <div id="view-galería" class="view-panel active flex-1 w-[calc(100%+88px)] -ml-[44px] -mb-[3vh] overflow-y-auto transition-all duration-500 px-[44px] pt-0 lg:pt-[8px] lg:mt-[32px] relative">
         <!-- Nunca menos de DOS columnas, ni en el móvil más estrecho. A una sola,
              el flyer mediano mide 462px en una ventana de galería de 484: ocupa
              la pantalla entera, no cabe entero casi nunca y no se ve nada más.
@@ -349,7 +349,7 @@ const tags = [
              21; a dos, los 21, y se ven cuatro a la vez (D-124).
              La cuarta columna la enciende `.galeria-cuatro`, ver
              updateHomeToolbarLayout(). -->
-        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-m auto-rows-[4px] w-full pb-[13vh]">
+        <div id="gallery-grid" class="grid grid-cols-2 md:grid-cols-3 gap-x-mel-m lg:gap-x-10 auto-rows-[4px] w-full pb-[13vh]">
           {initialArchives.slice(0, 32).map((item, i) => {
             const imgSrc = extractDriveImage(item.carruselItems[0]?.urlDrive, ANCHO_TARJETA) || `/flyers/flyer-${((i % 13) + 1)}.png`;
             const imgSrcset = srcSetDrive(item.carruselItems[0]?.urlDrive, ANCHOS_TARJETA);
@@ -389,6 +389,9 @@ const tags = [
             // dejan de coincidir, los row-span salen mal y el masonry se
             // descuadra. Al cambiar la escala del DS (M pasó a ser 24, antes lo
             // era L) se movió la clase, no el número.
+            // Este es el hueco VERTICAL. En escritorio el horizontal es de 40 px
+            // (`lg:gap-x-10`, D-320) y el vertical se quedó en 24 (el propietario
+            // probó 40 y le sobraba): ya no son el mismo número a partir de `lg`.
             const FILA = 4;
             const HUECO = 24;
             const span = (ancho, ratio) => Math.max(1, Math.round((ancho / ratio + HUECO) / FILA));
@@ -1038,6 +1041,12 @@ const tags = [
 
   .gallery-item {
     align-self: start;
+    /* Sin selección (D-322): una tarjeta no es texto que copiar. Pulsando y
+       arrastrando con el ratón, el navegador la seleccionaba y la teñía con el
+       color de selección del sitio (burdeos, `selection:` del <body>): el
+       «velo» que se quedaba puesto hasta pinchar en otro sitio. */
+    -webkit-user-select: none;
+    user-select: none;
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
     /* Cada tarjeta es su propio contenedor de consulta, para que la pastilla de
        abajo pueda preguntar por el ancho de SU tarjeta. Solo en el eje en línea:
@@ -1097,6 +1106,19 @@ const tags = [
      igual antes de que el script arranque. */
   @media (hover: hover) and (pointer: fine) {
     .gallery-item:hover .carta-3d { --escala-3d: 1.045; }
+    /* El aterrizaje (D-319): al pulsar con el ratón una tarjeta levantada,
+       baja a su sitio —sin escala, sin inclinación, sin sombra— en 140 ms, y
+       solo entonces sale hacia la ficha (`aterrizarTarjeta()`). Sustituye a
+       D-316, que agrandaba la copia que vuela: ahora sale del tamaño real y
+       derecha, sin trampas. */
+    .gallery-item.mel-aterrizando .carta-3d {
+      --escala-3d: 1;
+      transition: transform 140ms ease-out !important;
+    }
+    .gallery-item.mel-aterrizando:hover {
+      box-shadow: none !important;
+      transition: box-shadow 140ms ease-out !important;
+    }
   }
 
   /* El barrido de luz. El degradado lo escribe el motor en cada fotograma;
@@ -2261,6 +2283,7 @@ const tags = [
     card.addEventListener('click', () => {
       abrirFicha(item);
     });
+    engancharPresion(card);
     return card;
   }
 
@@ -3084,6 +3107,8 @@ const tags = [
     asomarTarjeta(idMel);
     marcarViajeDesdeTarjeta(idMel);
     prepararIda(idMel);
+    // Para el vuelo de vuelta (D-314): por qué ficha se entró.
+    try { sessionStorage.setItem('mel-vuelo-origen', idMel); } catch (e) {}
     // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
     recordarFlyerAbierto(idMel);
     saveReturnState();
@@ -3188,7 +3213,84 @@ const tags = [
   // se quedó, apuntando a un modal que ya no existía. Su marcado y sus listeners
   // siguieron en pie hasta esta limpieza.
   function abrirFicha(item) {
-    navigateToEvent(item.idMel, { search: searchQuery });
+    const espera = aterrizarTarjeta(item.idMel);
+    if (espera === null) return;   // ya está saliendo: segundo clic
+    if (espera) setTimeout(() => navigateToEvent(item.idMel, { search: searchQuery }), espera);
+    else navigateToEvent(item.idMel, { search: searchQuery });
+  }
+
+  // Apretar la tarjeta al pulsar (D-321): baja a su sitio —sin escala, sin
+  // inclinación, sin sombra— y ahí se queda mientras se mantenga el botón.
+  // Solo con ratón y con la tarjeta levantada por el hover. Devuelve si la
+  // ha apretado.
+  function presionarTarjeta(tarjeta) {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (!tarjeta.matches(':hover') || tarjeta.classList.contains('mel-aterrizando')) return false;
+    tarjeta.classList.add('mel-aterrizando');
+    tarjeta.dataset.apretadaDesde = String(performance.now());
+    if (typeof window.__melSoltarTiltSuave === 'function') window.__melSoltarTiltSuave();
+    return true;
+  }
+  function despresionarTarjeta(tarjeta) {
+    tarjeta.classList.remove('mel-aterrizando');
+    delete tarjeta.dataset.apretadaDesde;
+  }
+  // Para las dos clases de tarjeta: las que pinta el servidor
+  // (`bindInitialCardClicks`) y las que monta `buildGalleryCard`.
+  function engancharPresion(card) {
+    // El aterrizaje empieza al PULSAR, no al soltar (D-321): la tarjeta se
+    // aprieta contra el fondo mientras se mantiene el botón, y al soltar sale.
+    card.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      if (!presionarTarjeta(card)) return;
+      // Retiene el puntero: al encogerse, el ratón podría quedar fuera de la
+      // tarjeta, salir, volver a crecer bajo él… y rebotar.
+      try { card.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    // Soltar FUERA de la tarjeta no abre, como en cualquier botón. Con el
+    // puntero retenido el navegador manda el clic a la tarjeta aunque se suelte
+    // fuera, así que se apunta dónde se soltó y el clic se corta (oyente en
+    // captura: corre antes que el que abre la ficha).
+    card.addEventListener('pointerup', (e) => {
+      if (!card.classList.contains('mel-aterrizando')) return;
+      const r = card.getBoundingClientRect();
+      const dentro = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+      if (dentro) delete card.dataset.soltadaFuera; else card.dataset.soltadaFuera = '1';
+    });
+    card.addEventListener('click', (e) => {
+      if (!card.dataset.soltadaFuera) return;
+      delete card.dataset.soltadaFuera;
+      e.stopImmediatePropagation();
+    }, true);
+    // Si no llega a abrir, la tarjeta vuelve a su hover. Después del clic, que
+    // llega a continuación.
+    card.addEventListener('lostpointercapture', () => {
+      setTimeout(() => { if (!card.dataset.navegando) despresionarTarjeta(card); }, 0);
+    });
+  }
+
+  // El aterrizaje (D-319/D-321, idea del propietario): con el ratón, la
+  // tarjeta levantada por el hover baja a su sitio antes de salir hacia la
+  // ficha. Desde D-321 baja al PULSAR (`presionarTarjeta`) y aquí, al soltar,
+  // solo se espera lo que le falte por bajar. Devuelve cuánto esperar (0 si no
+  // hace falta; null si ya estaba saliendo). En táctil no se toca nada.
+  const ATERRIZAJE_MS = 140;
+  function aterrizarTarjeta(idMel) {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return 0;
+    const tarjeta = [...document.querySelectorAll(`#view-galería .gallery-item[data-id="${CSS.escape(idMel)}"]`)]
+      .find((el) => el.getClientRects().length);
+    if (!tarjeta) return 0;
+    if (tarjeta.dataset.navegando) return null;
+    // Normalmente ya viene apretada desde el `pointerdown` (D-321): sale en
+    // cuanto termina de bajar. Si no (teclado, o el clic llegó sin pulsación
+    // previa), se aprieta ahora y sale a los 140 ms, como en D-319.
+    if (!tarjeta.classList.contains('mel-aterrizando') && !presionarTarjeta(tarjeta)) return 0;
+    tarjeta.dataset.navegando = '1';
+    // Si la navegación no llegara a ocurrir, la tarjeta vuelve a responder.
+    setTimeout(() => { delete tarjeta.dataset.navegando; despresionarTarjeta(tarjeta); }, 3000);
+    const llevada = performance.now() - parseFloat(tarjeta.dataset.apretadaDesde || '0');
+    return Math.max(0, Math.round(ATERRIZAJE_MS - llevada));
   }
 
   // ---------------------------------------------------------------
@@ -3348,6 +3450,8 @@ const tags = [
     }
     // Para que el morphing hacia la ficha no fotografíe una tarjeta torcida:
     // se endereza EN SECO (sin los 700ms de vuelta) justo antes de navegar.
+    // Enderezar CON su transición (la del aterrizaje, D-319).
+    window.__melSoltarTiltSuave = () => soltar();
     window.__melSoltarTilt = () => {
       const c = carta, capa = c && c.querySelector('.carta-3d');
       if (capa) {
@@ -3361,6 +3465,8 @@ const tags = [
     // `c` = la tarjeta bajo el ratón (o null), `x`/`y` = el ratón en pantalla.
     function seguir(c, x, y) {
       ratonX = x; ratonY = y;
+      // Una tarjeta que aterriza (D-319) no se vuelve a inclinar.
+      if (c && c.classList.contains('mel-aterrizando')) c = null;
       if (!c) { soltar(); return; }
       if (c !== carta) {
         soltar();
@@ -3410,6 +3516,7 @@ const tags = [
         const item = archives.find(x => x.idMel === id);
         if (item) abrirFicha(item);
       });
+      engancharPresion(card);
     });
   }
 
@@ -7497,6 +7604,177 @@ const tags = [
   // guarda nada de la ejecución que lo creó (`revelarColocado` trabaja sobre
   // el elemento que recibe y el documento vivo), así que la primera copia
   // sirve para siempre.
+  // Vuelo de vuelta ficha → tarjeta (D-314). La ficha, al cerrarse, deja su
+  // cartel fotografiado aparte (`mel-vuelo`) y su geometría en `mel-vuelo`
+  // (sessionStorage); ver `prepararVueloDeVuelta` en event/[id].astro. Aquí se
+  // espera a que la tarjeta de destino esté colocada —la galería y la Lista se
+  // recolocan ocultas al volver— y entonces se lleva la foto de la transición
+  // (el grupo `::view-transition-group(mel-vuelo)`) hasta ella, mientras la
+  // ficha se disuelve. Si la tarjeta no aparece a tiempo o el navegador no deja
+  // animar la transición, no pasa nada: el cartel se funde con la ficha
+  // (global.css), como siempre. Registro único, como los de abajo (D-298).
+  if (!window._melVueloVueltaBound) {
+    window._melVueloVueltaBound = true;
+    document.addEventListener('astro:before-swap', (e) => {
+      let datos = null;
+      try {
+        datos = JSON.parse(sessionStorage.getItem('mel-vuelo') || 'null');
+        sessionStorage.removeItem('mel-vuelo');
+      } catch (err) {}
+      window.__melVuelo = datos && e.viewTransition ? { ...datos, vt: e.viewTransition } : null;
+      window.__melTelonVT = e.viewTransition || null;
+    });
+    document.addEventListener('astro:after-swap', () => {
+      const datos = window.__melVuelo;
+      window.__melVuelo = null;
+      const vt = window.__melTelonVT;
+      window.__melTelonVT = null;
+      if (document.documentElement.classList.contains('mel-vuelta')) sujetarTelon(vt);
+      if (datos) volarDeVuelta(datos);
+    });
+  }
+
+  // Sujetar el telón de la vuelta (D-317). Al volver, la galería o la Lista se
+  // recolocan ESCONDIDAS (`ocultarParaColocar`) hasta quedarse quietas: con la
+  // lista desplazada, medido en WebKit, de los 23 a los 225 ms. Mientras, la
+  // ficha ya se estaba disolviendo (empieza a los 120 ms) sobre una portada
+  // vacía, y la lista aparecía de golpe a mitad: el telón «se cortaba». Ahora
+  // el fundido de la ficha (y el de reserva del cartel) se queda en pausa hasta
+  // que la vista está a la vista, con un tope de 400 ms, y entonces corre
+  // entero: la ficha se disuelve siempre sobre la portada colocada. Solo en
+  // galería y Lista (el mapa, regla 15, como estaba). Si el navegador no deja
+  // tocar las animaciones de la transición, nada cambia.
+  function sujetarTelon(vt) {
+    if (!vt || !vt.ready) return;
+    // La vista, de la dirección: al empezar el telón la portada aún no ha
+    // pasado a la suya (lo hace `switchView()` al arrancar, un poco después).
+    const param = new URLSearchParams(location.search).get('view') || 'galería';
+    const vista = param === 'lista' ? 'view-lista' : param === 'mapa' ? 'view-mapa' : 'view-galería';
+    if (vista === 'view-mapa') return;
+    vt.ready.then(() => {
+      const telon = document.getAnimations().filter((a) => a.effect &&
+        /^::view-transition-old\((root|mel-vuelo)\)$/.test(a.effect.pseudoElement || ''));
+      if (!telon.length) return;
+      telon.forEach((a) => a.pause());
+      const inicio = Date.now();
+      const contenedores = vista === 'view-lista'
+        ? ['list-mobile-cards', 'list-table-wrapper'] : ['view-galería'];
+      // Lista cuando alguno de sus contenedores está pintado (la Lista tiene
+      // dos, tarjetas en el móvil y tabla, y solo se ve uno) y destapado.
+      const lista = () => contenedores.some((id) => {
+        const c = document.getElementById(id);
+        return c && c.getClientRects().length > 0 && c.style.opacity !== '0';
+      });
+      const reloj = setInterval(() => {
+        if (!lista() && Date.now() - inicio < 400) return;
+        clearInterval(reloj);
+        telon.forEach((a) => { if (a.playState === 'paused') a.play(); });
+      }, 20);
+    }, () => {});
+  }
+
+  function volarDeVuelta(v) {
+    const sel = `[data-id="${CSS.escape(v.id)}"]`;
+    const buscar = () => v.vista === 'lista'
+      ? [...document.querySelectorAll(`#list-mobile-cards ${sel} img, #list-table-body img.list-img-link${sel}`)]
+          .find(el => el.getClientRects().length)
+      : document.querySelector(`#view-galería .gallery-item${sel} img`);
+    // La galería y la Lista se colocan con su contenedor a opacidad 0
+    // (`ocultarParaColocar`); hasta que se revelan, la tarjeta no está en su sitio.
+    const oculta = el => {
+      for (let n = el; n; n = n.parentElement) if (n.style && n.style.opacity === '0') return true;
+      return false;
+    };
+    const inicio = Date.now();
+    let anterior = '';
+    let quieta = 0;
+    // setInterval y no rAF, como volverAlFlyer(): durante la transición los
+    // fotogramas pueden ir a otro ritmo. Se exige la misma caja dos lecturas
+    // seguidas (30 ms): la vista solo se destapa cuando ya está quieta
+    // (`volverAlFlyer`, `restoreScroll`), y con el telón sujeto (D-317) no hay
+    // prisa que obligue a despegar antes.
+    const reloj = setInterval(() => {
+      const destino = buscar();
+      if (destino && !oculta(destino)) {
+        const r = destino.getBoundingClientRect();
+        const caja = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)}`;
+        quieta = caja === anterior ? quieta + 1 : 0;
+        anterior = caja;
+        if (quieta >= 1 && r.width > 0 && r.bottom > 0 && r.top < window.innerHeight) {
+          clearInterval(reloj);
+          despegar(destino, r);
+          return;
+        }
+      }
+      // 450 ms: más tarde, la ficha ya va muy disuelta y el cartel con ella.
+      if (Date.now() - inicio > 450) clearInterval(reloj);
+    }, 30);
+
+    function despegar(destino, r) {
+      // En la Lista la miniatura es una caja cuadrada con el cartel dentro
+      // (`object-contain`): el destino es el cartel, no la caja.
+      let T = { x: r.left, y: r.top, w: r.width, h: r.height };
+      if (destino.naturalWidth && getComputedStyle(destino).objectFit === 'contain') {
+        const k = Math.min(r.width / destino.naturalWidth, r.height / destino.naturalHeight);
+        const w = destino.naturalWidth * k, h = destino.naturalHeight * k;
+        T = { x: r.left + (r.width - w) / 2, y: r.top + (r.height - h) / 2, w, h };
+      }
+      // La foto de la transición es la caja ENTERA de la imagen de la ficha;
+      // se escala para que el cartel de dentro (P) caiga justo sobre T.
+      const k = T.w / v.P.w;
+      const raiz = document.documentElement;
+      const GRUPO = '::view-transition-group(mel-vuelo)';
+      const VIEJA = '::view-transition-old(mel-vuelo)';
+      try {
+        // Fuera el fundido de serie: el cartel vuela entero. Y si ese fundido no
+        // existe, no hay transición en marcha (el navegador se la saltó: p. ej.
+        // el gesto de volver del iPhone, que anima por su cuenta): sin vuelo, y
+        // sin esconder la tarjeta.
+        const fundidos = document.getAnimations().filter(a => a.effect && a.effect.pseudoElement === VIEJA);
+        if (!fundidos.length) return;
+        fundidos.forEach(a => a.cancel());
+        // Se arranca desde la caja que apuntó la ficha (`v.E`, en coordenadas de
+        // la ventana), no desde el estilo calculado del grupo: preguntárselo al
+        // navegador dependía de que lo informara bien (Safari) y de que nada lo
+        // hubiera tocado antes.
+        const vuelo = raiz.animate([
+          { transform: `matrix(1, 0, 0, 1, ${v.E.x}, ${v.E.y})`, width: `${v.E.w}px`, height: `${v.E.h}px` },
+          {
+            transform: `matrix(1, 0, 0, 1, ${T.x - v.P.x * k}, ${T.y - v.P.y * k})`,
+            width: `${v.E.w * k}px`,
+            height: `${v.E.h * k}px`,
+          },
+        ], { pseudoElement: GRUPO, duration: 500, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'forwards' });
+        // Mientras vuela, su tarjeta espera ESCONDIDA ENTERA —en la galería, la
+        // tarjeta; en la Lista, la caja de la miniatura—; al aterrizar,
+        // aparece. Escondiendo solo la imagen quedaba a la vista el fondo de su
+        // caja: el cartel aterrizaba sobre una tarjeta blanca. Va por una regla
+        // con el id y no sobre el elemento: la portada repinta la galería
+        // durante la vuelta y cambia la tarjeta por otra igual (medido: la
+        // escondida quedaba fuera y la nueva, a la vista). En el <body> y no en
+        // la cabecera, que conserva entre páginas los estilos que aparecen
+        // después de cargar (D-301).
+        const id = CSS.escape(v.id);
+        const tapa = document.createElement('style');
+        tapa.textContent = `#view-galería .gallery-item[data-id="${id}"], #list-mobile-cards [data-id="${id}"] > :first-child, #list-table-body div:has(> img.list-img-link[data-id="${id}"]) { visibility: hidden !important; }`;
+        document.body.appendChild(tapa);
+        const mostrar = () => tapa.remove();
+        vuelo.finished.then(mostrar, mostrar);
+        // `fill: forwards` sostiene el cartel en la tarjeta hasta que acaba la
+        // transición, pero la animación queda colgada de <html> apuntando a
+        // `::view-transition-group(mel-vuelo)`: en la SIGUIENTE vuelta, la
+        // foto nueva con ese mismo nombre la heredaba y el cartel arrancaba
+        // desde donde aterrizó el anterior (el «sitio raro» del propietario,
+        // reproducido a la 2.ª vuelta seguida). Se retira al terminar la
+        // transición.
+        if (v.vt && v.vt.finished) v.vt.finished.finally(() => vuelo.cancel());
+        // Red por si el vuelo no llegara a terminar nunca (dura 500 ms).
+        setTimeout(mostrar, 3000);
+      } catch (err) {}
+    }
+  }
+
+
   if (!window._melBeforeSwapGaleriaBound) {
     window._melBeforeSwapGaleriaBound = true;
     document.addEventListener('astro:before-swap', (e) => {

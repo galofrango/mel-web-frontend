@@ -813,6 +813,14 @@ const imagenCompartir = urlCompartir ? {
       if (Array.isArray(parsed)) imageUrls = parsed;
     } catch (e) {}
 
+    // Vuelo de vuelta (D-314): solo desde la ficha por la que se entró. La
+    // portada apunta ese evento al abrirlo (`mel-vuelo-origen`); si esta ficha
+    // es otra (Anterior/Siguiente, flechas…), se borra y ya no habrá vuelo,
+    // aunque luego se vuelva a la primera.
+    try {
+      if (sessionStorage.getItem('mel-vuelo-origen') !== eventId) sessionStorage.removeItem('mel-vuelo-origen');
+    } catch (e) {}
+
     // La vuelta apunta al flyer que se está mirando AHORA, no al que se abrió
     // desde la galería. El estado de vuelta lo escribe la home al pulsar una
     // tarjeta y no lo tocaba nadie más, así que recorriendo la sesión con
@@ -2227,9 +2235,59 @@ const imagenCompartir = urlCompartir ? {
           // ser solo la raíz (D-263).
           const aviso = document.getElementById('whisper');
           if (aviso) aviso.style.viewTransitionName = 'none';
+          // El contenido de la ficha, en su propia capa (D-318): se desvanece
+          // nada más tocar la X, mientras el fondo de la ficha espera a que la
+          // portada esté colocada (`sujetarTelon`). Así la vuelta reacciona al
+          // instante y la lista sigue sin aparecer de golpe. Solo hacia la
+          // galería o la Lista: el mapa, regla 15, como estaba.
+          const vistaDestino = new URL(e.to, location.href).searchParams.get('view') || 'galería';
+          const contenido = document.getElementById('detail-page-container');
+          if (contenido && vistaDestino !== 'mapa') contenido.style.viewTransitionName = 'mel-ficha';
+          prepararVueloDeVuelta(e);
         }
       } catch (err) {}
     });
+    // Vuelo de vuelta (D-314): el cartel vuela de la ficha a su tarjeta. Aquí
+    // solo se le pone nombre propio (`mel-vuelo`) para que la transición lo
+    // fotografíe aparte, y se apunta su geometría; el vuelo lo lanza la
+    // portada cuando su tarjeta está colocada (`volarDeVuelta` en index.astro).
+    // Sin vuelo, y vuelta de siempre, si: no es la ficha por la que se entró;
+    // se vuelve al mapa (la vuelta al panel es zona de la regla 15 y D-300);
+    // el carrusel no está QUIETO en la 1.ª foto (es automático: a mitad de
+    // pasar o en otra foto, la tarjeta enseñaría otra cosa); el visor está
+    // abierto; la foto no está a la vista o sin cargar; o «reducir movimiento».
+    function prepararVueloDeVuelta(e) {
+      let origen = null;
+      try {
+        origen = sessionStorage.getItem('mel-vuelo-origen');
+        sessionStorage.removeItem('mel-vuelo-origen');
+        sessionStorage.removeItem('mel-vuelo');
+      } catch (err) { return; }
+      const id = document.getElementById('detail-page-container')?.dataset.eventId;
+      const vista = new URL(e.to, location.href).searchParams.get('view') || 'galería';
+      if (!origen || origen !== id || vista === 'mapa') return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const visor = document.getElementById('image-detail-overlay');
+      if (visor && !visor.classList.contains('hidden')) return;
+      const pista = document.getElementById('carousel-track');
+      const img = pista && pista.querySelector('img');
+      if (!img || !img.complete || !img.naturalWidth) return;
+      const t = getComputedStyle(pista).transform;
+      const quieta = !pista.getAnimations().length && (t === 'none' || new DOMMatrixReadOnly(t).m41 === 0);
+      if (!quieta) return;
+      const E = img.getBoundingClientRect();
+      if (!E.width || E.bottom <= 0 || E.top >= window.innerHeight) return;
+      // El cartel de verdad dentro de la caja de la imagen (`object-contain`):
+      // la portada lo encaja en la tarjeta, no la caja con sus márgenes.
+      const k = Math.min(E.width / img.naturalWidth, E.height / img.naturalHeight);
+      const pw = img.naturalWidth * k, ph = img.naturalHeight * k;
+      img.style.viewTransitionName = 'mel-vuelo';
+      sessionStorage.setItem('mel-vuelo', JSON.stringify({
+        id, vista,
+        E: { x: E.left, y: E.top, w: E.width, h: E.height },
+        P: { x: (E.width - pw) / 2, y: (E.height - ph) / 2, w: pw, h: ph },
+      }));
+    }
 
 
     // El marcador `mel-vuelta` (D-263) se instala DESDE AQUÍ, en el documento
@@ -2287,8 +2345,12 @@ const imagenCompartir = urlCompartir ? {
      20 ms y la franja aguantaba opaca y se despedía en 180 ms aparte (D-261/
      D-262): se veía un corte duro arriba, con la ficha entrando por debajo y el
      selector Galería/Mapa/Lista encima del texto de la ficha. */
+  /* EL TELÓN (D-315): así se llama, a partir de ahora, todo lo que pasa por
+     debajo del cartel mientras vuela. A la ida, estas dos reglas: la página que
+     se va (300 ms) y la ficha que llega (espera 200 ms y aparece en 500). A la
+     vuelta, `html.mel-vuelta::view-transition-old(root)` en global.css. */
   html::view-transition-old(*) {
-    animation-duration: 200ms;
+    animation-duration: 300ms;
   }
   /* Vuelo ficha ⇄ visor (D-313, `volarVisor()`): el cartel con el compás de la
      ida a la ficha y opaco desde el primer fotograma; el fondo oscuro y el
@@ -2312,8 +2374,8 @@ const imagenCompartir = urlCompartir ? {
      fondo y solo entonces aparece la ficha encima, con el cartel ya en vuelo.
      `both` la mantiene invisible durante la espera. */
   html::view-transition-new(root) {
-    animation-duration: 400ms;
-    animation-delay: 150ms;
+    animation-duration: 500ms;
+    animation-delay: 200ms;
     animation-fill-mode: both;
     animation-timing-function: ease-out;
   }

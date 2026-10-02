@@ -1171,7 +1171,8 @@ html.mel-vuelta::view-transition-new(root) {
 html.mel-vuelta::view-transition-old(root) {
   /* 500ms por orden expresa del propietario ("si dura menos de medio
      segundo, súbelo a esa duración"); los 120ms de tapa opaca, con `both`. */
-  animation: mel-vuelta-desvanecer 500ms ease 120ms both;
+  /* EL TELÓN de la vuelta (D-315: 700 ms; antes 500). */
+  animation: mel-vuelta-desvanecer 700ms ease 120ms both;
   mix-blend-mode: normal;
   /* ENCIMA de la nueva, y esto es todo el truco: dentro del par, el navegador
      pinta la imagen nueva DESPUÉS (o sea, por delante) de la vieja. Con la
@@ -1184,6 +1185,21 @@ html.mel-vuelta::view-transition-old(root) {
 }
 html.mel-vuelta::view-transition-image-pair(root) {
   isolation: auto;
+}
+/* Vuelo de vuelta (D-314): el cartel de la ficha, fotografiado aparte
+   (`mel-vuelo`). Por defecto se funde exactamente como la ficha —mismo
+   compás que la raíz—, así que si el vuelo no llega a despegar (tarjeta que
+   no aparece a tiempo, navegador que no deja animarlo) la vuelta es la de
+   siempre. Si despega, `volarDeVuelta()` (index.astro) cancela este fundido y
+   lleva el grupo hasta la tarjeta. */
+/* El contenido de la ficha (D-318): textos, cabecera, todo menos el cartel y
+   el fondo. Se va enseguida, sin esperar a nada; el fondo (la raíz) se queda
+   sujeto hasta que la portada está colocada y luego se funde (D-317). */
+html.mel-vuelta::view-transition-old(mel-ficha) {
+  animation: mel-vuelta-desvanecer 350ms ease both;
+}
+html.mel-vuelta::view-transition-old(mel-vuelo) {
+  animation: mel-vuelta-desvanecer 700ms ease 120ms both;
 }
 
 html::view-transition-group(mel-pagination),
