@@ -119,8 +119,14 @@ const TAMANOS = '(min-width: 1024px) 300px, (min-width: 768px) 33vw, 50vw';
   <!-- Figma "Event Info" (node 481:238727): 32px bottom bar in action-secondary,
        title left / date right, justify-between. Title truncates first (min-w-0)
        so the date never gets pushed off on narrow cards. -->
+  <!-- Aparece en 0,3 s y se apaga en 1 s, solo con opacidad (D-304). Antes,
+       además, bajaba 8 px al irse (`translate-y-2`): al sacar el ratón por
+       abajo se veía como un «saltito» de la banda (problema 18). La duración
+       larga va en el estado de reposo porque manda la del estado de llegada:
+       al irse el ratón se llega a reposo (1 s); al entrar, a hover (0,3 s).
+       Gemela: `buildGalleryCard()` en index.astro (regla 7). -->
   <div
-    class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]"
+    class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 group-hover:duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]"
   >
     <p class="typo-caption text-mel-text-on-action truncate min-w-0">
       {title}

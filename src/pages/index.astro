@@ -2244,7 +2244,7 @@ const tags = [
       <div class="brillo-3d" aria-hidden="true"></div>
 
       <!-- Overlay info on hover (Figma "Event Info" 481:238727 — mirrors FlyerCard.astro, ver AGENTS.md regla 7) -->
-      <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 transition-all duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
+      <div class="flyer-label absolute bottom-0 left-0 right-0 h-[32px] bg-mel-action-secondary backdrop-blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 group-hover:duration-300 flex items-center justify-between gap-2 px-4 z-20 shadow-[var(--mel-shadow-flyer-label)]">
         <p class="typo-caption text-mel-text-on-action truncate min-w-0">${escHtml(item.evento)}</p>
         ${item.fecha ? `<p class="typo-caption text-mel-text-on-action shrink-0">${escHtml(formatFechaDMY(item.fecha))}</p>` : ''}
       </div>
@@ -3273,8 +3273,9 @@ const tags = [
       } else soltar();
     };
 
-    grid.addEventListener('pointermove', (e) => {
-      const c = e.target.closest('.gallery-item');
+    // `c` = la tarjeta bajo el ratón (o null), `x`/`y` = el ratón en pantalla.
+    function seguir(c, x, y) {
+      ratonX = x; ratonY = y;
       if (!c) { soltar(); return; }
       if (c !== carta) {
         soltar();
@@ -3287,15 +3288,28 @@ const tags = [
         caja = c.getBoundingClientRect();
         tope = topeGiroDe(caja.width, caja.height);
       }
-      ratonX = e.clientX; ratonY = e.clientY;
       if (!pedido) pedido = requestAnimationFrame(pintar);
+    }
+
+    let ratonDentro = false;
+    grid.addEventListener('pointermove', (e) => {
+      ratonDentro = true;
+      seguir(e.target.closest('.gallery-item'), e.clientX, e.clientY);
     }, { signal: senal });
 
-    grid.addEventListener('pointerleave', soltar, { signal: senal });
-    // La caja cambia de sitio con el scroll y con el reordenado; si no se
-    // relee, el giro se calcularía contra una posición vieja.
+    grid.addEventListener('pointerleave', () => { ratonDentro = false; soltar(); }, { signal: senal });
+    // Con scroll y el ratón quieto, la página se mueve bajo el ratón, pero
+    // Chrome no lo cuenta como movimiento: no llega ningún `pointermove`. La
+    // tarjeta se quedaba con el giro de antes del scroll, y seguía inclinada
+    // aunque el ratón ya estuviera sobre otra (lo cazó el propietario con un
+    // cartel alto, 02/10/2026). Aquí se relee la caja —ha cambiado de sitio— y
+    // se repite lo de `pointermove` con el último punto conocido del ratón,
+    // mirando qué tarjeta hay ahora debajo.
     document.getElementById('view-galería')?.addEventListener('scroll', () => {
+      if (!ratonDentro) return;
       if (carta) { caja = carta.getBoundingClientRect(); tope = topeGiroDe(caja.width, caja.height); }
+      const debajo = document.elementFromPoint(ratonX, ratonY)?.closest('.gallery-item');
+      seguir(debajo && grid.contains(debajo) ? debajo : null, ratonX, ratonY);
     }, { passive: true, signal: senal });
   }
 

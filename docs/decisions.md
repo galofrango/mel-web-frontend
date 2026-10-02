@@ -6001,3 +6001,36 @@ sesión y los rastreadores no pueden entrar, así que solo se puede probar en pr
 (compartiendo un enlace, o con el depurador de Facebook/Telegram). Ojo: WhatsApp y
 Telegram guardan la vista previa de un enlace ya compartido; para probar, usar una ficha
 que no se haya compartido antes o añadir `?v=1`.
+
+## D-304 · La etiqueta de la tarjeta se apaga despacio y ya no baja (problema 18), y la inclinación sigue al scroll
+
+**Contexto**: el propietario veía «un saltito en la parte inferior» al sacar el ratón de un
+cartel por abajo (roadmap, problema 18). En su vídeo (02/10/2026), fotograma a fotograma:
+lo que saltaba era la etiqueta con el nombre y la fecha, que al irse el ratón se
+desvanecía y a la vez **bajaba 8 px** (`translate-y-2`). Al salir por abajo, la vista
+está justo ahí. La inclinación 3D (D-264) no intervenía. Queda descartada la sospecha de
+la lámina blanca de la rama del parallax (D-287).
+
+**Decisión** (del propietario): sin desplazamiento, solo opacidad; aparece en 0,3 s y se
+apaga en **1 s**. Clases `transition-opacity duration-1000 group-hover:duration-300`:
+manda la duración del estado al que se llega, así que la larga va en reposo. En las dos
+copias de la tarjeta (`FlyerCard.astro` y `buildGalleryCard()`, regla 7). Al recorrer la
+galería con el ratón se ven varias etiquetas apagándose a la vez, y es lo buscado.
+
+**Medido** (Chrome, escritorio): al entrar, opacidad 0,78 a 150 ms y 1 a 400 ms; al
+salir, 0,63 a 300 ms, 0,06 a 700 ms y 0 a 1,1 s. La etiqueta no se desplaza (los 3 px
+que cambia su borde son la tarjeta, que vuelve de estar levantada). Las 32 etiquetas
+tienen la misma clase antes y después de filtrar; las dos copias del marcado,
+idénticas. En móvil (375 px) siguen ocultas, como antes. Sin errores.
+
+**De paso, la inclinación al hacer scroll** (lo cazó el propietario probando esto): con el
+ratón quieto sobre un cartel alto y haciendo scroll, la tarjeta se quedaba con el giro de
+antes, y seguía inclinada aunque el ratón acabara encima de otra. Causa: Chrome no manda
+`pointermove` cuando lo que se mueve es la página bajo el ratón (WebKit sí), y el oyente de
+scroll del motor solo volvía a medir la caja. Ahora ese oyente repite lo de `pointermove`
+(función `seguir()`) con el último punto del ratón y la tarjeta que hay debajo
+(`elementFromPoint`), solo si el ratón está dentro de la rejilla. **Medido** (cartel de
+472 px, scroll de 150 en 150): el giro pasa de 2,58° a 0,38° y −1,82°, y al salir del
+cartel la inclinación pasa a la tarjeta de debajo; antes, en Chrome, 2,58° fijos y la vieja
+inclinada. Igual que ya hacía WebKit. Ratón fuera de la rejilla + scroll: nada se inclina.
+Ida y vuelta a una ficha: sigue funcionando. Sin errores.
