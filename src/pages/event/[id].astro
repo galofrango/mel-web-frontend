@@ -673,21 +673,25 @@ const imagenCompartir = urlCompartir ? {
          screen — with pagination dots inside the modal below the image) -->
     <div
       id="image-detail-overlay"
-      class="fixed inset-0 bg-[var(--mel-scrim)] z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center"
+      class="fixed inset-0 bg-[var(--mel-scrim)] z-[250] opacity-0 pointer-events-none transition-opacity duration-300 hidden flex items-center justify-center max-[479px]:touch-none"
     >
+      <!-- En el teléfono (<480 px) el visor ocupa la pantalla entera (D-305):
+           los mismos elementos del sistema de diseño —fondo, rayas, X, puntos—,
+           sin la caja cuadrada, para que el cartel salga lo más grande posible
+           y se pueda ampliar con los dedos. Arriba, el hueco justo de la X. -->
       <!-- Modal Container: proportional to viewport height, true square aspect ratio, width
            follows from that. Bottom padding matches the other sides (pb-8) when there's no
            pagination to show — with pagination, pb-4 plus the dots row's own padding reads as
            the same visual weight, so it stays smaller there on purpose. -->
       <div
         id="image-detail-modal"
-        class={`relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 ${imageUrls.length > 1 ? 'pb-4' : 'pb-8'} h-[76vh] max-w-[92vw] aspect-square`}
+        class={`relative bg-mel-bg-primary flex flex-col items-center transform scale-95 transition-transform duration-300 pt-8 px-8 ${imageUrls.length > 1 ? 'pb-4' : 'pb-8'} h-[76vh] max-w-[92vw] aspect-square max-[479px]:h-dvh max-[479px]:w-full max-[479px]:max-w-none max-[479px]:aspect-auto max-[479px]:px-0 max-[479px]:pt-[calc(env(safe-area-inset-top)+64px)] max-[479px]:pb-[calc(env(safe-area-inset-bottom)+8px)]`}
         data-node-id="841:40541"
       >
         <!-- Close Button (40px, offset half-outside the top-right corner) -->
         <button
           id="overlay-close-btn"
-          class="absolute -top-5 -right-5 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
+          class="absolute -top-5 -right-5 max-[479px]:top-[calc(env(safe-area-inset-top)+12px)] max-[479px]:right-4 w-10 h-10 bg-mel-action-secondary text-mel-text-on-action hover:bg-mel-action-primary flex items-center justify-center shadow-[0px_4px_8px_rgba(38,31,31,0.32)] border-none cursor-pointer z-50 transition-colors"
           aria-label="Cerrar vista grande"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -713,7 +717,8 @@ const imagenCompartir = urlCompartir ? {
                   alt={eventData.title}
                   referrerpolicy="no-referrer"
                   loading="lazy"
-                  class="w-full h-full object-contain"
+                  draggable="false"
+                  class="w-full h-full object-contain select-none [-webkit-touch-callout:none]"
                 />
               </div>
             ))}
@@ -1383,11 +1388,35 @@ const imagenCompartir = urlCompartir ? {
     const overlayDots = document.querySelectorAll('.overlay-dot');
 
     let overlayIndex = 0;
+    // El visor a pantalla completa y con zoom (D-305) es del teléfono.
+    const esTelefono = () => window.innerWidth < 480;
+
+    // Zoom del visor (D-305): estado del cartel ampliado. Vive aquí arriba, y
+    // no dentro de `habilitarZoom()`, porque pasar de foto y cerrar el visor
+    // tienen que dejarlo a cero, y el paso de foto necesita saber si el gesto
+    // es del zoom. `dedosZoom` = los dedos que hay ahora mismo sobre el cartel.
+    let zoomEscala = 1, zoomX = 0, zoomY = 0;
+    const dedosZoom = new Map();
+    function quitarZoom() {
+      zoomEscala = 1; zoomX = 0; zoomY = 0;
+      overlayTrack?.querySelectorAll('img').forEach((img) => { img.style.transform = ''; img.style.transition = ''; });
+    }
 
     // Same sliding-track transition as the main carousel, but this never autoplays on its own
     function showOverlayImage(idx) {
       if (!imageUrls || imageUrls.length === 0) return;
+      quitarZoom();
       overlayIndex = (idx + imageUrls.length) % imageUrls.length;
+      // En el teléfono el visor es para ampliar con los dedos (D-305): la foto
+      // que se ve pasa a la de 2000 px (`400vw` hace que el navegador la elija
+      // del `srcset`), como cuando el cartel se abría suelto en otra pestaña.
+      // Solo ESA: las demás se quedan con la que la ficha ya tiene descargada
+      // (hay eventos de 7 carteles: serían ~3 MB al abrir). Mientras llega la
+      // grande se sigue viendo la de la ficha, sin hueco.
+      if (esTelefono()) {
+        const grande = overlayTrack?.querySelectorAll('img')[overlayIndex];
+        if (grande && grande.srcset) grande.sizes = '400vw';
+      }
       if (overlayTrack) overlayTrack.style.transform = `translate3d(-${overlayIndex * 100}%, 0, 0)`;
       overlayDots.forEach((dot, dIdx) => {
         dot.setAttribute('data-active', dIdx === overlayIndex ? 'true' : 'false');
@@ -1420,8 +1449,13 @@ const imagenCompartir = urlCompartir ? {
     }
     document.addEventListener('keydown', handleOverlayKeydown, { signal: wSig });
 
+    let retirada = 0;   // el reloj del cierre (300 ms de fundido)
+
     function openOverlay() {
       if (!overlay || !overlayModal) return;
+      // Si se vuelve a abrir mientras se apaga (los 300 ms del cierre), el
+      // reloj del cierre lo escondería recién abierto.
+      clearTimeout(retirada);
 
       // Stop autoplay when large view is open
       if (window.melAutoplayInterval) {
@@ -1443,13 +1477,15 @@ const imagenCompartir = urlCompartir ? {
 
     function closeOverlay() {
       if (!overlay || !overlayModal) return;
+      quitarZoom();
+      dedosZoom.clear();
 
       overlay.classList.remove('opacity-100', 'pointer-events-auto');
       overlay.classList.add('opacity-0', 'pointer-events-none');
       overlayModal.classList.remove('scale-100');
       overlayModal.classList.add('scale-95');
 
-      setTimeout(() => {
+      retirada = setTimeout(() => {
         overlay.classList.add('hidden');
         // Resume autoplay
         startAutoplay();
@@ -1469,18 +1505,14 @@ const imagenCompartir = urlCompartir ? {
     if (mainImageContainer) {
       mainImageContainer.addEventListener('click', () => {
         if (window.innerWidth < 480) {
-          // Con la ficha arriba del todo, el toque abre el cartel como imagen
-          // suelta: a partir de ahí manda el visor del propio navegador, con su
-          // pellizco, su doble toque, guardar y compartir. Es la única forma de
-          // ampliar el cartel sin ampliar la página entera, porque los
-          // navegadores solo aplican el pellizco al viewport y no a un
-          // elemento. Se pide a Drive un tamaño mayor que el de la ficha: es
-          // una vista para mirar de cerca, y a w1000 no habría nada que ampliar.
+          // Con la ficha arriba del todo, el toque abre el visor a pantalla
+          // completa, con zoom propio (D-305). Antes abría el cartel como
+          // imagen suelta de Google: Chrome la sacaba a otra pestaña, el
+          // visitante salía del sitio, y se podía guardar (en escritorio no).
+          // El zoom es nuestro porque el pellizco del navegador amplía la
+          // página entera, no un elemento: ver `habilitarZoom()`.
           if (raizPagina.scrollTop <= 0) {
-            // `=w1000-rw` → `=w2000-rw`. Buscaba `sz=w`, el formato anterior a
-            // D-258, así que desde agosto no cambiaba nada y se abría a 1000 (D-292).
-            const url = (imageUrls[currentIndex] || '').replace(/=w\d+/, '=w2000');
-            if (url) window.open(url, '_blank', 'noopener,noreferrer');
+            openOverlay();
             return;
           }
           if (raizPagina.scrollTop > 0) {
@@ -1501,7 +1533,11 @@ const imagenCompartir = urlCompartir ? {
       });
     }
 
-    if (overlayCloseBtn) overlayCloseBtn.onclick = closeOverlay;
+    if (overlayCloseBtn) overlayCloseBtn.onclick = () => closeOverlay();
+    // Descarga vetada en el visor (D-305): sin menú de «Guardar imagen» con
+    // el botón derecho; la pulsación larga del iPhone la quita el CSS de las
+    // imágenes (`-webkit-touch-callout: none`) y arrastrarla, `draggable`.
+    if (overlay) overlay.addEventListener('contextmenu', (e) => e.preventDefault(), { signal: wSig });
     if (overlay) {
       overlay.onclick = (e) => {
         if (e.target === overlay) closeOverlay();
@@ -1634,7 +1670,9 @@ const imagenCompartir = urlCompartir ? {
     // el asentado, ya sea completando el cambio de foto o volviendo a la
     // actual. `track` es el elemento que de verdad se desplaza (el propio
     // `zona` solo delimita la zona táctil).
-    function habilitarDeslizamiento(zona, track, irA, indiceActual) {
+    // `cedido()` (opcional): mientras devuelva true, el gesto es de otro —el
+    // zoom del visor— y aquí no se desliza nada.
+    function habilitarDeslizamiento(zona, track, irA, indiceActual, cedido = () => false) {
       if (!zona || !track || !imageUrls || imageUrls.length <= 1) return;
 
       const MINIMO = 45;
@@ -1712,6 +1750,19 @@ const imagenCompartir = urlCompartir ? {
 
       zona.addEventListener('pointerdown', (e) => {
         if (e.pointerType === 'mouse') return;   // con ratón mandan las flechas y los puntos
+        // Un segundo dedo (un pellizco en el visor) no empieza otro
+        // deslizamiento: termina el que hubiera, con la pista de vuelta en su
+        // sitio. Si no, se reiniciaba con el dedo nuevo y la pista se quedaba
+        // a medio camino, enseñando media foto siguiente (lo cazó la revisión).
+        if (x0 !== null) {
+          if (arrastrando) {
+            track.style.transition = '';
+            void track.offsetWidth;
+            track.style.transform = `translate3d(${-indiceActual() * 100}%, 0, 0)`;
+          }
+          x0 = null; arrastrando = false;
+          return;
+        }
         x0 = e.clientX; y0 = e.clientY;
         dxUltimo = 0; dyUltimo = 0; huboDeslizamiento = false; arrastrando = false;
         // También aquí, no solo en el arrastre vertical: el lightbox usa esta
@@ -1724,6 +1775,18 @@ const imagenCompartir = urlCompartir ? {
       // navegador acaba cancelando el gesto, `pointercancel` no trae posición.
       zona.addEventListener('pointermove', (e) => {
         if (x0 === null) return;
+        if (cedido()) {
+          // Llega un segundo dedo (pellizco) o el cartel ya está ampliado: si
+          // la pista se había empezado a mover, vuelve a su sitio.
+          if (arrastrando) {
+            arrastrando = false;
+            track.style.transition = '';
+            void track.offsetWidth;
+            track.style.transform = `translate3d(${-indiceActual() * 100}%, 0, 0)`;
+          }
+          x0 = null;
+          return;
+        }
         dxUltimo = e.clientX - x0;
         dyUltimo = e.clientY - y0;
 
@@ -1761,7 +1824,116 @@ const imagenCompartir = urlCompartir ? {
     }
 
     habilitarDeslizamiento(mainImageContainer, document.getElementById('carousel-track'), (i) => { updateCarousel(i); startAutoplay(); }, () => currentIndex);
-    habilitarDeslizamiento(document.getElementById('overlay-image-box'), overlayTrack, showOverlayImage, () => overlayIndex);
+    habilitarDeslizamiento(document.getElementById('overlay-image-box'), overlayTrack, showOverlayImage, () => overlayIndex,
+      () => zoomEscala > 1 || dedosZoom.size > 1);
+    habilitarZoom(document.getElementById('overlay-image-box'));
+
+    // Zoom del visor con los dedos (D-305): pellizco (hasta ×4), doble toque
+    // (×2,5 donde se toca; otro doble toque, vuelta) y, ampliado, arrastrar con
+    // un dedo. Sin ampliar, el dedo es del paso de foto (`cedido` de arriba).
+    // Solo táctil: con ratón no hace nada. Se mueve la <img> de la foto que se
+    // ve, con `translate` + `scale` desde su centro; los límites impiden que
+    // el cartel se despegue de los bordes de la caja.
+    // Los oyentes van en CAPTURA para ir antes que los del deslizamiento, que
+    // están en la misma caja y preguntan por `dedosZoom` y `zoomEscala`.
+    function habilitarZoom(zona) {
+      if (!zona) return;
+      const MAXIMO = 4, DOBLE = 2.5, DOBLE_MS = 300, DOBLE_PX = 30, TEMBLOR_PX = 10;
+      let inicio = null;           // cómo estaba todo al empezar el gesto (o al cambiar de dedos)
+      let maxDedos = 0, movido = false, ultimoToque = 0, ultimoX = 0, ultimoY = 0;
+      const imagen = () => overlayTrack?.querySelectorAll('img')[overlayIndex];
+
+      // Cuánto se puede mover el cartel ampliado a cada lado sin despegarse:
+      // la mitad de lo que el cartel VISIBLE (object-contain) sobresale de la caja.
+      function aplicar(animado) {
+        const img = imagen();
+        if (!img) return;
+        const r = zona.getBoundingClientRect();
+        // Sin la imagen grande aún cargada no se conocen sus medidas: no se
+        // limita, y se vuelve a ajustar en cuanto llegue (si no, el pellizco
+        // ampliaba siempre desde el centro y no desde los dedos).
+        let limX = Infinity, limY = Infinity;
+        if (!img.complete) img.addEventListener('load', () => aplicar(false), { once: true });
+        if (img.naturalWidth && img.naturalHeight) {
+          const k = Math.min(r.width / img.naturalWidth, r.height / img.naturalHeight);
+          limX = Math.max(0, (img.naturalWidth * k * zoomEscala - r.width) / 2);
+          limY = Math.max(0, (img.naturalHeight * k * zoomEscala - r.height) / 2);
+        }
+        zoomX = Math.max(-limX, Math.min(limX, zoomX));
+        zoomY = Math.max(-limY, Math.min(limY, zoomY));
+        img.style.transition = animado ? 'transform 250ms ease-out' : 'none';
+        img.style.transform = zoomEscala === 1 && !zoomX && !zoomY ? '' : `translate3d(${zoomX}px, ${zoomY}px, 0) scale(${zoomEscala})`;
+      }
+
+      function foto() {
+        const r = zona.getBoundingClientRect();
+        const [a, b] = [...dedosZoom.values()];
+        const mx = b ? (a.x + b.x) / 2 : a.x, my = b ? (a.y + b.y) / 2 : a.y;
+        inicio = {
+          escala: zoomEscala, x: zoomX, y: zoomY, mx, my,
+          d: b ? Math.hypot(b.x - a.x, b.y - a.y) : 0,
+          cx: r.left + r.width / 2, cy: r.top + r.height / 2,
+        };
+      }
+
+      // Al girar el teléfono cambia la caja: se reajusta lo ampliado.
+      window.addEventListener('resize', () => { if (zoomEscala > 1) aplicar(false); }, { signal: wSig });
+
+      zona.addEventListener('pointerdown', (e) => {
+        // Solo en el teléfono: en tablet el visor se queda como estaba.
+        if (e.pointerType === 'mouse' || !esTelefono()) return;
+        if (!dedosZoom.size) { maxDedos = 0; movido = false; }
+        dedosZoom.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        maxDedos = Math.max(maxDedos, dedosZoom.size);
+        foto();
+      }, { capture: true, signal: wSig });
+
+      zona.addEventListener('pointermove', (e) => {
+        if (!dedosZoom.has(e.pointerId) || !inicio) return;
+        dedosZoom.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        const [a, b] = [...dedosZoom.values()];
+        if (b) {
+          // Pellizco: el punto del cartel que estaba bajo el centro de los dos
+          // dedos se queda bajo ese centro, aunque los dedos se desplacen.
+          const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+          zoomEscala = Math.max(1, Math.min(MAXIMO, inicio.escala * Math.hypot(b.x - a.x, b.y - a.y) / (inicio.d || 1)));
+          const f = zoomEscala / inicio.escala;
+          zoomX = (mx - inicio.cx) - f * (inicio.mx - inicio.cx - inicio.x);
+          zoomY = (my - inicio.cy) - f * (inicio.my - inicio.cy - inicio.y);
+          movido = true;
+          aplicar(false);
+        } else if (zoomEscala > 1) {
+          zoomX = inicio.x + (a.x - inicio.mx);
+          zoomY = inicio.y + (a.y - inicio.my);
+          aplicar(false);
+        }
+        if (Math.hypot(a.x - inicio.mx, a.y - inicio.my) > TEMBLOR_PX) movido = true;
+      }, { capture: true, signal: wSig });
+
+      const soltar = (e) => {
+        if (!dedosZoom.delete(e.pointerId)) return;
+        if (dedosZoom.size) { foto(); return; }   // queda un dedo: sigue moviendo desde aquí
+        inicio = null;
+        if (zoomEscala < 1.05) { zoomEscala = 1; zoomX = 0; zoomY = 0; aplicar(true); }
+        // Doble toque: dos toques de un dedo, sin desplazarse, cerca y seguidos.
+        if (e.type !== 'pointerup' || maxDedos > 1 || movido) { ultimoToque = 0; return; }
+        if (e.timeStamp - ultimoToque < DOBLE_MS && Math.hypot(e.clientX - ultimoX, e.clientY - ultimoY) < DOBLE_PX) {
+          ultimoToque = 0;
+          if (zoomEscala > 1) { zoomEscala = 1; zoomX = 0; zoomY = 0; }
+          else {
+            const r = zona.getBoundingClientRect();
+            zoomEscala = DOBLE;
+            zoomX = (1 - DOBLE) * (e.clientX - (r.left + r.width / 2));
+            zoomY = (1 - DOBLE) * (e.clientY - (r.top + r.height / 2));
+          }
+          aplicar(true);
+        } else {
+          ultimoToque = e.timeStamp; ultimoX = e.clientX; ultimoY = e.clientY;
+        }
+      };
+      zona.addEventListener('pointerup', soltar, { capture: true, signal: wSig });
+      zona.addEventListener('pointercancel', soltar, { capture: true, signal: wSig });
+    }
 
     // El autoplay (cada 5s) no debe competir con un arrastre en curso: si el
     // temporizador caía a mitad de un gesto, cambiaba currentIndex y el

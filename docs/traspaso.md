@@ -325,8 +325,8 @@ que tienen más peso:
 2. **El orden en móvil**: el archivo solo se puede ver barajado. El propietario
    quiere que **convivan** barajado y cronológico, y valora un botón flotante.
    Esperando reacciones de visitantes reales.
-3. **La contradicción de la descarga**: en móvil el cartel se abre como imagen
-   suelta para poder ampliarlo, mientras en escritorio se vetó la descarga. Sin
-   conciliar.
+3. ~~**La contradicción de la descarga**~~: resuelta en D-305. El teléfono usa
+   ya el visor del sitio, con zoom propio, y la descarga queda vetada en todos los
+   tamaños.
 4. **El panel del mapa como punto de retorno propio**, con la pega de que en
    escritorio los filtros siguen aplicando a sus resultados.

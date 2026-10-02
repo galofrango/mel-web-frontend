@@ -129,6 +129,18 @@ foto no cambia de imagen—, y en ese caso se suprime en captura el `click` que 
 navegador dispara al soltar, para no expandir sin querer. Solo con puntero
 táctil: con ratón mandan las flechas y los puntos.
 
+**El visor también en el teléfono** (D-305). Por debajo de 480 px, tocar el
+cartel con la ficha arriba del todo abre el mismo visor que en escritorio, pero a
+pantalla completa (ya no se abre la imagen suelta en otra pestaña). Dentro: zoom
+propio con los dedos (pellizco hasta ×4, doble toque ×2,5 / vuelta, arrastrar
+ampliado; `habilitarZoom()`), y, sin ampliar, deslizar pasa de foto. El zoom y
+el deslizamiento comparten la caja: los oyentes del zoom van en captura y el
+deslizamiento le cede el gesto (`cedido`) con dos dedos o con el cartel
+ampliado. Descarga vetada en el visor en todos los tamaños: sin menú del botón
+derecho, sin pulsación larga (`-webkit-touch-callout: none`) y sin arrastrar.
+
+El visor se cierra con la X; «atrás» sale de la ficha como siempre (se probó que
+lo cerrara y se quitó, ver D-305). 
 Un identificador de evento que no existe hace `rewrite` a `/404` (no
 `redirect` a la home): conserva la URL fallida a la vista y da el 404 real.
 

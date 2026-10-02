@@ -6034,3 +6034,94 @@ scroll del motor solo volvía a medir la caja. Ahora ese oyente repite lo de `po
 cartel la inclinación pasa a la tarjeta de debajo; antes, en Chrome, 2,58° fijos y la vieja
 inclinada. Igual que ya hacía WebKit. Ratón fuera de la rejilla + scroll: nada se inclina.
 Ida y vuelta a una ficha: sigue funcionando. Sin errores.
+
+## D-305 · El visor del cartel también en el teléfono, con zoom y sin salir del sitio
+
+**Contexto**: en el teléfono, tocar el cartel lo abría como imagen suelta de Google
+(`window.open` a `=w2000`): Chrome la sacaba a otra pestaña y el visitante salía del sitio;
+Safari no. Además se podía guardar, cuando en escritorio no se ofrece («la contradicción
+de la descarga» del traspaso). Se hacía así porque el pellizco del navegador amplía la
+página entera, no un elemento. El propietario pidió verlo en la misma pestaña, lo más
+grande posible y con zoom (02/10/2026), y eligió la opción A: el visor del sitio.
+
+**Decisión** (`event/[id].astro`):
+- **Un solo visor.** Por debajo de 480 px, el toque (con la ficha arriba del todo, como
+  antes) abre el visor de escritorio a pantalla completa: los mismos elementos del sistema
+  de diseño (fondo, rayas, X cuadrada de `action-secondary`, `PaginationDot`), sin la caja
+  cuadrada; la X arriba a la derecha respetando la zona segura. De 480 px para arriba no
+  cambia nada.
+- **Imagen grande, solo la que se ve**: en el teléfono, al enseñar una foto del visor se le
+  pone `sizes="400vw"`, que hace elegir la de 2000 px del `srcset`, como la pestaña de antes.
+  Solo a esa: las demás se quedan con la que la ficha ya descargó (hay eventos de hasta 7
+  carteles; con el `sizes` en el marcado se bajaban todas al abrir, ~3 MB). Mientras llega,
+  se ve la de la ficha, sin hueco.
+- **Zoom propio, solo en el teléfono** (`habilitarZoom()`; en tablet el visor sigue como
+  estaba): pellizco hasta ×4 (el punto bajo los dedos se queda
+  bajo los dedos), doble toque ×2,5 donde se toca y otro doble toque para volver, y con el
+  cartel ampliado se arrastra con un dedo sin que se despegue de los bordes. Por debajo de
+  ×1,05 al soltar, vuelve a ×1. Al pasar de foto o cerrar, se quita el zoom. Si la imagen
+  grande aún no ha llegado, no se limita el desplazamiento y se reajusta al llegar; al
+  girar el teléfono, también.
+- **Pasar de foto deslizando, con los puntos** (el propietario tiene dudas; se prueba): lo
+  hace el deslizamiento que el visor ya tenía. Comparte caja con el zoom: los oyentes del
+  zoom van en captura y `habilitarDeslizamiento()` gana un parámetro `cedido()` que le
+  quita el gesto con dos dedos o con el cartel ampliado (si la pista se había empezado a
+  mover, vuelve a su sitio).
+- **Descarga vetada** (decisión del propietario), en el visor y en todos los tamaños: sin
+  menú del botón derecho (`contextmenu`), sin la pulsación larga del iPhone
+  (`-webkit-touch-callout: none`), sin seleccionar ni arrastrar. Es una puerta cerrada, no
+  una caja fuerte: quien quiera la imagen la saca con una captura de pantalla.
+- **«Atrás» NO cierra el visor: probado y quitado.** Se probó que el gesto de volver
+  cerrara el visor (una entrada más en el historial, con la misma dirección). Para que el
+  enrutador de Astro no volviera a pedir la ficha al volver, había que dejar la entrada de
+  la ficha sin estado mientras el visor estaba abierto: cortarle el `popstate` no vale en
+  Chrome, que reparte el evento por orden de llegada. Funcionaba en las pruebas, pero en el
+  iPhone del propietario, con Chrome, el gesto de volver desde el borde enseñaba **dos
+  copias de la misma ficha** (la animación del propio navegador entre dos entradas con la
+  misma dirección), y además tenía límites (saltar varios pasos atrás o recargar dejaban un
+  «atrás» muerto). El propietario prefirió quitarlo: el visor se cierra con la X y «atrás»
+  sale de la ficha, como siempre.
+- **El «saltito» al pasar de foto** (ficha y visor, con los puntos y con el dedo). El
+  propietario: «el cartel que entra ha avanzado de golpe más de lo que le tocaba».
+  Medido fotograma a fotograma: no había parones (con CPU ×6, ningún hueco de más de 25 ms;
+  la descodificación va en otro hilo) ni la animación se reiniciaba (una sola escritura y
+  una sola transición por paso). **Primer intento, la curva**: `ease-out` sale a la máxima
+  velocidad (12 % del ancho en el primer fotograma, ~45 px; luego ~8 %) y se cambió a
+  `ease-in-out`. El propietario: ya no salta en un fotograma, pero «empieza rápido, se para
+  un poco y retoma, como dos transiciones pegadas, la de la que sale y la de la que
+  entra». **Causa real: las rayas del fondo estaban quietas** detrás de la pista. Con un
+  cartel más estrecho que la caja (los verticales), entre el que sale y el que entra pasa
+  un tramo de rayas en el que no se mueve nada visible: se lee como pausa. Con `ease-out`
+  ese tramo pasaba en la parte rápida y el que entra parecía «aparecer adelantado».
+  **Segundo intento, las rayas**: dentro de la pista, viajando con los carteles. El
+  propietario: «vuelve a verse como estaba, pero las rayas se mueven por detrás»; prefirió
+  dejarlas quietas y tocar solo la curva, y apuntó que el saltito lo hace **la foto que se
+  va**, no la que entra (encaja con `ease-out`: es la que se ve al arrancar a toda
+  velocidad). Rayas devueltas a su sitio. **Tercer intento, curva lineal**
+  (velocidad constante): el propietario seguía viendo el saltito. **Sin resolver**: se
+  vuelve a la curva de siempre (`ease-out`) y queda en el roadmap (problema 19).
+
+**Medido** (servidor de pruebas, 02/10/2026):
+- Chrome con un iPhone emulado (375 × 812, toques reales por CDP): abre en la misma
+  pestaña (0 pestañas nuevas), a pantalla completa (caja del cartel 375 × 688) y a 2000 px.
+  Pellizco → ×4; arrastrar ampliado mueve el cartel (−160 px) sin cambiar de foto; doble
+  toque vuelve a ×1, y otro amplía a ×2,5 donde se toca (el desplazamiento vertical se
+  limita a 0 en un cartel apaisado, que no sobresale en alto); deslizar sin ampliar pasa a
+  la foto 2 de 2. La X cierra sin navegar.
+- WebKit (iPhone 13), llegando a la ficha desde la galería con navegación suave: abrir el
+  visor no añade entradas al historial y «atrás» vuelve a la galería (32 tarjetas).
+  Pulsación larga: `-webkit-touch-callout: none` en el CSS compilado; `draggable=false`.
+- Escritorio y tablet: el visor igual que antes (646 × 646 y 707 × 778), flechas, X, sin
+  entradas nuevas en el historial; el botón derecho ya no ofrece guardar.
+- Sin errores en ningún caso. Build correcto.
+
+**Revisión** (subagente, reproducida y arreglada): un segundo dedo a mitad de un
+deslizamiento dejaba la pista a medio camino (ahora el segundo dedo termina el deslizamiento
+y la devuelve a su sitio; comprobado: `translate3d(0%)` y el pellizco amplía); reabrir en
+los 300 ms del cierre dejaba el visor escondido y el historial roto (ahora se anula el reloj
+del cierre; comprobado); el zoom
+y `touch-none` se aplicaban también en tablet (ahora solo teléfono); todas las fotos del
+visor se bajaban a 2000 px al abrir (ahora solo la que se ve: 1 de 2 en la prueba).
+
+**Probado por el propietario** en su iPhone (Chrome): «no lo veo nada mal». De ahí salieron
+quitar el «atrás» y la curva. Pendiente: que confirme que el saltito ha desaparecido.
