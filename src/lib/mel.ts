@@ -115,9 +115,13 @@ export async function fetchSheetRows(sheet?: string): Promise<any[]> {
  * rojos. Si se quiere más calidad, `-rw-l90` (~+45 % de peso). Los GIF no los
  * convierte: llegan enteros igual.
  *
+ * `formato` cambia ese `-rw` (D-303): la imagen de los enlaces compartidos va en
+ * `-rj-l75`, JPEG al 75 %, porque no todas las apps que leen la vista previa
+ * entienden WebP. Ese sí convierte también los GIF (primer fotograma).
+ *
  * Devuelve '' si no hay URL o no se reconoce el id.
  */
-export function extractDriveImage(url?: string, ancho = 1000): string {
+export function extractDriveImage(url?: string, ancho = 1000, formato = '-rw'): string {
   if (!url) return '';
   let fileId = '';
   if (url.includes('id=')) {
@@ -125,7 +129,7 @@ export function extractDriveImage(url?: string, ancho = 1000): string {
   } else if (url.includes('/d/')) {
     fileId = url.split('/d/')[1].split('/')[0];
   }
-  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}-rw` : '';
+  return fileId ? `https://lh3.googleusercontent.com/d/${fileId}=w${ancho}${formato}` : '';
 }
 
 /**

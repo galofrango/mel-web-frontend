@@ -127,3 +127,12 @@ test('lo que no es la respuesta de la hoja da cero filas, sin lanzar', () => {
   assert.deepEqual(filasDeRespuesta(''), []);
   assert.deepEqual(filasDeRespuesta('<html>rate limited</html>'), []);
 });
+
+import { extractDriveImage } from '../src/lib/mel.ts';
+
+test('extractDriveImage: WebP por defecto, JPEG para compartir (D-303)', () => {
+  const url = 'https://drive.google.com/file/d/ABC123/view';
+  assert.equal(extractDriveImage(url), 'https://lh3.googleusercontent.com/d/ABC123=w1000-rw');
+  assert.equal(extractDriveImage(url, 800, '-rj-l75'), 'https://lh3.googleusercontent.com/d/ABC123=w800-rj-l75');
+  assert.equal(extractDriveImage(''), '');
+});

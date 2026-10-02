@@ -238,9 +238,44 @@ const ARTISTAS = (nombresArtistas.length ? nombresArtistas : ['']).map(nombre =>
   };
 });
 
+// Vista previa al compartir el enlace de esta ficha (D-303). Texto: fecha,
+// lugar y artistas (criterio del propietario), sin los huecos sin dato.
+// WhatsApp corta hacia las dos líneas; Google, hacia los 160 caracteres. Se
+// recorta en 200 y por un nombre entero (nunca «Israel…» de «Israel Alonso»).
+const conDato = (v?: string) => {
+  const t = (v || '').trim();
+  return t && !CENTINELAS_SIN_DATO.includes(t.toLowerCase()) ? t : '';
+};
+const artistasConDato = nombresArtistas.filter(conDato);
+let descripcionCompartir = [
+  conDato(eventData.date),
+  // Lugar y localidad, una sola vez si son lo mismo («Valdepiélago»).
+  [...new Set([conDato(eventData.location), conDato(eventData.locality)].filter(Boolean))].join(', '),
+  artistasConDato.join(', '),
+].filter(Boolean).join(' · ');
+if (descripcionCompartir.length > 200) {
+  descripcionCompartir = descripcionCompartir.slice(0, 200).replace(/(,| ·) [^,·]*$/, '') + '…';
+}
+// Imagen: el primer cartel que enseña la ficha (el anverso), en JPEG de hasta
+// 800 px al 75 %. WhatsApp no enseña la imagen si pasa de ~300 KB: medidas las
+// 141 fichas (02/10/2026), así la más pesada son 293 KB (mediana 96); a 1200 px
+// al 85 %, 28 pasaban de 300 y una llegaba a 785. Google no la amplía si el
+// original es más estrecho: de ahí el `Math.min` para declarar su tamaño real.
+const ANCHO_COMPARTIR = 800;
+const portadaCompartir = eventData.carruselVisibles[0]?.urlDrive;
+const urlCompartir = extractDriveImage(portadaCompartir, ANCHO_COMPARTIR, '-rj-l75');
+const pxCompartir = flyerTecnico[idDeDrive(portadaCompartir)]?.px;
+const pxValidos = Array.isArray(pxCompartir) && pxCompartir[0] > 0 && pxCompartir[1] > 0;
+const anchoCompartir = pxValidos ? Math.min(ANCHO_COMPARTIR, pxCompartir[0]) : undefined;
+const imagenCompartir = urlCompartir ? {
+  url: urlCompartir,
+  ancho: anchoCompartir,
+  alto: anchoCompartir ? Math.round(pxCompartir[1] * anchoCompartir / pxCompartir[0]) : undefined,
+  alt: `Cartel de ${eventData.title}`,
+} : undefined;
 
 ---
-<Layout title={eventData.title}>
+<Layout title={eventData.title} description={descripcionCompartir || undefined} imagen={imagenCompartir}>
   <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
   <style is:inline>
     ::view-transition-old(flyer-img-{eventData.idMel}),

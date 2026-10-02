@@ -9,6 +9,11 @@ import vercel from '@astrojs/vercel';
 export default defineConfig({
   output: 'server',
 
+  // Dirección pública del sitio (D-303). De aquí salen la dirección «oficial»
+  // de cada página (`canonical`, `og:url`), el sitemap y robots.txt. Con
+  // dominio propio, se cambia SOLO esta línea.
+  site: 'https://melweb.vercel.app',
+
   // La precarga de Astro, APAGADA (D-299). Con el enrutador de Astro viene
   // encendida para todos los enlaces (`prefetchAll`), al pasar el ratón 80 ms.
   // En un iPhone el navegador simula ese «pasar el ratón» al tocar, así que la

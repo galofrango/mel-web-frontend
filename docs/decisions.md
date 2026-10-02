@@ -5956,3 +5956,48 @@ casos del mapa de D-300 (vuelta al panel, modo oscuro, «Lugar», local de un so
 evento, buscar tras volver), iguales y sin errores. 109/109 tests, build correcto.
 
 **Sin verificar**: un móvil de verdad (el propietario).
+
+## D-303 · Enlaces que se ven bien al compartirlos (vista previa, dirección oficial, sitemap)
+
+**Contexto**: al compartir una ficha por WhatsApp, Telegram o redes no salía nada útil:
+ni el cartel, ni los datos, solo el texto genérico de la portada. Faltaban las
+etiquetas de vista previa (Open Graph, `og:`, y las de X, `twitter:`), la dirección
+oficial de cada página (`canonical`) y `robots.txt` y `sitemap.xml` (daban 404). Es el
+paso previo al botón de compartir (orden del propietario, 02/10/2026).
+
+**Decisión** (criterios del propietario):
+- **Texto**: título del evento + «| Memoria Electrónica Leonesa»; descripción = fecha ·
+  lugar, localidad · artistas, sin los huecos sin dato («Desconocido», «Varios»…), lugar y
+  localidad una sola vez si coinciden, recortada a 200 caracteres por un nombre entero
+  (cortar por palabra dejaba artistas falsos: «Israel…» de «Israel Alonso»). Es
+  también el `<meta name="description">` de la ficha (lo que enseña Google).
+- **Imagen (opción 1 de las dos que vio en la simulación)**: el primer cartel que enseña
+  la ficha, tal cual, pedido a Google en JPEG de hasta 800 px al 75 %
+  (`extractDriveImage(url, 800, '-rj-l75')`, el tercer parámetro es nuevo). JPEG y no
+  WebP porque no todas las apps lo entienden; convierte también los GIF. **800/75 y no
+  1200/85** por el peso: WhatsApp no enseña la imagen si pasa de ~300 KB, y a 1200/85
+  28 de las 141 fichas lo pasaban (la peor, 785 KB); a 1000/80, 9; a 800/80, 2; a 800/75,
+  ninguna (máx. 293, mediana 96). Ancho y alto declarados desde `flyer_tecnico.json`
+  (Google no amplía: un original de 600 px sale a 600). La opción 2 —una tarjeta apaisada 1200×630 generada, con el cartel entero y los datos— la vio en una simulación el 02/10/2026: le gusta, pero se queda con la 1. Idea aparcada.
+- **Portada, Info y Exposiciones**: sin imagen hasta que el propietario pase una fija;
+  mientras, tarjeta de solo texto (`twitter:card` = `summary`).
+- **Dirección oficial**: `site: 'https://melweb.vercel.app'` en `astro.config.mjs`; de
+  ahí salen `canonical`, `og:url`, `robots.txt` y el sitemap. Sin la parte `?search=…`:
+  todas las variantes de una ficha cuentan como una. **Con dominio propio, se cambia solo
+  esa línea.** La página 404 no lleva dirección oficial.
+- `src/pages/robots.txt.ts` (todo permitido + dónde está el sitemap) y
+  `src/pages/sitemap.xml.ts` (portada, Info, Exposiciones y una ficha por evento, leídas
+  de la hoja como el resto).
+
+**Medido** (servidor de pruebas, 02/10/2026): las 141 fichas salen con imagen y
+descripción; la más larga, 200 caracteres. El tamaño declarado coincide con la imagen que
+sirve Google en las 141 (comprobado en la revisión, a 1200; se repite a 800). Los rastreadores
+de WhatsApp, Facebook, Telegram y X reciben 200 de `lh3.googleusercontent.com`.
+Navegación suave y recarga de la ficha en WebKit: cabecera actualizada, sin errores.
+Build correcto.
+
+**Sin verificar**: una vista previa real. Las previsualizaciones de Vercel piden inicio de
+sesión y los rastreadores no pueden entrar, así que solo se puede probar en producción
+(compartiendo un enlace, o con el depurador de Facebook/Telegram). Ojo: WhatsApp y
+Telegram guardan la vista previa de un enlace ya compartido; para probar, usar una ficha
+que no se haya compartido antes o añadir `?v=1`.

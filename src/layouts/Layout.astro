@@ -6,9 +6,21 @@ import { Font } from 'astro:assets';
 interface Props {
   title: string;
   description?: string;
+  // Imagen de la vista previa al compartir el enlace (D-303). `ancho` y `alto`
+  // son los píxeles REALES de esa URL: con ellos WhatsApp y compañía reservan
+  // la caja sin tener que descargarla antes. Sin imagen, la tarjeta sale solo
+  // con texto.
+  imagen?: { url: string; ancho?: number; alto?: number; alt: string };
 }
 
-const { title, description = "Memoria Electrónica Leonesa - Preservando el patrimonio y la historia de León." } = Astro.props;
+const { title, description = "Memoria Electrónica Leonesa - Preservando el patrimonio y la historia de León.", imagen } = Astro.props;
+const tituloCompleto = `${title} | Memoria Electrónica Leonesa`;
+// La dirección «oficial» de la página, sin la parte de `?search=…`: las
+// variantes de una misma ficha cuentan como UNA para los buscadores y las
+// vistas previas. El dominio sale de `site` en astro.config.mjs; el día que
+// haya dominio propio, se cambia solo allí.
+// Una página de error no tiene dirección oficial (el 404 fija su estado antes).
+const canonica = Astro.response.status === 404 ? null : new URL(Astro.url.pathname, Astro.site).href;
 ---
 
 <!DOCTYPE html>
@@ -20,7 +32,29 @@ const { title, description = "Memoria Electrónica Leonesa - Preservando el patr
     <link rel="icon" href="/favicon.ico" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
-    <title>{title} | Memoria Electrónica Leonesa</title>
+    <title>{tituloCompleto}</title>
+    {canonica && <link rel="canonical" href={canonica} />}
+
+    <!-- Vista previa al compartir el enlace (D-303): la leen WhatsApp, Telegram,
+         Facebook, X, Slack… (`og:` es el estándar Open Graph; `twitter:` lo
+         que X sigue pidiendo aparte). Solo el título, la descripción y, si la
+         página la da, la imagen. -->
+    <meta property="og:site_name" content="Memoria Electrónica Leonesa" />
+    <meta property="og:locale" content="es_ES" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={tituloCompleto} />
+    <meta property="og:description" content={description} />
+    {canonica && <meta property="og:url" content={canonica} />}
+    {imagen && <>
+      <meta property="og:image" content={imagen.url} />
+      <meta property="og:image:type" content="image/jpeg" />
+      {imagen.ancho && imagen.alto ? <>
+        <meta property="og:image:width" content={String(imagen.ancho)} />
+        <meta property="og:image:height" content={String(imagen.alto)} />
+      </> : null}
+      <meta property="og:image:alt" content={imagen.alt} />
+    </>}
+    <meta name="twitter:card" content={imagen ? 'summary_large_image' : 'summary'} />
     
     <!-- Fuentes propias (D-284): Astro las descarga al compilar y las sirve desde
          /_astro; `preload` adelanta las del subconjunto latin. Antes eran una
