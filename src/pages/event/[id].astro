@@ -3,7 +3,8 @@ import Layout from '../../layouts/Layout.astro';
 import TagWithLink from '../../components/TagWithLink.astro';
 import Link from '../../components/Link.astro';
 import PaginationDot from '../../components/PaginationDot.astro';
-import LikeButton from '../../components/LikeButton.astro';
+import BotonCompartir from '../../components/BotonCompartir.astro';
+import Whisper from '../../components/Whisper.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
 import { fetchEvents, extractDriveImage, srcSetDrive, formatFechaDMY } from '../../lib/mel';
@@ -353,7 +354,7 @@ const imagenCompartir = urlCompartir ? {
              menú (40px) se centra en la fila del título, que mide 48. Sin esta
              fila la X quedaba 4px más alta que el icono de menú al cambiar de
              página. -->
-        <div class="flex items-center h-[48px] lg:mb-12">
+        <div class="flex items-center justify-between h-[48px] lg:mb-12">
           <IconButton
             id="detail-close-btn"
             href="/"
@@ -362,6 +363,18 @@ const imagenCompartir = urlCompartir ? {
             size={40}
             class="cursor-pointer shrink-0"
             aria-label="Cerrar detalles de evento"
+          />
+          <!-- Compartir en teléfono y tableta (D-306, Figma 1354:61067): mismo
+               botón fantasma que la X, en el otro extremo de su fila, así que
+               se esconde y reaparece con ella al desplazar. Desde `lg` el
+               botón con texto de la columna de info (BotonCompartir). -->
+          <IconButton
+            id="detail-share-btn"
+            icon="share"
+            type="phantom"
+            size={40}
+            class="cursor-pointer shrink-0 lg:hidden"
+            aria-label="Compartir evento"
           />
         </div>
       </div>
@@ -581,15 +594,14 @@ const imagenCompartir = urlCompartir ? {
             </div>
           </div>
 
-          <!-- Actions: Componetized "Me presta" button.
+          <!-- Compartir (D-306), en el hueco que ocupaba «Me presta» (retirado
+               hasta decidir qué hacer con él; recuperable desde v1.4.0). Solo
+               escritorio: en teléfono y tableta va de icono en la fila de la X.
                `lg:mt-2` son los 8px que suman 40 sobre el `gap-8` del padre: el
                botón se separa del contenido una talla más que el contenido de sí
-               mismo. En móvil se queda en los 32 del gap, que ahí no se pidió. -->
-          <div class="flex gap-6 items-start lg:mt-2">
-            <LikeButton
-              id="btn-me-presta"
-              class="w-fit"
-            />
+               mismo. -->
+          <div class="hidden lg:flex gap-6 items-start lg:mt-2">
+            <BotonCompartir id="btn-compartir" />
           </div>
 
         </div>
@@ -738,6 +750,11 @@ const imagenCompartir = urlCompartir ? {
         )}
       </div>
     </div>
+
+    <!-- Aviso «Enlace copiado» (D-306): solo cuando el teléfono no tiene hoja
+         de compartir y se copia el enlace en su lugar. El mismo canal que el
+         orden de la portada (D-162); aquí se centra desde el script. -->
+    <Whisper />
 
   </div>
 </Layout>
@@ -1313,24 +1330,113 @@ const imagenCompartir = urlCompartir ? {
     const navBlock = document.getElementById('detail-nav-block');
     if (navBlock) navBlock.style.display = (prevEventItem || nextEventItem) ? '' : 'none';
 
-    // Interactive like state persistent via localStorage using componetized LikeButton
-    const likeKey = `mel-like-${eventId}`;
-    const likeBtn = document.getElementById('btn-me-presta');
-    
-    if (likeBtn) {
-      let isLiked = localStorage.getItem(likeKey) === 'true';
-      
-      const updateLikeUI = () => {
-        likeBtn.setAttribute('data-active', isLiked ? 'true' : 'false');
-      };
+    // --- Compartir (D-306) -------------------------------------------------
+    // Teléfono y tableta: la hoja de compartir del sistema; si no la hay (el
+    // servidor de pruebas por http, algún navegador raro) o falla, se copia el
+    // enlace y lo dice el whisper. Escritorio: copia directamente y el botón
+    // pasa a «Copiado» (la hoja del sistema en un ordenador taparía el botón).
+    // Siempre la dirección oficial (`canonical`, D-303): sin `?view=` ni
+    // `?search=`, así todas las veces que se comparte un evento son el mismo
+    // enlace y las apps reutilizan su vista previa.
+    const enlaceOficial = () => {
+      const canonica = document.querySelector('link[rel="canonical"]');
+      return canonica ? canonica.href : location.origin + location.pathname;
+    };
 
-      updateLikeUI();
+    async function copiarEnlace(texto) {
+      // El portapapeles moderno solo existe en https (y localhost). Si no está,
+      // el fallo es síncrono y el método antiguo corre aún dentro del toque,
+      // que es lo que exige el navegador para copiar.
+      try { await navigator.clipboard.writeText(texto); return true; } catch (err) {}
+      const area = document.createElement('textarea');
+      area.value = texto;
+      area.setAttribute('readonly', '');
+      area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px;';
+      document.body.appendChild(area);
+      area.select();
+      area.setSelectionRange(0, texto.length);   // iOS no se fía de select()
+      let ok = false;
+      try { ok = document.execCommand('copy'); } catch (err) {}
+      area.remove();
+      return ok;
+    }
 
-      likeBtn.onclick = () => {
-        isLiked = !isLiked;
-        localStorage.setItem(likeKey, String(isLiked));
-        updateLikeUI();
-      };
+    let relojAviso = null;
+    function avisar(texto) {
+      const w = document.getElementById('whisper');
+      const t = document.getElementById('whisper-texto');
+      if (!w || !t) return;
+      t.textContent = texto;
+      // En la portada lo coloca `colocarWhisper()` junto al botón de orden;
+      // aquí no hay botón: centrado abajo, con 24 px de margen a cada lado.
+      w.style.left = '50%';
+      w.style.translate = '-50% 0';
+      w.style.maxWidth = 'calc(100vw - 48px)';
+      w.dataset.visible = 'true';
+      clearTimeout(relojAviso);
+      relojAviso = setTimeout(() => { w.dataset.visible = 'false'; }, 3000);
+    }
+
+    // Compartir ⇄ ✓ (ver el icono `share` de Icon.astro). Con «reducir
+    // movimiento» la animación dura 1 ms: es un cambio de golpe. No se escriben
+    // los puntos a mano porque, si ya corrió una animación con `fill="freeze"`,
+    // su valor congelado taparía lo escrito.
+    function transformarIconoCompartir(boton, aCheck) {
+      boton.classList.toggle('mel-copiado', aCheck);
+      const anim = boton.querySelector(aCheck ? '.mel-a-check' : '.mel-a-share');
+      if (!anim) return;
+      const reducir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      anim.setAttribute('dur', reducir ? '1ms' : '300ms');
+      anim.beginElement();
+    }
+
+    const COPIADO_MS = 2000;
+    function confirmarCopiado(boton) {
+      const texto = boton.querySelector('.boton-compartir-texto');
+      if (!boton.classList.contains('mel-copiado')) {
+        transformarIconoCompartir(boton, true);
+        if (texto) texto.textContent = 'Copiado';
+      }
+      clearTimeout(boton._melRelojCopiado);
+      boton._melRelojCopiado = setTimeout(() => {
+        transformarIconoCompartir(boton, false);
+        if (texto) texto.textContent = 'Compartir';
+      }, COPIADO_MS);
+    }
+
+    const botonCompartirMovil = document.getElementById('detail-share-btn');
+    if (botonCompartirMovil) {
+      botonCompartirMovil.addEventListener('click', async () => {
+        const url = enlaceOficial();
+        try {
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: document.title, url });
+              return;
+            } catch (err) {
+              // Cerrar la hoja sin elegir nada no es un fallo.
+              if (err && err.name === 'AbortError') return;
+            }
+          }
+          if (await copiarEnlace(url)) {
+            confirmarCopiado(botonCompartirMovil);
+            avisar('Enlace copiado');
+          } else {
+            avisar('No se pudo copiar el enlace');
+          }
+        } finally {
+          // El pulsado táctil (D-274) espera a una navegación que aquí no llega.
+          botonCompartirMovil.classList.remove('mel-pulsado');
+        }
+      }, { signal: wSig });
+    }
+
+    const botonCompartir = document.getElementById('btn-compartir');
+    if (botonCompartir) {
+      botonCompartir.addEventListener('click', async () => {
+        if (await copiarEnlace(enlaceOficial())) confirmarCopiado(botonCompartir);
+        else avisar('No se pudo copiar el enlace');
+      }, { signal: wSig });
     }
 
     // Interactive Carousel Image Swap with horizontal sliding transition
@@ -2032,6 +2138,11 @@ const imagenCompartir = urlCompartir ? {
           document.querySelectorAll('[style*="flyer-img-"]').forEach(el => {
             el.style.viewTransitionName = 'none';
           });
+          // El whisper de la ficha (D-306) también: con nombre, un «Enlace
+          // copiado» a la vista flotaría suelto sobre la vuelta, que tiene que
+          // ser solo la raíz (D-263).
+          const aviso = document.getElementById('whisper');
+          if (aviso) aviso.style.viewTransitionName = 'none';
         }
       } catch (err) {}
     });

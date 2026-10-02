@@ -1,0 +1,79 @@
+---
+/**
+ * BotonCompartir — «Button / Share», Figma 1356:62123 (D-306).
+ *
+ * Estados: Resting (borde y texto action-secondary), Hover (action-primary,
+ * solo con ratón) y Active = «Copiado» (fondo action-primary, texto
+ * text-on-action y el icono convertido en ✓). El Active lo pone el script de
+ * la ficha con la clase `mel-copiado`; este componente solo lo pinta.
+ *
+ * Ancho FIJO de 136 px (base 8) en todos los estados, decisión del
+ * propietario: que el botón no cambie de tamaño al pasar a «Copiado».
+ *
+ * Hoy solo se usa en escritorio (lg+). En teléfono y tableta la ficha usa el
+ * icono suelto en la fila de la X (IconButton `share`), y ahí se comparte con
+ * la hoja del sistema en vez de copiar.
+ */
+import Icon from './Icon.astro';
+
+interface Props {
+  id?: string;
+  class?: string;
+}
+
+const { id, class: className = '' } = Astro.props;
+---
+<button
+  id={id}
+  type="button"
+  class={`boton-compartir typo-caption cursor-pointer select-none outline-none ${className}`}
+  data-node-id="1356:62123"
+>
+  <!-- `aria-live`: un lector de pantalla anuncia el «Copiado». -->
+  <span class="boton-compartir-texto" aria-live="polite">Compartir</span>
+  <Icon icon="share" size={16} strokeWidth={2} class="shrink-0" />
+</button>
+
+<style>
+  .boton-compartir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 136px;
+    /* 11 y no 12: en Figma el borde va POR DENTRO de la caja (42 px de alto
+       con 14/18 de letra); en CSS suma, así que se le resta al relleno. */
+    padding: 11px 16px;
+    border: 1px solid var(--mel-action-secondary);
+    background-color: transparent;
+    color: var(--mel-action-secondary);
+    white-space: nowrap;
+    transition:
+      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Hover acotado a puntero fino: en un teléfono el «hover» que el navegador
+     simula al tocar se quedaría pegado (mismo motivo que en el resto del DS). */
+  @media (hover: hover) and (pointer: fine) {
+    .boton-compartir:hover {
+      border-color: var(--mel-action-primary);
+      color: var(--mel-action-primary);
+    }
+  }
+
+  /* Active (Figma 1356:62140). Gana al hover: copiado con el ratón encima
+     tiene que verse copiado. */
+  .boton-compartir:global(.mel-copiado),
+  .boton-compartir:global(.mel-copiado):hover {
+    background-color: var(--mel-action-primary);
+    border-color: var(--mel-action-primary);
+    color: var(--mel-text-on-action);
+  }
+
+  .boton-compartir:focus-visible {
+    outline: 2px solid var(--mel-action-primary);
+    outline-offset: 2px;
+  }
+</style>

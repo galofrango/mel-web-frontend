@@ -56,7 +56,7 @@ No hay variables de entorno: la hoja de Google Sheets es pública (lectura vía 
 - **Lista**: Tabla ordenable con enlaces que alimentan el buscador, celdas con marquee/ellipsis y fila adaptada para estados vacíos.
 - **Buscador con estados** (`HeaderTitle` de 4 estados: título ⇄ input ⇄ término fijado) que filtra todas las vistas.
 - **Slider temporal** (2004–2019) que filtra por rango de años.
-- **Detalle de evento**: Carrusel de imágenes, lightbox con zoom, tags enlazados, navegación Anterior/Siguiente (también con flechas del teclado) y botón "Me presta".
+- **Detalle de evento**: Carrusel de imágenes, lightbox con zoom, tags enlazados, navegación Anterior/Siguiente (también con flechas del teclado) y botón de compartir.
 - **Overlay SPA** de detalle sobre la home (URL compartible vía `?detail=MEL-XXXX`).
 - **Intro animada CMYK** (aberración cromática interactiva con despegue ease-in sin desaceleración final).
 - **Sistema de Estados Vacíos (`EmptyState`)** con tinte fotográfico duotono para búsquedas nulas y secciones en desarrollo.

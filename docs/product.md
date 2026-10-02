@@ -38,7 +38,7 @@ El diseño gráfico de los flyers es el verdadero **protagonista visual** del pr
   - **Slider temporal** (2004–2019) con doble control arrastrable.
 - **Detalle de Evento Adaptativo**:
   - Experiencia en dos capas: página estática con URL canónica (`/event/[id]`) y overlay modal SPA instantáneo (`?detail=MEL-XXXX`).
-  - Carrusel de imágenes, visualizador en pantalla completa (*lightbox*), etiquetas conectadas y botón interactivo *"Me presta"*.
+  - Carrusel de imágenes, visualizador en pantalla completa (*lightbox*), etiquetas conectadas y botón de compartir (hoja del sistema en el teléfono, copiar enlace en escritorio).
 - **Experiencia de Entrada (Intro CMYK)**:
   - Animación interactiva de aberración cromática CMYK basada en física vectorial del ratón y despegue vertical escalonado.
 - **Estados Vacíos Explicativos (`EmptyState`)**:

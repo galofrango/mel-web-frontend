@@ -8,13 +8,23 @@
  * button itself — nesting interactive elements is invalid HTML).
  */
 interface Props {
-  icon: 'x' | 'search' | 'chevron-left' | 'chevron-right' | 'menu';
+  icon: 'x' | 'search' | 'chevron-left' | 'chevron-right' | 'menu' | 'share';
   size?: number;
   strokeWidth?: number;
   class?: string;
 }
 
 const { icon, size = 24, strokeWidth = 2, class: className = '' } = Astro.props;
+
+// Compartir (lucide «share») que se transforma en ✓ (lucide «check»), D-306.
+// La punta de la flecha y la ✓ son las dos una línea de TRES puntos, así
+// que una se convierte en la otra punto a punto: (8,6)→(4,12),
+// (12,2)→(9,17), (16,6)→(20,6). La caja y el palo se desvanecen (CSS, con
+// la clase `mel-copiado` en cualquier antepasado). La animación es SMIL
+// (`<animate>`) y no CSS porque los puntos de una línea no se pueden
+// animar con CSS en Safari; SMIL sí, en todos. La arranca quien la usa,
+// con `beginElement()` sobre `.mel-a-check` o `.mel-a-share` (ver
+// `transformarIconoCompartir` en event/[id].astro).
 ---
 
 {icon === 'x' && (
@@ -46,3 +56,34 @@ const { icon, size = 24, strokeWidth = 2, class: className = '' } = Astro.props;
     <line x1="3" y1="18" x2="21" y2="18"></line>
   </svg>
 )}
+{icon === 'share' && (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={strokeWidth} stroke-linecap="round" stroke-linejoin="round" class={`mel-icono-compartir ${className}`} aria-hidden="true">
+    <path class="mel-compartir-caja" d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
+    <line class="mel-compartir-palo" x1="12" y1="2" x2="12" y2="15"></line>
+    <polyline points="8 6 12 2 16 6">
+      <animate class="mel-a-check" attributeName="points" to="4 12 9 17 20 6" dur="300ms" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.2 0 0 1"></animate>
+      <animate class="mel-a-share" attributeName="points" to="8 6 12 2 16 6" dur="300ms" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.2 0 0 1"></animate>
+    </polyline>
+  </svg>
+)}
+
+<style>
+  /* La caja y el palo se van más rápido de lo que dura la transformación (300
+     ms), para que la ✓ se forme ya sola; y vuelven con algo de retraso, cuando
+     la punta ya ha subido. */
+  .mel-compartir-caja,
+  .mel-compartir-palo {
+    transition: opacity 200ms ease-out 100ms;
+  }
+  :global(.mel-copiado) .mel-compartir-caja,
+  :global(.mel-copiado) .mel-compartir-palo {
+    opacity: 0;
+    transition: opacity 150ms ease-out;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .mel-compartir-caja,
+    .mel-compartir-palo {
+      transition: none !important;
+    }
+  }
+</style>

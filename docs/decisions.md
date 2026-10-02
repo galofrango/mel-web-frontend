@@ -6125,3 +6125,71 @@ visor se bajaban a 2000 px al abrir (ahora solo la que se ve: 1 de 2 en la prueb
 
 **Probado por el propietario** en su iPhone (Chrome): «no lo veo nada mal». De ahí salieron
 quitar el «atrás» y la curva. Pendiente: que confirme que el saltito ha desaparecido.
+
+## D-306 · Botón de compartir en la ficha, «Me presta» retirado y el primer icono animado
+
+**Petición del propietario** (02/10/2026): compartir arriba a la derecha en el teléfono, en el
+hueco de «Me presta» en escritorio, y quitar «Me presta» hasta saber qué hacer con él. Diseño
+en Figma: pantallas 1354:61067 (teléfono) y 1356:61888 (escritorio), componente «Button /
+Share» 1356:62123 con tres estados (Resting, Hover, Active = «Copiado»).
+
+**Decisión**:
+- **Teléfono y tableta (por debajo de `lg`, 1024 px)**: icono en la fila de la X, al otro
+  extremo (`IconButton` fantasma de 40 px, como la X). Se esconde y reaparece con ella al
+  desplazar. Abre la **hoja de compartir del sistema** (`navigator.share`). Si no la hay (http,
+  navegadores sin ella) o falla, copia el enlace y lo dice el whisper («Enlace copiado»), el
+  mismo canal que el orden de la portada (D-162), centrado abajo. Cerrar la hoja sin elegir
+  nada no hace nada. Al terminar se quita el pulsado táctil (D-274), que si no esperaría 4 s a
+  una navegación que no llega.
+- **Escritorio (`lg` en adelante)**: `BotonCompartir.astro` en el sitio de «Me presta». **Copia
+  el enlace directamente** y pasa a «Copiado» 2 s. Se descartó hacer las dos cosas: en un
+  ordenador la hoja del sistema es un menú pequeño (AirDrop, Mail…) que saldría encima del
+  botón y taparía el «Copiado».
+- **Ancho fijo de 136 px** en los tres estados (el propietario lo pidió fijo y en base 8; en
+  Figma eran 132). Alto 42 como en Figma: el borde de Figma va por dentro, así que el relleno
+  vertical es 11 y no 12.
+- **Siempre la dirección oficial** (`<link rel="canonical">`, D-303): sin `?view=` ni
+  `?search=`, para que todas las veces que se comparte un evento sean el mismo enlace y las
+  apps reutilicen su vista previa. Ojo al probar: en el servidor de pruebas el enlace copiado es
+  el de producción, porque `site` apunta allí.
+- **Copiar**: portapapeles moderno; donde no existe (http) el método antiguo
+  (`execCommand('copy')` con un `textarea` oculto), que corre aún dentro del toque porque el
+  fallo del moderno es síncrono. Si los dos fallan, el whisper dice «No se pudo copiar el
+  enlace».
+- **«Me presta» retirado** del todo: botón, script (`localStorage` `mel-like-ID`) y
+  `LikeButton.astro`. Recuperable desde v1.4.0. Lo que hayan marcado los visitantes se queda en
+  su navegador sin uso.
+- **Icono compartir ⇄ ✓, el primer icono animado** (`share` en `Icon.astro`). Los dibujos son
+  los de Lucide (MIT), como el resto: el de Figma es un SF Symbol, cuya licencia solo permite
+  usarlo en apps de Apple. La punta de la flecha y la ✓ son líneas de tres puntos, así que una
+  se transforma en la otra punto a punto en 300 ms, mientras la caja y el palo se desvanecen.
+  La transformación es **SMIL** (`<animate>` sobre `points`, arrancada con `beginElement()`) y
+  no CSS, porque Safari no anima con CSS la forma de una línea. Con «reducir movimiento», el
+  cambio es instantáneo (la misma animación con 1 ms: escribir los puntos a mano no valdría si
+  ya corrió una animación con `fill="freeze"`, que los taparía). Sin librerías: se hablaron Lottie, Lordicon, Rive, GSAP MorphSVG y
+  Flubber, y se prefirió hacerlo en casa (el propietario). Para los siguientes iconos, la vía
+  propuesta es animarlos en Figma y traducirlos a CSS/SMIL.
+
+**Medido** (servidor de pruebas, Chrome del panel):
+- Escritorio (1024): botón de 136 × 42, a la vista; el icono del teléfono, oculto. Al pulsar,
+  copia `https://melweb.vercel.app/event/MEL-00086`; la punta pasa de `8,6 12,2 16,6` a
+  `4,12 9,17 20,6` (a 100 ms: `5.1,10.4 9.8,13 18.9,6`), la caja se apaga, el fondo pasa a
+  `action-primary` y el ancho sigue en 136; a los 2 s vuelve a «Compartir», la punta sube y la
+  caja reaparece.
+- Teléfono (375): X a 24 px de la izquierda y compartir a 24 px de la derecha, los dos de
+  40 × 40; el botón de escritorio, oculto. Con hoja del sistema (simulada): se le pasa el título
+  y la dirección oficial y no se copia nada. Cerrada sin elegir: nada. Con fallo, o sin hoja:
+  copia, ✓ y whisper «Enlace copiado» centrado. Tras navegar con «Siguiente» (navegación suave)
+  comparte la dirección del evento nuevo; ida y vuelta a la galería, sin whispers duplicados.
+- Build correcto.
+
+**Revisión** (subagente): sin fallos serios. Aplicados dos menores: «reducir movimiento»
+activado tras haber animado dejaba la flecha en vez de la ✓ (ahora la animación dura 1 ms en
+vez de escribir los puntos); y el whisper de la ficha conservaba su nombre de transición en la
+vuelta a la portada, así que un «Enlace copiado» a la vista habría flotado suelto sobre ella
+(ahora se le quita, como a los carteles).
+
+**Sin verificar**: la hoja de compartir real del iPhone. Solo aparece en https, así que en el
+servidor de pruebas (http) el teléfono enseña el plan B (copiar + whisper); la hoja de verdad,
+en producción. Y el portapapeles real del panel de pruebas (sin foco, el navegador lo niega:
+se probó simulándolo; la salida de error sí se vio real).

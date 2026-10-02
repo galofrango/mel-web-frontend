@@ -129,7 +129,7 @@ Tres sitios se salen del DS **a propósito**. No son descuidos y no hay que
 | `typo-body-sans` | Sans 17/28 · 400 · **−1%** | 16/28px | Cuerpo de texto Sans estándar |
 | `typo-body-roman` | Lora 16/24 · 500 · +1% | 15/24px | Valores de datos, celdas y enlaces de artistas |
 | `typo-h3` | Sans 22/28 · 700 · −2% | **22/28 (no escala)** | Fila del header: "Menú", buscador, título de páginas sin buscador |
-| `typo-caption` | Sans 16/20 · 500 | 14/18px | Captions, notas, badges y botón "Me presta" |
+| `typo-caption` | Sans 16/20 · 500 | 14/18px | Captions, notas, badges, whisper y botón «Compartir» |
 | `typo-overline` | Sans 13/16 · 700 · +12% · uppercase | 12px | Etiquetas superiores de datos (*OVERLINE*) |
 | `typo-button` | Sans 17/28 · 700 · **−1%** | 16/28px | Texto interno de botones de acción |
 
@@ -226,7 +226,8 @@ ficha, donde hay una sola.
 | `<ToggleSelector />` | Galería / Mapa / Lista | Conmutador de 3 posiciones con píldora deslizante mediante `transform`. |
 | `<TagWithLink />` | Default / Disabled | Etiqueta de metadata (*OVERLINE + Valor*) con truncado mediante `ellipsis` obligatorio. |
 | `<Link />` | Default / Hover / Disabled | Enlace Lora con subrayado animado `scaleX` (0→1) en hover e icono de chevron deslizante opcional. |
-| `<LikeButton />` | Resting / Active | Botón *"Me presta"* con borde `action-secondary` y animación de despliegue de checkmark. |
+| `<BotonCompartir />` | Resting / Hover / Active («Copiado») | Figma 1356:62123 (D-306). Borde `action-secondary`; hover `action-primary` (solo puntero fino); Active con fondo `action-primary`, texto `text-on-action` y el icono convertido en ✓. **Ancho fijo de 136 px en todos los estados** (base 8). Solo escritorio (lg+): copia el enlace oficial de la ficha. *Sustituye a `<LikeButton />` («Me presta»), retirado en D-306 hasta decidir qué hacer con él; recuperable desde v1.4.0.* |
+| Icono `share` (`Icon.astro`) | Compartir ⇄ ✓ | Lucide «share» cuya punta (3 puntos) se transforma en la ✓ de Lucide «check» (3 puntos) con SMIL en 300 ms; caja y palo se desvanecen con la clase `mel-copiado` en un antepasado. Con «reducir movimiento», cambio sin animación. Primer icono animado del sitio: es el patrón para los siguientes (D-306). |
 | `<SideMenu />` | Abierto / Cerrado | Panel lateral deslizable (496px) con selector de tema, disparo de intro y badge *"Nuevo"*. |
 | `<FlyerCard />` | Resting / Hover | Tarjeta de la galería con escala ligera `scale-[1.02]` en reposo → `1.04` en hover, overlay de rayas y barra inferior informativa. |
 | `<EventCardList />` | Default / Hover | Fila compacta de evento (miniatura 56×56 en fit sobre fondo secundario, título, fecha, chevron). Réplica JS en `buildEventCardListHtml()`. Usada en el panel del mapa y en la Lista en móvil. |
