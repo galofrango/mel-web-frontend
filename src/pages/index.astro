@@ -4427,6 +4427,18 @@ const tags = [
 
     // Update sliding indicator position
     if (activeIndicator) {
+      // La primera colocación de cada visita a la portada, sin deslizarse
+      // (D-313): el servidor pinta siempre el indicador en Galería, y volviendo
+      // de una ficha a la Lista se le veía viajar hasta su sitio por debajo de la
+      // ficha que se disuelve. El mapa queda como estaba (regla 15: su llegada,
+      // por «Lugar» o volviendo al panel, no se toca sin hablarlo).
+      if (!activeIndicator.dataset.colocado) {
+        activeIndicator.dataset.colocado = '1';
+        if (viewName !== 'mapa') {
+          activeIndicator.style.transition = 'none';
+          requestAnimationFrame(() => requestAnimationFrame(() => { activeIndicator.style.transition = ''; }));
+        }
+      }
       if (viewName === 'galería') {
         activeIndicator.style.transform = 'translate3d(0, 0, 0)';
       } else if (viewName === 'mapa') {

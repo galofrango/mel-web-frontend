@@ -742,8 +742,16 @@ const imagenCompartir = urlCompartir ? {
             class="flex w-full h-full transition-transform duration-500 ease-out z-10"
             style="transform: translate3d(0, 0, 0);"
           >
-            {imageUrls.map((img, idx) => (
-              <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+            {imageUrls.map((img, idx) => {
+              // La caja de la imagen, del tamaño exacto del cartel (D-313, como
+              // la del carrusel en D-310): es lo que vuela al abrir y cerrar el
+              // visor. Aquí SÍ se amplía hasta llenar el hueco, como hacía
+              // `object-contain`: el visor es para verlo grande. El zoom del
+              // teléfono no cambia: calcula con la caja del visor, no con esta.
+              const d = flyerTecnico[idDeDrive(eventData.carruselItems[idx]?.urlDrive)]?.px;
+              const medido = Array.isArray(d) && d[0] > 0 && d[1] > 0;
+              return (
+              <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden [container-type:size]">
                 <img
                   src={img}
                   srcset={imageSrcsets[idx] || undefined}
@@ -752,10 +760,12 @@ const imagenCompartir = urlCompartir ? {
                   referrerpolicy="no-referrer"
                   loading="lazy"
                   draggable="false"
-                  class="w-full h-full object-contain select-none [-webkit-touch-callout:none]"
+                  class={`${medido ? '' : 'w-full h-full '}object-contain select-none [-webkit-touch-callout:none]`}
+                  style={medido ? `width: min(100cqw, calc(100cqh * ${d[0]} / ${d[1]})); height: auto; aspect-ratio: ${d[0]} / ${d[1]};` : undefined}
                 />
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -1491,6 +1501,7 @@ const imagenCompartir = urlCompartir ? {
     const overlay = document.getElementById('image-detail-overlay');
     const overlayModal = document.getElementById('image-detail-modal');
     const overlayTrack = document.getElementById('overlay-track');
+    const pistaCarrusel = document.getElementById('carousel-track');
     const overlayCloseBtn = document.getElementById('overlay-close-btn');
     const overlayDots = document.querySelectorAll('.overlay-dot');
 
@@ -1558,6 +1569,51 @@ const imagenCompartir = urlCompartir ? {
 
     let retirada = 0;   // el reloj del cierre (300 ms de fundido)
 
+    // Vuelo del cartel entre la ficha y el visor (D-313), con la transición del
+    // navegador dentro de la misma página: no hay cambio de página, así que la
+    // ficha sigue debajo y la vuelta es tan fiable como la ida. `de` lleva el
+    // nombre `mel-visor` en la foto vieja y `a` en la nueva; el resto de
+    // carteles se quedan sin nombre mientras tanto (el primero lleva el del
+    // morphing desde la galería y, con nombre, se pintaría ENCIMA del fondo
+    // oscuro del visor). `cambio()` deja la página en su estado final sin
+    // transiciones CSS propias: la foto nueva es en vivo y se verían.
+    // Sin la función en el navegador, o con «reducir movimiento», devuelve
+    // false y quien llama hace lo de siempre.
+    function volarVisor(de, a, cambio) {
+      if (!document.startViewTransition || !de || !a) return false;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+      const imgs = [...document.querySelectorAll('#carousel-track img, #overlay-track img')];
+      const nombres = imgs.map((img) => img.style.viewTransitionName);
+      const raiz = document.documentElement;
+      imgs.forEach((img) => { img.style.viewTransitionName = 'none'; });
+      de.style.viewTransitionName = 'mel-visor';
+      raiz.classList.add('mel-visor-vt');
+      const piezas = [overlay, overlayModal, overlayTrack, pistaCarrusel];
+      const vt = document.startViewTransition(() => {
+        de.style.viewTransitionName = 'none';
+        piezas.forEach((el) => { if (el) el.style.transition = 'none'; });
+        cambio();
+        a.style.viewTransitionName = 'mel-visor';
+      });
+      vt.finished.finally(() => {
+        raiz.classList.remove('mel-visor-vt');
+        imgs.forEach((img, i) => { img.style.viewTransitionName = nombres[i]; });
+        piezas.forEach((el) => { if (el) el.style.transition = ''; });
+      });
+      return true;
+    }
+
+    // Mientras llega la foto del visor (va con `loading="lazy"` y otro tamaño),
+    // se pinta de fondo la que ya enseña la ficha, en caché: así el cartel que
+    // vuela nunca está vacío. Mismo truco que la ficha con el de la galería.
+    function fondoMientrasCarga(destino, origen) {
+      if (!destino || destino.complete || !origen || !origen.currentSrc) return;
+      Object.assign(destino.style, { backgroundImage: `url("${origen.currentSrc}")`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' });
+      destino.addEventListener('load', () => {
+        Object.assign(destino.style, { backgroundImage: '', backgroundSize: '', backgroundPosition: '', backgroundRepeat: '' });
+      }, { once: true });
+    }
+
     function openOverlay() {
       if (!overlay || !overlayModal) return;
       // Si se vuelve a abrir mientras se apaga (los 300 ms del cierre), el
@@ -1571,21 +1627,47 @@ const imagenCompartir = urlCompartir ? {
       }
 
       // Open on whichever image the page carousel is showing
-      showOverlayImage(currentIndex);
-
-      overlay.classList.remove('hidden');
-      setTimeout(() => {
+      const de = pistaCarrusel?.querySelectorAll('img')[currentIndex];
+      const a = overlayTrack?.querySelectorAll('img')[currentIndex];
+      fondoMientrasCarga(a, de);
+      const abierto = () => {
         overlay.classList.remove('opacity-0', 'pointer-events-none');
         overlay.classList.add('opacity-100', 'pointer-events-auto');
         overlayModal.classList.remove('scale-95');
         overlayModal.classList.add('scale-100');
-      }, 10);
+      };
+      const vuela = volarVisor(de, a, () => {
+        showOverlayImage(currentIndex);
+        overlay.classList.remove('hidden');
+        abierto();
+      });
+      if (vuela) return;
+      showOverlayImage(currentIndex);
+      overlay.classList.remove('hidden');
+      setTimeout(abierto, 10);
     }
 
     function closeOverlay() {
       if (!overlay || !overlayModal) return;
       quitarZoom();
       dedosZoom.clear();
+
+      // De vuelta a la ficha, volando, si el visor enseña la misma foto que el
+      // carrusel; si se ha pasado a otra, se cierra como siempre (la ficha
+      // enseña otra foto y el vuelo sería de un cartel a otro).
+      if (overlayIndex === currentIndex) {
+        const vuela = volarVisor(
+          overlayTrack?.querySelectorAll('img')[overlayIndex],
+          pistaCarrusel?.querySelectorAll('img')[currentIndex],
+          () => {
+            overlay.classList.remove('opacity-100', 'pointer-events-auto');
+            overlay.classList.add('opacity-0', 'pointer-events-none', 'hidden');
+            overlayModal.classList.remove('scale-100');
+            overlayModal.classList.add('scale-95');
+          },
+        );
+        if (vuela) { clearTimeout(retirada); startAutoplay(); return; }
+      }
 
       overlay.classList.remove('opacity-100', 'pointer-events-auto');
       overlay.classList.add('opacity-0', 'pointer-events-none');
@@ -2207,6 +2289,22 @@ const imagenCompartir = urlCompartir ? {
      selector Galería/Mapa/Lista encima del texto de la ficha. */
   html::view-transition-old(*) {
     animation-duration: 200ms;
+  }
+  /* Vuelo ficha ⇄ visor (D-313, `volarVisor()`): el cartel con el compás de la
+     ida a la ficha y opaco desde el primer fotograma; el fondo oscuro y el
+     resto, un fundido de 300 ms sin la espera de la ida (que es para cambiar de
+     página, no para abrir algo encima). */
+  html.mel-visor-vt::view-transition-group(mel-visor) {
+    animation-duration: 0.5s;
+    animation-timing-function: cubic-bezier(0.76, 0, 0.24, 1);
+  }
+  html.mel-visor-vt::view-transition-new(mel-visor) {
+    animation: none;
+  }
+  html.mel-visor-vt::view-transition-old(root),
+  html.mel-visor-vt::view-transition-new(root) {
+    animation-delay: 0s;
+    animation-duration: 300ms;
   }
   /* La ficha que llega (todo menos el cartel, que va aparte), un poco más
      suave (D-311, propietario): 400 ms en vez de los 250 de serie, frenando al

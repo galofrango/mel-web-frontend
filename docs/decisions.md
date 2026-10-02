@@ -6363,3 +6363,44 @@ Afecta también a Anterior/Siguiente. Un solo número a mover si se quiere más 
 
 **Medido** (Chrome sin pantalla, fotogramas a cámara lenta): portada desvaneciéndose, ficha aún
 ausente con el cartel volando, y la ficha entrando después. Build correcto.
+
+## D-313 · El cartel vuela de la ficha al visor y vuelve; y el toggle ya no se desliza al volver
+
+**Peticiones del propietario** (02/10/2026, tras v1.7.0): llevar la transición de la ida también
+al visor del cartel; y, de paso, «al volver a Lista desde un evento el toggle se está moviendo
+hasta su posición».
+
+**Visor** (`event/[id].astro`, `volarVisor()`):
+- Transición del navegador **dentro de la misma página** (`document.startViewTransition`): no hay
+  cambio de página, así que la ficha sigue debajo y la vuelta es tan fiable como la ida (al
+  contrario que la vuelta a la galería, D-309, aparcada).
+- Abrir: el cartel que enseña el carrusel lleva el nombre `mel-visor` en la foto vieja y el del
+  visor en la nueva; el resto de carteles se quedan sin nombre mientras dura (el primero lleva el
+  del morphing desde la galería y, con nombre, se pintaría encima del fondo oscuro). El cambio se
+  hace sin las transiciones CSS propias del visor (su fundido y su escala), porque la foto nueva es
+  en vivo y se verían. Cerrar: lo mismo al revés, **solo si el visor enseña la misma foto que el
+  carrusel**; si se ha pasado a otra, se cierra como siempre.
+- Compás (en `html.mel-visor-vt`, para no tocar el de cambiar de página): el cartel, 0,5 s con
+  `cubic-bezier(0.76, 0, 0.24, 1)` y opaco desde el primer fotograma; el fondo oscuro y lo demás,
+  un fundido de 300 ms sin la espera de 150 ms de la ida (D-312).
+- La caja de la imagen del visor mide exactamente el cartel, como la del carrusel (D-310), para que
+  no «baje y rebote»; aquí sí se amplía hasta llenar el hueco, como hacía `object-contain`. El
+  zoom del teléfono (D-305) calcula con la caja del visor, no con esta: no cambia.
+- La foto del visor va con `loading="lazy"` y otro tamaño: mientras llega, se le pinta de fondo la
+  que ya enseña la ficha (en caché), para que el cartel que vuela nunca esté vacío.
+- Sin la función en el navegador (Safari anterior al 18) o con «reducir movimiento»: como antes.
+
+**Toggle** (`index.astro`, `switchView()`): el servidor pinta el indicador siempre en Galería, y
+volviendo de una ficha a la Lista se le veía deslizarse hasta su sitio por debajo de la ficha que
+se disuelve. La primera colocación de cada visita a la portada va ahora sin animación; pulsando
+Galería/Mapa/Lista se desliza como siempre. **El mapa queda como estaba** (regla 15: su llegada
+no se toca sin hablarlo; el propietario lo valorará).
+
+**Medido** (Chrome sin pantalla, `herramientas-medicion/vuelo-visor.mjs`, a cámara lenta): en
+escritorio y en el teléfono, abrir y cerrar animan el grupo `mel-visor`, sin abortar; fotogramas
+con el cartel creciendo hasta el visor (en el teléfono, a pantalla completa, 375 × 667 con la
+proporción del cartel) y volviendo a la ficha. Doble toque en el visor del teléfono: ×2,5, como
+antes. Toggle: volviendo a la Lista, ninguna transición del indicador; al pulsar Galería, la de
+siempre. Build correcto.
+
+**Sin verificar**: Safari y un iPhone de verdad.
