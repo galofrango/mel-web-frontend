@@ -6193,3 +6193,47 @@ vuelta a la portada, así que un «Enlace copiado» a la vista habría flotado s
 servidor de pruebas (http) el teléfono enseña el plan B (copiar + whisper); la hoja de verdad,
 en producción. Y el portapapeles real del panel de pruebas (sin foco, el navegador lo niega:
 se probó simulándolo; la salida de error sí se vio real).
+
+## D-307 · La cabecera de la ficha se queda quieta y los puntos se esconden tras la foto (teléfono)
+
+**Petición del propietario** (02/10/2026, punto I3 de la lista): el scroll de la ficha «me
+pone nervioso cada vez que entro». La fila de la X se escondía al bajar, asomaba siguiendo al
+dedo al subir y «rebotaba» (el revelado de D-106/D-111, `--mel-revelado`). Quiere la cabecera
+con la X y compartir quieta —ayudará con las transiciones entre eventos (T4) y simplifica— y,
+para no perder espacio de lectura, que los puntos del carrusel se escondan detrás de la caja de
+la foto, **todo o nada**, nunca a medio tapar.
+
+**Lo que NO cambia**: la ficha sigue desplazando su caja interior (`#detail-page-container`),
+no el documento, así que la barra del navegador sigue sin replegarse (D-108). No se añade ningún
+`fixed` nuevo ni lecturas en vivo durante el scroll (D-103).
+
+**Decisión** (solo por debajo de `lg`; escritorio intacto):
+- `#detail-cabecera` es `sticky top-0` y no se mueve nunca. Se borra el revelado entero (JS y
+  CSS: `alturaX`, `puntoAnclaje`, `revelado`, `--mel-cab-x`, `--mel-revelado`). Los 16 px de aire
+  de arriba (`--mel-header-pt-mobile`) pasan del contenedor con scroll a la cabecera: fuera, el
+  texto se vería pasar por esa franja. La X sigue a 20 px del borde, como el menú de la portada.
+- La foto se clava en el borde inferior de la cabecera (`--mel-cab-fija` = alto de la cabecera
+  entera) y encoge como antes, de su alto a 200.
+- Los puntos (`#carousel-dots-container`): con más de 24 px de scroll se deslizan hacia arriba
+  por debajo del recorte (`translateY(calc(-100% + 24px))`, 200 ms, `ease-out`) y vuelven al
+  regresar arriba del todo (entre 0 y 24 se conserva el estado, para que no parpadeen). Quedan
+  enteros bajo la foto y sus 24 px de abajo siguen a la vista como faldón. Con «reducir
+  movimiento», sin animación. Ocultos no se pueden tocar.
+- Para que el texto se vea en el hueco que dejan, el fondo opaco pasa de la caja de la foto al
+  recorte y a los puntos (el recorte, `z-[1]`, por encima de ellos). Sin paginación la caja
+  conserva su fondo y su faldón de 32 px, como antes.
+
+**Medido** (375 × 667, servidor de pruebas, «Summer Party», 2 fotos):
+- La X en 20-60 px y la cabecera en 0-224 a cualquier altura de scroll (0, 10, 30, 100, final).
+- En reposo, todo como antes (foto 223, puntos 447-527). A 30 px: puntos ocultos, el borde opaco
+  baja a 448 (foto 200 + 24). Volviendo a 10: siguen ocultos; a 0: vuelven.
+- Espacio para leer con la foto en su mínimo: **219 px** (antes 211, con la X escondida y los
+  puntos a la vista).
+- Sin paginación («Kne' Deep Tour»): faldón de 32 px como siempre.
+- Escritorio (1024): X, foto de 400, puntos y botón de compartir en las mismas coordenadas.
+- Build correcto.
+
+**Matiz a la vista**: con los puntos ocultos el faldón es de 24 px; en los eventos sin paginación
+sigue siendo de 32. Igualarlos a 32 dejaría 8 px de puntos asomando bajo la foto.
+
+**Sin verificar**: un iPhone de verdad (el propietario).

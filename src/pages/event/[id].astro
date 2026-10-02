@@ -323,28 +323,23 @@ const imagenCompartir = urlCompartir ? {
          rendija legible bajo la foto fijada gana esos 40px. -->
     <div
       id="detail-page-container"
-      class="w-full max-w-[1224px] flex flex-col select-none pt-[var(--mel-header-pt-mobile)] lg:pt-0 pb-[40px] lg:pb-0 flex-1 min-h-0 overflow-y-auto lg:flex-1 lg:min-h-auto lg:overflow-visible"
+      class="w-full max-w-[1224px] flex flex-col select-none pt-0 pb-[40px] lg:pb-0 flex-1 min-h-0 overflow-y-auto lg:flex-1 lg:min-h-auto lg:overflow-visible"
       data-event-id={eventData.idMel}
       data-image-urls={JSON.stringify(imageUrls)}
     >
 
-      <!-- Cabecera completa en UN bloque pegajoso (X + título + tags).
-           Se ancla en `top: -alturaX`, o sea con la fila de la X por encima
-           del borde de la pantalla: al desplazar, lo que queda pegado arriba
-           es solo el título y los tags. Al arrastrar hacia abajo, la clase
-           su anclaje baja píxel a píxel siguiendo al dedo (`--mel-revelado`) y
-           la X vuelve a asomar — es lo primero que aparece. Es una cantidad
-           continua, no un interruptor: con un interruptor el bloque visible
-           crecía de golpe y algo tenía que ceder, o la foto tapaba contenido o
-           encogía de un salto.
-           A partir de `lg` el bloque se disuelve (`contents`) y cada pieza
-           vuelve a su sitio en la rejilla. -->
-      <div id="detail-cabecera" class="sticky z-40 w-full px-6 sm:px-12 bg-mel-bg-primary lg:static lg:px-0 lg:bg-transparent lg:contents">
-      <!-- Fila de la X. En flujo NORMAL a propósito: es lo único de la
-           cabecera que se va hacia arriba al desplazar, hasta esconderse bajo
-           la barra del navegador. Mismo alto que la cabecera de la home (fila
-           de 48px con 44px de aire encima, `10vh - 40px`), para que al ir de
-           una página a otra el icono no dé un salto. -->
+      <!-- Cabecera completa en UN bloque pegajoso (X + compartir + título +
+           tags), clavado en `top: 0` y QUIETO: no se mueve nunca (D-307). Hasta
+           D-306 se anclaba con la fila de la X por encima del borde y la X
+           asomaba siguiendo al dedo (`--mel-revelado`); el propietario lo
+           quitó porque ponía nervioso. Lleva dentro los 16 px de aire de arriba
+           (antes en el contenedor con scroll): fuera, el texto se vería pasar
+           por esa franja. A partir de `lg` el bloque se disuelve (`contents`)
+           y cada pieza vuelve a su sitio en la rejilla. -->
+      <div id="detail-cabecera" class="sticky top-0 z-40 w-full px-6 sm:px-12 pt-[var(--mel-header-pt-mobile)] bg-mel-bg-primary lg:static lg:p-0 lg:bg-transparent lg:contents">
+      <!-- Fila de la X y compartir. Quieta con el resto de la cabecera (D-307).
+           Mismo alto que la cabecera de la home (fila de 48px con el mismo aire
+           encima), para que al ir de una página a otra el icono no dé un salto. -->
       <div
         id="detail-sticky-header"
         class="w-full bg-mel-bg-primary lg:bg-transparent shrink-0 lg:contents"
@@ -425,12 +420,16 @@ const imagenCompartir = urlCompartir ? {
           <div
             id="detail-image-sticky"
             class:list={[
-              "z-20 flex flex-col items-center bg-mel-bg-primary w-full lg:bg-transparent",
+              "z-20 flex flex-col items-center w-full",
               /* Sin paginación no hay nada que separe la foto del contenido, así
                  que la propia caja lleva un faldón macizo de 32px por el que el
                  contenido pasa por debajo. Con paginación sobra: los 24px de
                  abajo del `py-6` de los puntos ya hacen ese papel. */
-              imageUrls.length > 1 ? "" : "pb-8 lg:pb-0",
+              /* El fondo opaco va en el recorte y en los puntos, no en la caja:
+                 con los puntos escondidos (D-307) la caja tiene que dejar ver el
+                 texto en el hueco que ellos dejan. Sin puntos, la caja pone el
+                 fondo de su faldón. */
+              imageUrls.length > 1 ? "" : "pb-8 lg:pb-0 bg-mel-bg-primary lg:bg-transparent",
             ]}
           >
             <!-- Crop window: THIS is what shrinks (400px→200px), via
@@ -448,7 +447,7 @@ const imagenCompartir = urlCompartir ? {
                  y todo se comporta como antes. -->
             <div
               id="detail-image-crop"
-              class="relative w-full overflow-hidden flex flex-col justify-center h-[360px] lg:h-[400px]"
+              class="relative z-[1] w-full overflow-hidden flex flex-col justify-center h-[360px] lg:h-[400px] bg-mel-bg-primary lg:bg-transparent"
               style={masAlta ? `--mel-ratio-cartel: ${masAlta[0]} / ${masAlta[1]}; --mel-alto-cartel: ${masAlta[1]}px;` : undefined}
             >
               <button
@@ -505,7 +504,7 @@ const imagenCompartir = urlCompartir ? {
                  on desktop (top-[400px]) so they don't shift the navigation
                  block there, unchanged from before. -->
             {imageUrls.length > 1 && (
-              <div class="static lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
+              <div class="relative z-0 bg-mel-bg-primary lg:bg-transparent lg:absolute lg:top-[400px] lg:left-0 lg:right-0 flex gap-4 items-center justify-center py-6 w-full" id="carousel-dots-container">
 
                 {imageUrls.map((_, idx) => (
                   <PaginationDot
@@ -931,8 +930,7 @@ const imagenCompartir = urlCompartir ? {
     // Geometría de la cabecera. Se mide UNA vez al iniciar y al redimensionar,
     // nunca durante el scroll: son los dos altos que el CSS necesita y que no
     // puede calcular solo (el título puede ocupar una o dos líneas).
-    //   --mel-cab-x     alto de la fila de la X, lo que se esconde arriba
-    //   --mel-cab-fija  alto de título + tags, lo que queda pegado
+    //   --mel-cab-fija  alto de la cabecera entera, donde se clava la foto
     const cabecera = document.getElementById('detail-cabecera');
     const filaX = document.getElementById('detail-sticky-header');
     const tituloTags = document.getElementById('detail-titulo-tags');
@@ -958,31 +956,24 @@ const imagenCompartir = urlCompartir ? {
     // Distancia, en el documento, desde el origen hasta el punto en que la
     // columna de la foto llega a su posición pegada. Se mide una vez.
     let inicioEncogido = 0;
-    let alturaX = 0;
-    // Desplazamiento a partir del cual la cabecera queda anclada arriba.
-    let puntoAnclaje = 0;
     // Distancia desde el borde superior a la que se clava la foto. La usan la
     // variable CSS que la posiciona y el cálculo de cuándo empieza a encoger:
     // tienen que ser EXACTAMENTE el mismo número o dejan de ir sincronizadas.
     let anclajeFoto = 0;
-    let revelado = 0;
 
     function medirCabecera() {
       if (!cabecera || !filaX || !tituloTags) return;
       const raiz = document.documentElement;
       if (window.innerWidth >= 1024) {
-        raiz.style.removeProperty('--mel-cab-x');
         raiz.style.removeProperty('--mel-cab-fija');
         if (columnaFoto) columnaFoto.style.height = '';
         if (imageCrop) imageCrop.style.height = '';
-        raizPagina.classList.remove('fijada');
-        raizPagina.style.removeProperty('--mel-revelado');
+        raizPagina.classList.remove('fijada', 'puntos-ocultos');
         return;
       }
-      alturaX = filaX.getBoundingClientRect().height;
-      puntoAnclaje = alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
-      raiz.style.setProperty('--mel-cab-x', `${alturaX}px`);
-      anclajeFoto = cabecera.getBoundingClientRect().height - alturaX + parseFloat(getComputedStyle(raizPagina).paddingTop || 0);
+      // La cabecera está quieta en `top: 0` y lleva dentro el aire de arriba
+      // (D-307): la foto se clava justo en su borde inferior.
+      anclajeFoto = cabecera.getBoundingClientRect().height;
       raiz.style.setProperty('--mel-cab-fija', `${anclajeFoto}px`);
       // Alto CONGELADO de la columna de la foto. Es la invariante que impide
       // que el encogido se realimente: si la columna encogiera con el recorte,
@@ -1010,45 +1001,32 @@ const imagenCompartir = urlCompartir ? {
       }
     }
 
-    // Lo único ligado al scroll. Dos escrituras: una altura y una clase.
-    let ultimoY = 0;
+    // Lo único ligado al scroll: una altura y dos clases.
+    // Los puntos del carrusel se esconden detrás de la foto en cuanto se
+    // empieza a leer y vuelven arriba del todo (D-307). Todo o nada: es un
+    // cambio de estado con su propia animación (CSS), no algo atado al dedo,
+    // así que nunca se quedan a medio tapar. Entre 0 y el umbral se conserva
+    // el estado que hubiera, para que un dedo quieto en el borde no los haga
+    // parpadear.
+    const UMBRAL_PUNTOS = 24;
     function alDesplazar() {
       const y = raizPagina.scrollTop;
-      if (window.innerWidth >= 1024) { ultimoY = y; return; }
+      if (window.innerWidth >= 1024) return;
 
-      // La X reaparece en cuanto se arrastra hacia abajo. El umbral de 4px
-      // evita que el temblor de un dedo quieto la haga parpadear.
-      if (cabecera) {
-        const dy = y - ultimoY;
-        // Cuánto asoma la X, de 0 a su alto. Sigue al dedo: bajando se
-        // esconde, subiendo reaparece, píxel a píxel. Por debajo del punto de
-        // anclaje se fuerza a 0 porque ahí la cabecera ya está en su sitio
-        // natural y cualquier desplazamiento la empujaría fuera de él.
-        // Acotado además por lo que se lleva desplazado por encima del punto de
-        // anclaje: al soltarse la cabecera, lo que se ve de la X pasa a depender
-        // de la posición y no del gesto, así que el revelado tiene que llegar a
-        // cero justo ahí. Sin este tope había un escalón de 58px en ese punto.
-        const tope = Math.max(0, Math.min(alturaX, y - puntoAnclaje));
-        revelado = y <= puntoAnclaje ? 0 : Math.max(0, Math.min(tope, revelado - dy));
-        raizPagina.style.setProperty('--mel-revelado', `${revelado}px`);
-      }
+      if (y > UMBRAL_PUNTOS) raizPagina.classList.add('puntos-ocultos');
+      else if (y <= 0) raizPagina.classList.remove('puntos-ocultos');
+
       // La foto se fija justo al llegar a su sitio, y a partir de ahí encoge.
-      // Antes de ese punto va en flujo normal: fijarla desde el principio la
-      // colocaría sobre el título, porque `fixed` no sabe de reposo.
+      // Con la cabecera quieta ese sitio es el de reposo, así que se fija en
+      // cuanto hay scroll; la clase sigue haciendo falta porque en flujo la
+      // caja se iría con el contenido.
       const pasado = Math.max(0, y - inicioEncogido);
       raizPagina.classList.toggle('fijada', pasado > 0);
       if (imageCrop) {
         // Si la caja ya nace en el suelo (cartel apaisado), esto no encoge nada:
         // no hay aire que recuperar. Es la consecuencia buscada, no un fallo.
-        //
-        // El `- revelado` está PROBADO que no es la causa del "empujón" al
-        // crecer la foto de vuelta: se quitó de aquí y del `top` de la caja
-        // fijada, y el empujón siguió igual (D-247). No es el hilo del que
-        // tirar; si vuelves a este bug, busca en otro sitio.
-        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, altoMaximo - pasado - revelado)}px`;
+        imageCrop.style.height = `${Math.max(IMAGE_MIN_H, altoMaximo - pasado)}px`;
       }
-
-      ultimoY = y;
     }
 
     // Reparto del ancho de la fila de tags (D-059/D-060), gemelo reducido de
@@ -2273,10 +2251,22 @@ const imagenCompartir = urlCompartir ? {
   }
 
   @media (max-width: 1023px) {
-    /* La cabecera se ancla con la fila de la X por encima del borde: lo que
-       queda pegado arriba es solo el título y los tags. */
-    #detail-cabecera {
-      top: calc(-1 * var(--mel-cab-x, 48px) + var(--mel-revelado, 0px));
+    /* Los puntos del carrusel, escondidos detrás de la foto mientras se lee
+       (D-307). Suben su alto menos los 24 px de abajo de su `py-6`: los puntos
+       quedan enteros bajo el recorte (que va por encima, `z-[1]`) y esos 24 px
+       siguen a la vista como faldón entre la foto y el texto. `transform`: no
+       mueve nada de la página ni cambia el recorrido del scroll. */
+    #carousel-dots-container {
+      transition: transform 200ms ease-out;
+    }
+    .puntos-ocultos #carousel-dots-container {
+      transform: translateY(calc(-100% + 24px));
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #carousel-dots-container {
+        transition: none;
+      }
     }
     /* La foto va FIJA, no pegajosa: `sticky` se suelta cuando acaba su
        contenedor, y por ahí la foto se escapaba hacia arriba por detrás de la
@@ -2329,11 +2319,7 @@ const imagenCompartir = urlCompartir ? {
 
     .fijada #detail-image-sticky {
       position: fixed;
-      /* El `+ --mel-revelado` NO es la causa del "empujón" al crecer la foto
-         de vuelta (D-247): se probó quitarlo de aquí y del alto del recorte y
-         el empujón siguió, con el añadido de que la cabecera se solapaba
-         sobre el canto de la foto durante el tramo. Revertido. */
-      top: calc(var(--mel-cab-fija, 176px) + var(--mel-revelado, 0px));
+      top: var(--mel-cab-fija, 224px);
       left: 0;
       right: 0;
       margin: 0;
