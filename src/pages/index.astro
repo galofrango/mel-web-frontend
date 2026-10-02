@@ -3081,6 +3081,9 @@ const tags = [
     // fotografía el estado viejo al arrancar la navegación: sin esto, la foto
     // de partida sería una tarjeta torcida.
     if (typeof window.__melSoltarTilt === 'function') window.__melSoltarTilt();
+    asomarTarjeta(idMel);
+    marcarViajeDesdeTarjeta(idMel);
+    prepararIda(idMel);
     // Antes de guardar el estado: así el flyer de origen viaja dentro de él.
     recordarFlyerAbierto(idMel);
     saveReturnState();
@@ -3096,6 +3099,88 @@ const tags = [
       document.body.style.opacity = '0';
       setTimeout(() => { window.location.href = url; }, 150);
     }
+  }
+
+  // La tarjeta tocada, entera a la vista antes de salir (D-310). Lo que vuela a
+  // la ficha es su caja ENTERA (regla 2: se escapa de cualquier recorte), así
+  // que una tarjeta medio escondida bajo la barra de herramientas, o bajo la
+  // cabecera de la tabla, arrancaba asomando por encima de ellas. Se desplaza su
+  // contenedor lo justo para que se vea entera; es un salto de pocos píxeles en
+  // el instante en que la portada empieza a irse. Si no cabe, se alinea arriba.
+  function asomarTarjeta(idMel) {
+    const sel = `[data-id="${CSS.escape(idMel)}"]`;
+    const tarjeta = [...document.querySelectorAll(
+      `#view-galería .gallery-item${sel}, #list-mobile-cards ${sel}, #side-panel-event-list ${sel}, #list-table-body img.list-img-link${sel}`
+    )].find(el => el.getClientRects().length);
+    if (!tarjeta) return;
+    const caja = tarjeta.closest('tr') || tarjeta;
+    const cont = caja.closest('#view-galería, #list-mobile-cards, #side-panel-event-list, #list-table-wrapper');
+    if (!cont) return;
+    const rc = cont.getBoundingClientRect();
+    let arriba = rc.top;
+    // Lo que tapa el contenedor por arriba: la cabecera de la portada y, en la
+    // tabla, su fila de títulos pegajosa.
+    [document.getElementById('bloque-cabecera'), cont.querySelector('thead')].forEach(el => {
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.height && r.top <= arriba + 1 && r.bottom > arriba && r.bottom < rc.bottom) arriba = r.bottom;
+    });
+    const r = caja.getBoundingClientRect();
+    if (r.top < arriba) cont.scrollTop -= Math.ceil(arriba - r.top);
+    else if (r.bottom > rc.bottom && r.height <= rc.bottom - arriba) cont.scrollTop += Math.ceil(r.bottom - rc.bottom);
+  }
+
+  // La portada que se va, UNA sola foto salvo el cartel que vuela (D-311, ver
+  // `html.mel-ida` en global.css). La clase la retira sola el intercambio de
+  // página (Astro copia los atributos de <html> del documento nuevo); el reloj
+  // es para una navegación que no llegue a ocurrir, que dejaría la portada sin
+  // sus nombres para las transiciones internas (buscar, ordenar…).
+  function prepararIda(idMel) {
+    document.querySelectorAll('.mel-viajando').forEach(el => el.classList.remove('mel-viajando'));
+    const tarjeta = [...document.querySelectorAll(`#view-galería .gallery-item[data-id="${CSS.escape(idMel)}"]`)]
+      .find(el => el.getClientRects().length);
+    if (tarjeta) tarjeta.classList.add('mel-viajando');
+    const raiz = document.documentElement;
+    raiz.classList.add('mel-ida');
+    clearTimeout(window.__melRelojIda);
+    window.__melRelojIda = setTimeout(() => raiz.classList.remove('mel-ida'), 3000);
+  }
+
+  // Desde la Lista o el panel del local, la miniatura de la tarjeta tocada viaja
+  // a la ficha (D-308), como el cartel desde la galería. El título y la fecha
+  // también viajaban y el propietario los quitó: con el cartel bien afinado
+  // (D-310), las letras estirándose quedaban pobres.
+  // Las filas NO llevan etiqueta de transición de forma permanente (regla 2: con
+  // nombre se escapan del recorte de su caja con scroll): se la pone aquí solo
+  // a la tarjeta tocada y solo al irse, que es justo cuando tiene que salir
+  // volando. Su pareja en la ficha es el primer cartel, que ya se llama
+  // `flyer-img-ID`.
+  // Desde la galería no hace nada: la tarjeta visible es de la galería y su
+  // cartel ya lleva nombre (`flyer-img-ID`).
+  function marcarViajeDesdeTarjeta(idMel) {
+    document.querySelectorAll('[data-mel-viaje]').forEach(el => {
+      el.style.viewTransitionName = '';
+      el.removeAttribute('data-mel-viaje');
+    });
+    const visible = el => !!el && el.getClientRects().length > 0;
+    const sel = `[data-id="${CSS.escape(idMel)}"]`;
+    let partes = null;
+    // Tarjeta de la Lista del móvil o del panel del local (buildEventCardList).
+    const tarjeta = [...document.querySelectorAll(`#list-mobile-cards ${sel}, #side-panel-event-list ${sel}`)].find(visible);
+    if (tarjeta) {
+      partes = [tarjeta.querySelector('img')];
+    } else {
+      // Fila de la tabla de escritorio: la miniatura.
+      const mini = [...document.querySelectorAll(`#list-table-body img.list-img-link${sel}`)].find(visible);
+      if (mini) partes = [mini];
+    }
+    if (!partes) return;
+    ['img'].forEach((parte, i) => {
+      const el = partes[i];
+      if (!el) return;
+      el.style.viewTransitionName = `flyer-${parte}-${idMel}`;
+      el.setAttribute('data-mel-viaje', '');
+    });
   }
 
   // Abrir un cartel = navegar a su ficha. Se llamaba `openLightbox` y no abría
@@ -5179,6 +5264,7 @@ const tags = [
           showDivider: idx < group.events.length - 1,
           extraClass: 'shrink-0',
         });
+        card.dataset.id = evt.idMel;   // para el viaje a la ficha (D-308)
 
         // `pointerenter` no existe en un móvil: no hay puntero que entre en nada,
         // se toca y ya. La precarga solo llegaba a escritorio, y por eso allí la
@@ -7418,5 +7504,6 @@ const tags = [
       } catch (err) {}
     });
   }
+
 
 </script>

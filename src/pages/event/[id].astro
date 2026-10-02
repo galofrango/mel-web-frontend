@@ -277,14 +277,24 @@ const imagenCompartir = urlCompartir ? {
 
 ---
 <Layout title={eventData.title} description={descripcionCompartir || undefined} imagen={imagenCompartir}>
-  <!-- Direct morphing view transition styling for smooth flyer scale and position translation -->
-  <style is:inline>
-    ::view-transition-old(flyer-img-{eventData.idMel}),
-    ::view-transition-new(flyer-img-{eventData.idMel}) {
+  <!-- El compás del morphing del cartel: 0,5 s y esta curva. Va con `set:html` porque el nombre
+       lleva el id del evento: hasta D-310 estaba escrito como `{eventData.idMel}`
+       dentro de un `<style is:inline>`, donde Astro NO sustituye nada, así que la
+       regla no casaba con ningún cartel y el vuelo duraba los 250 ms de serie del
+       navegador. El grupo es el movimiento. La imagen nueva va OPACA desde el
+       primer fotograma (sin fundido de entrada): con la vieja yéndose en 200 ms
+       y la nueva entrando en 500, a mitad ninguna estaba entera y el cartel
+       arrancaba medio transparente. La vieja se va con el resto de la portada
+       (ver `::view-transition-old(*)` abajo), por debajo de la nueva. -->
+  <style is:inline set:html={`
+    ::view-transition-group(flyer-img-${eventData.idMel}) {
       animation-duration: 0.5s !important;
       animation-timing-function: cubic-bezier(0.76, 0, 0.24, 1) !important;
     }
-  </style>
+    ::view-transition-new(flyer-img-${eventData.idMel}) {
+      animation: none !important;
+    }
+  `} />
 
   <!-- Main layout container. pt-0 below `lg`: the header there is
        `position: fixed` from the very first frame (see its own comment)
@@ -383,7 +393,7 @@ const imagenCompartir = urlCompartir ? {
            A partir de `lg` se desmonta: el título vive en la columna de info y
            los tags en su propia columna. -->
       <div id="detail-titulo-tags" class="w-full shrink-0 pb-8 lg:pb-0 lg:contents">
-        <h2 class="typo-h2 lg:hidden text-mel-text-primary pt-4 pb-8">
+        <h2 class="typo-h2 lg:hidden text-mel-text-primary mt-4 mb-8">
           {eventData.title}
         </h2>
 
@@ -467,19 +477,32 @@ const imagenCompartir = urlCompartir ? {
                   {imageUrls.map((img, idx) => {
                     // NUNCA se amplía un cartel por encima de su tamaño real: si
                     // no da la resolución se pinta al máximo que tenga, centrado,
-                    // y no estirado. `object-contain` por sí solo NO basta —
-                    // también agranda para llenar la caja. El tope va en la caja
-                    // de la propia imagen; el centrado ya lo pone el padre.
+                    // y no estirado. El centrado lo pone el padre.
+                    //
+                    // La caja de la imagen mide EXACTAMENTE lo que el cartel, sin
+                    // márgenes (D-310): el ancho es el menor de tres —el del hueco
+                    // (`100cqw`), el real del cartel y el que cabe en el alto del
+                    // hueco (`100cqh` × proporción)— y el alto sale de la
+                    // proporción. Antes la caja llenaba el hueco y el cartel se
+                    // encajaba dentro (`object-contain`) dejando márgenes
+                    // transparentes, y el morphing desde la tarjeta metía esa caja
+                    // con márgenes en el hueco de la tarjeta: el cartel arrancaba
+                    // más pequeño y arriba, y «bajaba y rebotaba». Con medidas
+                    // conocidas (`flyer_tecnico.json`) no depende de que la imagen
+                    // haya cargado: la caja existe desde el primer fotograma, con
+                    // el cartel de la galería de fondo mientras llega el grande.
+                    // Sin medidas, como antes.
                     const d = flyerTecnico[idDeDrive(eventData.carruselItems[idx]?.urlDrive)]?.px;
-                    const tope = Array.isArray(d) && d[0] > 0
-                      ? `max-width: ${d[0]}px; max-height: ${d[1]}px;` : '';
+                    const medido = Array.isArray(d) && d[0] > 0 && d[1] > 0;
+                    const tope = medido
+                      ? `width: min(100cqw, ${d[0]}px, calc(100cqh * ${d[0]} / ${d[1]})); height: auto; aspect-ratio: ${d[0]} / ${d[1]};` : '';
                     const nombre = idx === 0 ? `view-transition-name: flyer-img-${eventData.idMel};` : '';
                     // La 1.ª con prioridad alta y el resto baja (D-296): siguen sin
                     // ser diferidas (D-258, que no haya hueco al deslizar), pero ya
                     // no le quitan línea a la que se ve. Medido con 4G lenta: la
                     // 1.ª llega en ~1,16 s en vez de ~1,56 s.
                     return (
-                    <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden">
+                    <div class="w-full h-full shrink-0 flex items-center justify-center overflow-hidden [container-type:size]">
                       <img
                         src={img}
                         srcset={imageSrcsets[idx] || undefined}
@@ -487,7 +510,7 @@ const imagenCompartir = urlCompartir ? {
                         alt={eventData.title}
                         referrerpolicy="no-referrer"
                         fetchpriority={idx === 0 ? 'high' : 'low'}
-                        class="w-full h-full object-contain"
+                        class={medido ? "object-contain" : "w-full h-full object-contain"}
                         style={`${tope}${nombre}`}
                       />
                     </div>
@@ -558,7 +581,7 @@ const imagenCompartir = urlCompartir ? {
         <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 w-full lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
-          <h2 class="typo-h2 hidden lg:block text-mel-text-primary">
+          <h2 id="detail-titulo-escritorio" class="typo-h2 hidden lg:block text-mel-text-primary">
             {eventData.title}
           </h2>
 
@@ -2113,7 +2136,8 @@ const imagenCompartir = urlCompartir ? {
       try {
         const destino = e && e.to ? new URL(e.to, location.href).pathname : null;
         if (destino === '/') {
-          document.querySelectorAll('[style*="flyer-img-"]').forEach(el => {
+          // `flyer-`: los nombres de los carteles.
+          document.querySelectorAll('[style*="flyer-"]').forEach(el => {
             el.style.viewTransitionName = 'none';
           });
           // El whisper de la ficha (D-306) también: con nombre, un «Enlace
@@ -2124,6 +2148,7 @@ const imagenCompartir = urlCompartir ? {
         }
       } catch (err) {}
     });
+
 
     // El marcador `mel-vuelta` (D-263) se instala DESDE AQUÍ, en el documento
     // ENTRANTE, y no desde el script de la home: el primer intento lo ponía la
@@ -2168,22 +2193,31 @@ const imagenCompartir = urlCompartir ? {
      viene HACIA una ficha — que es exactamente el único momento en que deben.
      Lo pidió el propietario con números: "la página se evapora como en 20ms
      máximo, mientras que la franja aguanta ese tiempo y luego empieza a
-     desvanecerse también".
+     desvanecerse también". CAMBIADO en D-310 (ver la regla de abajo): con el
+     vídeo delante, ese ritmo dejaba un corte duro arriba.
      El (*) alcanza también al par del cartel que hace morphing: su imagen
      vieja se disuelve en esos mismos 20ms y la nueva manda durante todo el
      vuelo — mejor, no peor. Y en Anterior/Siguiente (ficha → ficha) la página
      saliente se evapora igual de rápido. Los selectores empiezan por `html`
      (la excepción documentada del ámbito de Astro, D-239). */
+  /* D-310 (propietario, con vídeo): la página que se va se funde ENTERA y
+     junta en 200 ms, franja de cabecera incluida. Hasta entonces se evaporaba en
+     20 ms y la franja aguantaba opaca y se despedía en 180 ms aparte (D-261/
+     D-262): se veía un corte duro arriba, con la ficha entrando por debajo y el
+     selector Galería/Mapa/Lista encima del texto de la ficha. */
   html::view-transition-old(*) {
-    animation-duration: 20ms;
+    animation-duration: 200ms;
   }
-  /* La franja de cabecera es la excepción: aguanta OPACA los 20ms en los que
-     todo lo demás se evapora debajo, y solo entonces se despide. `fill-mode:
-     both` sostiene la opacidad completa durante la espera. */
-  html::view-transition-old(mel-bloque-cabecera) {
-    animation-delay: 20ms;
-    animation-duration: 180ms;
+  /* La ficha que llega (todo menos el cartel, que va aparte), un poco más
+     suave (D-311, propietario): 400 ms en vez de los 250 de serie, frenando al
+     final, y ESPERANDO 150 ms (D-312): la portada se funde primero hasta el
+     fondo y solo entonces aparece la ficha encima, con el cartel ya en vuelo.
+     `both` la mantiene invisible durante la espera. */
+  html::view-transition-new(root) {
+    animation-duration: 400ms;
+    animation-delay: 150ms;
     animation-fill-mode: both;
+    animation-timing-function: ease-out;
   }
 
   @media (max-width: 1023px) {

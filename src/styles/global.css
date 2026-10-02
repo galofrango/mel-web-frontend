@@ -1118,6 +1118,20 @@ html::view-transition-group(mel-bloque-cabecera) {
       `!important` porque varios van en el atributo style. Sin nombres, la
       transición entera se reduce a la raíz: UNA imagen vieja (la ficha,
       entera) sobre UNA imagen nueva (la home, entera). */
+/* La IDA a una ficha (D-311), la misma idea que la vuelta: la portada que se va
+   es UNA foto, y solo el cartel tocado conserva su nombre (`.mel-viajando`, o
+   la miniatura de la Lista/panel, que no es `.gallery-item`). Con nombres, la
+   franja de cabecera y ~30 tarjetas se fotografiaban aparte: debajo de la franja
+   asomaban, en la foto de la raíz, las tarjetas que tapaba, y al desvanecerse
+   se veían; y una tarjeta medio tapada se pintaba entera por encima de todo
+   (regla 2). La clase la pone `navigateToEvent()` justo antes de salir. */
+html.mel-ida .gallery-item:not(.mel-viajando),
+html.mel-ida #bloque-cabecera,
+html.mel-ida #boton-orden,
+html.mel-ida #whisper,
+html.mel-ida #pagination-controls-desktop,
+html.mel-ida #map-side-panel,
+html.mel-ida #slider-track-wrapper,
 html.mel-vuelta .gallery-item,
 html.mel-vuelta #bloque-cabecera,
 html.mel-vuelta #boton-orden,

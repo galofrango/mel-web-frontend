@@ -6237,3 +6237,129 @@ no el documento, así que la barra del navegador sigue sin replegarse (D-108). N
 sigue siendo de 32. Igualarlos a 32 dejaría 8 px de puntos asomando bajo la foto.
 
 **Sin verificar**: un iPhone de verdad (el propietario).
+
+## D-308 · Desde la Lista y el panel del local, la miniatura viaja a la ficha (T1)
+
+**Petición del propietario** (02/10/2026): que las tarjetas de la Lista y del panel del local
+lleven a la ficha con el mismo viaje que la galería. Pidió probar **con todo** (cartel, título y
+fecha) y decidir después si se queda solo el cartel.
+
+**Decisión**:
+- Las filas no llevan etiqueta de transición de forma permanente (regla 2: con nombre se
+  escapan del recorte de su caja con scroll). `marcarViajeDesdeTarjeta()` (`index.astro`),
+  llamada desde `navigateToEvent()` —por donde pasan todas las aperturas—, se la pone **solo a
+  la tarjeta tocada y solo al irse**: miniatura `flyer-img-ID`, título `flyer-titulo-ID` y fecha
+  `flyer-fecha-ID`. Sirve para la Lista del móvil, el panel del local (sus tarjetas llevan ahora
+  `data-id`) y la tabla de escritorio (miniatura, título y celda de la fecha). Solo si la
+  tarjeta se ve: desde la galería no hace nada, su cartel ya tiene nombre.
+- La pareja en la ficha: el cartel ya se llamaba `flyer-img-ID`. El título y la fecha **no se
+  nombran de serie** (desde la galería no tendrían pareja y saldrían como capas sueltas): los
+  nombra un oyente de `astro:before-swap` de la portada en el documento que llega, solo si el
+  viaje viene de una tarjeta (`window.__melViajeTarjeta`), y solo los del tamaño que se ve
+  (título y fila de etiquetas de teléfono o de escritorio). Registro único, como el de D-298.
+- El título y la fecha viajan con el compás del cartel (0,5 s, `cubic-bezier(0.76, 0, 0.24,
+  1)`, en el `<style is:inline>` de la ficha). Lo viejo se evapora en 20 ms como todo (D-262):
+  lo que se ve volar es el título y la fecha de la ficha, que crecen desde el sitio de la
+  tarjeta.
+- El título del teléfono pasa de relleno (`pt-4 pb-8`) a margen (`mt-4 mb-8`): la caja que
+  vuela es la del texto, sin aire dentro. La cabecera mide lo mismo (224 px en «Summer Party»).
+- La vuelta sigue siendo solo la raíz (D-263): la ficha quita al irse todos los `flyer-`, no
+  solo el del cartel.
+
+**Medido** (Chrome sin pantalla, `herramientas-medicion/viaje-tarjeta.mjs`, animaciones a
+cámara lenta; el panel de pruebas no sirve porque está en segundo plano y aborta toda
+transición): Lista del móvil, panel del local («Perfil») y tabla de escritorio, las tres con
+las parejas `flyer-img`, `flyer-titulo` y `flyer-fecha` animadas y sin abortar; fotogramas con
+el cartel creciendo desde la miniatura y el título y la fecha llegando a su sitio. Vuelta con la
+X: solo `root`. Build correcto.
+
+**Revisión del propietario**: «me sobra la fecha, lo demás me gusta». La fecha se quita del
+viaje (portada y ficha); viajan el cartel y el título. Comprobado: solo las parejas
+`flyer-img` y `flyer-titulo`.
+
+**Sin verificar**: un iPhone de verdad.
+
+
+## D-310 · La ida a la ficha, afinada: vuelo de 0,5 s de verdad, caja del cartel exacta, tarjeta entera y un solo fundido
+
+**Contexto** (02/10/2026): vídeo del propietario en Chrome de escritorio abriendo fichas desde la
+galería: «un pelín brusco todo», un «glitch» arriba y fotos que, estando bajo la barra de
+herramientas, «van hacia arriba y rebotan». Analizado fotograma a fotograma y medido con Chrome
+sin pantalla (`herramientas-medicion/ida-galeria.mjs`). Las cuatro causas venían de antes.
+
+**1. El vuelo duraba la mitad.** La regla de 0,5 s del cartel estaba en un `<style is:inline>`
+con `{eventData.idMel}` dentro, y en `is:inline` Astro no sustituye nada: el selector llegaba
+literal y no casaba con ningún cartel. Medido: grupo del cartel a **250 ms**, el valor de serie.
+Ahora va con `set:html` (el id sí se sustituye): grupo del cartel y del título (D-308) a 500 ms
+con `cubic-bezier(0.76, 0, 0.24, 1)`. La imagen nueva va **opaca desde el primer fotograma**
+(`animation: none`): con la vieja yéndose en 200 ms y la nueva entrando en 500, a mitad ninguna
+estaba entera y el cartel arrancaba medio transparente.
+
+**2. «Baja y rebota».** La caja de la imagen de la ficha llenaba el hueco y el cartel se encajaba
+dentro (`object-contain`) con márgenes transparentes. El morphing mete esa caja en el hueco de la
+tarjeta respetando su proporción y alineada arriba, así que el cartel arrancaba más pequeño y más
+alto. Ahora la caja mide exactamente el cartel: `width: min(100cqw, ancho real, 100cqh ×
+proporción)`, `aspect-ratio` del cartel, con el hueco como contenedor de consultas
+(`container-type: size`). Sale de `flyer_tecnico.json`, así que existe antes de que cargue la
+imagen (el cartel de la galería sigue pintándose de fondo mientras llega el grande). Sin medidas,
+como antes. Medido: proporción de la caja 2,031 y del cartel 2,033 (escritorio, 466 × 229);
+en el teléfono sigue a la foto al encoger (203 × 360 → 113 × 200, proporción 0,563 y cartel 0,561).
+
+**3. Tarjetas bajo la barra.** Lo que vuela es la caja entera de la tarjeta (regla 2), también la
+parte tapada. `asomarTarjeta()` (`index.astro`, en `navigateToEvent()`) desplaza su contenedor lo
+justo para que se vea entera antes de salir —galería, Lista, panel y tabla (bajo su cabecera
+pegajosa)—; si no cabe, se alinea arriba. Medido: tarjeta escondida 60 px bajo el borde → al
+salir, su borde superior en el del contenedor (278 = 278 en escritorio, 300 = 300 en móvil).
+
+**4. El corte arriba (opción A del propietario).** La página que se va se funde **entera y junta
+en 200 ms**, franja de cabecera incluida (`::view-transition-old(*)` en la ficha). Hasta ahora se
+evaporaba en 20 ms y la franja aguantaba opaca y se iba aparte en 180 ms (D-261/D-262): quedaba
+una franja dura con la ficha entrando por debajo y el selector Galería/Mapa/Lista encima de su
+texto. Afecta también a Anterior/Siguiente: la ficha que se va tarda 200 ms en vez de 20.
+
+**Sin explicar**: en el vídeo, una ficha (Kne' Deep Tour) se abrió de golpe, sin vuelo. No se ha
+reproducido, tampoco con la tarjeta inclinada por el ratón. A vigilar.
+
+**Sin verificar**: Safari y un iPhone de verdad (las unidades de contenedor existen desde Safari 16).
+
+## D-311 · La ida, sin capas sueltas: la portada se va en una sola foto, y la ficha entra más suave
+
+**Contexto** (propietario, viendo D-310): «las fotos que quedan tapadas por la cabecera en la
+galería de repente se ven durante un segundo al hacer la transición; buscador, toggle, etc.
+desaparecen sobre las fotos de la galería antes de que se pinte el fondo blanco de la ficha».
+
+**Causa**: al salir de la portada tenían nombre de transición la franja de cabecera
+(`mel-bloque-cabecera`), el botón de orden, la paginación, el panel y unas 30 tarjetas
+(`flyer-img-ID`). Cada pieza con nombre se fotografía aparte, así que en la foto de la raíz quedaba
+lo que había DEBAJO de la franja —las tarjetas que tapaba— y al desvanecerse la franja se veían.
+Y una tarjeta medio tapada se pintaba entera, por encima de todo (regla 2). Medido: 33 capas en la
+ida desde la galería.
+
+**Decisión**: la misma idea que la vuelta (`mel-vuelta`, D-263). `navigateToEvent()` pone
+`html.mel-ida` justo antes de salir (`prepararIda()`) y marca la tarjeta tocada con
+`.mel-viajando`; `global.css` apaga los nombres de todo lo demás. La portada se va en UNA foto y
+solo vuela el cartel. La clase la retira el propio intercambio de página (Astro copia los
+atributos de `<html>` del documento que llega); un reloj de 3 s la quita si la navegación no
+llegara a ocurrir, para no dejar la portada sin nombres para sus transiciones internas.
+
+**De paso** (propietario): la ficha que entra, más suave: `::view-transition-new(root)` a 400 ms
+con `ease-out` (antes, los 250 ms de serie).
+
+**Medido** (Chrome sin pantalla): capas de la ida desde la galería: el cartel, la raíz y el aviso
+de la ficha (invisible); antes, 33. Desde la Lista, solo el cartel. Fotograma a mitad: cabecera y
+galería se desvanecen juntas, sin tarjetas asomando. Build correcto.
+
+**Sin verificar**: un iPhone de verdad.
+
+## D-312 · La ficha espera 150 ms antes de aparecer sobre el fondo
+
+**Propietario** (tras D-311): «el cambio de galería a ficha me sigue pareciendo rápido; quizá
+valga con retrasar un poco la aparición del resto de elementos de la ficha sobre el fondo».
+`::view-transition-new(root)` (la ficha entera menos el cartel) lleva ahora `animation-delay:
+150ms` con `fill-mode: both`: durante la espera es invisible, así que la portada se funde (200 ms)
+hasta el color de fondo de la página, el cartel ya va en vuelo, y la ficha aparece encima en 400 ms
+con `ease-out`. Duración total de la entrada: 550 ms; la del vuelo del cartel no cambia (500 ms).
+Afecta también a Anterior/Siguiente. Un solo número a mover si se quiere más o menos espera.
+
+**Medido** (Chrome sin pantalla, fotogramas a cámara lenta): portada desvaneciéndose, ficha aún
+ausente con el cartel volando, y la ficha entrando después. Build correcto.
