@@ -6992,3 +6992,81 @@ puede esconder, ni con atributos ni con CSS; solo una app nativa.
 **Idea aparcada** (propietario, para más adelante): esconder parte de la interfaz mientras se
 busca en el móvil (por ejemplo el selector Galería/Mapa/Lista) para que se vea más resultado.
 
+
+## D-336 · Favicon nuevo: claro y oscuro en un SVG, ICO de respaldo con placa
+
+**Propietario**: diseñó el favicon en Figma (marco de 32 × 32, viewBox `0 0 32 32`) en dos
+versiones, para pestaña clara y para pestaña oscura. El nombre es el del modo del navegador, no
+el color del logo: «claro» = logo oscuro `#190609` (LE-950); «oscuro» = logo claro `#F7F3F5`
+(exportado en sRGB, una unidad por encima de tinted-50 `#F6F3F5`; se deja así).
+
+**Por qué la versión clara lleva placa**: Safari 26 (Mac, iPhone, iPad) ya lee el favicon SVG,
+pero **ignora `prefers-color-scheme` dentro de él y pinta siempre la versión de base** (la clara),
+también en modo oscuro; Safari 18 y anteriores no leen el SVG y usan el ICO, que no sabe de modos.
+Un logo oscuro suelto se pierde en una pestaña oscura (granate sobre `#35363A`: 1,5:1). Así que el
+claro lleva un cuadrado opaco `#F9F1F3` (LE-50) detrás y el logo encogido de 1–31 a 2–30 para que
+respire (a propósito del propietario, aunque los puntos dejan de caer en enteros). Ningún navegador
+recorta el favicon de la pestaña, así que la placa es cuadrada, sin redondeo. La placa
+semitransparente se descartó: Safari 26 tiñe la barra con el color de cada web y la placa
+cambiaría de tono.
+
+**Decisión**:
+- `public/favicon.svg`: los dos dibujos en un archivo; `.claro` se ve por defecto y `.oscuro` solo
+  con `prefers-color-scheme: dark`. Sigue al tema del navegador o del sistema, **no** al botón
+  luna/sol de la web: la pestaña la pinta el navegador con su tema.
+- `public/favicon.ico`: el PNG de 32 del propietario (igual que el claro, con placa) metido en un
+  ICO de verdad (cabecera de 22 bytes + el PNG tal cual). El anterior era un PNG renombrado.
+- `Layout.astro`: primero el ICO con `sizes="32x32"` y después el SVG; sin `sizes`, Chrome a
+  veces elige el ICO aunque tenga el SVG.
+- Los originales de Figma viven fuera del repositorio:
+  `/Users/galo/Desktop/+ MEL (fuera del repo)/MEL Favicons/`.
+
+**Medido** (Chrome del panel, servidor de pruebas): con el esquema claro emulado se ve `.claro` y
+con el oscuro `.oscuro`; la portada pide `/favicon.svg` (no el ICO); las dos etiquetas siguen tras
+una navegación suave a /info; sin errores en la consola. Build correcto, los dos archivos en
+`.vercel/output/static`.
+
+**Sin verificar**: Safari de verdad (26 y anterior) y Firefox.
+
+**Pendiente (parte 2)**: icono del iPhone (180, opaco, 20 px de margen), PNG de 192 y 512 con
+manifest mínimo, versión maskable (logo dentro del círculo de 410 px en 512) y `theme-color`
+(solo lo usa Chrome en Android; Safari 26 lo ignora y tiñe con el fondo o con un elemento fijo
+arriba — probable causa de I8, por comprobar). El `theme-color` tendría que cambiar con el botón
+luna/sol, no con `prefers-color-scheme`.
+
+## D-337 · Iconos de pantalla de inicio, manifest y theme-color (parte 2 de D-336)
+
+**Propietario**: exportó desde Figma un marco de 512 × 512 con fondo opaco `#190609` (LE-950) y el
+logo claro (la versión oscura del favicon) a 512, 192 y 180, y una versión maskable. El logo va un
+poco por debajo del centro **a propósito**, «para que apoye». Eligió que, desde la pantalla de
+inicio, la web se abra **como web normal**, no como app.
+
+**Por qué no como app** (`display: standalone`, descartado por ahora): sin barra de direcciones ni
+botones del navegador se pierden el «atrás», la recarga y la dirección (MEL vive de enlaces); sin
+conexión no hay ni botón de recargar (no hay trabajador en segundo plano); la página se metería
+bajo la barra de estado del iPhone y habría que recolocar la cabecera y la ficha con los márgenes
+de seguridad; en iOS la app guarda sus datos aparte de Safari (modo de color, orden, vuelta, y el
+futuro aviso de cookies dos veces). Es un archivo que se consulta, no una herramienta diaria. Si
+algún día se quiere, es una línea del manifest más el ajuste de la cabecera.
+
+**Decisión**:
+- `public/apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`, `icon-maskable-512.png`
+  (el logo llega al 36 % del ancho desde el centro; la zona segura de Android es el 40 %).
+- `public/manifest.webmanifest` mínimo: nombre, `short_name` «M.E.L.», `start_url: /`,
+  `display: browser`, `background_color` el del icono, y los tres iconos.
+- `Layout.astro`: `apple-touch-icon`, `manifest` y `<meta name="theme-color">`. El theme-color
+  solo lo usa Chrome en Android (Safari 26 lo ignora y tiñe con el fondo o con un elemento fijo
+  arriba). Sigue al **botón luna/sol**, no a `prefers-color-scheme`: lo pone `applyTheme()` (el
+  bg-primary de cada modo, `#F6F3F5` / `#190609`), que corre al cargar, en `astro:after-swap`
+  (la etiqueta llega del SSR con el claro en cada navegación suave) y con el evento
+  `mel-color-scheme-change` que ya lanzaba el botón.
+
+**Medido** (Chrome del panel, servidor de pruebas): manifest 200 `application/manifest+json`; los
+cuatro iconos 200 con su tamaño real; theme-color claro al entrar, oscuro al pulsar el botón,
+oscuro tras tres navegaciones suaves y tras recargar en oscuro, claro al volver a pulsar; una sola
+etiqueta tras navegar. Build correcto. (Los «Transition was aborted» de la consola son de la
+pestaña del panel en segundo plano, traspaso §4.5, no de este cambio.)
+
+**Sin verificar**: añadir a la pantalla de inicio en un iPhone y en un Android de verdad (qué
+icono sale y si iOS ofrece abrirla como app web pese a `display: browser`), y el color de la
+barra en Chrome de Android.

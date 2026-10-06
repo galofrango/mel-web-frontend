@@ -28,8 +28,18 @@ const canonica = Astro.response.status === 404 ? null : new URL(Astro.url.pathna
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Favicon (D-336): el SVG lleva dentro la versión clara y la oscura; el ICO
+         es el respaldo de Safari 18 o anterior. `sizes` en el ICO para que Chrome
+         no lo prefiera al SVG. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
+    <!-- Pantalla de inicio (D-337): el iPhone usa el apple-touch-icon; Android, el
+         manifest (192, 512 y maskable). `display: browser`: se abre como la web
+         normal, no como app. theme-color solo lo usa Chrome en Android (Safari 26
+         lo ignora); lo cambia applyTheme() según el botón luna/sol. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#F6F3F5" />
     <meta name="generator" content={Astro.generator} />
     <meta name="description" content={description} />
     <title>{tituloCompleto}</title>
@@ -98,9 +108,15 @@ const canonica = Astro.response.status === 404 ? null : new URL(Astro.url.pathna
         } else {
           document.documentElement.classList.remove('dark');
         }
+        // Color de la barra de Chrome en Android (D-337): el bg-primary de cada
+        // modo (tinted-50 / le-950 en global.css). Tras una navegación suave la
+        // etiqueta llega del SSR con el claro, por eso se repite en after-swap.
+        document.querySelector('meta[name="theme-color"]')
+          ?.setAttribute('content', savedScheme === 'dark' ? '#190609' : '#F6F3F5');
       }
       applyTheme();
       document.addEventListener('astro:after-swap', applyTheme);
+      window.addEventListener('mel-color-scheme-change', applyTheme);
 
 
 
