@@ -214,11 +214,22 @@ const TAGS_EVENTO = [
   // como invitación en vez de leerse como un dato más.
   state: t.display.href ? 'Primary' : undefined,
 }));
-TAGS_EVENTO.splice(3, 0, {
-  label: 'Organiza',
-  multi: PROMOTORES,
-  state: sinPromotor ? 'Primary' : 'Default',
-});
+// Con UN solo promotor (lo normal) la tag es como las demás: un enlace con su
+// flecha al pasar el ratón (D-330). Con varios, cada nombre su enlace (`multi`,
+// D-218), que se subraya como los artistas: una flecha por nombre no cabe.
+TAGS_EVENTO.splice(3, 0, PROMOTORES.length === 1
+  ? {
+      label: 'Organiza',
+      count: PROMOTORES[0].texto,
+      href: PROMOTORES[0].href,
+      ariaLabel: PROMOTORES[0].ariaLabel,
+      state: sinPromotor ? 'Primary' : undefined,
+    }
+  : {
+      label: 'Organiza',
+      multi: PROMOTORES,
+      state: 'Default',
+    });
 
 // Los artistas se pintan como lista de enlaces. Campo vacío y campo con
 // centinela son el mismo hueco, así que reciben el mismo trato: el bloque NO se
@@ -393,7 +404,7 @@ const imagenCompartir = urlCompartir ? {
            A partir de `lg` se desmonta: el título vive en la columna de info y
            los tags en su propia columna. -->
       <div id="detail-titulo-tags" class="w-full shrink-0 pb-8 lg:pb-0 lg:contents">
-        <h2 class="typo-h2 lg:hidden text-mel-text-primary mt-4 mb-8">
+        <h2 class="typo-h2 lg:hidden text-mel-text-primary mt-4 mb-8 select-text">
           {eventData.title}
         </h2>
 
@@ -581,7 +592,7 @@ const imagenCompartir = urlCompartir ? {
         <div id="detail-scroll" class="shrink-0 px-6 sm:px-12 lg:px-0 lg:order-3 lg:col-span-5 flex flex-col gap-8 w-full lg:pl-6" data-name="Info">
 
           <!-- Event Title (desktop position — the mobile one renders above the grid) -->
-          <h2 id="detail-titulo-escritorio" class="typo-h2 hidden lg:block text-mel-text-primary">
+          <h2 id="detail-titulo-escritorio" class="typo-h2 hidden lg:block text-mel-text-primary select-text">
             {eventData.title}
           </h2>
 
@@ -591,21 +602,25 @@ const imagenCompartir = urlCompartir ? {
                OJO: este comentario tiene que quedarse FUERA del
                `{eventData.description && (…)}` de abajo — ahí dentro se compila
                como expresión y un comentario HTML revienta el build con
-               `[CompilerError] Unexpected token`. -->
+               `[CompilerError] Unexpected token`.
+               La descripción, el título y los artistas se pueden seleccionar
+               (`select-text`, D-328 y D-329) aunque toda la ficha lleve
+               `select-none`: son el contenido, y es natural querer copiarlo
+               para buscarlo o traducirlo. -->
           <div class="flex flex-col gap-8">
             {eventData.description && (
               <div class="flex flex-col gap-8">
-                <p class="typo-body-sans text-mel-text-primary">
+                <p id="detail-descripcion" class="typo-body-sans text-mel-text-primary select-text">
                   {eventData.description}
                 </p>
                 <!-- Figma 1px divider -->
-                <div class="h-px w-full bg-mel-border"></div>
+                <div id="detail-raya" class="h-px w-full bg-mel-border"></div>
               </div>
             )}
 
             <div class="flex flex-col gap-2">
-              <span class="typo-overline typo-tag-label text-mel-text-primary">Artistas</span>
-              <div class="flex flex-wrap gap-y-1">
+              <span id="detail-artistas-etq" class="typo-overline typo-tag-label text-mel-text-primary">Artistas</span>
+              <div id="detail-artistas" class="flex flex-wrap gap-y-1 select-text">
                 {ARTISTAS.map((a, idx) => (
                   <span class="inline-flex items-center whitespace-nowrap">
                     <Link href={a.href} ariaLabel={a.ariaLabel} hideChevron={true}>{a.texto}</Link>
@@ -1396,31 +1411,92 @@ const imagenCompartir = urlCompartir ? {
       relojAviso = setTimeout(() => { w.dataset.visible = 'false'; }, 3000);
     }
 
-    // Compartir ⇄ ✓ (ver el icono `share` de Icon.astro). Con «reducir
-    // movimiento» la animación dura 1 ms: es un cambio de golpe. No se escriben
+    // Compartir ⇄ ✓ (ver el icono `share` de Icon.astro). La ida en 300 ms y la
+    // vuelta en 500, más suave (D-328). Con «reducir movimiento» la animación
+    // dura 1 ms: es un cambio de golpe. No se escriben
     // los puntos a mano porque, si ya corrió una animación con `fill="freeze"`,
     // su valor congelado taparía lo escrito.
+    // El botón de escritorio lleva DOS iconos (el suyo y la copia de la mancha
+    // de tinta, D-333): se transforman los dos a la vez.
     function transformarIconoCompartir(boton, aCheck) {
       boton.classList.toggle('mel-copiado', aCheck);
-      const anim = boton.querySelector(aCheck ? '.mel-a-check' : '.mel-a-share');
-      if (!anim) return;
       const reducir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      anim.setAttribute('dur', reducir ? '1ms' : '300ms');
-      anim.beginElement();
+      boton.querySelectorAll(aCheck ? '.mel-a-check' : '.mel-a-share').forEach((anim) => {
+        anim.setAttribute('dur', reducir ? '1ms' : aCheck ? '300ms' : '500ms');
+        anim.beginElement();
+      });
     }
 
     const COPIADO_MS = 2000;
     function confirmarCopiado(boton) {
-      const texto = boton.querySelector('.boton-compartir-texto');
+      // Dos textos en el de escritorio: el suyo y la copia de la mancha (D-333).
+      const textos = boton.querySelectorAll('.boton-compartir-texto');
+      clearTimeout(boton._melRelojTexto);
+      textos.forEach((t) => { t.style.opacity = ''; });
       if (!boton.classList.contains('mel-copiado')) {
         transformarIconoCompartir(boton, true);
-        if (texto) texto.textContent = 'Copiado';
+        textos.forEach((t) => { t.textContent = 'Copiado'; });
       }
       clearTimeout(boton._melRelojCopiado);
       boton._melRelojCopiado = setTimeout(() => {
         transformarIconoCompartir(boton, false);
-        if (texto) texto.textContent = 'Compartir';
+        if (!textos.length) return;
+        // A la vuelta la palabra se funde (200 ms fuera, 200 dentro) en vez de
+        // cambiar de golpe; a la ida, de golpe, que es la respuesta al clic.
+        textos.forEach((t) => { t.style.opacity = '0'; });
+        boton._melRelojTexto = setTimeout(() => {
+          textos.forEach((t) => { t.textContent = 'Compartir'; t.style.opacity = ''; });
+        }, 200);
       }, COPIADO_MS);
+    }
+
+    // La mancha de tinta de Compartir (D-333): nace donde entra el ratón y se
+    // recoge hacia donde sale; con el teclado, desde el centro. El script solo
+    // pone el centro y el radio: el CSS de BotonCompartir lo anima (con los
+    // tiempos de entrada o de salida según lleve o no `mel-tinta-dentro`).
+    // El radio llega hasta la esquina más lejana del punto, para cubrirlo todo.
+    function engancharTinta(boton) {
+      const ruido = boton.querySelector('.boton-compartir-ruido');
+      const poner = (x, y, r) => {
+        boton.style.setProperty('--tinta-x', x + 'px');
+        boton.style.setProperty('--tinta-y', y + 'px');
+        if (r !== undefined) boton.style.setProperty('--tinta-r', r + 'px');
+      };
+      const punto = (e) => {
+        const c = boton.getBoundingClientRect();
+        const x = e ? e.clientX - c.left : c.width / 2, y = e ? e.clientY - c.top : c.height / 2;
+        return [x, y, Math.hypot(Math.max(x, c.width - x), Math.max(y, c.height - y)) + 10];
+      };
+      const entra = (e) => {
+        const [x, y, r] = punto(e);
+        // Otra forma de mancha en cada entrada.
+        if (ruido) ruido.setAttribute('seed', String(Math.floor(Math.random() * 1000)));
+        poner(x, y);
+        boton.classList.add('mel-tinta-dentro');
+        poner(x, y, r);
+      };
+      const sale = (e) => {
+        const [x, y, r] = punto(e);
+        // Se recentra en el punto de salida con un radio que lo sigue cubriendo
+        // todo —sin transición, para que no se note el salto— y desde ahí se
+        // recoge. Si aún no había mancha, nada que recentrar.
+        if (parseFloat(getComputedStyle(boton).getPropertyValue('--tinta-r')) > 0) {
+          boton.style.transition = 'none';
+          poner(x, y, r);
+          void boton.offsetWidth;
+          boton.style.transition = '';
+        }
+        boton.classList.remove('mel-tinta-dentro');
+        poner(x, y, 0);
+      };
+      // Con el teclado la mancha se va al perder el foco; con el ratón, solo al
+      // salir: copiar el enlace le quita el foco al botón, y eso la recogía a
+      // mitad del «Copiado» (visto en las pruebas).
+      let porTeclado = false;
+      boton.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') { porTeclado = false; entra(e); } });
+      boton.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') sale(e); });
+      boton.addEventListener('focus', () => { if (boton.matches(':focus-visible')) { porTeclado = true; entra(); } });
+      boton.addEventListener('blur', () => { if (porTeclado) { porTeclado = false; sale(); } });
     }
 
     const botonCompartirMovil = document.getElementById('detail-share-btn');
@@ -1452,6 +1528,7 @@ const imagenCompartir = urlCompartir ? {
 
     const botonCompartir = document.getElementById('btn-compartir');
     if (botonCompartir) {
+      engancharTinta(botonCompartir);
       botonCompartir.addEventListener('click', async () => {
         if (await copiarEnlace(enlaceOficial())) confirmarCopiado(botonCompartir);
         else avisar('No se pudo copiar el enlace');
@@ -1562,11 +1639,13 @@ const imagenCompartir = urlCompartir ? {
         // Normal page view: navigate Previous / Next event
         if (e.key === 'ArrowLeft' && prevEventItem) {
           e.preventDefault();
+          window.__melMarcarPase?.('anterior');
           const url = `/event/${prevEventItem.idMel}?${navParam}`;
           if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
           else window.location.href = url;
         } else if (e.key === 'ArrowRight' && nextEventItem) {
           e.preventDefault();
+          window.__melMarcarPase?.('siguiente');
           const url = `/event/${nextEventItem.idMel}?${navParam}`;
           if (typeof window.__melNavigate === 'function') window.__melNavigate(url);
           else window.location.href = url;
@@ -2290,6 +2369,167 @@ const imagenCompartir = urlCompartir ? {
     }
 
 
+    // El pase entre fichas (D-325, antes D-323). La dirección se apunta al
+    // pulsar Anterior/Siguiente (o sus flechas del teclado) como una clase en
+    // <html> —la necesita la foto VIEJA— y se copia al documento que llega en
+    // `astro:before-swap` —la necesita la NUEVA, y Astro copia los atributos
+    // de <html> del documento nuevo—. Se retira al acabar la transición. Con
+    // «reducir movimiento», nada: el fundido de siempre.
+    window.__melMarcarPase = (dir) => {
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      const raiz = document.documentElement;
+      raiz.classList.remove('mel-pase-anterior', 'mel-pase-siguiente');
+      raiz.classList.add('mel-pase-' + dir);
+      window.__melPase = dir;
+      // En el móvil, si se estaba bajado, la ficha nueva «sube el scroll».
+      const desplazable = document.getElementById('detail-page-container');
+      window.__melPaseDesdeAbajo = !!desplazable && desplazable.scrollTop > 40;
+      // En escritorio el cartel a la vista se barre con su propia capa (D-325),
+      // que no se empareja con la del cartel nuevo (ver el CSS).
+      // Con estilo en línea e `!important`, que gana a la regla que quita el
+      // nombre a todos los carteles durante el pase.
+      const pista = document.getElementById('carousel-track');
+      const caja = pista && pista.parentElement.getBoundingClientRect();
+      const foto = caja && window.matchMedia('(min-width: 1024px)').matches
+        ? [...pista.querySelectorAll('img')].find((i) => {
+            const r = i.getBoundingClientRect();
+            return r.left < caja.left + caja.width / 2 && r.right > caja.left + caja.width / 2;
+          })
+        : null;
+      if (foto) {
+        foto.style.setProperty('view-transition-name', 'mel-pase-foto-sale', 'important');
+        foto.style.setProperty('view-transition-class', 'mel-barre');
+      }
+      // Dónde estaba cada pieza que se barre: la línea única del barrido
+      // (`barrerDeUnaVez`) necesita las cajas viejas, y al empezar la
+      // transición ya solo queda la página nueva.
+      window.__melBarridoViejo = medirBarridos();
+      clearTimeout(window.__melRelojPase);
+      window.__melRelojPase = setTimeout(() => {
+        raiz.classList.remove('mel-pase-anterior', 'mel-pase-siguiente');
+        window.__melPase = null;
+        if (foto) { foto.style.removeProperty('view-transition-name'); foto.style.removeProperty('view-transition-class'); }
+      }, 3000);
+    };
+    // Las piezas del pase en escritorio: su capa, su caja y su texto. Se
+    // apuntan por el nombre sin el `-sale` de la ficha que se va, para emparejar
+    // la vieja con la nueva. En el móvil, ninguna: allí el barrido es el del CSS.
+    // De las filas de Anterior/Siguiente solo cuenta la palabra «Anterior» o
+    // «Siguiente»: el título de dentro tiene capa propia y se mide aparte.
+    const PIEZAS_PASE = '#detail-titulo-escritorio, #detail-descripcion, #detail-raya, #detail-artistas-etq, #detail-artistas, #btn-compartir, #nav-prev-container, #nav-next-container, #nav-prev-container .marquee-cell, #nav-next-container .marquee-cell, .event-tags-row .marquee-cell, #carousel-track img, #carousel-dots-container';
+    function medirBarridos() {
+      const cajas = {};
+      if (!window.matchMedia('(min-width: 1024px)').matches) return cajas;
+      document.querySelectorAll(PIEZAS_PASE).forEach((el) => {
+        const nombre = getComputedStyle(el).viewTransitionName;
+        if (!nombre || !nombre.startsWith('mel-pase-')) return;
+        const r = el.getBoundingClientRect();
+        if (!r.width) return;
+        const texto = el.tagName === 'IMG' ? el.currentSrc
+          : el.matches('#nav-prev-container, #nav-next-container') ? ''
+          : el.textContent.replace(/\s+/g, ' ').trim();
+        // Los puntos del carrusel se barren siempre que estén en las dos fichas
+        // (el propietario), aunque sean los mismos: no cuentan como «quietos».
+        const puntos = el.id === 'carousel-dots-container';
+        cajas[nombre.replace(/-sale$/, '')] = { nombre, l: r.left, t: r.top, w: r.width, h: r.height, texto, puntos };
+      });
+      return cajas;
+    }
+
+    // UN solo barrido para toda la ficha (D-326, el propietario: «que parezca
+    // que el mismo barrido se lo lleva todo y no a cada cosa el suyo»). Una
+    // línea cruza la pantalla a velocidad fija —con Siguiente de derecha a
+    // izquierda, con Anterior al revés— y cada pieza se borra cuando la línea
+    // pasa por encima; otra línea, 150 ms detrás, escribe lo nuevo. Por eso
+    // cada pieza empieza cuando le llega la línea (retraso por distancia) y
+    // tarda lo que la línea en cruzarla (duración por anchura).
+    // La máscara mide 2 × ancho + borde: opaco el ancho de la pieza, el borde
+    // suave (BORDE px) y transparente otro ancho; desplazándola se mueve el
+    // borde. Sustituye a las animaciones del CSS, que quedan de reserva por si
+    // esto no llega a correr.
+    // Lo que no cambia ni de texto ni de sitio (la misma fecha, «Artistas» en
+    // el mismo hueco…) no se barre (D-327): la capa vieja se apaga y la nueva
+    // queda puesta desde el primer fotograma, así que no se nota nada.
+    function barrerDeUnaVez(dir, viejo, nuevo) {
+      const BORDE = 160, VELOCIDAD = 2.4, ESPERA_NUEVA = 150; // px, px/ms, ms
+      const igual = (a, b) => a && b && !a.puntos && a.texto === b.texto
+        && Math.abs(a.l - b.l) < 1 && Math.abs(a.t - b.t) < 1 && Math.abs(a.w - b.w) < 1 && Math.abs(a.h - b.h) < 1;
+      const quietas = [], capas = [];
+      for (const clave of new Set([...Object.keys(viejo), ...Object.keys(nuevo)])) {
+        const v = viejo[clave], n = nuevo[clave];
+        if (igual(v, n)) { quietas.push(['old', v], ['new', n]); continue; }
+        if (v) capas.push(['old', v]);
+        if (n) capas.push(['new', n]);
+      }
+      const vivas = document.getAnimations();
+      const soltar = (pseudo) => vivas.forEach((a) => { if (a.effect && a.effect.pseudoElement === pseudo) a.cancel(); });
+      for (const [tipo, c] of quietas) {
+        const pseudo = `::view-transition-${tipo}(${c.nombre})`;
+        soltar(pseudo);
+        // La nueva, sin la máscara de reserva del CSS (que la dejaría tapada).
+        const quieta = tipo === 'old' ? { opacity: 0 } : { maskImage: 'none' };
+        document.documentElement.animate([quieta, quieta], { pseudoElement: pseudo, duration: 0, fill: 'both' });
+      }
+      if (!capas.length) return;
+      const haciaIzquierda = dir === 'siguiente';
+      const origen = haciaIzquierda
+        ? Math.max(...capas.map(([, c]) => c.l + c.w)) + BORDE / 2
+        : Math.min(...capas.map(([, c]) => c.l)) - BORDE / 2;
+      for (const [tipo, c] of capas) {
+        const pseudo = `::view-transition-${tipo}(${c.nombre})`;
+        soltar(pseudo);
+        // Lo que queda a la izquierda del borde se ve (opaco primero) en lo
+        // viejo de Siguiente y en lo nuevo de Anterior; en los otros dos casos,
+        // lo que queda a la derecha.
+        const opacoPrimero = (tipo === 'old') === haciaIzquierda;
+        const imagen = opacoPrimero
+          ? `linear-gradient(to right, #000 ${c.w}px, transparent ${c.w + BORDE}px)`
+          : `linear-gradient(to right, transparent ${c.w}px, #000 ${c.w + BORDE}px)`;
+        // Con el borde centrado en la x de la línea, la máscara va en x − ancho − borde/2.
+        const posicion = (x) => `${x - c.l - c.w - BORDE / 2}px 0`;
+        const entra = haciaIzquierda ? c.l + c.w + BORDE / 2 : c.l - BORDE / 2;
+        const sale = haciaIzquierda ? c.l - BORDE / 2 : c.l + c.w + BORDE / 2;
+        const fijo = { maskImage: imagen, maskSize: `${2 * c.w + BORDE}px 100%`, maskRepeat: 'no-repeat' };
+        document.documentElement.animate(
+          [{ ...fijo, maskPosition: posicion(entra) }, { ...fijo, maskPosition: posicion(sale) }],
+          {
+            pseudoElement: pseudo,
+            delay: (tipo === 'new' ? ESPERA_NUEVA : 0) + Math.abs(entra - origen) / VELOCIDAD,
+            duration: (c.w + BORDE) / VELOCIDAD,
+            easing: 'linear',
+            fill: 'both',
+          },
+        );
+      }
+    }
+
+    document.addEventListener('click', (e) => {
+      const enlace = e.target && e.target.closest && e.target.closest('#nav-prev-container a, #nav-next-container a');
+      if (!enlace || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      window.__melMarcarPase(enlace.closest('#nav-next-container') ? 'siguiente' : 'anterior');
+    }, true);
+    document.addEventListener('astro:before-swap', (e) => {
+      const dir = window.__melPase;
+      window.__melPase = null;
+      if (!dir || !e.newDocument) return;
+      try {
+        if (!new URL(e.to, location.href).pathname.startsWith('/event/')) return;
+      } catch (err) { return; }
+      e.newDocument.documentElement.classList.add('mel-pase-' + dir, 'mel-pase-llega');
+      if (window.__melPaseDesdeAbajo) e.newDocument.documentElement.classList.add('mel-pase-desde-abajo');
+      // Desde aquí la retira el final de la transición, no el reloj de
+      // seguridad (que con la transición lenta la quitaría a mitad).
+      clearTimeout(window.__melRelojPase);
+      const fin = () => document.documentElement.classList.remove('mel-pase-anterior', 'mel-pase-siguiente', 'mel-pase-llega', 'mel-pase-desde-abajo');
+      const viejo = window.__melBarridoViejo || {};
+      window.__melBarridoViejo = null;
+      if (e.viewTransition && e.viewTransition.ready && Object.keys(viejo).length) {
+        e.viewTransition.ready.then(() => barrerDeUnaVez(dir, viejo, medirBarridos())).catch(() => {});
+      }
+      if (e.viewTransition && e.viewTransition.finished) e.viewTransition.finished.finally(fin);
+      else setTimeout(fin, 1000);
+    });
+
     // El marcador `mel-vuelta` (D-263) se instala DESDE AQUÍ, en el documento
     // ENTRANTE, y no desde el script de la home: el primer intento lo ponía la
     // home al evaluarse su script, asumiendo que eso ocurre antes de la foto
@@ -2352,6 +2592,181 @@ const imagenCompartir = urlCompartir ? {
   html::view-transition-old(*) {
     animation-duration: 300ms;
   }
+  /* Pase entre fichas con Anterior/Siguiente (D-325; sustituye a D-323).
+     Solo se mueve lo que cambia. Cada texto que cambia y la foto tienen su
+     propia capa, que se BARRE: con Siguiente lo viejo se borra de derecha a
+     izquierda y lo nuevo se escribe en esa misma dirección, un poco detrás; con
+     Anterior, al revés. El barrido es una máscara (degradado de negro a
+     transparente, 2,5 veces más ancha que la capa) que se corre de un extremo
+     al otro. Los carteles pierden su nombre del vuelo durante el pase: aquí no
+     vuela nada.
+     ESCRITORIO: se barren título, valores de las etiquetas, descripción,
+     artistas, los títulos de Anterior/Siguiente (D-331) y el cartel, con UNA
+     sola línea para toda la ficha (D-326): el
+     script (`barrerDeUnaVez`) cambia estas animaciones del CSS por otras con
+     el retraso y la duración de cada pieza según su sitio; las del CSS quedan
+     de reserva. Lo que no cambia (la
+     X, los nombres de las etiquetas) va en la página de fondo, que no se
+     anima: se cambia en seco y no se nota porque es igual. Lo que puede
+     cambiar de SITIO sin cambiar de texto (la raya, «Artistas», Compartir, las
+     filas de Anterior/Siguiente, cuando aparece o desaparece una descripción)
+     tiene capa propia: si se ha movido, se barre como lo demás; si no, se queda
+     quieta (D-327).
+     MÓVIL: la cabecera fija (X, título, etiquetas) se queda donde está y en ella
+     se barren el título y la fila de etiquetas entera (sus nombres cambian de
+     sitio con el largo de los valores, así que no se pueden dejar quietos).
+     Debajo, la ficha vieja se funde y la nueva aparece; si se estaba abajo del
+     todo, la vieja baja un poco al irse y la nueva baja a su sitio al llegar,
+     como si el scroll volviera arriba (`mel-pase-desde-abajo`). */
+  html.mel-pase-siguiente #carousel-track img,
+  html.mel-pase-anterior #carousel-track img {
+    view-transition-name: none !important;
+  }
+  /* Las capas se pintan a su tamaño real: por defecto se estiran al ancho de
+     su grupo, y un título que cambia de largo se deformaría al pasar. */
+  html.mel-pase-siguiente::view-transition-old(*),
+  html.mel-pase-siguiente::view-transition-new(*),
+  html.mel-pase-anterior::view-transition-old(*),
+  html.mel-pase-anterior::view-transition-new(*) {
+    inline-size: auto;
+    block-size: auto;
+  }
+  html.mel-pase-siguiente::view-transition-group(*),
+  html.mel-pase-anterior::view-transition-group(*) {
+    animation-duration: 400ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Máscara A: visible a la izquierda, transparente a la derecha.
+     Máscara B: al revés. Con `mask-position` de 0 % a 100 % el borde viaja
+     hacia la izquierda; de 100 % a 0 %, hacia la derecha. */
+  html.mel-pase-siguiente::view-transition-old(*.mel-barre),
+  html.mel-pase-anterior::view-transition-new(*.mel-barre) {
+    mask: linear-gradient(to right, #000 40%, transparent 60%) 0 0 / 250% 100% no-repeat;
+  }
+  html.mel-pase-siguiente::view-transition-new(*.mel-barre),
+  html.mel-pase-anterior::view-transition-old(*.mel-barre) {
+    mask: linear-gradient(to right, transparent 40%, #000 60%) 0 0 / 250% 100% no-repeat;
+  }
+  html.mel-pase-siguiente::view-transition-old(*.mel-barre) {
+    animation: mel-barrido-izquierda 280ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  }
+  html.mel-pase-siguiente::view-transition-new(*.mel-barre) {
+    animation: mel-barrido-izquierda 320ms cubic-bezier(0.4, 0, 0.2, 1) 120ms both;
+  }
+  html.mel-pase-anterior::view-transition-old(*.mel-barre) {
+    animation: mel-barrido-derecha 280ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  }
+  html.mel-pase-anterior::view-transition-new(*.mel-barre) {
+    animation: mel-barrido-derecha 320ms cubic-bezier(0.4, 0, 0.2, 1) 120ms both;
+  }
+  @keyframes mel-barrido-izquierda { from { mask-position: 0% 0; } to { mask-position: 100% 0; } }
+  @keyframes mel-barrido-derecha { from { mask-position: 100% 0; } to { mask-position: 0% 0; } }
+
+  @media (min-width: 1024px) {
+    html.mel-pase-siguiente::view-transition-old(root),
+    html.mel-pase-siguiente::view-transition-new(root),
+    html.mel-pase-anterior::view-transition-old(root),
+    html.mel-pase-anterior::view-transition-new(root) {
+      animation: none;
+    }
+    /* Cada pieza lleva un nombre en la ficha que se va (`…-sale`) y OTRO en la
+       que llega (D-327). Con el mismo nombre, el navegador desliza la capa de
+       su sitio viejo al nuevo, y cuando algo cambiaba de sitio (aparece una
+       descripción y los artistas bajan) lo viejo se montaba encima de lo nuevo
+       esperando a que llegara la línea. Con nombres distintos cada capa se
+       queda donde estaba y la línea que borra va siempre por delante de la que
+       escribe: en ningún punto se ven las dos. Lo que no cambia ni de texto ni
+       de sitio lo deja quieto el script (`barrerDeUnaVez`). */
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior) :is(#detail-titulo-escritorio, #detail-descripcion, #detail-raya, #detail-artistas-etq, #detail-artistas, #btn-compartir, #nav-prev-container, #nav-next-container, .event-tags-row > :nth-child(1) .marquee-cell, .event-tags-row > :nth-child(2) .marquee-cell, .event-tags-row > :nth-child(3) .marquee-cell, .event-tags-row > :nth-child(4) .marquee-cell, .event-tags-row > :nth-child(5) .marquee-cell)) {
+      view-transition-class: mel-barre;
+    }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #detail-titulo-escritorio) { view-transition-name: mel-pase-titulo-sale; }
+    :global(html.mel-pase-llega #detail-titulo-escritorio) { view-transition-name: mel-pase-titulo; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #detail-descripcion) { view-transition-name: mel-pase-descripcion-sale; }
+    :global(html.mel-pase-llega #detail-descripcion) { view-transition-name: mel-pase-descripcion; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #detail-raya) { view-transition-name: mel-pase-raya-sale; }
+    :global(html.mel-pase-llega #detail-raya) { view-transition-name: mel-pase-raya; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #detail-artistas-etq) { view-transition-name: mel-pase-artistas-etq-sale; }
+    :global(html.mel-pase-llega #detail-artistas-etq) { view-transition-name: mel-pase-artistas-etq; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #detail-artistas) { view-transition-name: mel-pase-artistas-sale; }
+    :global(html.mel-pase-llega #detail-artistas) { view-transition-name: mel-pase-artistas; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #btn-compartir) { view-transition-name: mel-pase-compartir-sale; }
+    :global(html.mel-pase-llega #btn-compartir) { view-transition-name: mel-pase-compartir; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #nav-prev-container) { view-transition-name: mel-pase-fila-ant-sale; }
+    :global(html.mel-pase-llega #nav-prev-container) { view-transition-name: mel-pase-fila-ant; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #nav-next-container) { view-transition-name: mel-pase-fila-sig-sale; }
+    :global(html.mel-pase-llega #nav-next-container) { view-transition-name: mel-pase-fila-sig; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) .event-tags-row > :nth-child(1) .marquee-cell) { view-transition-name: mel-pase-tag-1-sale; }
+    :global(html.mel-pase-llega .event-tags-row > :nth-child(1) .marquee-cell) { view-transition-name: mel-pase-tag-1; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) .event-tags-row > :nth-child(2) .marquee-cell) { view-transition-name: mel-pase-tag-2-sale; }
+    :global(html.mel-pase-llega .event-tags-row > :nth-child(2) .marquee-cell) { view-transition-name: mel-pase-tag-2; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) .event-tags-row > :nth-child(3) .marquee-cell) { view-transition-name: mel-pase-tag-3-sale; }
+    :global(html.mel-pase-llega .event-tags-row > :nth-child(3) .marquee-cell) { view-transition-name: mel-pase-tag-3; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) .event-tags-row > :nth-child(4) .marquee-cell) { view-transition-name: mel-pase-tag-4-sale; }
+    :global(html.mel-pase-llega .event-tags-row > :nth-child(4) .marquee-cell) { view-transition-name: mel-pase-tag-4; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) .event-tags-row > :nth-child(5) .marquee-cell) { view-transition-name: mel-pase-tag-5-sale; }
+    :global(html.mel-pase-llega .event-tags-row > :nth-child(5) .marquee-cell) { view-transition-name: mel-pase-tag-5; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #nav-prev-container .marquee-cell) { view-transition-name: mel-pase-ant-sale; }
+    :global(html.mel-pase-llega #nav-prev-container .marquee-cell) { view-transition-name: mel-pase-ant; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #nav-next-container .marquee-cell) { view-transition-name: mel-pase-sig-sale; }
+    :global(html.mel-pase-llega #nav-next-container .marquee-cell) { view-transition-name: mel-pase-sig; }
+    /* Los títulos de Anterior/Siguiente vuelven al barrido (D-331, el
+       propietario, a prueba). Entre D-326 y D-329 llevaron un fundido quieto
+       propio: el viejo se iba en 200 ms acelerando y el nuevo entraba a los
+       200 ms en 450 con cubic-bezier(0.16, 1, 0.3, 1). */
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior) :is(#nav-prev-container, #nav-next-container) .marquee-cell) {
+      view-transition-class: mel-barre;
+    }
+    /* Los puntos del carrusel (D-332): quietos en su sitio, y se barren con la
+       línea como lo demás (también cuando son los mismos en las dos fichas). */
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior):not(.mel-pase-llega) #carousel-dots-container) { view-transition-name: mel-pase-puntos-sale; view-transition-class: mel-barre; }
+    :global(html.mel-pase-llega #carousel-dots-container) { view-transition-name: mel-pase-puntos; view-transition-class: mel-barre; }
+    /* La foto: solo el cartel (su caja mide lo que él, D-310), no las rayas de
+       fondo, que no cambian. En la ficha que llega se ve siempre la primera; en
+       la que se va, la que estuviera a la vista, que la marca el script.
+       `:is(…, #_)` solo sube la especificidad: tiene que ganar a la regla que
+       quita el nombre a todos los carteles, que también lleva `!important`. */
+    :global(html.mel-pase-llega #carousel-track > :is(:first-child, #_) > img) {
+      view-transition-name: mel-pase-foto !important;
+      view-transition-class: mel-barre;
+    }
+  }
+
+  @media (max-width: 1023.98px) {
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior) #detail-cabecera) { view-transition-name: mel-pase-cabecera; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior) #detail-titulo-tags h2) { view-transition-name: mel-pase-titulo; view-transition-class: mel-barre; }
+    :global(:is(html.mel-pase-siguiente, html.mel-pase-anterior) #detail-tags-fixed-row) { view-transition-name: mel-pase-etiquetas; view-transition-class: mel-barre; }
+    html.mel-pase-siguiente::view-transition-group(mel-pase-cabecera),
+    html.mel-pase-siguiente::view-transition-old(mel-pase-cabecera),
+    html.mel-pase-siguiente::view-transition-new(mel-pase-cabecera),
+    html.mel-pase-anterior::view-transition-group(mel-pase-cabecera),
+    html.mel-pase-anterior::view-transition-old(mel-pase-cabecera),
+    html.mel-pase-anterior::view-transition-new(mel-pase-cabecera) {
+      animation: none;
+    }
+    html.mel-pase-siguiente::view-transition-old(root),
+    html.mel-pase-anterior::view-transition-old(root) {
+      animation: mel-pase-sale 200ms cubic-bezier(0.4, 0, 1, 1) both;
+    }
+    html.mel-pase-siguiente::view-transition-new(root),
+    html.mel-pase-anterior::view-transition-new(root) {
+      /* Casi sin solaparse con la vieja: dos bloques de texto fundiéndose uno
+         encima del otro se leen como un borrón. */
+      animation: mel-pase-entra 320ms cubic-bezier(0, 0, 0.2, 1) 160ms both;
+    }
+    html.mel-pase-desde-abajo::view-transition-old(root) {
+      animation-name: mel-pase-sale-bajando;
+    }
+    html.mel-pase-desde-abajo::view-transition-new(root) {
+      animation-name: mel-pase-entra-bajando;
+    }
+  }
+  @keyframes mel-pase-sale { to { opacity: 0; } }
+  @keyframes mel-pase-entra { from { opacity: 0; } }
+  @keyframes mel-pase-sale-bajando { to { transform: translateY(64px); opacity: 0; } }
+  @keyframes mel-pase-entra-bajando { from { transform: translateY(-64px); opacity: 0; } }
+
   /* Vuelo ficha ⇄ visor (D-313, `volarVisor()`): el cartel con el compás de la
      ida a la ficha y opaco desde el primer fotograma; el fondo oscuro y el
      resto, un fundido de 300 ms sin la espera de la ida (que es para cambiar de

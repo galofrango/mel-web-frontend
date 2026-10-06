@@ -62,7 +62,7 @@ const { icon, size = 24, strokeWidth = 2, class: className = '' } = Astro.props;
     <line class="mel-compartir-palo" x1="12" y1="2" x2="12" y2="15"></line>
     <polyline points="8 6 12 2 16 6">
       <animate class="mel-a-check" attributeName="points" to="4 12 9 17 20 6" dur="300ms" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.2 0 0 1"></animate>
-      <animate class="mel-a-share" attributeName="points" to="8 6 12 2 16 6" dur="300ms" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.2 0 0 1"></animate>
+      <animate class="mel-a-share" attributeName="points" to="8 6 12 2 16 6" dur="500ms" begin="indefinite" fill="freeze" calcMode="spline" keyTimes="0;1" keySplines="0.2 0 0 1"></animate>
     </polyline>
   </svg>
 )}
@@ -70,10 +70,10 @@ const { icon, size = 24, strokeWidth = 2, class: className = '' } = Astro.props;
 <style>
   /* La caja y el palo se van más rápido de lo que dura la transformación (300
      ms), para que la ✓ se forme ya sola; y vuelven con algo de retraso, cuando
-     la punta ya ha subido. */
+     la punta ya ha subido (la vuelta dura 500 ms, D-328). */
   .mel-compartir-caja,
   .mel-compartir-palo {
-    transition: opacity 200ms ease-out 100ms;
+    transition: opacity 400ms ease-out 200ms;
   }
   :global(.mel-copiado) .mel-compartir-caja,
   :global(.mel-copiado) .mel-compartir-palo {

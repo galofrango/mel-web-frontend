@@ -101,9 +101,16 @@ import IconButton from './IconButton.astro';
            mano se habría quedado atrás el día que se ajuste `text-tertiary` —está
            pendiente por contraste, ver insights.md— y habrían aparecido dos grises
            distintos en la misma cabecera. -->
+      <!-- `enterkeyhint="done"` (D-335): la tecla de la esquina del teclado del
+           móvil dice «OK» en vez de la flecha de salto de línea. El buscador
+           filtra solo mientras se escribe; esa tecla no busca nada, solo fija lo
+           escrito y baja el teclado, y una tecla «Buscar» prometería otra cosa
+           (el propietario). La barra negra con flechas que sale encima del
+           teclado en Safari es del sistema: ninguna web la puede quitar. -->
       <input
         type="text"
         id="search-active-input"
+        enterkeyhint="done"
         placeholder="Busca un evento, artista, diseñador discoteca..."
  class="typo-h3 bg-transparent border-none text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:font-normal placeholder:text-mel-text-tertiary placeholder:truncate focus:outline-none w-full py-1 pl-[6px] transition-all duration-200"
         autocomplete="off"

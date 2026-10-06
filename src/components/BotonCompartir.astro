@@ -2,13 +2,21 @@
 /**
  * BotonCompartir — «Button / Share», Figma 1356:62123 (D-306).
  *
- * Estados: Resting (borde y texto action-secondary), Hover (action-primary,
- * solo con ratón) y Active = «Copiado» (fondo action-primary, texto
- * text-on-action y el icono convertido en ✓). El Active lo pone el script de
- * la ficha con la clase `mel-copiado`; este componente solo lo pinta.
+ * Estados: Resting (borde y texto action-secondary), Hover = mancha de tinta
+ * (D-333, solo con ratón o con el foco del teclado) y Active = «Copiado» (fondo
+ * action-primary, texto text-on-action y el icono convertido en ✓). El hover y
+ * el Active los pone el script de la ficha con las clases `mel-tinta-dentro` y
+ * `mel-copiado`; este componente solo los pinta.
  *
  * Ancho FIJO de 136 px (base 8) en todos los estados, decisión del
  * propietario: que el botón no cambie de tamaño al pasar a «Copiado».
+ *
+ * La mancha (D-333, elegida por el propietario en una maqueta con mandos): una
+ * capa action-primary con su propia copia del texto en text-on-action, recortada
+ * por un círculo que nace donde entra el ratón y se recoge hacia donde sale. El
+ * borde irregular, como tinta en papel, sale de un filtro SVG (turbulencia +
+ * desplazamiento) que cambia de forma en cada entrada. El script de la ficha
+ * pone el centro (`--tinta-x/y`) y el radio (`--tinta-r`); el CSS lo anima.
  *
  * Hoy solo se usa en escritorio (lg+). En teléfono y tableta la ficha usa el
  * icono suelto en la fila de la X (IconButton `share`), y ahí se comparte con
@@ -32,10 +40,38 @@ const { id, class: className = '' } = Astro.props;
   <!-- `aria-live`: un lector de pantalla anuncia el «Copiado». -->
   <span class="boton-compartir-texto" aria-live="polite">Compartir</span>
   <Icon icon="share" size={16} strokeWidth={2} class="shrink-0" />
+  <!-- La mancha: capa de color con la copia del texto. Escondida para los
+       lectores de pantalla (el texto de verdad es el de arriba). -->
+  <span class="boton-compartir-tinta" aria-hidden="true">
+    <span class="boton-compartir-tinta-marco"><span class="boton-compartir-tinta-fondo"></span></span>
+    <span class="boton-compartir-tinta-encima">
+      <span class="boton-compartir-texto">Compartir</span>
+      <Icon icon="share" size={16} strokeWidth={2} class="shrink-0" />
+    </span>
+  </span>
+  <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
+    <filter id="mel-borde-tinta" x="-20%" y="-50%" width="140%" height="200%">
+      <feTurbulence class="boton-compartir-ruido" type="fractalNoise" baseFrequency="0.045" numOctaves="3" seed="7" result="ruido"></feTurbulence>
+      <feDisplacementMap in="SourceGraphic" in2="ruido" scale="14" xChannelSelector="R" yChannelSelector="G"></feDisplacementMap>
+    </filter>
+  </svg>
 </button>
 
 <style>
+  /* El radio de la mancha tiene que ser una propiedad registrada: una variable
+     normal no se interpola y la transición saltaría de golpe. */
+  @property --tinta-r {
+    syntax: '<length>';
+    inherits: true;
+    initial-value: 0px;
+  }
+
   .boton-compartir {
+    --tinta-x: 68px;
+    --tinta-y: 21px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -48,28 +84,80 @@ const { id, class: className = '' } = Astro.props;
     background-color: transparent;
     color: var(--mel-action-secondary);
     white-space: nowrap;
+    /* Esta es la transición de VUELTA (de «Copiado» o de la mancha a reposo,
+       D-328/D-333): la mancha se recoge en 500 ms lineal y el borde con ella;
+       el fondo y la letra de «Copiado», en 600 ms frenando. */
     transition:
-      background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background-color 0.6s cubic-bezier(0, 0, 0.2, 1),
+      border-color 0.5s linear,
+      color 0.6s cubic-bezier(0, 0, 0.2, 1),
+      --tinta-r 0.5s linear;
+  }
+  /* La ida de la mancha: 800 ms frenando fuerte (los valores que eligió el
+     propietario en la maqueta). */
+  .boton-compartir:global(.mel-tinta-dentro) {
+    border-color: var(--mel-action-primary);
+    transition:
+      background-color 0.6s cubic-bezier(0, 0, 0.2, 1),
+      border-color 0.8s cubic-bezier(0.21, 0.8, 0.41, 0.9),
+      color 0.6s cubic-bezier(0, 0, 0.2, 1),
+      --tinta-r 0.8s cubic-bezier(0.21, 0.8, 0.41, 0.9);
+  }
+  .boton-compartir-texto {
+    transition: opacity 0.2s ease;
   }
 
-  /* Hover acotado a puntero fino: en un teléfono el «hover» que el navegador
-     simula al tocar se quedaría pegado (mismo motivo que en el resto del DS). */
-  @media (hover: hover) and (pointer: fine) {
-    .boton-compartir:hover {
-      border-color: var(--mel-action-primary);
-      color: var(--mel-action-primary);
-    }
+  .boton-compartir-tinta {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+  }
+  .boton-compartir-tinta-marco {
+    position: absolute;
+    inset: 0;
+    filter: url(#mel-borde-tinta);
+  }
+  /* La tinta sobresale 8 px por cada lado: el desplazamiento del filtro mueve
+     los píxeles hasta 7 px y, sin ese margen, dejaba huecos en los bordes. */
+  .boton-compartir-tinta-fondo {
+    position: absolute;
+    inset: -8px;
+    background-color: var(--mel-action-primary);
+    clip-path: circle(var(--tinta-r) at calc(var(--tinta-x) + 8px) calc(var(--tinta-y) + 8px));
+  }
+  .boton-compartir-tinta-encima {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--mel-text-on-action);
+    clip-path: circle(var(--tinta-r) at var(--tinta-x) var(--tinta-y));
   }
 
-  /* Active (Figma 1356:62140). Gana al hover: copiado con el ratón encima
-     tiene que verse copiado. */
-  .boton-compartir:global(.mel-copiado),
-  .boton-compartir:global(.mel-copiado):hover {
+  /* Active (Figma 1356:62140). La mancha NO se apaga al pulsar: pinta lo mismo
+     que «Copiado» y su icono hace la ✓ encima. Apagarla dejaba asomar un
+     instante la letra oscura a medio cambiar y la ✓ no se veía (visto en la
+     maqueta, D-333). */
+  .boton-compartir:global(.mel-copiado) {
     background-color: var(--mel-action-primary);
     border-color: var(--mel-action-primary);
     color: var(--mel-text-on-action);
+    transition:
+      background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+      border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+      color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+      --tinta-r 0.5s linear;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .boton-compartir,
+    .boton-compartir:global(.mel-tinta-dentro),
+    .boton-compartir:global(.mel-copiado),
+    .boton-compartir-texto {
+      transition: none !important;
+    }
   }
 
   .boton-compartir:focus-visible {

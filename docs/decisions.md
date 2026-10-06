@@ -6632,3 +6632,363 @@ arrastrar fuera, selección vacía.
 **De paso** (propietario): se queda con la separación de D-320 tal como quedó —40 px entre
 columnas, 24 entre carteles de una misma columna—: «como cuatro carriles verticales, ayuda a
 escanear la página».
+
+## D-323 · Anterior/Siguiente: pase de diapositivas con dirección (T4) — SUSTITUIDA por D-325
+
+**Propietario** (opción A de dos): un pase corto con dirección, la cabecera quieta. Antes, la
+ficha que se iba se fundía y la nueva aparecía encima con el cartel ya en su sitio, sin sensación
+de dirección.
+
+**Decisión** (`event/[id].astro`):
+- Al pulsar Anterior/Siguiente (oyente de clic en captura, registro único) o sus flechas del
+  teclado, `__melMarcarPase(dir)` pone `mel-pase-siguiente` o `mel-pase-anterior` en `<html>` —la
+  necesita la foto VIEJA— y en `astro:before-swap` se copia al documento que llega —la necesita la
+  NUEVA: Astro copia los atributos de `<html>` del documento nuevo—. Se retira al acabar la
+  transición (red de 3 s). Con «reducir movimiento», no se pone: el fundido de siempre. Cmd/Ctrl/
+  Mayús-clic (pestaña nueva), tampoco.
+- Con la clase: la raíz vieja sale 40 px hacia un lado fundiéndose (300 ms, acelerando) y la nueva
+  entra 40 px desde el otro (350 ms tras 80, frenando). Siguiente: sale a la izquierda, entra por
+  la derecha; Anterior, al revés. La fila de la X y compartir (`#detail-sticky-header > div`) toma
+  el nombre `mel-barra-ficha` sin animación: se queda quieta. Los carteles pierden su nombre durante
+  el pase (`view-transition-name: none !important`) para ir dentro de la ficha y deslizarse con
+  ella; sin eso, el viejo se fundía aparte y el nuevo aparecía de golpe en su sitio.
+
+**Medido** (Chrome sin pantalla, `herramientas-medicion/pase-fichas.mjs`, móvil y escritorio):
+Siguiente → `mel-pase-sale-izquierda` 300 ms / `mel-pase-entra-derecha` 430; Anterior →
+`sale-derecha` / `entra-izquierda`; cartel sin nombre al salir; la clase no queda tras la
+transición; fotogramas con la X y compartir quietas y la ficha desplazándose. Build correcto.
+
+**Trampa repetida**: el servidor de desarrollo sirvió el CSS viejo a la página cargada de cero (la
+regla de los carteles no se aplicaba) hasta reiniciarlo (traspaso §3, aviso 2).
+
+## D-325 · Anterior/Siguiente: solo se barre lo que cambia (T4, sustituye a D-323)
+
+**Propietario**, probando D-323: que se anime solo lo que cambia. Quietos la navegación de arriba,
+los nombres de las etiquetas (Fecha, Lugar…) y «Anterior»/«Siguiente»; «Artistas» puede moverse.
+Los textos que cambian se borran de derecha a izquierda al ir a Siguiente y el nuevo aparece en esa
+misma dirección (al revés con Anterior), y la foto igual. En el móvil, «devolver el scroll a su
+sitio y, mientras, que el barrido vaya sucediendo en la parte fija de arriba»; si era muy
+complicado, se podía dejar el móvil como estaba.
+
+**Decisión** (`event/[id].astro`; el marcado de clases de D-323 se conserva):
+- **El barrido** es una máscara sobre la capa de cada pieza: un degradado de opaco a transparente
+  2,5 veces más ancho que la capa, que se corre de un lado al otro (`mel-barrido-izquierda` /
+  `-derecha`). Lo viejo se borra en 280 ms; lo nuevo se escribe en la misma dirección en 320 ms,
+  120 ms detrás, así que entre los dos bordes queda un hueco corto. Las piezas que se barren llevan
+  la clase de transición `mel-barre`. Sus capas se pintan a su tamaño (`inline-size: auto`): por
+  defecto se estiran al ancho del grupo y un título más largo se deformaba.
+- **Escritorio**: la página de fondo no se anima (se cambia en seco y no se nota, porque lo que
+  queda en ella es igual). Se barren el título, los valores de las cinco etiquetas, la
+  descripción, los artistas, los títulos de Anterior/Siguiente y el cartel. Lo que puede cambiar de
+  sitio sin cambiar de texto (la raya, «Artistas», Compartir, las filas de Anterior/Siguiente,
+  cuando la descripción nueva es más larga o más corta) lleva capa propia y se desliza (400 ms).
+- **El cartel** se barre él solo, no la caja con rayas de fondo. El viejo y el nuevo llevan
+  nombres **distintos** (`mel-pase-foto-sale` / `mel-pase-foto`): con el mismo nombre, el navegador
+  llevaba el cartel viejo hasta la caja del nuevo (otro tamaño, otro sitio) y se veían los dos
+  deslizándose. El viejo lo marca el script (el que esté a la vista en el carrusel, con estilo en
+  línea `!important`); el nuevo es siempre el primero (clase `mel-pase-llega`, que solo lleva el
+  documento que llega). Su regla sube la especificidad con `:is(:first-child, #_)`: tiene que ganar
+  a la que quita el nombre a todos los carteles durante el pase, que también es `!important`.
+- **Móvil**: la cabecera fija (`#detail-cabecera`: X, compartir, título, etiquetas) es una capa
+  quieta. Dentro se barren el título y la fila de etiquetas **entera** (allí los nombres cambian
+  de sitio con el largo de los valores, así que no se pueden dejar quietos). Debajo, la ficha
+  vieja se funde en 200 ms y la nueva aparece en 320 ms tras 160 (al principio se solapaban más y
+  dos bloques de texto se leían como un borrón). Si se estaba más de 40 px abajo
+  (`mel-pase-desde-abajo`), la vieja baja 64 px al irse y la nueva baja 64 px hasta su sitio: se
+  lee como el scroll volviendo arriba, debajo de una cabecera que no se mueve.
+- El reloj de seguridad de 3 s se cancela en `astro:before-swap`: desde ahí la clase la retira el
+  final de la transición. Con la transición a cámara lenta, el reloj la quitaba a mitad y todo
+  volvía al fundido por defecto (en la vida real no llegaba a pasar: el pase dura 440 ms).
+- Ids nuevos para poder nombrar las piezas: `detail-descripcion`, `detail-raya`,
+  `detail-artistas-etq`, `detail-artistas`.
+- Con «reducir movimiento», nada de esto: el fundido de siempre (como en D-323).
+
+**Medido** (Chrome sin pantalla, `herramientas-medicion/pase-barrido.mjs`, 1440 y 375, a 0,1×):
+todas las capas emparejadas (viejo y nuevo) en escritorio; Siguiente se borra y escribe de derecha
+a izquierda y Anterior al revés, con los nombres de las etiquetas, la X y «Anterior»/«Siguiente»
+quietos; cada cartel se barre en su sitio. En el móvil, la cabecera quieta con el título y las
+etiquetas barriéndose, y desde abajo, la ficha bajando a su sitio. Sin transiciones abortadas.
+
+**Pendiente**: los puntos del carrusel del cartel nuevo aparecen de golpe al final (van en la
+página de fondo). Probar en Safari de verdad: las máscaras y las clases de transición necesitan
+Safari 18.2; en uno más viejo, el cambio sería en seco.
+
+**Trampa, otra vez**: el servidor de desarrollo sirvió el CSS viejo tras cada cambio de estilos de
+la ficha (el HTML ya traía el script nuevo). Reiniciar y borrar `node_modules/.vite` cada vez.
+
+## D-326 · Un solo barrido para toda la ficha (escritorio)
+
+**Propietario**, probando D-325: «¿podríamos calcular los tiempos por distancia para que parezca
+que el mismo barrido se lo lleva todo y no a cada cosa el suyo? Sería un poco más lento». Y los
+títulos de Anterior/Siguiente, «algo más discreto, como un fundido simple, estático».
+
+**Decisión** (`event/[id].astro`, solo escritorio; el móvil sigue con D-325):
+- Una línea cruza la ficha a velocidad fija (2,4 px/ms): con Siguiente desde el borde derecho de
+  lo que se barre hasta el izquierdo, con Anterior al revés. Cada pieza se borra cuando la línea
+  le pasa por encima: su retraso es la distancia de la línea hasta ella y su duración, lo que
+  tarda en cruzarla. Otra línea, 150 ms detrás, escribe lo nuevo. Borde suave de 160 px, igual en
+  todas las piezas (en D-325 era proporcional a cada una).
+- Al pulsar se miden las cajas de lo que se va (`medirBarridos`: las piezas con nombre y clase
+  `mel-barre`); en `ready` de la transición, las de lo que llega. `barrerDeUnaVez` cancela las
+  animaciones del CSS de esas capas y les pone las suyas, con la máscara medida en píxeles
+  (2 × ancho + borde). Las del CSS quedan de reserva si el script no llega a correr.
+- Títulos de Anterior/Siguiente: fuera del barrido. Conservan su capa y se funden en su sitio con
+  el fundido de serie del navegador.
+- Duración total con la ficha típica: unos 730 ms (antes, 440).
+
+**Medido** (`herramientas-medicion/pase-barrido.mjs`, que ahora apunta el retraso y la duración de
+cada capa): Siguiente, título y artistas a 0 ms, cartel a 217, etiquetas a 433 (las nuevas, 150 ms
+detrás); Anterior, al revés. Fotogramas: la línea atraviesa columna a columna. A cámara lenta el
+carrusel automático de la ficha nueva llega a pasar de foto durante el pase y arrastra la capa del
+cartel; a velocidad real el pase acaba mucho antes.
+
+## D-327 · El barrido sin montarse: nada se desliza, lo que no cambia se queda quieto
+
+**Propietario**, probando D-326: al pasar a una ficha con descripción («Presentación FIV X»,
+MEL-00063) desde otras que no la tienen, «los artistas se montan encima de ella esperando a que el
+barrido llegue desde la izquierda a llevársela». Pasa siempre que algo cambia de sitio.
+
+**Por qué**: cada pieza llevaba el MISMO nombre de capa en la ficha vieja y en la nueva, y con el
+mismo nombre el navegador desliza la capa de su sitio viejo al nuevo. Los artistas viejos bajaban
+o subían a su sitio nuevo mientras seguían visibles, y la línea aún no había llegado a borrarlos.
+
+**Decisión** (`event/[id].astro`, escritorio):
+- Cada pieza lleva un nombre en la ficha que se va (`mel-pase-…-sale`, regla con
+  `:not(.mel-pase-llega)`) y otro en la que llega. Así cada capa se queda donde estaba: la vieja se
+  borra en su sitio y la nueva se escribe en el suyo. La línea que borra va siempre por delante de
+  la que escribe, así que en ningún punto se ven las dos. Es lo que ya hacía el cartel desde D-325.
+- Lo que no cambia ni de texto ni de sitio (la misma fecha o localidad, «Anterior»/«Siguiente»,
+  «Artistas» en el mismo hueco) no se barre: `barrerDeUnaVez` apaga la capa vieja y deja la nueva
+  puesta desde el primer fotograma, sin la máscara de reserva del CSS (con ella, lo quieto
+  desaparecía durante el pase; visto en los fotogramas y corregido). Lo que se ha movido («Artistas»,
+  la raya, Compartir, las filas de abajo) se barre como lo demás.
+- `medirBarridos` apunta también el alto, la altura en pantalla y el texto de cada pieza, para
+  comparar la vieja con la nueva. De las filas de Anterior/Siguiente solo cuenta la palabra: el
+  título de dentro tiene su propia capa, con fundido (D-326).
+- Se descarta lo que proponía el propietario como salida (que lo que se mueve aparezca y
+  desaparezca mucho más deprisa que el resto): con capas quietas no hace falta.
+
+**Medido** (`pase-barrido.mjs`, que ahora puede empezar en una ficha: último argumento
+`MEL-00063`): Siguiente desde FIV X y Anterior hacia ella. La descripción se borra en su sitio y los
+artistas nuevos se escriben donde estaba, después de que pase la línea; la fecha, «León» y
+«Anterior»/«Siguiente» quietos durante todo el pase. Sin transiciones abortadas.
+
+## D-328 · Fundido suave abajo, descripción seleccionable, Compartir más suave a la vuelta
+
+**Propietario**: los títulos de Anterior/Siguiente, «un poquito más suave y delicado» (sin tener
+que durar lo que el barrido); la descripción se tiene que poder seleccionar (los artistas, en
+duda); y el botón Compartir, más suave al cambiar de estado, «sobre todo a la vuelta».
+
+**Decisión**:
+- **Títulos de Anterior/Siguiente** (escritorio, clase de transición `mel-funde`): el viejo se va
+  en 350 ms y el nuevo llega en 500, empezando a los 175 ms, los dos frenando. Antes, el fundido
+  de serie del navegador: 250-300 ms y cruzados a la vez.
+- **Descripción seleccionable** (`select-text` en `#detail-descripcion`). Toda la ficha lleva
+  `select-none` desde los primeros commits (15/07/2026), sin decisión escrita que lo explique; se
+  deja así en lo demás hasta que el propietario decida sobre el título y los artistas.
+  Accesibilidad: ninguna pauta WCAG obliga a que el texto se pueda seleccionar, pero bloquearlo en
+  CONTENIDO (no en controles) estorba a quien copia para buscar o traducir y a las herramientas que
+  leen en voz alta lo seleccionado (Pronunciar selección en iPhone, Seleccionar para pronunciar en
+  Android). La recomendación general es bloquearlo solo en botones, fotos y zonas que se arrastran.
+- **Compartir** (`BotonCompartir.astro`, `Icon.astro`, script de la ficha): la ida a «Copiado»
+  pasa de 300 a 350 ms; la vuelta, de 300 a 600 ms frenando para los colores y 500 para el icono
+  (la caja y el palo vuelven en 400 ms tras 200). La palabra, a la vuelta, se funde (200 ms fuera,
+  cambio, 200 dentro) en lugar de cambiar de golpe; a la ida sigue cambiando al instante, que es la
+  respuesta al clic. El hover entra en 300 ms y sale en 600. Con «reducir movimiento», todo de golpe.
+
+**Medido** (Chrome sin pantalla): descripción `user-select: text`, artistas `none`; Compartir pasa
+a «Copiado» con transición de 0,35 s y vuelve con la palabra fundiéndose y el fondo apagándose en
+unos 0,5 s; títulos de abajo `mel-pase-sale` 0,35 s y `mel-pase-entra` 0,5 s + 0,175 s.
+
+## D-329 · Títulos de abajo sin cruzarse; título y artistas seleccionables
+
+**Propietario**, sobre D-328: los títulos de Anterior/Siguiente, que no se crucen: «el que sale se
+va más rápido y el que entra lo hace con curvita de fuerte a suave». Y que también se puedan
+seleccionar los artistas («si no se rompe nada ni hace feos los links») y el título.
+
+**Decisión** (`event/[id].astro`):
+- Títulos de abajo: el viejo se va en 200 ms acelerando; el nuevo entra a los 200 ms, cuando el
+  viejo ya no está, en 450 ms con `cubic-bezier(0.16, 1, 0.3, 1)` (arranca fuerte y frena largo).
+- `select-text` en el título (el de escritorio y el del móvil) y en los artistas. Los enlaces de
+  los artistas siguen navegando con un clic; en reposo no cambia nada.
+
+**Medido** (Chrome sin pantalla): `mel-pase-sale` 0,2 s y `mel-pase-entra` 0,45 s + 0,2 s;
+arrastrar sobre el título lo selecciona; clic en un artista lleva a su búsqueda.
+
+**De paso, sin tocar** (pregunta del propietario: por qué «Organiza» se ve distinto de las demás
+etiquetas): no hay decisión de aspecto. Es un efecto de D-218: para que cada promotor fuese su
+propio enlace, «Organiza» pasó a pintarse como los artistas (`multi`, enlaces con `hideChevron`), y
+al pasar el ratón se subraya. Las demás etiquetas son un solo enlace y enseñan la flecha (›). Queda
+pendiente de que el propietario elija cómo igualarlo.
+
+## D-330 · «Organiza» con un solo promotor, como las demás etiquetas
+
+**Propietario** (eligió la primera de dos opciones, D-329): que «Organiza» deje de verse distinto.
+
+**Decisión** (`event/[id].astro`, `TAGS_EVENTO`): con UN solo promotor —lo normal— la etiqueta se
+pinta como las demás, un enlace con la flecha (›) al pasar el ratón (o «¿Nos ayudas?» en
+action-primary si falta, o el texto sin enlace si es un «Varios»). Con varios sigue el `multi` de
+D-218: cada nombre su enlace, subrayado al pasar el ratón como los artistas, porque una flecha por
+nombre no cabe. La Lista y el panel del mapa no cambian.
+
+**Medido** (Chrome sin pantalla): FIV X (un promotor), etiqueta simple con flecha en escritorio y
+en la fila del móvil; MEL-00086 («La Real, R2»), dos enlaces como antes.
+
+## D-331 · Los títulos de Anterior/Siguiente vuelven al barrido (a prueba)
+
+**Propietario**: «prueba a incluir de nuevo los títulos de los eventos de la navegación inferior
+en el barrido».
+
+**Decisión** (`event/[id].astro`, escritorio): sus capas llevan otra vez la clase `mel-barre` y
+entran en `PIEZAS_PASE`, así que la línea única se los lleva como a lo demás (con D-327 cada uno se
+borra y se escribe en su sitio). Se retira el fundido propio de D-326/D-329; sus valores quedan
+apuntados en el comentario del CSS por si se vuelve a él: el viejo, 200 ms acelerando; el nuevo,
+a los 200 ms, 450 con `cubic-bezier(0.16, 1, 0.3, 1)`.
+
+**Medido** (`pase-barrido.mjs`, Siguiente desde FIV X): título de Siguiente a 0 ms y el de Anterior
+a 217 (los nuevos, 150 ms detrás); las palabras «Anterior»/«Siguiente», quietas.
+
+## D-332 · Los puntos del carrusel, quietos y barridos (pase, escritorio)
+
+**Propietario**: los puntos eran lo único que quedaba sin animar en el pase (aparecían o
+desaparecían de golpe).
+
+**Decisión** (`event/[id].astro`, escritorio): `#carousel-dots-container` entra en el pase con
+nombre propio en cada ficha (`mel-pase-puntos-sale` / `mel-pase-puntos`) y se barre con la línea
+en su sitio, como las demás piezas: se borra si la ficha nueva tiene un solo cartel, se escribe si
+la vieja lo tenía, y se barre también cuando está en las dos aunque sean los mismos puntos (la
+pieza `puntos` se salta la comparación de «quietos» de D-327, a petición del propietario).
+En el móvil no cambia nada.
+
+**Probado y retirado el mismo día**: que los puntos salieran deslizándose de debajo de la caja de
+la foto y se escondieran bajo ella (`translateY` con `clip-path` recortando por arriba, 350/450 ms).
+Funcionaba, pero el propietario lo vio excesivo: «quietos, pero que respondan al barrido».
+
+**Medido** (`pase-barrido.mjs`, Siguiente, cargando de cero): MEL-00099 → 00093 (de uno a dos
+carteles) los puntos se escriben a los 367 ms; MEL-00093 → 00098 (de dos a uno) se borran a los
+217; los dos con la máscara del barrido (273 ms).
+
+## D-333 · Compartir: hover de mancha de tinta
+
+**Propietario**: el hover de Compartir «prácticamente no se nota». Probó tres en una maqueta con
+mandos de duración y curva (https://claude.ai/artifact/CLm7bBChrQ4mzsxGuP5Qbv: el de hoy, mancha
+de tinta y relleno de izquierda a derecha) y eligió la tinta con estos valores: entrada 800 ms
+`cubic-bezier(0.21, 0.8, 0.41, 0.9)` (frena fuerte), salida 500 ms lineal, y el borde cambiando de
+color con ella.
+
+**Decisión** (`BotonCompartir.astro`, script de la ficha; solo escritorio, que es donde está):
+- Una capa action-primary con su propia copia del texto y del icono en text-on-action, recortada
+  por un círculo (`clip-path: circle()`) que nace donde entra el ratón y se recoge hacia donde
+  sale; con el teclado, desde el centro. El radio llega a la esquina más lejana del punto.
+- El borde irregular, como tinta en papel, sale de un filtro SVG (`feTurbulence` +
+  `feDisplacementMap`) con otra semilla en cada entrada: cada mancha tiene otra forma. La tinta
+  sobresale 8 px por lado para que el desplazamiento no deje huecos en los bordes.
+- El radio es una propiedad registrada (`@property --tinta-r`), así que lo anima el CSS: el script
+  (`engancharTinta`) solo pone el centro y el radio, y la clase `mel-tinta-dentro` elige los
+  tiempos de ida o de vuelta. Al salir, se recentra en el punto de salida con el radio que lo cubre
+  todo, sin transición (no se nota), y desde ahí se recoge.
+- Al pulsar, la mancha NO se apaga: pinta lo mismo que «Copiado» y su icono hace la ✓ encima. En
+  la maqueta, apagarla dejaba asomar un instante la letra oscura a medio cambiar y la ✓ no se veía.
+- Con el ratón, la mancha solo se va al salir, no al perder el foco: copiar el enlace le quita el
+  foco al botón y la recogía a mitad del «Copiado» (visto en las pruebas).
+- Los dos textos y los dos iconos cambian a la vez (`confirmarCopiado` y
+  `transformarIconoCompartir` recorren todos). La copia va con `aria-hidden`: el lector de
+  pantalla sigue leyendo solo el texto de verdad, con su `aria-live`.
+- Se retira el hover anterior (letra y borde a action-primary en 300 ms). Con «reducir
+  movimiento», la mancha aparece y desaparece de golpe.
+
+**Medido** (Chrome sin pantalla, FIV X): radio 40 → 100 → 144 px (lleno) al entrar por la esquina;
+al pulsar, «Copiado» en los dos textos con la mancha entera y la ✓ formándose; al salir, radio 0 y
+borde de vuelta. El pase entre fichas sigue igual (Compartir barrido a los 140 ms). Sin errores.
+
+## D-324 · La Lista se mueve, no se funde (T2) — la parte del filtro, SUSTITUIDA por D-334
+
+**Propietario**: «la animación de las cards de lista es un poco extraña: movimientos que parecen
+aleatorios, fundidos muy evidentes; no da sensación de fluidez y movimiento natural, sino una
+interpolación. Menos fundido y más tarjetas moviéndose de verdad hasta su posición». Pasaba
+siempre.
+
+**Por qué**: la Lista enseña páginas de 32. Al ordenar o filtrar, casi toda la página cambia, y lo
+que no estaba antes no tenía desde dónde moverse: las que se iban se plegaban y se fundían en su
+hueco (D-253/D-255), las que llegaban entraban con fundido (en cascada al ordenar). Solo se movían
+de verdad las pocas que seguían. Además, al buscar o mover los años con la Lista a la vista, la
+transición de vista fundía la foto vieja por encima.
+
+**Decisión** (`index.astro`, tabla de escritorio y tarjetas del móvil):
+- **Las que se van** hacen de fantasma (como las tarjetas de la galería, D-252): fuera de flujo en
+  su sitio viejo (`hacerFantasmaFila`; en la tabla, con los anchos de sus celdas fijados) y salen
+  **en bloque** (`sacarFantasmas`) hacia abajo si en el orden nuevo quedan detrás de la página,
+  hacia arriba si quedan delante, o hacia la izquierda si el filtro las quita.
+- **Las que llegan** (`meterLlegadas`) entran en bloque desde el borde contrario al de las que
+  salen —como una cinta: si las viejas salen por abajo, las nuevas entran por arriba siguiéndolas—,
+  o desde la derecha si el filtro las trae (su sitio en el orden anterior, `ordenListaPrevio`). Por
+  el lado, en cascada corta (22 ms); en vertical, todas a la vez.
+- **Una sola tira**: las que salen y las que entran recorren la misma distancia
+  (`distanciaBloque`), la que deja la última nueva pegada a la primera vieja y nunca menos de lo que
+  hace falta para salir o entrar de la vista. En la tabla se descuenta la fila de títulos
+  pegajosa (`zonaVisible`): sin eso quedaba un hueco de su alto (40 px) entre los dos bloques.
+- **Las que siguen**: el FLIP de siempre.
+- Con la Lista a la vista ya no se arranca la transición de vista al buscar o mover los años (como
+  ya pasaba al ordenar): su foto vieja se fundía encima.
+- Solo `transform`; lo que no se ve ni antes ni después no se anima; el coste no crece con el
+  archivo (como mucho, las 32 de la página y las que salen). Con «reducir movimiento», de golpe.
+- Se retiran `plegarYRetirar` y `desplegarFila` (sin uso).
+
+**Medido** (Chrome sin pantalla, `herramientas-medicion/lista-movimiento.mjs`, móvil y escritorio):
+al ordenar y al buscar, las filas solo tienen animaciones de `transform` (ninguna de opacidad),
+ningún fantasma queda en el DOM y sin errores. Fotogramas: al ordenar, una tira continua que baja
+(las nuevas pegadas encima de las viejas, sin solaparse ni separarse); al buscar, las que se van por
+la izquierda y las que quedan entrando por la derecha. La vuelta desde una ficha a la Lista y las
+vueltas seguidas, como antes. Build correcto.
+
+**Sin verificar**: un iPhone de verdad.
+
+## D-334 · La Lista: al buscar, las filas se meten debajo de la de encima (rehace parte de D-324)
+
+**Propietario**, probando D-324: sin ningún fundido era demasiado; el movimiento lateral de las
+filas que quita el filtro, raro y exagerado (sobre todo en escritorio); lo vertical, bien; al
+buscar pasaban cosas raras. Pidió que las que se van se metan por debajo de la de encima y que las
+que llegan salgan de debajo de ella, con algún fundido si hace falta; tarjetas del móvil opacas; y
+al ordenar, movimiento vertical «sin difuminados mágicos».
+
+**Decisión** (`index.astro`, tabla de escritorio y tarjetas del móvil):
+- **Dos movimientos según lo que pasa.** Si es el MISMO conjunto de eventos en otro orden (ordenar,
+  pasar de página: `mismoConjunto`, comparando con `ordenListaPrevio`), la tira vertical de D-324
+  tal cual, solo con `transform`. Si el conjunto cambia (buscar, mover los años), lo nuevo:
+- **Las que se van** suben hasta quedar escondidas debajo de la fila que se queda justo encima de
+  ellas (la última que sigue, en el orden viejo; el borde de abajo de esa fila en su sitio nuevo).
+  Sin ninguna encima, debajo de la cabecera de la zona visible. Una racha seguida se recoge como un
+  abanico, cada una por debajo de la anterior (`z-index` negativo y decreciente; la tabla o el
+  contenedor de tarjetas aíslan las capas con `isolation: isolate` para que no se vayan por detrás
+  del fondo de la página). Se apagan solo en el último 30 %.
+- **Las que llegan** salen de debajo de la primera fila de encima que ya estaba, abriéndose como un
+  abanico, y se encienden en el primer cuarto. Un fundido más largo dejaba las filas
+  transparentes mientras se cruzaban y el texto se amontonaba.
+- **Las que siguen**: el FLIP de siempre, que cierra o abre los huecos a la vez.
+- Desaparece el movimiento lateral (`'lado'` y su cascada).
+- Las tarjetas del móvil ya eran opacas (`.mobile-event-card-list` con fondo, en el bloque global);
+  no ha hecho falta tocarlas.
+
+**Medido** (`lista-movimiento.mjs`, que gana el caso `volver` = borrar una búsqueda; y una sonda a
+velocidad real): al buscar «pk», 9 filas visibles se recogen en 350 ms y se retiran todas; al
+borrar, las que vuelven son opacas a los 130 ms con su orden de capas; ordenar sigue solo con
+`transform`. Móvil y escritorio, sin errores ni fantasmas en el DOM.
+
+## D-335 · La tecla Intro del buscador dice «OK» en el móvil
+
+**Propietario**: en Safari del iPhone, al escribir en el buscador sale una barra negra sobre el
+teclado (flechas ↑ ↓ y ✓) que quita sitio, y la tecla de la esquina del teclado (↵) da a entender
+que hará un salto de línea o que mandará una orden, cuando el buscador ya filtra solo mientras se
+escribe.
+
+**Decisión** (`HeaderTitle.astro`): `enterkeyhint="done"` en `#search-active-input`: la tecla pasa
+a decir «OK», que es lo que hace (fija lo escrito y baja el teclado). Se descartó `"search"`
+(«Buscar»): prometería una búsqueda que no hay, porque el filtro ya ha corrido.
+
+**Lo que no se puede**: la barra negra es la barra de formularios de Safari en iOS (las flechas
+saltan entre campos de un formulario, el ✓ cierra el teclado). Es del sistema: ninguna página la
+puede esconder, ni con atributos ni con CSS; solo una app nativa.
+
+**Idea aparcada** (propietario, para más adelante): esconder parte de la interfaz mientras se
+busca en el móvil (por ejemplo el selector Galería/Mapa/Lista) para que se vea más resultado.
+

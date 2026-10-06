@@ -2366,65 +2366,193 @@ const tags = [
     });
   }
 
-  // Despedida y llegada de filas de la Lista (D-255) — UN solo efecto para
-  // móvil y escritorio, el que el propietario señaló como referencia: fundido
-  // + encogimiento a la vez, y las vecinas se deslizan solas por el reflujo
-  // del colapso, sin FLIP aparte. Un `<tr>` no colapsa como un div (ni admite
-  // overflow ni altura animable con celdas de alto fijo), así que en la tabla
-  // se pliegan sus CELDAS: paddings, altura de línea y el bloque interior.
-  // WAAPI y no clases CSS por lo de siempre (D-253): la mitad de este marcado
-  // lo fabrica el JS y las reglas con ámbito no lo visten.
-  function plegarYRetirar(fila) {
-    fila.style.pointerEvents = 'none';
-    const animaciones = [];
-    if (fila.tagName === 'TR') {
-      fila.querySelectorAll('td').forEach(td => {
-        td.style.overflow = 'hidden';
-        const cs = getComputedStyle(td);
-        animaciones.push(td.animate(
-          [{ paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, lineHeight: cs.lineHeight },
-           { paddingTop: '0px', paddingBottom: '0px', lineHeight: '0px' }],
-          { duration: 260, easing: 'ease-out' }
-        ));
-        const bloque = td.firstElementChild;
-        if (bloque && bloque.offsetHeight) {
-          bloque.style.overflow = 'hidden';
-          animaciones.push(bloque.animate(
-            [{ height: bloque.offsetHeight + 'px' }, { height: '0px' }],
-            { duration: 260, easing: 'ease-out' }
-          ));
-        }
-      });
-    } else {
-      fila.style.overflow = 'hidden';
-      animaciones.push(fila.animate(
-        [{ height: fila.offsetHeight + 'px' }, { height: '0px' }],
-        { duration: 260, easing: 'ease-out' }
-      ));
-    }
-    animaciones.push(fila.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: 'ease-out' }));
-    Promise.allSettled(animaciones.map(a => a.finished)).then(() => fila.remove());
+  // Despedida y llegada de filas de la Lista: hasta D-324 era un plegado con
+  // fundido (D-255, `plegarYRetirar`/`desplegarFila`, retiradas). WAAPI y no
+  // clases CSS por lo de siempre (D-253): la mitad de este marcado lo fabrica
+  // el JS y las reglas con ámbito no lo visten.
+  // ---- La Lista se mueve, no se funde (D-324) ----------------------------
+  // Petición del propietario: «menos fundido y más tarjetas moviéndose de
+  // verdad hasta su posición». Al reordenar o filtrar, la página de 32 cambia
+  // casi entera, y lo que no tenía de dónde venir se fundía. Ahora todo viaja:
+  //  · al ORDENAR o pasar de página (el mismo conjunto en otro orden), las
+  //    que se van salen en bloque hacia ABAJO si en el orden nuevo quedan
+  //    detrás de la página, hacia ARRIBA si quedan delante, y las que llegan
+  //    entran siguiéndolas como una tira;
+  //  · al BUSCAR o mover los años (el conjunto cambia), D-334: las que se van
+  //    se meten por debajo de la de encima mientras las demás cierran su
+  //    hueco, y las que llegan salen de debajo de la de encima. Un fundido
+  //    corto en la mitad que no se ve. En D-324 las quitadas por el filtro se
+  //    iban por un lado, y el propietario lo vio raro y exagerado;
+  //  · las que siguen viajan a su sitio (el FLIP de siempre).
+  // Solo `transform` (y la opacidad en las de debajo): el coste no crece con el
+  // archivo (como mucho, las 32 de la página y las que salen). Lo que no se ve
+  // ni antes ni después no se anima. Con «reducir movimiento», de golpe.
+  let ordenListaPrevio = null;   // { pos: Map(id → índice), inicio } del pintado anterior
+  const listaSinMovimiento = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Hacia dónde sale una fila que deja la página. `posNueva` = índices del
+  // orden nuevo completo; `inicio`/`fin` = la página nueva.
+  function salidaFila(id, posNueva, inicio, fin) {
+    const i = posNueva.get(id);
+    if (i === undefined) return 'debajo';
+    return i < inicio ? 'arriba' : 'abajo';
+  }
+  // Por dónde entra una fila que llega: su sitio en el orden ANTERIOR.
+  function entradaFila(id) {
+    if (!ordenListaPrevio) return 'abajo';
+    const i = ordenListaPrevio.pos.get(id);
+    if (i === undefined) return 'debajo';
+    return i < ordenListaPrevio.inicio ? 'arriba' : 'abajo';
   }
 
-  function desplegarFila(fila) {
-    if (fila.tagName === 'TR') {
-      fila.querySelectorAll('td').forEach(td => {
-        td.style.overflow = 'hidden';
-        const cs = getComputedStyle(td);
-        td.animate(
-          [{ paddingTop: '0px', paddingBottom: '0px', lineHeight: '0px' },
-           { paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, lineHeight: cs.lineHeight }],
-          { duration: 260, easing: 'ease-out' }
-        );
-        const bloque = td.firstElementChild;
-        if (bloque && bloque.offsetHeight) {
-          bloque.animate([{ height: '0px' }, { height: bloque.offsetHeight + 'px' }], { duration: 260, easing: 'ease-out' });
-        }
+  // La parte del panel que de verdad se ve: en la tabla, la fila de títulos
+  // es pegajosa y tapa los primeros ~40 px del panel. Sin descontarla, las
+  // cuentas de la tira dejaban un hueco de su alto entre los dos bloques.
+  function zonaVisible(scroller) {
+    const r = scroller.getBoundingClientRect();
+    const titulos = scroller.querySelector('thead');
+    const tope = titulos ? Math.max(r.top, titulos.getBoundingClientRect().bottom) : r.top;
+    return { top: tope, bottom: r.bottom };
+  }
+
+  // Las filas se mueven EN BLOQUE y como una sola tira: las que salen y las que
+  // entran recorren la MISMA distancia, la altura del panel, así que conservan
+  // su separación y el bloque nuevo llega pegado detrás del viejo. (Cada una
+  // justo hasta el borde las apelotonaba; distancias distintas para los dos
+  // bloques los solapaban.)
+  // La distancia exacta: la que deja la última fila nueva justo pegada a la
+  // primera vieja (o al revés), y nunca menos de lo que hace falta para que las
+  // viejas salgan del todo y las nuevas arranquen fuera de la vista. `viejos` =
+  // las cajas capturadas antes (relativas a `cont`); las que ya no tienen fila
+  // con su id son las que se van. El mismo número para los dos bloques.
+  function distanciaBloque(dir, sr, cont, viejos) {
+    let d = sr.bottom - sr.top + 8;
+    if (cont && viejos && viejos.size) {
+      const cr = cont.getBoundingClientRect();
+      const vivas = new Set();
+      const nuevas = [];
+      [...cont.children].forEach((el) => {
+        if (!el.dataset || !el.dataset.id) return;
+        vivas.add(el.dataset.id);
+        if (viejos.has(el.dataset.id)) return;
+        const r = el.getBoundingClientRect();
+        if (r.bottom > sr.top && r.top < sr.bottom) nuevas.push(r);
       });
-    } else {
-      fila.animate([{ height: '0px' }, { height: fila.offsetHeight + 'px' }], { duration: 260, easing: 'ease-out' });
+      const salen = [];
+      viejos.forEach((v, id) => {
+        if (vivas.has(id)) return;
+        const top = cr.top + v.top, bottom = top + v.height;
+        if (bottom > sr.top && top < sr.bottom) salen.push({ top, bottom });
+      });
+      if (nuevas.length && salen.length) {
+        d = dir === 'arriba'
+          ? Math.max(Math.max(...salen.map((r) => r.bottom)) - Math.min(...nuevas.map((r) => r.top)),
+              Math.max(...salen.map((r) => r.bottom)) - sr.top, sr.bottom - Math.min(...nuevas.map((r) => r.top)))
+          : Math.max(Math.max(...nuevas.map((r) => r.bottom)) - Math.min(...salen.map((r) => r.top)),
+              sr.bottom - Math.min(...salen.map((r) => r.top)), Math.max(...nuevas.map((r) => r.bottom)) - sr.top);
+      }
     }
-    fila.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-out' });
+    d = Math.round(d);
+    return dir === 'arriba' ? -d : d;
+  }
+
+  // Las filas que pasan «por debajo de la de encima» (D-334) llevan z-index
+  // negativo; su contenedor aísla las capas para que no se vayan también por
+  // detrás del fondo de la página. En la tabla, la propia tabla.
+  function aislarCapas(fila) {
+    const capa = fila.closest('table') || fila.parentElement;
+    if (capa) capa.style.isolation = 'isolate';
+  }
+
+  // La fila que se va hace de fantasma (como las tarjetas de la galería, D-252):
+  // fuera del flujo en su sitio VIEJO (`viejo`, relativo a su contenedor), sin
+  // animar todavía. Devuelve el fantasma si se ve, o null si ya se ha quitado.
+  function hacerFantasmaFila(fila, viejo, scroller) {
+    const cont = fila.parentElement;
+    if (!viejo || !cont || !scroller || listaSinMovimiento()) { fila.remove(); return null; }
+    fila.style.pointerEvents = 'none';
+    if (getComputedStyle(cont).position === 'static') cont.style.position = 'relative';
+    if (fila.tagName === 'TR') {
+      // Una fila de tabla fuera de flujo pierde las columnas: se fijan los
+      // anchos de sus celdas tal como estaban.
+      const anchos = [...fila.children].map((td) => td.getBoundingClientRect().width);
+      fila.style.display = 'flex';
+      [...fila.children].forEach((td, i) => { td.style.flex = 'none'; td.style.width = anchos[i] + 'px'; td.style.boxSizing = 'border-box'; });
+    }
+    Object.assign(fila.style, { position: 'absolute', left: viejo.left + 'px', top: viejo.top + 'px', width: viejo.width + 'px', height: viejo.height + 'px', zIndex: '1', margin: '0', boxSizing: 'border-box' });
+    const sr = zonaVisible(scroller);
+    const r = fila.getBoundingClientRect();
+    if (r.bottom <= sr.top || r.top >= sr.bottom) { fila.remove(); return null; }   // fuera de la vista
+    return fila;
+  }
+
+  // Saca los fantasmas y los retira al terminar. Dos maneras (D-334):
+  //  · 'abajo'/'arriba' (al ordenar o pasar de página: el mismo conjunto en
+  //    otro orden): en bloque por ese borde, como una tira;
+  //  · 'debajo' (al buscar o mover los años: el conjunto cambia): sube hasta
+  //    quedar escondida debajo de la fila que se queda justo encima (`borde`,
+  //    el de abajo de esa fila ya en su sitio nuevo; sin ninguna, el de arriba
+  //    de la zona visible), mientras las que siguen cierran el hueco. Una
+  //    racha de varias seguidas se recoge como un abanico, cada una por debajo
+  //    de la anterior. Se apaga en el último 30 %.
+  function sacarFantasmas(fantasmas, scroller, dur, ease, viejos) {
+    if (!fantasmas.length) return;
+    const sr = zonaVisible(scroller);
+    ['abajo', 'arriba'].forEach((dir) => {
+      const grupo = fantasmas.filter((f) => f.dir === dir);
+      if (!grupo.length) return;
+      const d = distanciaBloque(dir, sr, grupo[0].fila.parentElement, viejos);
+      grupo.forEach(({ fila }) => {
+        const a = fila.animate([{ transform: 'none' }, { transform: `translateY(${d}px)` }], { duration: dur, easing: ease, fill: 'forwards' });
+        a.onfinish = a.oncancel = () => fila.remove();
+      });
+    });
+    fantasmas.filter((f) => f.dir === 'debajo').forEach(({ fila, borde }, i) => {
+      aislarCapas(fila);
+      fila.style.zIndex = String(-1 - i);
+      const hasta = (borde ?? sr.top) - fila.getBoundingClientRect().bottom;
+      const a = fila.animate([{ transform: 'none' }, { transform: `translateY(${Math.min(0, hasta)}px)` }], { duration: dur, easing: ease, fill: 'forwards' });
+      // El fundido, solo al final: opacas mientras pasan unas por debajo de
+      // otras (a medio fundir se transparentaban y el texto se amontonaba).
+      fila.animate([{ opacity: 1 }, { opacity: 0 }], { duration: dur * 0.3, delay: dur * 0.7, easing: 'ease-in', fill: 'forwards' });
+      a.onfinish = a.oncancel = () => fila.remove();
+    });
+  }
+
+  // Las que llegan, ya en su sitio final, arrancan desde fuera y viajan:
+  // 'abajo'/'arriba', en bloque desde ese borde (la tira); 'debajo', desde
+  // escondidas debajo de la fila de encima que ya estaba (la primera hacia
+  // arriba que no es nueva; sin ninguna, el borde de arriba de la zona
+  // visible), encendiéndose en el primer cuarto. Una racha de varias se abre
+  // como un abanico, cada una por debajo de la anterior.
+  function meterLlegadas(llegadas, scroller, dur, ease, viejos) {
+    if (!llegadas.length || !scroller || listaSinMovimiento()) return;
+    const sr = zonaVisible(scroller);
+    const aLaVista = llegadas
+      .map(({ fila, dir }) => ({ fila, dir, r: fila.getBoundingClientRect() }))
+      .filter((x) => x.r.bottom > sr.top && x.r.top < sr.bottom);   // las que acaban a la vista
+    ['abajo', 'arriba'].forEach((dir) => {
+      const grupo = aLaVista.filter((x) => x.dir === dir);
+      if (!grupo.length) return;
+      // Las que llegan por arriba siguen a las que salen por abajo: misma
+      // distancia, calculada con la dirección de las que salen.
+      const d = -distanciaBloque(dir === 'arriba' ? 'abajo' : 'arriba', sr, grupo[0].fila.parentElement, viejos);
+      grupo.forEach(({ fila }) => {
+        fila.animate([{ transform: `translateY(${d}px)` }, { transform: 'none' }], { duration: dur, easing: ease, fill: 'backwards' });
+      });
+    });
+    aLaVista.filter((x) => x.dir === 'debajo').forEach(({ fila, r }, i) => {
+      let encima = fila.previousElementSibling;
+      while (encima && !(encima.dataset && encima.dataset.id && viejos && viejos.has(encima.dataset.id))) encima = encima.previousElementSibling;
+      const borde = encima ? encima.getBoundingClientRect().bottom : sr.top;
+      aislarCapas(fila);
+      fila.style.position = 'relative';
+      fila.style.zIndex = String(-1 - i);
+      const desde = Math.min(0, borde - r.bottom);
+      const a = fila.animate([{ transform: `translateY(${desde}px)` }, { transform: 'none' }], { duration: dur, easing: ease, fill: 'backwards' });
+      fila.animate([{ opacity: 0 }, { opacity: 1 }], { duration: dur * 0.25, easing: 'ease-out', fill: 'backwards' });
+      a.onfinish = a.oncancel = () => { fila.style.position = ''; fila.style.zIndex = ''; };
+    });
   }
 
   // Scroll infinito: el centinela (#gallery-sentinel, hermano de la rejilla)
@@ -4020,13 +4148,46 @@ const tags = [
             if (!fila.dataset || !fila.dataset.id) return;
             const r = fila.getBoundingClientRect();
             if (!r.height) return;
-            oldRowRects.set(fila.dataset.id, { top: r.top - base.top });
+            oldRowRects.set(fila.dataset.id, { top: r.top - base.top, left: r.left - base.left, width: r.width, height: r.height });
           });
         };
         if (isListVisible) {
           capturarFilas(listBody);
           capturarFilas(tarjetasLista);
         }
+        // Para el movimiento de las que se van y llegan (D-324): el sitio de
+        // cada evento en el orden nuevo, la página que se va a ver y el compás.
+        const posNuevaLista = new Map(filtered.map((x, i) => [x.idMel, i]));
+        const inicioPagina = (currentPage - 1) * PAGE_SIZE;
+        const finPagina = inicioPagina + PAGE_SIZE;
+        const durLista = animacionOrdenLenta ? duracionOrden : FLIP_DUR;
+        const easeLista = animacionOrdenLenta ? ORDEN_ANIM_EASE : FLIP_EASE;
+        // Como una cinta: si las que se van salen sobre todo por abajo, las que
+        // llegan entran por arriba siguiéndolas (y al revés). Si no, cada una
+        // entra por donde venía. Sin esto, al invertir el orden se cruzaban.
+        // Dos movimientos según lo que haya pasado (D-334): si es el MISMO
+        // conjunto de eventos en otro orden (ordenar, pasar de página), la
+        // tira vertical; si el conjunto ha cambiado (buscar, mover los años),
+        // las que se van se meten por debajo de la de encima y las que llegan
+        // salen de debajo de ella.
+        const mismoConjunto = !!ordenListaPrevio && ordenListaPrevio.pos.size === posNuevaLista.size
+          && [...posNuevaLista.keys()].every((id) => ordenListaPrevio.pos.has(id));
+        const salidaDe = (id) => (mismoConjunto ? salidaFila(id, posNuevaLista, inicioPagina, finPagina) : 'debajo');
+        const idsPaginaNueva = new Set(paginated.map((x) => x.idMel));
+        let salenAbajo = 0, salenArriba = 0;
+        oldRowRects.forEach((_, id) => {
+          if (idsPaginaNueva.has(id)) return;
+          const d = salidaDe(id);
+          if (d === 'abajo') salenAbajo++; else if (d === 'arriba') salenArriba++;
+        });
+        const entradaDe = (id) => {
+          if (!mismoConjunto) return 'debajo';
+          const propia = entradaFila(id);
+          if (propia === 'debajo') return 'debajo';
+          if (salenAbajo > salenArriba) return 'arriba';
+          if (salenArriba > salenAbajo) return 'abajo';
+          return propia;
+        };
 
         // Mismo truco que en la galería, y por el mismo motivo: el scroll se pone
         // a cero DESPUÉS de apuntar las posiciones viejas y ANTES de medir las
@@ -4049,6 +4210,7 @@ const tags = [
         const reproducirFlip = (nodos) => {
           const toPlay = [];
           const aEntrar = [];
+          const scrollerLista = nodos.length ? nodos[0].closest('#list-table-wrapper, #list-mobile-cards') : null;
           // Misma referencia que la captura: relativa al contenedor (D-252).
           const baseNueva = nodos.length && nodos[0].parentElement
             ? nodos[0].parentElement.getBoundingClientRect() : { top: 0 };
@@ -4069,8 +4231,7 @@ const tags = [
               // ESPEJO de la despedida (despliegue + fundido, D-255) — antes
               // era la clase `list-row-intro`, un fundido corto que al lado
               // del pliegue de salida se leía "del tirón".
-              if (animacionOrdenLenta) aEntrar.push(el);
-              else desplegarFila(el);
+              aEntrar.push(el);
             }
           });
 
@@ -4084,25 +4245,18 @@ const tags = [
           // y después y no habría nada que animar. Lo único que puede moverse son
           // las filas que existían antes en otro sitio; para el resto, la cascada
           // es lo que hace que el cambio se lea como un gesto y no como un corte.
+          // Las que llegan entran deslizándose: en la tira al ordenar, desde
+          // debajo de la de encima al buscar (D-324, D-334). Antes: fundido en
+          // cascada al ordenar, despliegue con fundido al filtrar.
           if (aEntrar.length > 0) {
-            const paso = 26;
-            const tope = 520;
-            aEntrar.forEach((el, i) => {
-              el.style.transition = 'none';
-              el.style.opacity = '0';
-              el.style.transform = 'translateY(28px)';
-              void el.offsetHeight;
-              const retardo = Math.min(i * paso, tope);
-              el.style.transition = `transform 620ms ${ORDEN_ANIM_EASE} ${retardo}ms, opacity 620ms linear ${retardo}ms`;
-              el.style.opacity = '';
-              el.style.transform = '';
-            });
-            setTimeout(() => {
-              aEntrar.forEach((el) => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; });
-            }, tope + 660);
+            meterLlegadas(aEntrar.map((el) => ({ fila: el, dir: entradaDe(el.dataset.id) })), scrollerLista, durLista, easeLista, oldRowRects);
           }
 
           if (toPlay.length === 0) return;
+          if (listaSinMovimiento()) {
+            toPlay.forEach((el) => { el.style.transition = ''; el.style.transform = ''; });
+            return;
+          }
           // Fuerza el cálculo de layout para que el transform invertido quede
           // comprometido antes de quitarlo. Sin esto no hay transición: el
           // navegador funde los dos estados en un solo recálculo y no anima nada.
@@ -4228,11 +4382,20 @@ const tags = [
           // reproducirFlip de abajo tampoco las ve. (El primer intento aquí
           // fue fundido → vuelo en dos tiempos, D-254; el propietario pidió
           // igualarlo al continuo del móvil.)
+          // Las que se van, deslizándose en bloque por el borde hacia su sitio
+          // nuevo (D-324).
+          const scrollerTabla = document.getElementById('list-table-wrapper');
+          const fantasmasTabla = [];
+          // `encima`: la última fila que se queda, en el orden VIEJO, por
+          // encima de cada una que se va. Debajo de ella se mete (D-334).
+          let encimaTabla = null;
           filasVivas.forEach((tr, id) => {
-            if (filasConservadas.has(id)) return;
+            if (filasConservadas.has(id)) { encimaTabla = tr; return; }
             delete tr.dataset.id;
-            plegarYRetirar(tr);
+            const f = hacerFantasmaFila(tr, oldRowRects.get(id), scrollerTabla);
+            if (f) fantasmasTabla.push({ fila: f, dir: salidaDe(id), borde: encimaTabla ? encimaTabla.getBoundingClientRect().bottom : null });
           });
+          sacarFantasmas(fantasmasTabla, scrollerTabla, durLista, easeLista, oldRowRects);
 
           // FLIP "play" step: rows that existed before (matched by id) get
           // slid from their old position to the new one; rows that are
@@ -4315,21 +4478,28 @@ const tags = [
             const divisor = row.querySelector('.border-b.border-mel-border');
             if (divisor) divisor.classList.toggle('hidden', idx === paginated.length - 1);
           });
+          const scrollerTarjetas = document.getElementById('list-mobile-cards');
+          const fantasmasTarjetas = [];
+          let encimaTarjeta = null;   // como en la tabla (D-334)
           tarjetasVivas.forEach((f, id) => {
-            if (tarjetasConservadas.has(id)) return;
-            // Despedida progresiva (D-253/D-255): colapsa y funde a la vez —
-            // el colapso desliza a las de abajo de forma natural, sin
-            // pelearse con el FLIP (que mide con la moribunda aún entera).
-            // Pierde el data-id durante la agonía para que ni la
+            if (tarjetasConservadas.has(id)) { encimaTarjeta = f; return; }
+            // Despedida (D-324, antes un plegado con fundido, D-253/D-255).
+            // Pierde el data-id durante la salida para que ni la
             // reconciliación ni el FLIP de pasadas siguientes la confundan
             // con una fila viva; si su año vuelve antes de tiempo, se
             // construye una fresca y listo.
             delete f.dataset.id;
-            plegarYRetirar(f);
+            const g = hacerFantasmaFila(f, oldRowRects.get(id), scrollerTarjetas);
+            if (g) fantasmasTarjetas.push({ fila: g, dir: salidaDe(id), borde: encimaTarjeta ? encimaTarjeta.getBoundingClientRect().bottom : null });
           });
+          // Las que se van, deslizándose en bloque por el borde (D-324).
+          sacarFantasmas(fantasmasTarjetas, scrollerTarjetas, durLista, easeLista, oldRowRects);
           // Aquí, y no arriba con la tabla: hasta esta línea las tarjetas nuevas
           // no existían.
           if (isListVisible) reproducirFlip(Array.from(mobileListItems.children));
+          // El orden y la página que se acaban de pintar: la próxima pasada
+          // sabrá por qué borde entra cada fila nueva (D-324).
+          ordenListaPrevio = { pos: posNuevaLista, inicio: inicioPagina };
         }
       }
 
@@ -4402,12 +4572,16 @@ const tags = [
     // reordenado, así que la transición no aportaba nada que perder.
     const listaEl = document.getElementById('view-lista');
     const ordenandoEnLista = animacionOrdenLenta && listaEl && !listaEl.classList.contains('hidden');
+    // En la Lista nunca (D-324): sus filas ya se mueven solas (FLIP, salidas y
+    // llegadas), y la foto vieja de la transición se fundía encima — el
+    // fundido que el propietario no quería al buscar o mover los años.
+    const enLista = listaEl && !listaEl.classList.contains('hidden');
 
     // `!animacionOrdenLenta`: desde D-255 el sort del botón también viaja por
     // FLIP (identidad, sin fotografías) — la transición queda para búsqueda y
     // clic en barra. El bloque `lenta` de aquí abajo se conserva por si algún
     // camino residual arrancara una transición con la bandera puesta.
-    if (document.startViewTransition && !arrastrandoSlider && !animacionOrdenLenta && !restaurandoVuelta() && !ordenandoEnLista) {
+    if (document.startViewTransition && !arrastrandoSlider && !animacionOrdenLenta && !restaurandoVuelta() && !ordenandoEnLista && !enLista) {
       try {
         // Si el reordenado viene del botón de ordenación, la transición se
         // alarga. La clase se pone ANTES de arrancarla porque las animaciones de
