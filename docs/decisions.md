@@ -7070,3 +7070,66 @@ pestaña del panel en segundo plano, traspaso §4.5, no de este cambio.)
 **Sin verificar**: añadir a la pantalla de inicio en un iPhone y en un Android de verdad (qué
 icono sale y si iOS ofrece abrirla como app web pese a `display: browser`), y el color de la
 barra en Chrome de Android.
+
+**Visto en producción** (iPhone del propietario, iOS 26, 06/10): al añadir a la pantalla de
+inicio sale el icono nuevo y el nombre «M.E.L.» (el `short_name`). **«Abrir como app web» viene
+ACTIVADO por defecto pese a `display: browser`**: quien añada la web la abrirá como app salvo que lo
+apague. Pendiente: probarla así (cabecera bajo la hora y la batería, gesto «atrás», cerrar la
+ficha) y decidir si se adapta la web a ese modo. **Probado el mismo día** por el propietario en modo app: solo
+aparecen los fallos que ya estaban apuntados en la web; no hace falta adaptar nada por ahora.
+
+## D-338 · Buscador del móvil: la X ya no se queda en crema, solo está si hay texto, y bajar el teclado lo cierra (I12–I14)
+
+**Propietario** (iPhone, 06/10): la X del buscador se quedaba en crema unos segundos después de
+tocarla (I12); con el campo vacío la X no tiene sentido, porque sirve para borrar y no para bajar
+el teclado (I13, «en escritorio ya pasa así» — no era así: estaba en los dos); y al ocultar el
+teclado, el buscador no volvía a su estado (I14).
+
+**Causas** (reproducidas en Chrome con el móvil simulado):
+- **I12**: el «pulsado que sobrevive al dedo» (`.mel-pulsado`, `Layout.astro`) se pone al soltar
+  cualquier botón y solo se quita al navegar o con el reloj de seguridad de **4 s**. Se pensó para
+  lo que cambia de página; la X borra sin salir de la portada, así que se quedaba 4 s en crema
+  (bg-secondary). Medido: la clase seguía puesta a 1, 2 y 3 s.
+- **I14**: el buscador no hacía nada al perder el foco. Solo atendía a Intro (la tecla OK), a
+  Escape y a un clic fuera con el campo vacío; el ✓ de la barra de Safari baja el teclado sin
+  mandar Intro, y el buscador se quedaba abierto con la X y el caret falso.
+
+**Decisión**:
+- **`data-mel-instantaneo`** (prop `instantaneo` de `IconButton`): los botones que actúan sin
+  cambiar de página no reciben `.mel-pulsado`; les basta el `:active` mientras dura el dedo. Lo
+  llevan las dos X del buscador y las flechas de página de la Lista (escritorio y móvil), que tenían
+  el mismo fallo. El botón Compartir ya lo resolvía a mano quitando la clase. Los números de página
+  reciben la clase pero no tienen estilo para ella (no se ve). El botón del menú y la X que lo
+  cierra sí lo tienen, pero el menú los tapa o los saca de la vista y el siguiente toque la quita;
+  se dejan como están.
+- **La X solo con texto** (`ajustarCaret`): `invisible` con el campo vacío (conserva su hueco, el
+  campo no cambia de ancho). La X ya solo borra: vacía el campo y deja el foco y el teclado. Se
+  retira la segunda pulsación que cerraba el buscador.
+- **Al perder el foco, lo mismo que OK**: vacío, vuelve el título; con texto, queda fijado. Igual en
+  escritorio (un clic fuera con texto lo fija; antes se quedaba escribiendo), aprobado por el
+  propietario. Sin volver a anunciar la búsqueda (`setState(…, false)`): el anuncio llama a
+  `reiniciarPosicion()` y subiría la galería arriba al bajar el teclado. Solo desde «escribiendo»:
+  fijar o cerrar esconden el campo y el navegador vuelve a avisar de que perdió el foco.
+- La X retiene el foco al tocarla (`mousedown` con `preventDefault`): si no, el campo se fijaba o
+  se cerraba antes de que la X pudiera borrar.
+
+**Medido** (Chrome del panel, móvil simulado y escritorio): abrir vacío, X oculta; escribir, X
+visible; borrar a mano, X oculta; tocar la X: campo vacío, foco en el campo, sin `.mel-pulsado`;
+perder el foco con «pk»: fijado «pk», `?search=pk` y ningún anuncio nuevo; con el campo vacío,
+vuelve el título; OK con «techno», fijado y un solo anuncio; Escape, título. Build correcto.
+Ojo para quien lo pruebe en el panel: con la pestaña oculta, el navegador ni avisa de la pérdida
+de foco (`document.hasFocus()` es falso) ni completa las transiciones, así que `blur()` no hace
+nada y la X parece seguir visible; hubo que simular el evento y quitar la transición para medir.
+
+**Ajustes tras probarlo el propietario en el iPhone** (mismo día):
+- Con la X `invisible` quedaban 40 px vacíos a la derecha del campo y el texto de ejemplo se cortaba
+  antes, como si algo lo tapara. Ahora la X sale del todo (`display: none`) con el campo vacío.
+- Los puntos suspensivos no salían ni antes: con el cursor dentro, los navegadores no pintan
+  `text-overflow: ellipsis` en un campo (medido en Chrome: ni en el campo ni en `::placeholder`,
+  cuyo `placeholder:truncate` daba `clip`), y el buscador siempre se abre con el cursor dentro.
+  **El propietario cambió el texto de ejemplo**: «Busca dj's, discotecas, diseñadores,
+  colectivos...» desde `md` (768) y «Busca dj's, discotecas...» por debajo
+  (`data-placeholder-corto`, elegido en `initSearch` y al cambiar el ancho). Medido: cabe entero a
+  375 y a 768; a 767 sale el corto. Se va de paso la errata del anterior («diseñador discoteca»).
+
+**Sin verificar**: un iPhone de verdad (el ✓ de Safari, el gesto de la X sin que baje el teclado).

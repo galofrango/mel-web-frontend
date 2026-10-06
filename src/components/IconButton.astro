@@ -28,6 +28,9 @@ interface Props {
   class?: string;
   id?: string;
   'aria-label'?: string;
+  // Acción que no cambia de página (borrar, pasar de página…): el pulsado
+  // táctil que sobrevive al dedo no se le pone (ver Layout.astro, D-338).
+  instantaneo?: boolean;
   href?: string; // Renders as <a> instead of <button> — e.g. a close control that's really a link to another page (see event/[id].astro's own click-intercept + hard-reload pattern, D-074).
 }
 
@@ -39,6 +42,7 @@ const {
   class: className = '',
   id,
   'aria-label': ariaLabel,
+  instantaneo = false,
   href
 } = Astro.props;
 
@@ -72,6 +76,7 @@ const variantClasses = finalType === 'primary'
     id={id}
     class={`flex items-center justify-center cursor-pointer transition-all duration-200 shrink-0 outline-none rounded-none border-none ${sizeClasses} ${variantClasses} ${className}`}
     aria-label={ariaLabel}
+    data-mel-instantaneo={instantaneo ? '' : undefined}
   >
     <Icon icon={icon} size={iconSize} strokeWidth={strokeWidth} />
   </button>

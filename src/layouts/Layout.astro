@@ -586,6 +586,11 @@ const canonica = Astro.response.status === 404 ? null : new URL(Astro.url.pathna
           var boton = candidato;
           candidato = null;
           if (!boton) return;
+          // Lo que actúa sin cambiar de página (`data-mel-instantaneo`, D-338)
+          // no espera nada: con su `:active` mientras dura el dedo basta. Si se
+          // marcara, se quedaría pulsado hasta el reloj de 4 s (la X del
+          // buscador se quedaba en crema después de borrar).
+          if (boton.hasAttribute('data-mel-instantaneo')) return;
           if (document.documentElement.classList.contains('mel-desplazando')) return;
           // ¿Se ha soltado encima? Si el dedo se fue a otra parte no habrá
           // pulsación, y dejar el botón encendido sería mentir.

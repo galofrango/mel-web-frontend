@@ -111,7 +111,8 @@ import IconButton from './IconButton.astro';
         type="text"
         id="search-active-input"
         enterkeyhint="done"
-        placeholder="Busca un evento, artista, diseñador discoteca..."
+        placeholder="Busca dj's, discotecas, diseñadores, colectivos..."
+        data-placeholder-corto="Busca dj's, discotecas..."
  class="typo-h3 bg-transparent border-none text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:font-normal placeholder:text-mel-text-tertiary placeholder:truncate focus:outline-none w-full py-1 pl-[6px] transition-all duration-200"
         autocomplete="off"
       />
@@ -124,6 +125,7 @@ import IconButton from './IconButton.astro';
       size={40}
       variant="ghost"
       aria-label="Limpiar búsqueda"
+      instantaneo
     />
   </div>
 
@@ -148,6 +150,7 @@ import IconButton from './IconButton.astro';
       size={40}
       variant="ghost"
       aria-label="Reiniciar búsqueda"
+      instantaneo
     />
   </div>
 
@@ -209,7 +212,20 @@ import IconButton from './IconButton.astro';
       placeholderShadow.textContent = activeInput.placeholder;
       return placeholderShadow.getBoundingClientRect().width + 6 + 40;
     }
-    const placeholderMaxWidth = measurePlaceholderMaxWidth();
+    // Texto de ejemplo corto por debajo de `md` (D-338): el largo no cabía y se
+    // cortaba en seco, sin puntos suspensivos, porque con el cursor dentro los
+    // navegadores no los pintan. Va antes de medir: el ancho máximo de la caja
+    // sale del texto de ejemplo. Sin destello: solo se ve con el buscador abierto.
+    const placeholderLargo = activeInput?.placeholder ?? '';
+    const anchoMd = window.matchMedia('(min-width: 768px)');
+    function elegirPlaceholder() {
+      if (!activeInput) return;
+      activeInput.placeholder = anchoMd.matches
+        ? placeholderLargo
+        : (activeInput.dataset.placeholderCorto ?? placeholderLargo);
+    }
+    elegirPlaceholder();
+    let placeholderMaxWidth = measurePlaceholderMaxWidth();
 
     // Measure the compact (title-only) and expanded (available-but-capped-at-
     // the-placeholder's-own-width) widths in px up front. CSS can't smoothly
@@ -229,6 +245,8 @@ import IconButton from './IconButton.astro';
     applyContainerWidth();
 
     function remeasure() {
+      elegirPlaceholder();
+      placeholderMaxWidth = measurePlaceholderMaxWidth();
       if (stateDefault && !stateDefault.classList.contains('hidden')) {
         compactWidth = stateDefault.getBoundingClientRect().width;
       }
@@ -245,15 +263,23 @@ import IconButton from './IconButton.astro';
     // se invierte, porque a partir de ahí hace falta el de verdad para poder
     // colocarse entre caracteres. El hueco de 6px a la izquierda solo existe
     // mientras está el falso: es el sitio que ocupa.
+    // La X, solo con algo escrito (D-338): sirve para borrar, y con el campo
+    // vacío no hay nada que borrar. Fuera del todo, no solo invisible: así el
+    // texto de ejemplo aprovecha también su hueco (con `invisible` quedaban 40 px
+    // vacíos a la derecha y parecía que algo tapaba el texto). El cambio de ancho
+    // no se ve: el texto de ejemplo se va con la primera letra, que es cuando
+    // vuelve la X. Por estilo en línea y no con `hidden`: el botón ya lleva `flex`
+    // y dos clases de `display` no tienen un ganador fiable.
     function ajustarCaret() {
       if (!activeInput) return;
       const vacio = activeInput.value.length === 0;
       activeInput.classList.toggle('pl-[6px]', vacio);
       activeInput.classList.toggle('caret-transparent', vacio);
       if (fakeCaret) fakeCaret.classList.toggle('hidden', !vacio);
+      if (clearBtn) clearBtn.style.display = vacio ? 'none' : '';
     }
 
-    function setState(state: 'default' | 'placeholder' | 'filling' | 'filled', val = "") {
+    function setState(state: 'default' | 'placeholder' | 'filling' | 'filled', val = "", anunciar = true) {
       if (!container) return;
 
       // Switching directly from one filled term to a different one (e.g.
@@ -301,7 +327,7 @@ import IconButton from './IconButton.astro';
         stateFilled?.classList.remove('hidden');
         if (filledText) filledText.textContent = val;
         if (activeInput) activeInput.value = val;
-        dispatchSearch(val);
+        if (anunciar) dispatchSearch(val);
       }
     }
 
@@ -342,6 +368,26 @@ import IconButton from './IconButton.astro';
         setState('default');
       }
     });
+
+    // Al perder el foco (D-338), lo mismo que la tecla OK: vacío, vuelve el
+    // título; con texto, queda fijado. En el móvil es lo que pasa al bajar el
+    // teclado con el ✓ de Safari, que no manda Intro: el buscador se quedaba
+    // abierto con la X y el caret falso. Solo desde los estados de escribir:
+    // fijar o cerrar ya esconden el campo y el navegador vuelve a avisar del
+    // foco perdido. Y sin volver a anunciar la búsqueda, que ya se anunció al
+    // escribir: el anuncio reinicia la posición y subiría la galería arriba.
+    activeInput?.addEventListener('blur', () => {
+      const estado = container.getAttribute('data-state');
+      if (estado !== 'placeholder' && estado !== 'filling') return;
+      const val = activeInput.value.trim();
+      if (val.length > 0) setState('filled', val, false);
+      else setState('default');
+    });
+
+    // Tocar la X no cuenta como perder el foco: sin esto el campo se fijaba o
+    // se cerraba antes de que la X pudiera borrar. Así el teclado sigue abierto
+    // para escribir otra cosa.
+    clearBtn?.addEventListener('mousedown', (e) => e.preventDefault());
 
     // Allow clicking on filled text area to edit search query
     stateFilled?.addEventListener('click', (e) => {
@@ -407,26 +453,17 @@ import IconButton from './IconButton.astro';
       window.history.replaceState({}, '', url.toString());
     }
 
-    // La X del buscador borra en DOS tiempos, no de golpe. Con algo escrito (o
-    // con una búsqueda ya fijada) vacía el campo pero deja el buscador abierto
-    // y con el foco puesto: en móvil el teclado no se cierra, que es justo lo
-    // que quieres para escribir otra cosa. Solo cuando ya no hay nada que
-    // borrar la segunda pulsación cierra del todo, devuelve el título y quita
-    // el foco para que baje el teclado.
+    // La X solo BORRA (D-338): vacía el campo y deja el buscador abierto y con
+    // el foco puesto; en el móvil el teclado no se cierra, que es justo lo que
+    // quieres para escribir otra cosa. Antes, con el campo vacío, una segunda
+    // pulsación cerraba el buscador; ahora la X no está cuando no hay nada que
+    // borrar, y se cierra perdiendo el foco (bajar el teclado, tocar fuera, OK).
     function pulsarCerrarBuscador(e) {
       e.stopPropagation();
-      const estado = container?.getAttribute('data-state');
-      const hayTexto = !!(activeInput && activeInput.value.trim() !== '');
       limpiarSearchDeLaUrl();
-
-      if (estado === 'filled' || hayTexto) {
-        if (activeInput) activeInput.value = '';
-        setState('placeholder');   // setState hace focus(): el teclado sigue abierto
-        dispatchSearch('');
-      } else {
-        activeInput?.blur();       // baja el teclado antes de replegar
-        setState('default');
-      }
+      if (activeInput) activeInput.value = '';
+      setState('placeholder');   // setState hace focus(): el teclado sigue abierto
+      dispatchSearch('');
     }
 
     clearBtn?.addEventListener('click', pulsarCerrarBuscador);
