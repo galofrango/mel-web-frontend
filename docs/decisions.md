@@ -7133,3 +7133,38 @@ nada y la X parece seguir visible; hubo que simular el evento y quitar la transi
   375 y a 768; a 767 sale el corto. Se va de paso la errata del anterior («diseñador discoteca»).
 
 **Sin verificar**: un iPhone de verdad (el ✓ de Safari, el gesto de la X sin que baje el teclado).
+
+## D-339 · Móvil: el selector Galería/Mapa/Lista se pliega mientras se escribe en el buscador
+
+**Propietario** (idea del 06/10, «buscar con más sitio en el móvil»): probar a esconder el
+selector mientras el buscador está activo. Tras probarlo: «no me desagrada», y ganar esos píxeles
+hace que se note que las tarjetas se mueven al escribir.
+
+**Decisión** (`index.astro`, solo CSS, por debajo de 768 px): mientras el buscador está en
+«abierto vacío» o «escribiendo» (`data-state` `placeholder`/`filling` de `#search-box-container`,
+leído con `body:has(...)`), el selector **se mete por debajo de la fila de cifras**: sube su propio
+alto (`translateY(-100%)`) y la fila (`#home-highlights-tags`, delante con `z-index` y el fondo de
+la página) lo tapa. A la vez se cierran su hueco (`margin-bottom: -48px`, el alto fijo de
+ToggleSelector) y el de la fila (`row-gap` 0), todo en 320 ms con la misma curva, así que la galería
+sube pegada a su borde de abajo: 72 px. Se apaga solo al acabar, ya tapado, para que su sombra no
+asome; al volver se enciende al empezar. Al fijar o cerrar la búsqueda (bajar el teclado, OK, tocar
+fuera) vuelve. En escritorio no cambia nada. La regla de la fila va con `:global`: la pinta
+AdaptiveTagsRow, y los estilos con ámbito de la página no llegan a otro componente.
+
+**Primer intento, retirado el mismo día** (el propietario: «desaparece del tirón» y «al volver da
+un pequeño trompicón al final»): plegar con `max-height` 120 → 0 y apagarlo en 150 ms. El selector
+mide 48, así que media animación no movía nada y el hueco de la fila, en otra transición, no iba al
+mismo ritmo. Un margen negativo arriba tampoco cerraba el hueco: una fila de flex no mide menos de 0
+(el de abajo sí funciona, porque se resta del alto del propio selector).
+
+**Medido** (Chrome del panel, 375 px, animaciones pausadas a mano porque el panel las congela): al
+final el selector ocupa justo la caja de la fila de cifras (148–196, de 24 a 351 dentro de 24–375),
+la galería sube 72 px; a mitad de camino se ve entrando bajo las cifras con la galería pegada; al
+volver, sin desplazamiento, margen 0, opaco y la galería en su sitio.
+
+**Lo que pareció un fallo y no lo era**: el propietario vio que, al volver de una ficha, el selector
+ya no se plegaba. Era el servidor de pruebas sirviendo el CSS viejo en la página entera (la regla
+sí estaba en el módulo suelto); con el servidor reiniciado y `node_modules/.vite` borrado, la ida y
+vuelta galería → ficha → X → buscar pliega igual. El build lleva la regla en `index.*.css`.
+
+**Sin verificar**: cómo se siente en el iPhone el pliegue a la vez que sube el teclado.

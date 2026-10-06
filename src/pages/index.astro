@@ -269,6 +269,45 @@ const tags = [
         #home-toggle-wrapper.toggle-shares-line {
           max-width: calc((100% - 264px) / 3 + 72px);
         }
+        /* En el móvil, mientras se escribe en el buscador, el selector
+           Galería/Mapa/Lista se mete por debajo de la fila de cifras para dejar
+           más sitio a los resultados, y vuelve al fijar o cerrar la búsqueda
+           (D-339). Solo CSS: el estado lo dice `data-state` del buscador.
+           - El selector sube su propio alto (`translateY(-100%)`) y la fila de
+             cifras, delante y con el fondo de la página, lo tapa.
+           - A la vez se cierran su hueco (`margin-bottom` = −48 px, el alto fijo
+             de ToggleSelector) y el de la fila (`row-gap`), con la misma curva:
+             la galería sube pegada a su borde de abajo. Con `max-height` no
+             servía: había que darle de sobra (120 px) y la mitad de la
+             animación no movía nada, y el final daba un tirón.
+           - Se apaga solo al final, cuando ya está tapado, para que su sombra no
+             asome bajo las cifras; al volver se enciende al empezar. */
+        @media (max-width: 767px) {
+          /* `:global`: la fila la pinta AdaptiveTagsRow, y los estilos con ámbito
+             de esta página no llegan a lo que pinta otro componente. */
+          :global(#home-highlights-tags) {
+            position: relative;
+            z-index: 1;
+            background-color: var(--mel-bg-primary);
+          }
+          #home-highlights-toolbar {
+            --mel-pliegue: 320ms cubic-bezier(0.4, 0, 0.2, 1);
+            transition: row-gap var(--mel-pliegue);
+          }
+          #home-toggle-wrapper {
+            transition: transform var(--mel-pliegue), margin-bottom var(--mel-pliegue), opacity 0s;
+          }
+          :global(body:has(#search-box-container:is([data-state="placeholder"], [data-state="filling"]))) #home-highlights-toolbar {
+            row-gap: 0;
+          }
+          :global(body:has(#search-box-container:is([data-state="placeholder"], [data-state="filling"]))) #home-toggle-wrapper {
+            transform: translateY(-100%);
+            margin-bottom: -48px;
+            opacity: 0;
+            pointer-events: none;
+            transition: transform var(--mel-pliegue), margin-bottom var(--mel-pliegue), opacity 0s linear 320ms;
+          }
+        }
         /* La cuarta columna de la galería se cuelga del MISMO estado que decide
            que el selector de vista quepa en el renglón de las tags — que es la
            referencia que dio el propietario: "cuando el toggle se pone a la
