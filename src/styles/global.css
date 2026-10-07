@@ -1068,8 +1068,8 @@ button:disabled { cursor: not-allowed; }
    Los selectores empiezan por `html` por la razón de siempre (D-239): los
    pseudo-elementos de view transition solo existen en la raíz.
 
-   Las reglas del reordenado (html.orden-cambiando…) se quedan en
-   index.astro: ese flujo ocurre siempre con la home como documento. */
+   Dentro de la portada la galería ya no usa transición de vista (D-345): estas
+   reglas solo actúan en los cambios de página (ida a una ficha, vuelta…). */
 
 /* La franja de cabecera completa — desde D-261, LA ÚNICA pieza de la franja:
    los nombres interiores que la despedazaban (mel-header, mel-toolbar, y el
@@ -1203,7 +1203,6 @@ html.mel-vuelta::view-transition-old(mel-vuelo) {
 }
 
 html::view-transition-group(mel-pagination),
-html::view-transition-group(mel-bloque-fijo),
 html::view-transition-group(mel-slider) {
   z-index: 100;
 }

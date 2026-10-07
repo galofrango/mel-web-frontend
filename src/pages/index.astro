@@ -176,9 +176,8 @@ const tags = [
          la única pieza nombrada de la franja y todo (buscador, slider, cifras,
          toggle, fondo) viaja dentro de su foto. Sus reglas de apilamiento y
          ritmo viven en global.css (D-260: en el CSS de una página solo actúan
-         cuando esa página es el destino). Durante el reordenado,
-         nombrarHuecos() lo renombra a mel-bloque-fijo y al deshacer lo
-         devuelve a ESTE nombre, no a vacío. -->
+         cuando esa página es el destino). Solo actúa en los cambios de página:
+         dentro de la portada la galería ya no usa transición de vista (D-345). -->
     <div
       id="bloque-cabecera"
       style="view-transition-name: mel-bloque-cabecera;"
@@ -949,56 +948,11 @@ const tags = [
      que a la ida (galería → ficha) no existían y las tarjetas volaban por
      encima de la cabecera. Las historias de cada regla (D-116, D-131, D-162,
      D-248, D-257, D-259) están comentadas allí.
-     Debajo quedan SOLO las del reordenado (html.orden-cambiando…), que ocurre
-     siempre con la home como documento. */
+     Las del reordenado lento (html.orden-cambiando…) y la de la cabecera al
+     teclear (D-343) se retiraron en D-345: la galería ya no filtra con
+     transición de vista. */
 
-  /* Reordenado venido del botón: más lento y con entrada y salida suaves. Los
-     valores los publica JS al arrancar la transición (duracionOrden y
-     ORDEN_ANIM_EASE), para no tener la misma duración escrita en la hoja y en
-     el script. La duración no es fija: crece con lo lejos que estuviera el
-     visitante del principio, con tope. El botón se excluye: debe quedarse quieto mientras las cartas
-     se mueven, no reptar durante segundo y medio. */
-  html.orden-cambiando::view-transition-group(*),
-  html.orden-cambiando::view-transition-old(*),
-  html.orden-cambiando::view-transition-new(*) {
-    animation-duration: var(--mel-orden-dur, 1500ms);
-    animation-timing-function: var(--mel-orden-ease, ease-in-out);
-  }
-  html.orden-cambiando::view-transition-group(mel-boton-orden) {
-    animation-duration: 0s;
-  }
-  /* El whisper conserva SUS 500ms y su curva. La regla de arriba se los aplica a
-     todos los grupos, y heredar el segundo largo de las cartas le cambiaría el
-     ritmo a un componente que tiene el suyo especificado (D-162). Aquí el grupo
-     no viaja —el whisper no se mueve de sitio—, así que lo que dura de verdad es
-     el fundido entre el estado invisible y el visible. */
-  html.orden-cambiando::view-transition-group(mel-whisper),
-  html.orden-cambiando::view-transition-old(mel-whisper),
-  html.orden-cambiando::view-transition-new(mel-whisper) {
-    animation-duration: 500ms;
-    animation-timing-function: ease-in-out;
-  }
-  /* Durante el reordenado lento del botón, el slider PIERDE su nombre y
-     vuelve a viajar dentro de la foto de la raíz — exactamente como viajó
-     siempre hasta D-248, sin desaparecer jamás (el sort no mueve el slider,
-     y el crossfade de la raíz sobre píxeles idénticos es invisible). El
-     nombre solo existe para el halo del ARRASTRE, y el arrastre no lleva
-     esta clase. Se llegó aquí después de que un intento con `0s` en las
-     tres piezas del grupo midiera bien en Chrome de escritorio y aun así
-     el slider siguiera desapareciendo en el móvil (Chrome Y Safari) — los
-     pseudo-elementos de view transition no se componen igual allí, y este
-     entorno no puede medirlos; mejor no tener grupo que tener un grupo con
-     reglas peleadas. La clase se pone ANTES de arrancar la transición y se
-     retira en `finished`, así que las DOS capturas la ven. */
-  /* `:global()` obligatorio (la trampa de D-239 en su variante fina): este
-     bloque tiene ámbito, pero las reglas vecinas de pseudo-elementos
-     (`html::view-transition-…`) se libran porque Astro no puede colgarle el
-     cid a un pseudo-elemento — a esta, con un compound normal al final, SÍ
-     se lo colgó (el de index, que el wrapper, nacido en TimeSlider, no
-     lleva). Regla muerta sin esto, comprobado en el navegador. */
-  :global(html.orden-cambiando #slider-track-wrapper) {
-    view-transition-name: none;
-  }
+
 
   /* Custom CSS for Range Slider */
   input[type="range"]::-webkit-slider-thumb {
@@ -2252,44 +2206,7 @@ const tags = [
   // `define:vars`, o sea que es inline, y un script inline no admite `import`.
   // Si tocas el marcado de una, toca la otra — y compáralas, que ya se
   // separaron una vez.
-  //
-  // Durante un reordenado las tarjetas se nombran por HUECO y no por contenido.
-  //
-  // Normalmente cada tarjeta se llama `flyer-img-{id}`, que es lo que permite el
-  // morphing a la ficha del evento. Pero al reordenar el archivo entero, las 32
-  // tarjetas que se van y las 32 que llegan no comparten NI UNA (84 eventos, 32
-  // por página: ascendente enseña la 1–32 y descendente la 84–53, intersección
-  // vacía). Sin pareja no hay nada que mover y el navegador solo puede fundir.
-  //
-  // Llamándolas por el hueco que ocupan, todas emparejan: el navegador mueve la
-  // caja de su sitio viejo al nuevo Y funde dentro el contenido viejo con el
-  // nuevo. Se ven las hojas blancas desplazarse mientras las imágenes se
-  // disuelven unas en otras. El movimiento es real (el masonry recoloca los
-  // huecos porque cada cartel mide distinto); lo que es prestado es la identidad.
-  // Sale más barato que ahora, además: 32 grupos emparejados en vez de 32 que se
-  // van más 32 que llegan.
-  //
-  // Se revierte al acabar la transición, si no el morphing a la ficha se rompe.
-  function nombrarHuecos(porHueco) {
-    const grid = document.getElementById('gallery-grid');
-    if (grid) {
-      Array.from(grid.children).forEach((card, i) => {
-        if (!card.dataset || !card.dataset.id) return;
-        card.style.viewTransitionName = porHueco ? `mel-hueco-${i}` : `flyer-img-${card.dataset.id}`;
-      });
-    }
 
-    // El bloque de cabecera entero pasa a ser UNA pieza opaca por encima de las
-    // tarjetas mientras dura el reordenado. Al deshacer se restaura su nombre
-    // FIJO (D-259), no vacío: el bloque participa siempre en las transiciones
-    // entre páginas como pieza opaca.
-    // Aquí había además un baile de los nombres interiores (mel-header y
-    // mel-toolbar, apagarlos al ir y reponerlos al volver): desde D-261 esos
-    // nombres NO existen — cabecera y toolbar viajan siempre dentro de la foto
-    // del bloque, en el reordenado y en todo lo demás.
-    const bloque = document.getElementById('bloque-cabecera');
-    if (bloque) bloque.style.viewTransitionName = porHueco ? 'mel-bloque-fijo' : 'mel-bloque-cabecera';
-  }
 
   function buildGalleryCard(item, i) {
     const card = document.createElement('div');
@@ -2732,6 +2649,12 @@ const tags = [
   // el slider en ese instante). Bandera de un solo uso, la consume
   // filterArchives.
   let vueloDeSoltado = false;
+  // La búsqueda del visitante viaja por FLIP, como el arrastre del deslizador y
+  // el orden (D-344): sin transición de vista, así que la cabecera (buscador,
+  // cifras, deslizador) no se fotografía y sigue viva mientras se escribe. Con
+  // fotos, en Safari se veían letras y contadores dobles y el cursor yendo y
+  // viniendo en cada letra (D-343). Bandera de un solo uso, como la de arriba.
+  let vueloDeBusqueda = false;
 
   function scheduleFilterArchives() {
     if (sliderUpdateScheduled) return;
@@ -2788,11 +2711,13 @@ const tags = [
     if (!isDragging) {
       if (sliderTrailingTimer) {
         // Hay una pasada agrupada pendiente: este disparo es el remate del
-        // arrastre y viaja como él, por FLIP (ver vueloDeSoltado).
+        // arrastre y viaja como él.
         clearTimeout(sliderTrailingTimer);
         sliderTrailingTimer = null;
-        vueloDeSoltado = true;
       }
+      // Sin arrastre (clic en la barra, teclado, remate del soltar) también
+      // viaja por FLIP (D-345): la galería ya no usa transición de vista.
+      vueloDeSoltado = true;
       scheduleFilterArchives();
       return;
     }
@@ -4162,8 +4087,8 @@ const tags = [
             animacionOrdenLenta ? ORDEN_ANIM_EASE : FLIP_EASE
           );
         }
-        // Ordenando desde el botón, el scroll vuelve arriba. Ya NO se llama a
-        // nombrarHuecos(true) aquí (D-255): eso era coreografía de la view
+        // Ordenando desde el botón, el scroll vuelve arriba. Ya NO se renombran
+        // las tarjetas por hueco aquí (D-255): eso era coreografía de la view
         // transition por huecos, y en el camino FLIP habría dejado los
         // nombres `mel-hueco-N` puestos PARA SIEMPRE (quien los restauraba
         // era el `finished` de una transición que ya no se arranca),
@@ -4618,74 +4543,20 @@ const tags = [
     const trackWrapper = document.getElementById('slider-track-wrapper');
     // El remate del soltar (vueloDeSoltado) cuenta como arrastre: misma
     // animación FLIP, sin transición discreta en el instante de soltar.
-    const arrastrandoSlider = (trackWrapper && trackWrapper.classList.contains('dragging')) || vueloDeSoltado;
+    // La búsqueda (D-344) viaja igual: misma animación FLIP, sin fotos.
+    const arrastrandoSlider = (trackWrapper && trackWrapper.classList.contains('dragging')) || vueloDeSoltado || vueloDeBusqueda;
     vueloDeSoltado = false;
+    vueloDeBusqueda = false;
 
-    // Volviendo de una ficha NO se arranca transición aquí: la del ClientRouter
-    // sigue viva y apilar una encima la supersede (regla 3 de AGENTS.md, escrita
-    // por un bug anterior). Además `startViewTransition` aplaza el repintado a
-    // otro fotograma, y con él la colocación de la tarjeta y el revelado de la
-    // galería — que es lo que dejaba el hueco en blanco de 344ms que el
-    // propietario ve como un parpadeo. Volviendo se pinta en el acto y la única
-    // transición viva sigue siendo la de la página.
-    // Reordenando en Lista tampoco se arranca, y por un motivo distinto: ahí la
-    // animación la hace el FLIP, no la transición. Las filas no llevan
-    // `view-transition-name` a propósito (regla 2: con nombre se promocionan a la
-    // capa superior y se escapan del recorte del scroll), así que pertenecen a la
-    // foto de la raíz — y esa foto VIEJA se funde por encima del FLIP durante
-    // toda la animación, tapándola. Eso era el "fundido sin más" que se veía al
-    // pasar a cronológico ascendente. Arriba no cambia nada durante un
-    // reordenado, así que la transición no aportaba nada que perder.
-    const listaEl = document.getElementById('view-lista');
-    const ordenandoEnLista = animacionOrdenLenta && listaEl && !listaEl.classList.contains('hidden');
-    // En la Lista nunca (D-324): sus filas ya se mueven solas (FLIP, salidas y
-    // llegadas), y la foto vieja de la transición se fundía encima — el
-    // fundido que el propietario no quería al buscar o mover los años.
-    const enLista = listaEl && !listaEl.classList.contains('hidden');
-
-    // `!animacionOrdenLenta`: desde D-255 el sort del botón también viaja por
-    // FLIP (identidad, sin fotografías) — la transición queda para búsqueda y
-    // clic en barra. El bloque `lenta` de aquí abajo se conserva por si algún
-    // camino residual arrancara una transición con la bandera puesta.
-    if (document.startViewTransition && !arrastrandoSlider && !animacionOrdenLenta && !restaurandoVuelta() && !ordenandoEnLista && !enLista) {
-      try {
-        // Si el reordenado viene del botón de ordenación, la transición se
-        // alarga. La clase se pone ANTES de arrancarla porque las animaciones de
-        // los pseudoelementos se resuelven al crearse, no después.
-        const lenta = animacionOrdenLenta;
-        if (lenta) {
-          const raiz = document.documentElement;
-          raiz.style.setProperty('--mel-orden-dur', duracionOrden + 'ms');
-          raiz.style.setProperty('--mel-orden-ease', ORDEN_ANIM_EASE);
-          raiz.classList.add('orden-cambiando');
-          // Las tarjetas SALIENTES, nombradas por hueco antes de la foto del
-          // estado viejo. Las entrantes se nombran dentro de performDOMUpdates.
-          nombrarHuecos(true);
-        }
-        const transition = document.startViewTransition(performDOMUpdates);
-        // Una transición saltada (pestaña en segundo plano, u otra que la sustituye)
-        // rechaza `ready` con InvalidStateError; sin este catch salía en la consola
-        // como «Uncaught (in promise)». No cambia nada de lo que se ve.
-        transition.ready.catch(() => {});
-        transition.finished.catch(() => {}).finally(() => {
-          if (lenta) {
-            document.documentElement.classList.remove('orden-cambiando');
-            // Devuelve el nombre de contenido: es el que empareja la tarjeta con
-            // la imagen de la ficha del evento al abrirla.
-            nombrarHuecos(false);
-            // La bandera se apaga AQUÍ y no al arrancar: el FLIP de la lista la
-            // lee dentro de performDOMUpdates, que corre después.
-            animacionOrdenLenta = false;
-          }
-        });
-      } catch (err) {
-        performDOMUpdates();
-        animacionOrdenLenta = false;
-      }
-    } else {
-      performDOMUpdates();
-      animacionOrdenLenta = false;
-    }
+    // La galería NUNCA se filtra con transición de vista (D-345): todo lo que la
+    // mueve (arrastrar o pulsar los años, buscar, ordenar) viaja por el FLIP de
+    // performDOMUpdates, y lo demás (arranque, vuelta de una ficha, Lista, Mapa)
+    // se pinta en el acto. Una transición de vista fotografía la página ENTERA y
+    // la cabecera viajaba dentro de la foto: en Safari, letras y contadores dobles
+    // y el cursor yendo y viniendo al teclear (D-343, D-344). La historia de cada
+    // excepción que había aquí (vuelta, Lista, orden) está en D-251, D-255, D-324.
+    performDOMUpdates();
+    animacionOrdenLenta = false;
   }
 
   function triggerTableBounceAnimation() {
@@ -6875,6 +6746,8 @@ const tags = [
       // El buscador se anuncia también al arrancar, y ese anuncio llega en mitad
       // de una vuelta: por eso el reseteo entero tiene que pasar por el guard.
       reiniciarPosicion();
+      // Búsqueda del visitante → FLIP (D-344). El anuncio de arranque no anima.
+      if (!(e.detail && e.detail.arranque)) vueloDeBusqueda = true;
       // Galería, lista y marcadores, con cada letra; la cámara del mapa, aparte
       // y con calma (D-302, ver `programarEncuadreBusqueda`).
       filterArchives(false);

@@ -113,7 +113,7 @@ import IconButton from './IconButton.astro';
         enterkeyhint="done"
         placeholder="Busca dj's, discotecas, diseñadores, colectivos..."
         data-placeholder-corto="Busca dj's, discotecas..."
- class="typo-h3 bg-transparent border-none text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:font-normal placeholder:text-mel-text-tertiary placeholder:truncate focus:outline-none w-full py-1 pl-[6px] transition-all duration-200"
+ class="typo-h3 bg-transparent border-none text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:font-normal placeholder:text-mel-text-tertiary placeholder:truncate focus:outline-none w-full py-1 pl-[6px]"
         autocomplete="off"
       />
     </div>
@@ -137,7 +137,7 @@ import IconButton from './IconButton.astro';
     <div class="flex items-center relative min-w-0 truncate mr-2">
       <span
         id="search-filled-text"
-        class="typo-h3 text-mel-action-primary truncate"
+        class="typo-h3 text-mel-action-primary truncate pl-[6px]"
       >
         Query
       </span>
@@ -261,8 +261,10 @@ import IconButton from './IconButton.astro';
     // Con el campo vacío se enseña el caret FALSO (grueso y parpadeante, igual
     // que la Pica del título) y se esconde el nativo; en cuanto hay una letra
     // se invierte, porque a partir de ahí hace falta el de verdad para poder
-    // colocarse entre caracteres. El hueco de 6px a la izquierda solo existe
-    // mientras está el falso: es el sitio que ocupa.
+    // colocarse entre caracteres. El hueco de 6 px a la izquierda (el sitio del
+    // caret falso) se queda SIEMPRE, también con texto y en el estado fijado
+    // (D-343): quitarlo con la primera letra hacía saltar el texto 6 px a la
+    // izquierda, y con el `transition-all` que llevaba el campo, deslizándose.
     // La X, solo con algo escrito (D-338): sirve para borrar, y con el campo
     // vacío no hay nada que borrar. Fuera del todo, no solo invisible: así el
     // texto de ejemplo aprovecha también su hueco (con `invisible` quedaban 40 px
@@ -273,7 +275,6 @@ import IconButton from './IconButton.astro';
     function ajustarCaret() {
       if (!activeInput) return;
       const vacio = activeInput.value.length === 0;
-      activeInput.classList.toggle('pl-[6px]', vacio);
       activeInput.classList.toggle('caret-transparent', vacio);
       if (fakeCaret) fakeCaret.classList.toggle('hidden', !vacio);
       if (clearBtn) clearBtn.style.display = vacio ? 'none' : '';
@@ -339,6 +340,7 @@ import IconButton from './IconButton.astro';
     function dispatchSearch(query: string) {
       window.dispatchEvent(new CustomEvent('mel-search', { detail: { query, arranque: anunciandoArranque } }));
     }
+
 
     // Event Listeners attached directly
     stateDefault?.addEventListener('click', () => {

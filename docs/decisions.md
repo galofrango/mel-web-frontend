@@ -7229,3 +7229,138 @@ hasta que pueda hacer pruebas en el teléfono: dos sospechas, el `:hover` del ma
 cortados (`global.css`, sin acotar a puntero fino; iOS trata el primer toque como «pasar el ratón»
 si cambia lo que se ve) o tocar durante el pase entre fichas. Propuesta para cuando se retome: un
 registro temporal en pantalla con `?diag`.
+
+## D-343 · La cabecera ya no se lava en Safari al teclear en el buscador
+
+**Propietario** (iPhone, también en producción): «al escribir en el buscador las letras hacen cosas
+raras, como si apareciesen difuminadas, la pica se mueve para alante y para atrás, como si alguna
+animación estuviese redibujándolo con cada pulsación». Es un elemento principal: no se podía quedar
+así, y va antes que la entrada nueva (bug antes que cosmética).
+
+**Causa** (reproducida con WebKit simulando un iPhone, en local y en producción; en Chrome no se ve):
+cada letra filtra la galería con una transición de vista, y la cabecera entera viaja en ella como
+una sola foto (`mel-bloque-cabecera`, D-261). El navegador la funde de serie: la foto vieja (con el
+texto anterior) bajando y la nueva subiendo. Chrome las suma (`mix-blend-mode: plus-lighter`) y el
+color se mantiene; WebKit no, y a mitad de camino las dos están semitransparentes: a los 90 ms de cada
+letra la cabecera entera (texto, X, subrayado, menú, deslizador) estaba a una cuarta parte de su
+color. El cursor sale dos veces, uno en cada foto y en sitios distintos: el vaivén. Pasaba igual en
+cualquier transición de la galería (años, orden) en el iPhone.
+
+**Decisión** (`index.astro`): en las transiciones de la galería, la foto **vieja** de la cabecera se
+queda quieta y opaca debajo (`animation: none`) y la **nueva** aparece encima con su propio fundido
+(`mel-cabecera-aparece`, 0,25 s) y mezcla normal: en ningún instante quedan las dos transparentes.
+Acotado con `html.mel-vt-galeria`, que pone `filterArchives` antes de arrancar su transición y quita
+al acabar la última (un contador, porque tecleando deprisa una sustituye a la anterior y el final de
+la vieja no debe quitársela a la nueva; también si la transición no llega a arrancar). Así las
+transiciones de cambio de página (ida a una ficha, vuelta, llegar desde Info) siguen con sus reglas.
+
+**Lo que no sirvió** (medido en WebKit, la cabecera DESAPARECÍA durante la transición): enseñar la
+nueva sin animación, con `animation: none` o con duración 0 como el deslizador (D-248). WebKit no
+pinta la foto nueva si no está animando (sus valores calculados eran correctos: opaca, en su sitio).
+Comprobado con una prueba de control que devolvía la cabecera lavada al quitar la regla. Ojo, por lo
+mismo: la regla `0s` del deslizador nunca se ha probado en Safari (desde D-251 el arrastre no usa
+transición). Tampoco es la regla que retiró D-265: aquella enseñaba la nueva al momento sobre una
+vieja que se apagaba, y en Chrome se sumaban y quemaban la cabecera.
+
+**Medido** (WebKit iPhone y Chrome, servidor de pruebas): tecleando «tec», cabecera entera a los 30,
+90 y 160 ms de cada letra; las 32 tarjetas siguen animándose al buscar; la clase se quita al acabar;
+en la ida a una ficha no está; ida y vuelta con la X, galería con sus 32 tarjetas; sin errores. Build
+correcto.
+
+**No bastó** (propietario, en su iPhone: «sigue igual»). Con un vídeo suyo de producción, fotograma a
+fotograma, se vieron cuatro cosas: (1) letras y contadores DOBLES («G» doble, «716» por «71», el texto
+de ejemplo escrito dos veces): lo que cambia de una foto a otra se superpone mientras dura el fundido,
+aunque la cabecera ya no se lave; (2) un SALTO al empezar a escribir y al borrar: el campo dejaba 6 px
+para el caret falso solo con el campo vacío, y con la primera letra el texto se iba 6 px a la
+izquierda, deslizándose por un `transition-all` del campo; (3) un recuadro rosa detrás de la palabra
+que el teclado del iPhone va a sugerir o corregir (es del sistema, no de la web; se deja); (4) la
+lentitud: cada letra rehace la galería y su transición. Con un interruptor temporal `?sinvt` (filtrar
+sin transición) el propietario confirmó que iba mejor, aunque algo lenta, y con versiones antiguas
+compiladas (v1.12.0 y v1.9.0) que ya pasaba antes: no es de los últimos cambios. Medido en Chrome con
+la CPU a ¼: 24–56 ms por letra con transición, 16–32 sin ella.
+
+**Decisión, segunda parte** (aprobada por el propietario; en escritorio «va de lujo» y no cambia). **La espera de 300 ms se retiró enseguida en D-344**, al pasar la búsqueda a FLIP; lo demás sigue:
+- **En pantallas táctiles (`pointer: coarse`) la búsqueda se anuncia al dejar de teclear**, 300 ms
+  después de la última letra (`anunciarAlDejarDeTeclear`, HeaderTitle). Mientras se escribe, ni la
+  galería ni los contadores se mueven y no hay transición: las letras salen al momento. Cualquier
+  anuncio inmediato (X, OK, Escape, enlace de búsqueda) cancela el pendiente; al bajar el teclado, el
+  pendiente se hace ya antes de fijar la búsqueda; al cambiar de página se descarta.
+- **El fundido de la cabecera, corto (0,1 s)**: lo que cambia se superpone un instante apenas visible.
+  No se puede quitar del todo en Safari (no pinta la foto nueva sin animar, ver arriba).
+- **Los 6 px del caret falso, siempre**: en el campo con y sin texto y en el texto fijado
+  (`#search-filled-text`), así que nada salta entre estados; y fuera el `transition-all` del campo.
+- Fuera `?sinvt`.
+
+**Medido** (WebKit simulando un iPhone y Chrome de escritorio): en el iPhone, tecleando «tec» con 120 ms
+entre letras, 0 transiciones y 0 anuncios mientras se escribe; medio segundo después, 1 transición y 1
+anuncio («tec») y la dirección con `search=tec`; escribir «h» y bajar el teclado enseguida fija «tech»
+y lo anuncia; margen izquierdo 6 px en el campo y en el texto fijado; el campo sin transición. En
+escritorio, letra a letra como siempre (3 anuncios, 3 transiciones). Sin errores. Build correcto.
+
+**Sin verificar**: un iPhone de verdad.
+
+## D-344 · La búsqueda anima por FLIP, sin transición de vista: la cabecera ya no se fotografía
+
+**Propietario**, tras D-343 («muchísimo mejor»): «¿el buscador tiene que formar parte necesariamente
+de la animación de las fotos? ¿No puede solo provocarla —filtrar— sin que haya que sacar fotos del
+buscador, ni del slider ni de nada de la cabecera, como un bloque independiente aunque conectado?».
+Y pensaba que la galería ya animaba igual al buscar que al arrastrar los años.
+
+**Lo que había** (comprobado en el historial): no era la misma técnica, aunque se parezca a propósito.
+Hasta D-251 todo usaba transiciones de vista (fotos de la página entera). D-251 pasó el ARRASTRE del
+deslizador a FLIP (mover las tarjetas reales con transformaciones, sin fotos) porque fotografiar 32
+tarjetas por año cruzado las dejaba en blanco en Chrome móvil, y dejó escrito que la transición se
+quedaba «para lo discreto (búsqueda, sort, clic en barra)». D-252/D-253 afinaron el FLIP para que se
+pareciera (viajes, despedidas que encogen y se funden, llegadas que crecen); D-255 pasó también el
+ORDEN a FLIP. Nunca se probó FLIP para buscar: fue una elección, no un descarte. Una transición de
+vista solo puede fotografiar la página entera; la versión que anima solo una parte no existe en Safari.
+
+**Decisión** (`index.astro`): la búsqueda del visitante viaja por el mismo FLIP que el arrastre y el
+orden. Bandera de un solo uso `vueloDeBusqueda` (como `vueloDeSoltado`), que pone el oyente de
+`mel-search` salvo en el anuncio de arranque y que entra en `arrastrandoSlider`, la variable con la
+que `filterArchives` elige FLIP y no arranca transición. A petición del propietario:
+- **Sin espera**: se retira la de 300 ms de D-343; la galería filtra con cada letra, como el
+  deslizador. El FLIP redirige las tarjetas que pilla a medio vuelo (D-251).
+- **Se queda el arreglo del cursor** (D-343): los 6 px del caret falso fijos y el campo sin
+  `transition-all`, para que la primera letra no baile.
+- La regla de la cabecera de D-343 (`html.mel-vt-galeria`) se queda para la única transición de la
+  galería que queda dentro de la portada: el clic en la barra de años.
+
+**Medido** (WebKit simulando un iPhone y Chrome de escritorio): tecleando «kne», 3 anuncios
+inmediatos, **0 transiciones de vista** y 0 animaciones de fotos; las tarjetas animadas por FLIP en
+cada letra (28 / 22 / 2 en el iPhone; 35 / 27 / 1 en escritorio), hasta quedar 1; cabecera nítida a
+los 60 ms de cada letra; margen del campo 6 px. Buscar y borrar con la X en Mapa y en Lista, sin
+errores. En el Mapa la búsqueda ya no funde la vista (allí la transición no animaba tarjetas).
+
+**Sin verificar**: un iPhone de verdad.
+
+## D-345 · La galería ya no se filtra nunca con transición de vista: todo por FLIP
+
+**Propietario**, tras D-344 («Está perfecto»): «¿no se puede unificar también la barra de años? Por no
+andar usando una cosa en un sitio y otra en otro».
+
+**Lo que quedaba con fotos** dentro de la portada: el clic en la barra de años (y moverla con el
+teclado), además del pintado de arranque. Arrastrar (D-251), ordenar (D-255) y buscar (D-344) ya iban
+por FLIP; la Lista (D-324) y la vuelta de una ficha, sin transición.
+
+**Decisión** (`index.astro`):
+- `filterArchives` deja de arrancar transiciones de vista: siempre `performDOMUpdates()`. Lo que mueve la
+  galería viaja por su FLIP; lo demás (arranque, vuelta, Lista, Mapa) se pinta en el acto.
+- El deslizador sin arrastre (clic en la barra, teclado, remate del soltar) pone siempre
+  `vueloDeSoltado`, así que viaja por el mismo FLIP que el arrastre.
+- Se retira lo que solo servía a esas transiciones: la regla de la cabecera de D-343
+  (`html.mel-vt-galeria`) y su contador, el bloque del «reordenado lento» con su CSS
+  (`html.orden-cambiando`) y `nombrarHuecos()` —ya era inalcanzable desde D-255: exigía el orden
+  activo y la condición de arriba lo excluía— y el selector `mel-bloque-fijo` de `global.css`. Las
+  reglas de transición de `global.css` siguen: sirven a los cambios de página (ida a una ficha,
+  vuelta…), que no cambian.
+- Consecuencia: con la entrada nueva (D-341/D-342, apartada en su rama) las banderas de arranque y
+  `conEntrada` sobrarán al juntarlas; ya no hay transición que evitar.
+
+**Medido** (WebKit simulando un iPhone y Chrome de escritorio): 0 transiciones al cargar; clic en la
+barra de años, 41 / 49 tarjetas volando por FLIP y 0 transiciones; buscar «pk», 32 volando y 0
+transiciones; ordenar con el botón (móvil), 61 volando; «Quitar filtros» (un enlace a la portada, la
+única transición contada es ese cambio de página) devuelve las 32 tarjetas; ida a una ficha y vuelta
+con la X, 32 tarjetas; sin errores. Build correcto.
+
+**Sin verificar**: un iPhone de verdad.
