@@ -7168,3 +7168,64 @@ sí estaba en el módulo suelto); con el servidor reiniciado y `node_modules/.vi
 vuelta galería → ficha → X → buscar pliega igual. El build lleva la regla en `index.*.css`.
 
 **Sin verificar**: cómo se siente en el iPhone el pliegue a la vez que sube el teclado.
+
+## D-340 · Barra de Safari oscura (I8), tirón del selector al bajar el teclado, «Sin resultados» sobre el mapa e iconos en LE800 (I15 se deja como estaba)
+
+**I8 — la barra de arriba se quedaba oscura** (captura del propietario: Mapa con el panel del local
+cerrado y la franja de la hora en el color del oscurecido). **Causa**: el oscurecido del panel
+(`#map-side-panel-backdrop`) es una capa fija a pantalla completa con su color siempre puesto; con
+el panel cerrado solo era transparente. Safari 26 tiñe su barra con el fondo de una capa fija
+pegada arriba, y por lo visto aunque sea transparente. **Decisión**: el color y la visibilidad de
+la capa solo existen con el panel abierto o desvaneciéndose; al cerrarse se retiran con 500 ms de
+retraso, lo que dura el fundido, así que en la página se ve igual que antes. La barra se oscurece con
+el panel y vuelve a crema al cerrarlo.
+
+**Lo que no se puede controlar**: el color de esa barra lo decide Safari y no lo anima; cambia de
+golpe y, al cerrar, como un segundo por detrás del panel (el propietario, en su iPhone). **Probado y
+retirado**: fundir la capa con su color en vez de con la opacidad, para que el cambio coincidiera con
+el panel. Safari solo mira el color cuando empieza el cambio, y en ese instante del fundido aún es
+transparente: la barra no se oscurecía nunca (en la práctica, la opción A de dejarla siempre en
+crema). El propietario prefiere el primer arreglo: «el tiempo que maneja Safari es vital y no lo
+podemos controlar».
+
+**I15 — la pantalla entera se iba hacia arriba** al arrastrar desde la franja entre las cifras y el
+contenido, con el buscador activo (con el teclado bajado no pasa). **Causa**: la portada del móvil
+no se desplaza nunca (mide la pantalla; lo que se desplaza es la caja del contenido), pero con el
+teclado abierto iOS deja mover la página entera para ver lo que tapa, y donde nada se desplaza por
+su cuenta el dedo se la llevaba. **Probado y retirado el mismo día**: bajar el teclado al arrastrar
+fuera del buscador. Funcionaba, pero al propietario le resultó raro que el teclado desaparezca al
+tocar el centro para desplazar, sin nada que lo anuncie, y que el selector vuelva enseguida justo
+al lado del hueco. **Se deja como estaba**: es el comportamiento del sistema.
+
+**El selector volvía «del tirón y con un fundido»** al bajar el teclado en Galería y Mapa (en Lista
+no). **Causa**: con el campo vacío, el buscador volvía a anunciar la búsqueda vacía; la portada
+reiniciaba la posición y refiltraba, y en Galería y Mapa eso arranca una transición de vista
+(`filterArchives`) cuya foto se fundía encima del selector mientras volvía (en Lista ya no se
+arranca, D-324). Medido: una transición de vista al bajar el teclado vacío. **Decisión**
+(`index.astro`, oyente de `mel-search`, por donde pasan todos los anuncios): la misma búsqueda otra
+vez no hace nada, salvo el anuncio de arranque. Medido después: 0 transiciones; escribir «pk» sigue
+filtrando (1).
+
+**«Sin resultados» con el mapa detrás** (propietario): con el mapa a la vista y una búsqueda sin
+resultados, el mensaje (`#views-empty-state`, `inset-0`) se quedaba dentro del margen de la página
+y asomaban 24 px de mapa a cada lado y una franja abajo; el mapa va de borde a borde en el móvil y
+3vh más abajo. **Decisión**: el mensaje toma el mismo alcance que el mapa (`-left-6 -right-6
+sm:left-0 sm:right-0`, `bottom-[-3vh] lg:bottom-0`) y devuelve los 24 px por dentro (`px-6
+sm:px-0`) para que el texto no cambie de renglones. Medido a 375: caja 0–375 hasta abajo, contenido
+24–351 como antes.
+
+**Iconos en LE800** (propietario): el marrón oscuro de los iconos (`#190609`, LE-950) pasa a
+`#490814` (LE-800): el logo del favicon claro, el fondo del icono del iPhone, de los de 192 y 512,
+del maskable y del manifest (`background_color`), y el logo del ICO. Los PNG se recolorearon por
+cálculo, sin volver a exportar: cada píxel es una mezcla exacta de los dos colores (desvío medido 0
+en los cinco), así que se cambia el marrón por LE-800 en la misma proporción y los bordes conservan
+el suavizado. **Pendiente del propietario**: cambiar el color también en Figma, que es el original.
+
+Build correcto.
+
+**Sin verificar**: Safari de verdad (que la barra vuelva a crema al cerrar el panel y al volver a
+la portada) **I11 aparcado** por el propietario
+hasta que pueda hacer pruebas en el teléfono: dos sospechas, el `:hover` del marquee de los títulos
+cortados (`global.css`, sin acotar a puntero fino; iOS trata el primer toque como «pasar el ratón»
+si cambia lo que se ve) o tocar durante el pase entre fichas. Propuesta para cuando se retome: un
+registro temporal en pantalla con `?diag`.

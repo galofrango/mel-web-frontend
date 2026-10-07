@@ -355,7 +355,13 @@ const tags = [
            cambiar el alto de la foto en el componente, la home seguía con el
            anterior. Sin `pt` propio en móvil para que la foto arranque a 32px
            de los recuentos y no a 89. -->
-      <div id="views-empty-state" class="hidden absolute inset-0 bg-mel-bg-primary z-[30] items-start justify-center pb-24 lg:items-center overflow-y-auto">
+      <!-- Mismo alcance que el mapa (`#view-mapa`): de borde a borde en el móvil
+           y hasta abajo del todo. Con `inset-0` se quedaba dentro del margen de
+           la página y asomaban 24 px de mapa a cada lado y una franja abajo
+           (D-340). En Galería y Lista no se nota: es del color de la página. Los
+           24 px se devuelven por dentro (`px-6`): el contenido mide lo mismo que
+           antes y el texto no cambia de renglones. -->
+      <div id="views-empty-state" class="hidden absolute top-0 bottom-[-3vh] lg:bottom-0 -left-6 -right-6 sm:left-0 sm:right-0 px-6 sm:px-0 bg-mel-bg-primary z-[30] items-start justify-center pb-24 lg:items-center overflow-y-auto">
         <EmptyState variant="no-results" class="pt-0 lg:pt-[24px]" />
       </div>
 
@@ -676,10 +682,14 @@ const tags = [
         </div>
 
         <!-- Dim: solo cuando el panel es bottom sheet (bajo lg). Cubre el slider
-             de tiempo (que queda a la vista, atenuado) y todo lo de abajo. -->
+             de tiempo (que queda a la vista, atenuado) y todo lo de abajo.
+             Su color y su presencia solo existen mientras el panel está abierto
+             o desvaneciéndose (D-340, regla `#map-side-panel-backdrop` de abajo):
+             Safari 26 tiñe su barra con el fondo de una capa fija pegada arriba
+             aunque sea transparente, y con el panel cerrado la dejaba oscura. -->
         <div
           id="map-side-panel-backdrop"
-          class="lg:hidden fixed inset-0 bg-[var(--mel-dim)] mix-blend-multiply z-[99] opacity-0 pointer-events-none transition-opacity duration-500"
+          class="lg:hidden fixed inset-0 mix-blend-multiply z-[99] opacity-0 pointer-events-none"
           aria-hidden="true"
         ></div>
 
@@ -1718,9 +1728,22 @@ const tags = [
     #map-side-panel.side-panel-dragging {
       transition: none;
     }
+    /* Cerrado: sin color y oculto, pero solo cuando acaba de desvanecerse (el
+       color y la visibilidad cambian con 500 ms de retraso, lo que dura el
+       fundido). Abierto: color y visibilidad al instante. La barra de Safari
+       cambia de golpe y algo después del panel: eso lo decide Safari (D-340;
+       fundir el color en vez de la opacidad hacía que no cambiara nunca). */
+    #map-side-panel-backdrop {
+      background-color: transparent;
+      visibility: hidden;
+      transition: opacity 0.5s, background-color 0s linear 0.5s, visibility 0s linear 0.5s;
+    }
     #map-side-panel-backdrop.side-panel-open {
       opacity: 1;
       pointer-events: auto;
+      background-color: var(--mel-dim);
+      visibility: visible;
+      transition: opacity 0.5s;
     }
   }
 </style>
@@ -6829,6 +6852,13 @@ const tags = [
     // Listen for search events
     window.addEventListener('mel-search', (e) => {
       const busquedaAnterior = searchQuery;
+      // La MISMA búsqueda otra vez no hace nada (D-340). El buscador la repite
+      // al bajar el teclado con el campo vacío, y aquí se reiniciaba la
+      // posición y se volvía a filtrar: en Galería y Mapa eso arranca una
+      // transición de vista, cuya foto se fundía encima del selector cuando
+      // volvía a su sitio (D-339) — «del tirón y con un fundido». El anuncio de
+      // arranque sí pasa siempre: es el que pinta la primera vez.
+      if (!(e.detail && e.detail.arranque) && e.detail.query.toLowerCase().trim() === busquedaAnterior) return;
       searchQuery = e.detail.query.toLowerCase().trim();
       _s.searchQuery = searchQuery;
       try {
