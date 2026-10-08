@@ -160,7 +160,7 @@ Página de la Sala de Exposiciones. Implementa el componente `<EmptyState varian
 | Componente | Responsabilidad y Mecánica |
 | --- | --- |
 | `<EmptyState />` | Sistema de estados vacíos (variantes `construction` y `no-results`). Utiliza una imagen en B/N combinada con una capa superior `bg-[var(--mel-primitive-le-900)]` en modo `mix-blend-screen` para lograr un tinte fotográfico duotono. |
-| `<IntroAnimation />` | Pantalla de inicio con 3 capas CMYK (`mix-blend-multiply`). Utiliza un contenedor con `isolation: isolate` para un blend correcto, física del ratón mediante `requestAnimationFrame` (desplazamientos de capa: Amarilla máx 16px, Magenta máx 8px, Cian 0px estática), y ascensión ease-in (`cubic-bezier(0.55, 0.085, 0.68, 0.53)`) de 2100ms con descomposición del subtítulo palabra por palabra (retardo de 150ms). |
+| `<IntroLogo />` | Entrada de la portada (D-341): capa a pantalla completa con la marca en SVG (rayas en V que bajan por una ventana con forma de M y frenan en el logo) y, desde 768 px, el texto. Una vez por visita y solo si la visita empieza en la portada: lo decide el `<head>` de `Layout.astro` (clase `mel-intro` en `<html>`, memoria de la pestaña `mel-visita`). Solo CSS más un script en línea que la quita al acabar o al tocar. Sustituye a la intro CMYK (`IntroAnimation`, retirada). |
 | `<HeaderTitle />` | Buscador tipográfico de 4 estados (*default*, *placeholder*, *filling*, *filled*) con animación de ancho en píxeles medidos y emisión del evento `mel-search`. |
 | `<TimeSlider />` | Selector de rango de años (2004–2019) con dos tiradores arrastrables. Los eventos de ventana se gestionan con `AbortController` para una desvinculación limpia. |
 | `<ToggleSelector />` | Selector de vistas (*Galería / Mapa / Lista*) con indicador deslizante mediante `transform`. |
@@ -358,8 +358,7 @@ parámetros incluidos, o la precarga no sirve.
 | --- | --- | --- |
 | `mel-search` | `HeaderTitle` → `index.astro` | Notifica cambios en el término de búsqueda |
 | `mel-set-search` | Celdas de tabla / Tags → `HeaderTitle` | Fija un texto de búsqueda desde una etiqueta o celda |
-| `mel-switch-view` | `SideMenu` / `IntroAnimation` → `ToggleSelector` | Cambia la vista activa (Galería/Mapa/Lista) |
-| `mel-trigger-intro` | `SideMenu` → `IntroAnimation` | Lanza la animación de intro bajo demanda |
+| `mel-switch-view` | `SideMenu` → `ToggleSelector` | Cambia la vista activa (Galería/Mapa/Lista) |
 | `mel-open-lightbox` | Marcadores del Mapa → Lightbox | Abre el visor de imagen desde un punto del mapa |
 | `mel-color-scheme-change` | `SideMenu` → Google Maps | Reconstruye los estilos del mapa claro/oscuro |
 

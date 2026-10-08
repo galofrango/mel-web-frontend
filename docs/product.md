@@ -39,8 +39,8 @@ El diseño gráfico de los flyers es el verdadero **protagonista visual** del pr
 - **Detalle de Evento Adaptativo**:
   - Experiencia en dos capas: página estática con URL canónica (`/event/[id]`) y overlay modal SPA instantáneo (`?detail=MEL-XXXX`).
   - Carrusel de imágenes, visualizador en pantalla completa (*lightbox*), etiquetas conectadas y botón de compartir (hoja del sistema en el teléfono, copiar enlace en escritorio).
-- **Experiencia de Entrada (Intro CMYK)**:
-  - Animación interactiva de aberración cromática CMYK basada en física vectorial del ratón y despegue vertical escalonado.
+- **Entrada de la portada (D-341)**:
+  - El logo animado (las rayas de la M bajan y frenan en su sitio) y se funde descubriendo la portada, unos 3,5 s, una vez por visita. Un toque, desplazamiento o tecla la corta; con «reducir movimiento» no sale. Sustituye a la intro CMYK, que se retiró junto con «Intro» del menú.
 - **Estados Vacíos Explicativos (`EmptyState`)**:
   - Diseños ilustrados con tinte fotográfico duotono para guiar al usuario cuando no existen resultados de búsqueda o la sección está en desarrollo (*En construcción*).
 

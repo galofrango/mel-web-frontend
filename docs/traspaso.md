@@ -156,7 +156,7 @@ servidor** antes de diagnosticar otra cosa.
 
 ### Trampa: «en el móvil se ve todo más grande» puede ser Safari, no la web
 
-Safari (iPhone) guarda el zoom / tamaño de texto **por sitio** (botón **«Aa»** junto a la dirección), y para el servidor de pruebas el «sitio» es la IP del Mac (`192.168.1.167`). Si en algún momento se aumentó ahí, todas las pruebas locales se ven más grandes y borrosas, y la barra Galería/Mapa/Lista se sale por la derecha, mientras `melweb.vercel.app` (otro sitio, con su propio ajuste) se ve bien. Costó un rato (29/09/2026) porque parecía un fallo de las fuentes nuevas. **Antes de diagnosticar, tocar «Aa» y comprobar que pone 100 %.** Una segunda comprobación barata: abrir la misma IP con otro nombre (`192.168.1.167.nip.io`), que Safari trata como un sitio nuevo.
+Safari (iPhone) guarda el zoom / tamaño de texto **por sitio** (botón **«Aa»** junto a la dirección), y para el servidor de pruebas el «sitio» es la IP del Mac (`192.168.1.167`). Si en algún momento se aumentó ahí, todas las pruebas locales se ven más grandes y borrosas, y la barra Galería/Mapa/Lista se sale por la derecha, mientras `melweb.vercel.app` (otro sitio, con su propio ajuste) se ve bien. Costó un rato (29/09/2026) porque parecía un fallo de las fuentes nuevas. **Antes de diagnosticar, tocar «Aa» y comprobar que pone 100 %.** ~~Una segunda comprobación barata: abrir la misma IP con otro nombre (`192.168.1.167.nip.io`)~~ **No funciona** (07/10/2026): Vite rechaza los nombres que no conoce («Blocked request. This host is not allowed»). En su lugar, en el iPhone: Ajustes › Apps › Safari › «Zoom de página», donde salen las direcciones con zoom propio.
 
 ### Previsualizaciones de Vercel
 

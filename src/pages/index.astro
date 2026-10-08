@@ -11,7 +11,7 @@ import Whisper from '../components/Whisper.astro';
 import ToggleSelector from '../components/ToggleSelector.astro';
 import FlyerCard from '../components/FlyerCard.astro';
 import IconButton from '../components/IconButton.astro';
-import IntroAnimation from '../components/IntroAnimation.astro';
+import IntroLogo from '../components/IntroLogo.astro';
 import BottomSheetHeader from '../components/BottomSheetHeader.astro';
 import EmptyState from '../components/EmptyState.astro';
 import { fetchEvents, rangoDeAnios, extractDriveImage, srcSetDrive, formatFechaDMY } from '../lib/mel';
@@ -130,6 +130,10 @@ const tags = [
 ---
 
 <Layout title="Galería de Diseño">
+  <!-- Lo primero del cuerpo (D-341): la portada pesa ~900 KB y el navegador
+       pinta antes de leerla entera; si la capa fuera al final, la portada
+       asomaría sin ella un instante. -->
+  <IntroLogo />
   <!-- Top/bottom paddings are viewport-relative (tuned against the 4K reference:
        112px top / 32px bottom at ~1100px of viewport height ≈ 10vh / 3vh) so
        smaller screens don't waste fixed pixel gaps. -->
@@ -923,7 +927,6 @@ const tags = [
   </div>
 
 
-  <IntroAnimation />
   <SideMenu />
 </Layout>
 
@@ -7166,7 +7169,13 @@ const tags = [
     try {
       if (!sessionStorage.getItem('mel-whisper-sesion')) {
         sessionStorage.setItem('mel-whisper-sesion', '1');
-        requestAnimationFrame(() => whisperDeOrden(ordenActual()));
+        // Con la entrada a la vista (D-341), al acabar ella: sus 3 s pasaban
+        // enteros debajo de la capa y el aviso casi no se veía.
+        if (document.documentElement.classList.contains('mel-intro')) {
+          window.addEventListener('mel-intro-fin', () => whisperDeOrden(ordenActual()), { once: true, signal: wSig });
+        } else {
+          requestAnimationFrame(() => whisperDeOrden(ordenActual()));
+        }
       }
     } catch (e) {}
 

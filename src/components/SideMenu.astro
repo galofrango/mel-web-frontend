@@ -66,19 +66,6 @@ import { version } from '../../package.json';
         <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
       </a>
 
-      <!-- Item: Intro -->
-      <a href="/?intro=true" id="menu-item-intro" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200 no-underline relative">
-        <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
-          <p class="typo-lead text-mel-text-primary group-hover:text-mel-action-secondary truncate">
-            Intro
-          </p>
-        </div>
-        <div class="w-6 h-6 flex items-center justify-center shrink-0 text-mel-action-secondary group-hover:text-mel-action-primary group-active:text-mel-action-primary transition-colors duration-200">
-          <Icon icon="chevron-right" size={16} strokeWidth={2} />
-        </div>
-        <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border"></div>
-      </a>
-      
       <!-- Item: Sala de exposiciones (Figma 562:70116, "Nuevo" tag) -->
       <a href="/exposiciones" id="menu-item-exhibitions" class="group flex gap-[8px] h-[64px] items-center pl-[16px] pr-[16px] w-full hover:bg-mel-bg-secondary active:bg-mel-bg-tertiary transition-colors duration-200 no-underline relative">
         <div class="flex flex-1 gap-[4px] items-center min-w-px pl-[8px]">
@@ -191,7 +178,6 @@ import { version } from '../../package.json';
     const closeMenuBtn = document.getElementById('close-side-menu');
     const backdrop = document.getElementById('side-menu-backdrop');
     const homeLink = document.getElementById('menu-item-home');
-    const introLink = document.getElementById('menu-item-intro');
     const colorToggle = document.getElementById('color-mode-toggle');
 
     function openMenu() {
@@ -247,16 +233,6 @@ import { version } from '../../package.json';
       });
     }
 
-    if (introLink) {
-      introLink.addEventListener('click', (e) => {
-        if (window.location.pathname === '/') {
-          e.preventDefault();
-          window.dispatchEvent(new CustomEvent('mel-trigger-intro'));
-          closeMenu();
-        }
-      });
-    }
-
     // Todo enlace del menú espera a que el panel termine de replegarse antes
     // de navegar. Antes la navegación arrancaba en el mismo instante del clic y
     // el menú desaparecía de golpe, tapado por la página entrante; ahora se ve
@@ -273,7 +249,7 @@ import { version } from '../../package.json';
     if (sideMenu) {
       sideMenu.querySelectorAll('a[href]').forEach(enlace => {
         enlace.addEventListener('click', (e) => {
-          // Los enlaces con lógica propia (Inicio e Intro estando ya en la home)
+          // Los enlaces con lógica propia (Inicio estando ya en la home)
           // ya han hecho preventDefault antes de llegar aquí: cierran el menú
           // por su cuenta y no navegan a ninguna parte.
           if (e.defaultPrevented) return;

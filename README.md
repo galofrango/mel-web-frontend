@@ -34,7 +34,7 @@ No hay variables de entorno: la hoja de Google Sheets es pública (lectura vía 
 ├── public/                  # Assets estáticos (flyers de fallback, imágenes de EmptyState, favicon)
 ├── scripts/fetch_sheet.py   # Resolución/caché de coordenadas desde la hoja (offline)
 ├── src/
-│   ├── components/          # Componentes Astro reutilizables (EmptyState, IntroAnimation, Link, TagWithLink…)
+│   ├── components/          # Componentes Astro reutilizables (EmptyState, IntroLogo, Link, TagWithLink…)
 │   ├── data/                # resolved_coordinates.json (caché de geocoding)
 │   ├── layouts/Layout.astro # <head> común, tema claro/oscuro, Maps bootstrap, ClientRouter
 │   ├── pages/

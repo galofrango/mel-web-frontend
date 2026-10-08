@@ -7230,6 +7230,126 @@ cortados (`global.css`, sin acotar a puntero fino; iOS trata el primer toque com
 si cambia lo que se ve) o tocar durante el pase entre fichas. Propuesta para cuando se retome: un
 registro temporal en pantalla con `?diag`.
 
+## D-341 · Entrada nueva: el logo animado una vez por visita; fuera la intro CMYK
+
+**Propietario**: diseñó la animación en Figma («Animación», 1423:77; GIF de referencia): la marca de
+la M con sus rayas fluyendo y el texto «Memoria Electrónica Leonesa» al lado. Decidió, en este orden:
+que salga **al entrar en la portada, una vez por visita** (pestaña o ventana nueva, como el barajado);
+**retirar la intro CMYK y «Intro» del menú**; que **frene y se pose** en el logo; y en el móvil, **solo
+la marca**. «Como no es algo muy complicado, luego ya hacemos algún ajuste si hace falta.»
+
+**Lo que hay en Figma**: una «ventana» con forma de M (`M600 400L0 0V900H1000V200L600 400Z`, la V
+arriba) y detrás una columna de rayas en V de 200 unidades de grosor, una cada 300, que baja 900
+unidades en 3 s en bucle (300 u/s). El logo en reposo son las rayas en 0, 300 y 600 vistas por la
+ventana. El texto viene en trazos (sin texto vivo ni imágenes).
+
+**Decisión** (`src/components/IntroLogo.astro`, `Layout.astro`, `index.astro`):
+- **Cuándo**: lo decide el `<head>` de `Layout.astro` antes del primer pintado: en `/`, sin la marca de
+  visita (`mel-visita` en `sessionStorage`) y sin «reducir movimiento», pone `mel-intro` en `<html>`.
+  La marca de visita la pone el primer `astro:page-load` de cualquier página, así que quien entra por
+  una ficha no la ve luego en la portada, y recargar la misma pestaña tampoco la repite. En una
+  navegación suave Astro copia los atributos del `<html>` nuevo y la clase no llega.
+- **Dónde**: lo primero del cuerpo de la portada. Al final del marcado (donde estaba la CMYK) la
+  portada, de ~900 KB, asomaría sin la capa: el navegador pinta antes de leerla entera.
+- **Qué**: capa fija a pantalla completa, fondo `bg-secondary` (tinted-100, el de Figma) y logo
+  `action-secondary` (LE-800); en oscuro, los suyos. La marca es SVG en línea con la ventana como
+  recorte y cuatro `<use>` de una sola raya; el texto, sus 25 trazos con coordenadas redondeadas a
+  un decimal (20 → 15 KB; ~6 KB comprimido; a su tamaño una unidad es un quinto de píxel).
+- **Movimiento**: las rayas bajan UNA raya (300 u.) en 1,8 s con `cubic-bezier(0.25, 0.46, 0.45,
+  0.94)`, cuya pendiente inicial (1,84) da un arranque a ~307 u/s, la velocidad del bucle de Figma;
+  al ser periódicas, terminan exactamente en el logo. Quieto 0,4 s y fundido de 0,5 s (2,7 s en
+  total). Un toque, rueda, tecla o arrastre la corta con un fundido de 0,3 s (otro nombre de
+  animación, para que arranque de cero). Al acabar se quita del documento y se sueltan los oyentes.
+- **Tamaños**: móvil (< 768), solo la marca a 40vw (150 px a 375). Desde 768, el conjunto ocupa el 37 %
+  del ancho como en el frame (marca `clamp(120px, 14.2vw, 280px)`), el texto a 0,2 de la marca y con
+  su borde de abajo 4 unidades más bajo, como en Figma.
+- **Retirado**: `IntroAnimation.astro`, «Intro» del menú (`SideMenu.astro`, su oyente y el evento
+  `mel-trigger-intro`), `?intro=true` y las páginas de laboratorio de la intro, que solo existían en
+  desarrollo (`intro-lab`, `intro-v2`, `preview`, `preview-v2`). La regla 14 de `CLAUDE.md` (los
+  parámetros de las capas CMYK) pasa a ser la de la entrada nueva. La CMYK queda en el historial.
+
+**Medido** (Chrome del panel): a 375 la marca mide 150 × 135 y está centrada, solo marca; a 1440 el
+conjunto ocupa el 36,8 % (Figma 36,9 %), hueco 41 px = 0,2 de la marca, bordes de abajo a 1 px; las
+rayas a 0 / 0,3 / 0,6 / 1,2 / 1,8 s están a −300 / −207 / −126 / −32 / 0 unidades; al acabar la capa
+y la clase desaparecen; recargar la pestaña no la repite; entrar por una ficha y pasar a la portada,
+tampoco; en oscuro, fondo tinted-900 y logo LE-100. Sin errores en la consola; build correcto.
+
+**Coste en PageSpeed** (Lighthouse 12.8.2 sobre el build servido en local, móvil, 3 pasadas; la misma
+versión con y sin la entrada, quitándola con `--force-prefers-reduced-motion`): sin ella **79 / 79 /
+79**, con ella **77 / 77 / 79**. FCP igual (2,0 s), LCP igual (5,0–5,4 s, el cartel de la galería,
+que se pinta debajo), CLS 0. Lo que cambia es el **Speed Index**, de 2,0 a 3,8–3,9 s: mide cuándo
+termina de verse la página, y la capa la tapa 2,7 s. (En local las cifras absolutas salen más bajas
+que en producción, sin la red de Vercel; lo que vale es la diferencia.)
+
+**Ajuste del propietario** (mismo día, con una simulación con mandos sobre la galería real,
+https://claude.ai/artifact/P8qasAYLrnLaYYkVxnYDDb): «la marca en escritorio se ha desvinculado mucho
+del logo», mucho más pequeña. Eligió: total **3,5 s** (rayas 2,05 s, quieto 0,45 s, salida 1 s) y un
+**fundido de entrada del logo de 1 s** sobre el fondo (antes aparecía de golpe); marca de **136 px**
+en una pantalla de 1440 (`clamp(80px, 9.44vw, 190px)`, suelo y techo en la proporción del primer
+tamaño) y de **112 px** en un móvil de 375 (29,9vw). Con las rayas más largas, el arranque baja a ~270
+u/s. Los tiempos son los mismos en móvil y escritorio. Las cifras de arriba (2,7 s, 14,2vw, 40vw) son
+las del primer montaje. **Segundo ajuste**: 32 px menos de alto del conjunto en escritorio y 16 en
+el móvil, siempre centrado. El alto lo marca la marca (0,9 × su ancho): queda en 100 px de ancho a
+1440 (`clamp(60px, 6.97vw, 140px)`, conjunto de 90 px de alto) y 94 px a 375 (25,1vw, 85 de alto).
+Medido centrado en las dos pantallas.
+Coste medido con estos valores (mismo método: build en local, móvil, 3 pasadas): sin la entrada
+**79 / 79 / 84**, con ella **78 / 80 / 76**; FCP 2,0 s y CLS 0 en todas; LCP igual (5,0–5,4 s);
+Speed Index **2,0 / 2,5 / 4,2 s** con ella (2,0 sin ella), más variable que con el primer montaje.
+Unos 2 puntos de media.
+
+**La portada asomaba en mitad de la entrada** (propietario, en su navegador: «aparece la animación,
+se ve la página una décima de segundo por detrás y luego vuelve»). **Causa**, medida enganchando
+`startViewTransition` desde el principio de la carga: al arrancar, `filterArchives` lanza **dos**
+transiciones de vista (a 0,33 s en escritorio, a 0,05 s en el móvil), y durante una transición los
+elementos con `view-transition-name` (tarjetas, cabecera, deslizador) se pintan por encima de todo,
+`z-index` incluido (regla 2), también de la capa de la entrada. **Decisión**: con `html.mel-intro`
+puesta, `filterArchives` pinta sin transición (`conEntrada`): nadie ve la portada debajo. Medido:
+con la entrada, 0 transiciones al cargar; sin ella (otra visita, `--force-prefers-reduced-motion`),
+las dos de siempre; la galería, con sus 32 tarjetas al acabar, igual que sin entrada; sin errores.
+(En el Chrome sin pantalla los fotogramas no lo enseñaban; en el navegador del propietario, sí.)
+Antes de esto, el propietario vio además la primera versión guardada en su navegador (capa al
+final, 204 px, sin fundido): una ventana privada lo resolvió.
+
+**El aviso del orden, después de la entrada** (propietario: «debería aparecer al terminar la
+entrada, como todo lo demás»). Sale una vez por visita durante 3 s, y la entrada tapa la pantalla
+3,5 s: pasaba entero debajo. Ahora la entrada avisa al irse (`mel-intro-fin`, también si se salta) y
+la portada lo espera para enseñarlo; sin entrada, como antes. Medido en el móvil: con entrada, oculto
+hasta 3 s y visible de 3,7 a 6 s; sin ella, visible desde el primer segundo.
+
+**Sin verificar**: un iPhone de verdad (la capa desde el primer pintado, el movimiento y el fundido,
+saltarla con el dedo). En el panel de pruebas la pestaña está oculta: no repinta la animación pausada
+ni entrega el aviso de fin de animación (se comprobó con los valores calculados).
+
+## D-342 · La portada se pinta al cargar sin transición de vista
+
+**Superada por D-345 y D-346**: desde D-345 la galería no arranca transiciones de vista nunca, así que
+las banderas `pintadoDeArranque` y `arranqueDeslizador` se retiraron al subir la entrada. Se conserva
+como historia del hallazgo.
+
+**Hallazgo** (D-341, investigado a petición del propietario): al cargar la portada, `filterArchives`
+lanzaba **dos** transiciones de vista seguidas, con 4–10 ms de diferencia, sin que cambiara nada:
+1. el **anuncio de arranque del buscador** (búsqueda vacía → `mel-search` con `arranque` →
+   `filterArchives`, en el acto);
+2. el **primer aviso del deslizador de años** (rango completo → `updateSlider`, cuyo primer disparo
+   no se descarta a propósito → `scheduleFilterArchives` → `filterArchives` un fotograma después).
+
+Las dos filtraban lo que ya estaba pintado, y la segunda cancelaba a la primera, justo lo que prohíbe
+la regla 3 (empezar una transición con otra a medias la sustituye: la primera se corta y la segunda
+parte de un estado a medio cambiar). No animaban nada: es el primer pintado, no hay un estado
+anterior. Medido enganchando `startViewTransition` desde el principio de la carga, con su pila.
+
+**Decisión** (`index.astro`): el pintado de arranque va sin transición. Bandera de un solo uso
+`pintadoDeArranque`, como `vueloDeSoltado`, que consume `filterArchives`: la pone el oyente de
+`mel-search` cuando el anuncio es de arranque, y el deslizador con la suya (`arranqueDeslizador`)
+justo antes de su filtrado diferido. Con una sola bandera no bastaba: el deslizador avisa primero
+pero filtra después, y el filtrado del buscador se la comía (medido: quedaba una transición).
+`conEntrada` (D-341) se queda: cubre cualquier otro filtrado mientras la entrada tapa la página.
+
+**Medido** (Chrome sin pantalla, 1440 y 375, con y sin la entrada): 0 transiciones al cargar en los
+cuatro casos (antes, 2 sin la entrada); al buscar «pk», 1 transición y 3 tarjetas, como siempre; sin
+errores. La vuelta desde una ficha no cambia (ya iba sin transición, `restaurandoVuelta`). En lo
+visible no hay diferencia: la galería aparece igual, quizá un fotograma antes.
+
 ## D-343 · La cabecera ya no se lava en Safari al teclear en el buscador
 
 **Propietario** (iPhone, también en producción): «al escribir en el buscador las letras hacen cosas
@@ -7364,3 +7484,18 @@ transiciones; ordenar con el botón (móvil), 61 volando; «Quitar filtros» (un
 con la X, 32 tarjetas; sin errores. Build correcto.
 
 **Sin verificar**: un iPhone de verdad.
+
+## D-346 · La entrada se sube sobre D-345: fuera `conEntrada` y las banderas de arranque
+
+**Contexto**: la entrada (D-341, D-342) se apartó sin commit mientras se arreglaba la cabecera de
+Safari (D-343 a D-345), y se recupera encima de v1.13.2 copiando solo sus piezas.
+
+**Decisión** (`index.astro`): no se recuperan las tres protecciones contra transiciones de vista:
+- `conEntrada` (D-341) evitaba que una transición pintara la portada por encima de la capa de la
+  entrada;
+- `pintadoDeArranque` y `arranqueDeslizador` (D-342) evitaban las dos transiciones seguidas al cargar.
+
+Desde D-345 `filterArchives` no arranca ninguna transición de vista: no queda nada que evitar. Del
+resto de la entrada no cambia nada: el `<head>` de `Layout.astro` decide con `mel-visita`,
+`IntroLogo` es lo primero del cuerpo, 3,5 s, mismos tamaños y colores, y el aviso del orden espera a
+`mel-intro-fin`.

@@ -220,7 +220,7 @@ ficha, donde hay una sola.
 | Componente | Variantes / Estados | Descripción y Especificación |
 | --- | --- | --- |
 | `<EmptyState />` | `construction` / `no-results` / `404` | Componente de estado vacío con imagen en B/N y capa `bg-[var(--mel-primitive-le-900)]` en modo `mix-blend-screen` para lograr el tinte fotográfico duotono de la marca. |
-| `<IntroAnimation />` | — | Pantalla de inicio con 3 capas CMYK (`mix-blend-multiply`) aisladas con `isolation: isolate`. Parallax interactivo del ratón (Amarilla 16px/1px blur, Magenta 8px/0.5px blur, Cian 0px estática) y despegue ease-in de 2.1s. |
+| `<IntroLogo />` | Figma «Animación» 1423:77 | Entrada de la portada (D-341). Marca: rayas en V (una cada 300 u.) tras una ventana con forma de M; bajan una raya en 2,05 s frenando (`cubic-bezier(0.25, 0.46, 0.45, 0.94)`) y paran en el logo; el logo entra con un fundido de 1 s; quieto 0,45 s; fundido de salida de 1 s (3,5 s). Fondo `bg-secondary`, logo `action-secondary`. Móvil: solo la marca (25,1vw, 94 px a 375; 85 px de alto); desde 768: marca `clamp(60px, 6.97vw, 140px)` (100 px a 1440; conjunto de 90 px de alto) y texto a 0,2 de la marca. Valores elegidos por el propietario en la simulación. |
 | `<HeaderTitle />` | default / placeholder / filling / filled | Buscador de 4 estados con expansión animada de ancho en píxeles medidos y línea inferior de acento. |
 | `<TimeSlider />` | — | Selector de rango de años (2004–2019) con dos handles arrastrables y clamping estricto. |
 | `<ToggleSelector />` | Galería / Mapa / Lista | Conmutador de 3 posiciones con píldora deslizante mediante `transform`. |
