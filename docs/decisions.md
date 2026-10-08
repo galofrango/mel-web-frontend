@@ -7499,3 +7499,25 @@ Desde D-345 `filterArchives` no arranca ninguna transición de vista: no queda n
 resto de la entrada no cambia nada: el `<head>` de `Layout.astro` decide con `mel-visita`,
 `IntroLogo` es lo primero del cuerpo, 3,5 s, mismos tamaños y colores, y el aviso del orden espera a
 `mel-intro-fin`.
+
+## D-347 · El buscador sin autocorrección ni corrector: fuera el recuadro y la barra de sugerencias
+
+**Propietario** (08/10): al escribir en el buscador del iPhone sale un recuadro detrás de la palabra
+(el punto 3 de «No bastó» en D-343, que se dejó por ser del sistema), y si se puede, mejor sin la
+barra de sugerencias del teclado.
+
+**Causa**: el recuadro es el iPhone marcando la palabra que va a corregir o sustituir por una
+sugerencia, teñido con el color del cursor (`caret-mel-action-primary`). La barra de sugerencias
+(QuickType) la enseña el teclado mientras el campo admita corrección. Según WebKit (fallo 230360),
+hasta iOS 14 bastaba `autocorrect="off"` para esconderla; desde iOS 15 hace falta además
+`spellcheck="false"`, o enseña candidatos del corrector.
+
+**Decisión** (`HeaderTitle.astro`, `#search-active-input`): `autocorrect="off"` y
+`spellcheck="false"`, junto al `autocomplete="off"` que ya tenía. En este buscador la corrección
+estorba: se escriben nombres de DJ, locales y colectivos, que el iPhone cambiaba por palabras
+corrientes. Lo que sigue: la barra negra con flechas encima del teclado (es de Safari y no se puede
+quitar desde una web) y el ajuste «Predictivo» de cada teléfono, que manda sobre la web.
+
+**Verificado** por el propietario en Chrome y Safari del iPhone (08/10). Antes: sin verificar (el simulador sin pantalla no saca el teclado). Si en iOS 26
+la barra siguiera saliendo, el recuadro debería irse igualmente con `autocorrect="off"`.
+

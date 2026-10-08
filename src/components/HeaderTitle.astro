@@ -106,7 +106,11 @@ import IconButton from './IconButton.astro';
            filtra solo mientras se escribe; esa tecla no busca nada, solo fija lo
            escrito y baja el teclado, y una tecla «Buscar» prometería otra cosa
            (el propietario). La barra negra con flechas que sale encima del
-           teclado en Safari es del sistema: ninguna web la puede quitar. -->
+           teclado en Safari es del sistema: ninguna web la puede quitar.
+           Sin autocorrección ni corrector (D-347): se buscan nombres propios que
+           el iPhone «corregía», marcaba la palabra con un recuadro del color del
+           cursor y, desde iOS 15, `spellcheck="false"` es lo que esconde la barra
+           de sugerencias del teclado. -->
       <input
         type="text"
         id="search-active-input"
@@ -115,6 +119,8 @@ import IconButton from './IconButton.astro';
         data-placeholder-corto="Busca dj's, discotecas..."
  class="typo-h3 bg-transparent border-none text-mel-action-secondary caret-mel-action-primary placeholder:text-[20px] placeholder:font-normal placeholder:text-mel-text-tertiary placeholder:truncate focus:outline-none w-full py-1 pl-[6px]"
         autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
       />
     </div>
     
