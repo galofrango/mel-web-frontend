@@ -1904,6 +1904,8 @@ const imagenCompartir = urlCompartir ? {
 
       zona.addEventListener('pointermove', (e) => {
         if (y0 === null) return;
+        // El gesto es de «cerrar tirando» (D-348): no se desplaza nada.
+        if (ejeGesto.dueno === 'cierre') return;
         const dy = e.clientY - y0;
         // El gesto solo se toma cuando es claramente vertical; si no, se deja
         // pasar para que el deslizamiento entre fotos siga funcionando.
@@ -2069,7 +2071,7 @@ const imagenCompartir = urlCompartir ? {
         if (!arrastrando) {
           // Sin decidir el eje todavía: un temblor mínimo no cuenta como
           // gesto, y si domina el vertical es scroll de página, no nuestro.
-          if (ejeGesto.dueno === 'vertical') return;
+          if (ejeGesto.dueno === 'vertical' || ejeGesto.dueno === 'cierre') return;
           if (Math.max(Math.abs(dxUltimo), Math.abs(dyUltimo)) < 6) return;
           if (Math.abs(dxUltimo) <= Math.abs(dyUltimo)) return;
           arrastrando = true;
@@ -2237,6 +2239,152 @@ const imagenCompartir = urlCompartir ? {
     // la paginación y el faldón también son zona muerta si no.
     habilitarArrastreVertical(document.getElementById('detail-image-sticky'));
 
+    // Cerrar la ficha tirando hacia abajo (D-348, T5b), solo táctil y con la
+    // ficha de móvil. Vale desde cualquier punto de la ficha, pero solo si el
+    // gesto EMPIEZA arriba del todo (foto entera) y su primer movimiento es
+    // hacia abajo: leyendo más abajo, tirar sigue subiendo la ficha. El CARTEL
+    // (la imagen de la foto a la vista) sigue al dedo y encoge; lo demás,
+    // rayas y puntos incluidos, se queda en su sitio y se funde hacia el fondo.
+    // Al soltar, pasado el umbral (o con un tirón), se pulsa la X: el cierre es
+    // el de siempre, con su vuelo desde donde quedó el cartel
+    // (`prepararVueloDeVuelta` mide con los transforms puestos) o su fundido.
+    // Si no, vuelve a su sitio. Eventos táctiles y no de puntero: solo
+    // cancelando `touchmove` se le quita al iPhone el rebote de la caja.
+    (function habilitarCerrarTirando() {
+      const pista = document.getElementById('carousel-track');
+      if (!raizPagina || !pista || !closeBtn) return;
+      const UMBRAL = 100;          // px hacia abajo para cerrar al soltar
+      const TIRON = 0.5;           // px/ms: un tirón cierra aunque no llegue
+      const ESCALA_MIN = 0.8;      // tamaño del cartel a ENCOGE_EN px
+      const ENCOGE_EN = 300;
+      const FUNDE_EN = 250;        // px en los que el resto llega a 0
+      const VUELTA_MS = 250;
+      // Inercia al soltar cerrando: el cartel sigue de largo con la velocidad
+      // del dedo y frena con esta deceleración (px/ms²), hasta un tope.
+      const FRENADA = 0.006;
+      const DE_LARGO_MAX = 150;
+      const FRENA_MS = [120, 320];
+      // Frenada que se posa (cúbica): pierde la velocidad poco a poco y llega
+      // al punto más bajo casi flotando. Su pendiente de salida es 3, así que
+      // dura 3·d/v para arrancar a la velocidad del dedo. La uniforme (2·d/v)
+      // se paraba en seco (propietario).
+      const CURVA_FRENADA = 'cubic-bezier(0.33, 1, 0.68, 1)';
+      let y0 = null, x0 = 0, decidido = false, mio = false, dy = 0;
+      let ultimaY = 0, ultimoT = 0, velocidad = 0;
+      // Lo del gesto en curso: el cartel, lo que se funde (todo lo que no lo
+      // envuelve) y los recortes que hay que abrir para que salga de su caja
+      // (la diapositiva, el botón del carrusel y el recorte que encoge).
+      let cartel = null, fundibles = [], recortes = [];
+
+      const preparar = () => {
+        const diapo = pista.children[currentIndex] || pista.children[0];
+        cartel = diapo && diapo.querySelector('img');
+        fundibles = []; recortes = [];
+        if (!cartel) return false;
+        for (let n = cartel; n && n !== raizPagina; n = n.parentElement) {
+          for (const hermano of n.parentElement.children) if (hermano !== n) fundibles.push(hermano);
+        }
+        recortes = [diapo, mainImageContainer, imageCrop].filter(Boolean);
+        return true;
+      };
+      const pintar = (d, transicion) => {
+        if (!cartel) return;
+        const t = transicion ? `transform ${VUELTA_MS}ms ease-out, opacity ${VUELTA_MS}ms ease-out` : 'none';
+        const s = 1 - (1 - ESCALA_MIN) * Math.min(1, d / ENCOGE_EN);
+        cartel.style.transition = t;
+        cartel.style.transformOrigin = '50% 0';
+        cartel.style.transform = d ? `translate3d(0, ${d}px, 0) scale(${s})` : '';
+        const o = d ? String(Math.max(0, 1 - d / FUNDE_EN)) : '';
+        for (const el of fundibles) { el.style.transition = t; el.style.opacity = o; }
+        // Abiertos mientras dura; se cierran al acabar la vuelta (ver soltar).
+        if (d) for (const el of recortes) el.style.overflow = 'visible';
+      };
+
+      raizPagina.addEventListener('touchstart', (e) => {
+        mio = false; decidido = false; dy = 0;
+        y0 = null;
+        // El cerrojo se limpia en cada gesto: solo lo hacían los `pointerdown`
+        // de la foto, y tras pasar de foto un tirón desde el texto lo
+        // encontraba aún en «horizontal» y no cerraba (medido).
+        ejeGesto.dueno = null;
+        if (e.touches.length !== 1 || window.innerWidth >= 1024 || raizPagina.scrollTop > 0) return;
+        y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+        ultimaY = y0; ultimoT = e.timeStamp; velocidad = 0;
+      }, { passive: true, signal: wSig });
+
+      raizPagina.addEventListener('touchmove', (e) => {
+        if (y0 === null) return;
+        if (e.touches.length !== 1) { if (mio) pintar(0, true); y0 = null; mio = false; return; }
+        const p = e.touches[0];
+        const d = p.clientY - y0, dx = p.clientX - x0;
+        if (!decidido) {
+          // Un temblor de 2 px no decide nada: así un toque (la X, la foto)
+          // sigue siendo un toque.
+          if (Math.max(Math.abs(d), Math.abs(dx)) <= 2) return;
+          decidido = true;
+          mio = d > 0 && d >= Math.abs(dx) && ejeGesto.dueno !== 'horizontal' && preparar();
+          if (!mio) { y0 = null; return; }
+          ejeGesto.dueno = 'cierre';
+          if (window.melAutoplayInterval) { clearInterval(window.melAutoplayInterval); window.melAutoplayInterval = null; }
+        }
+        if (e.cancelable) e.preventDefault();
+        const dt = e.timeStamp - ultimoT;
+        if (dt > 0) velocidad = (p.clientY - ultimaY) / dt;
+        ultimaY = p.clientY; ultimoT = e.timeStamp;
+        dy = Math.max(0, d);
+        pintar(dy, false);
+      }, { passive: false, signal: wSig });
+
+      const soltar = (e) => {
+        if (y0 === null) return;
+        y0 = null;
+        if (!mio) return;
+        // Dedo quieto antes de levantarlo: la velocidad es cero, no la del
+        // último movimiento.
+        if (e.timeStamp - ultimoT > 80) velocidad = 0;
+        if (e.type === 'touchend' && (dy > UMBRAL || (velocidad > TIRON && dy > 30))) {
+          mio = false;   // el clic de la X tiene que pasar (ver abajo)
+          // De largo: v²/2a, con tope y sin que el centro del cartel salga de
+          // la pantalla; el tiempo, 3·d/v (ver CURVA_FRENADA). Entera aquí,
+          // en vivo: `prepararVueloDeVuelta` (con `__melInercia`) hace esperar a
+          // la foto de la transición hasta que acaba.
+          const v = Math.max(0, velocidad);
+          const caja = cartel.getBoundingClientRect();
+          const deLargo = Math.max(0, Math.min(DE_LARGO_MAX, (v * v) / (2 * FRENADA),
+            window.innerHeight - caja.top - caja.height / 2));
+          if (deLargo > 1) {
+            const ms = Math.min(FRENA_MS[1], Math.max(FRENA_MS[0], (3 * deLargo) / v));
+            const s = 1 - (1 - ESCALA_MIN) * Math.min(1, dy / ENCOGE_EN);
+            cartel.style.transition = `transform ${ms}ms ${CURVA_FRENADA}`;
+            cartel.style.transform = `translate3d(0, ${dy + deLargo}px, 0) scale(${s})`;
+            window.__melInercia = { deLargo, ms, t0: performance.now(), arriba: caja.top };
+          }
+          closeBtn.click();
+          return;
+        }
+        pintar(0, true);
+        const yaVuelto = { cartel, fundibles, recortes };
+        setTimeout(() => {
+          if (yaVuelto.cartel) yaVuelto.cartel.style.transition = '';
+          for (const el of yaVuelto.fundibles) el.style.transition = '';
+          for (const el of yaVuelto.recortes) el.style.overflow = '';
+        }, VUELTA_MS);
+        startAutoplay();
+      };
+      raizPagina.addEventListener('touchend', soltar, { signal: wSig });
+      raizPagina.addEventListener('touchcancel', soltar, { signal: wSig });
+
+      // Tras tirar sin cerrar, el toque que el navegador pueda soltar al final
+      // no abre el visor ni sigue un enlace. El siguiente `touchstart` limpia
+      // la marca aunque ese toque no llegue.
+      raizPagina.addEventListener('click', (e) => {
+        if (!mio) return;
+        mio = false;
+        e.preventDefault();
+        e.stopPropagation();
+      }, { capture: true, signal: wSig });
+    })();
+
     // Y la RUEDA del ratón, aparte: el reenvío de arriba escucha dedo
     // (descarta `pointerType === 'mouse'`) y la rueda ni siquiera es un
     // pointer. En escritorio con la ventana estrecha, en cuanto la caja se
@@ -2336,6 +2484,10 @@ const imagenCompartir = urlCompartir ? {
     // pasar o en otra foto, la tarjeta enseñaría otra cosa); el visor está
     // abierto; la foto no está a la vista o sin cargar; o «reducir movimiento».
     function prepararVueloDeVuelta(e) {
+      // La inercia de cerrar tirando (D-348): se recoge siempre, haya vuelo o
+      // no, para que no quede colgada.
+      const I = window.__melInercia;
+      window.__melInercia = null;
       let origen = null;
       try {
         origen = sessionStorage.getItem('mel-vuelo-origen');
@@ -2361,9 +2513,28 @@ const imagenCompartir = urlCompartir ? {
       const k = Math.min(E.width / img.naturalWidth, E.height / img.naturalHeight);
       const pw = img.naturalWidth * k, ph = img.naturalHeight * k;
       img.style.viewTransitionName = 'mel-vuelo';
+      // Con inercia, la foto de la transición espera a que el cartel vaya ya
+      // despacio (Astro la hace al terminar `loader`, que sigue descargando la
+      // portada a la vez), y el vuelo sale del punto más bajo:
+      // donde estaba al soltar más lo que sigue de largo (solo baja; el tamaño
+      // no cambia). Partir la inercia entre las dos páginas la
+      // congelaba al cambiar de página y la retomaba acelerando: el doble o
+      // triple rebote de un dedazo (propietario, en el iPhone).
+      let arriba = E.top, inercia = null;
+      if (I && performance.now() - I.t0 < 300) {
+        // La foto, al 60 % de la frenada (el cartel ya va despacio); la cola la
+        // termina la portada mientras se coloca la galería (`volarDeVuelta`).
+        inercia = { t0: I.t0, ms: I.ms };
+        arriba = I.arriba + I.deLargo;
+        const queda = Math.max(0, I.t0 + I.ms * 0.6 - performance.now());
+        const cargar = e.loader;
+        e.loader = () => Promise.all([cargar(), new Promise((r) => setTimeout(r, queda))]).then(() => {});
+      }
       sessionStorage.setItem('mel-vuelo', JSON.stringify({
         id, vista,
-        E: { x: E.left, y: E.top, w: E.width, h: E.height },
+        E: { x: E.left, y: arriba, w: E.width, h: E.height },
+        // Tras la inercia el vuelo arranca con «gravedad» (`volarDeVuelta`).
+        inercia,
         P: { x: (E.width - pw) / 2, y: (E.height - ph) / 2, w: pw, h: ph },
       }));
     }

@@ -7521,3 +7521,114 @@ quitar desde una web) y el ajuste «Predictivo» de cada teléfono, que manda so
 **Verificado** por el propietario en Chrome y Safari del iPhone (08/10). Antes: sin verificar (el simulador sin pantalla no saca el teclado). Si en iOS 26
 la barra siguiera saliendo, el recuadro debería irse igualmente con `autocorrect="off"`.
 
+## D-348 · Cerrar la ficha tirando hacia abajo en el móvil (T5b)
+
+**Propietario** (idea del 02/10, retomada el 08/10): en el teléfono, cerrar la ficha tirando hacia
+abajo, y que el gesto lleve el cartel de vuelta a su tarjeta. Decidió: **desde cualquier punto de la
+ficha** (no solo la foto), **desde la foto 2 o 3 se cierra igual** (con el fundido, sin vuelo: la
+tarjeta enseña la primera) y **hacia el panel del local, lo mismo que la X** (sin vuelo, regla 15).
+
+**Decisión** (`event/[id].astro`, `habilitarCerrarTirando`):
+- **Cuándo**: táctil y por debajo de 1024 px, solo si el gesto EMPIEZA con la ficha arriba del todo
+  (foto entera) y su primer movimiento claro (más de 2 px) es hacia abajo y más vertical que
+  horizontal. Leyendo más abajo, tirar sigue desplazando la ficha, y al llegar arriba no se convierte
+  en cierre. Un temblor de 2 px no decide nada: un toque sigue siendo un toque (la X, la foto).
+- **Mientras se tira**: el cartel (la imagen de la foto a la vista) sigue al dedo 1:1 y encoge
+  hasta el 80 % a los 300 px (con origen arriba en el centro); todo lo demás de la ficha (cabecera,
+  rayas del fondo de la foto, puntos, texto, Anterior/Siguiente) se queda en su sitio y se funde hasta
+  0 a los 250 px. Para que el cartel salga de su caja se abren, solo durante el gesto, los tres
+  recortes que lo encierran (diapositiva, botón del carrusel y `#detail-image-crop`). El pase
+  automático de fotos se para.
+- **Al soltar**: con más de 100 px, o un tirón de más de 0,5 px/ms y 30 px, se pulsa la X por
+  dentro (`closeBtn.click()`): mismo destino (galería, Lista o panel), mismo `prepararVueloDeVuelta`
+  —que mide la foto con los transforms puestos, así que el cartel despega de donde lo dejó el dedo—
+  y mismo telón. Si no, vuelve a su sitio en 250 ms y el pase automático se reanuda.
+- **Eventos táctiles, no de puntero**: solo cancelando `touchmove` (oyente no pasivo) se le quita al
+  iPhone el rebote de la caja sobre el texto. El cerrojo de eje de la ficha (`ejeGesto`) gana un
+  tercer dueño, `cierre`: el arrastre vertical y el paso de foto se apartan mientras lo tiene. El
+  cerrojo se limpia al empezar cada toque: solo lo limpiaban los toques en la foto, y tras pasar de
+  foto un tirón desde el texto lo encontraba en «horizontal» y no cerraba (medido).
+- Un toque que el navegador suelte al final de un tirón que no cerró no abre el visor ni sigue un
+  enlace.
+
+**Medido** (Chrome sin pantalla, 375 px, toques simulados): tirar 160 px desde el texto, foto bajada
+160 y al 89 %, cabecera a 0,36, y al soltar vuelta a la galería con el vuelo saliendo de la foto
+desplazada (y = 401); 60 px despacio, vuelta a su sitio y todo opaco; tirón de 75 px, cierra; leer
+(204 px abajo) y tirar hacia abajo, la ficha sube a 0 y no cierra, igual que en producción; tocar la
+foto abre el visor; deslizar pasa de foto; desde la 2.ª foto cierra sin vuelo; la X, como siempre.
+Sin errores; build correcto. En este entorno los movimientos llegan cada 33 ms, así que un tirón con
+pasos cortos no pasa de 0,45 px/ms: el umbral del tirón hay que afinarlo con el dedo.
+
+**Sin verificar**: un iPhone de verdad (el tacto, el rebote y si Safari respeta la cancelación del
+`touchmove` desde el primer movimiento). Las cifras (100 px, 80 %, 250 px, 250 ms, 0,5 px/ms) son de
+partida.
+
+**Segunda versión, «hoja», probada y descartada** (propietario, mismo día: imaginaba algo como cerrar
+una hoja que ha salido por abajo). La ficha entera bajaba con el dedo, con esquinas y sombra, sobre un
+velo, y al soltar seguía cayendo dentro de la transición (`::view-transition-old(mel-ficha)`), sin
+vuelo. El límite de fondo: bajo una hoja de iOS está la pantalla anterior, y aquí la galería es otra
+página que no existe hasta que se navega, así que mientras se tiraba solo se veía el velo. Funcionó
+(medido), pero el propietario la probó y prefirió la primera: «tiene mucho más sentido». Se retiró
+entera (interruptor `?tirar=`, clase `mel-cierre-hoja` y su CSS).
+
+**Ajuste del propietario a la primera**: que el fondo de rayas no viaje con la foto. Hasta entonces
+se movía la caja entera (`#detail-image-sticky`, con las rayas y los puntos dentro); ahora solo el
+cartel, como se describe arriba.
+
+**Medido** (Chrome sin pantalla, 375): tirando 160 px, el cartel a 160 y al 89 %, las rayas quietas
+en su sitio (misma posición) y a 0,36 como los puntos y la cabecera, el recorte abierto; al soltar,
+vuelo desde el cartel desplazado; 60 px despacio, todo de vuelta y el recorte cerrado otra vez; en la
+2.ª foto se mueve el 2.º cartel y se cierra sin vuelo. Sin errores; build correcto.
+
+**Inercia al soltar** (propietario: «parece que para un poco en seco al llegar abajo antes de ocupar
+su sitio en la galería»; pensaba que la velocidad del dedo no se podía usar). **Causa del frenazo**: al
+soltar, el cartel esperaba QUIETO a que la galería estuviera colocada para saber adónde volar (de ~60
+a 450 ms, `volarDeVuelta`) y luego despegaba con una curva que arranca desde parado.
+**Decisión**: al cerrar tirando, el cartel sigue de largo con la velocidad del dedo y frena uniforme
+(deceleración 0,006 px/ms²: de largo = v²/2a, con tope de 150 px y sin que su centro salga de la
+pantalla; tiempo 2·d/v, entre 80 y 220 ms; curva cuadrática `cubic-bezier(0.5, 1, 0.89, 1)`, que arranca
+a la velocidad del dedo), **entero en la ficha y en vivo**. `prepararVueloDeVuelta` (que recoge
+`window.__melInercia` siempre) sustituye el `loader` de `astro:before-preparation` por uno que espera
+a la vez a la portada y a que el cartel acabe de frenar: Astro hace la foto de la transición al terminar
+`loader`, así que la foto sale en el punto más bajo sin retrasar la descarga. El vuelo sale de ahí
+(`E.y` = donde estaba al soltar + lo que sigue de largo): un pequeño rebote. `index.astro` no cambia.
+Arreglo de paso: si el dedo se queda quieto más de 80 ms antes de levantarse, la velocidad cuenta como
+cero (antes se quedaba la del último movimiento y podía disparar un «tirón»). La X, el panel del local
+y la Lista sin inercia, como estaban.
+
+**Primer montaje, retirado**: la ficha empezaba la inercia y la portada la terminaba sobre
+`::view-transition-group(mel-vuelo)`. Entre la foto de la transición y su arranque el cartel se quedaba
+congelado unas décimas, y la portada lo retomaba con menos tiempo para la misma distancia: volvía a
+acelerar. Con un dedazo (inercia corta, siempre hasta el tope de 150 px) se veía como un doble o triple
+rebote abajo (propietario, en el iPhone). También le quitaba la escala y lo hacía crecer un 11 %.
+
+**Medido** (Chrome sin pantalla, 375, posición y ancho a la vista del cartel cada ~17 ms, en la ficha y
+luego en la transición): dedazo soltando en y = 334, frena en vivo hasta 480 en ~150 ms, la foto de la
+transición sale en 484 (el mismo punto del que sale el vuelo), quieto ~0,1 s mientras se coloca la
+galería y vuelo a su tarjeta (300, 152 px); el ancho, quieto hasta despegar. Tirón más largo: de 404 a
+528, igual de continuo. Arrastre largo soltando con poca velocidad: 13 px de largo. Segunda vuelta
+seguida con la X, desde su sitio. Sin errores; build correcto.
+
+**Ajuste: menos parón abajo** (propietario: «el parón del cartel antes de retroceder no es muy natural,
+se frena muy de golpe»). Medido, el parón eran tres cosas: la frenada uniforme se paraba en seco; luego
+~0,15 s quieto (la foto de la transición esperaba al final de la frenada, y después la portada espera a
+que la galería esté colocada, D-317); y el vuelo de siempre (`cubic-bezier(0.76, 0, 0.24, 1)`) tardaba
+~70 ms en moverse 4 px. **Decisión**:
+- Frenada que se posa: curva cúbica `cubic-bezier(0.33, 1, 0.68, 1)` (pierde la velocidad poco a poco;
+  su pendiente de salida es 3, así que dura 3·d/v, entre 120 y 320 ms).
+- La foto de la transición se hace al 60 % de la frenada (el `loader` espera hasta ahí), con el cartel
+  ya despacio, y la portada termina la cola sobre `::view-transition-group(mel-vuelo)` con la misma
+  curva mientras se coloca la galería: la cúbica es autosemejante (su último tramo es la misma curva
+  más corta), así que el movimiento sigue igual. El tiempo de la cola se cuenta desde la foto
+  (`foto`, que apunta el `astro:before-swap` de la portada), no desde que arranca: el rato en que el
+  cartel está congelado entre la foto y el arranque solo lo retrasa, no lo acelera (el error del
+  primer montaje). La cola lleva el tamaño a la vista y sin escala, como el vuelo.
+- Tras la inercia, el vuelo arranca con «gravedad»: `cubic-bezier(0.45, 0, 0.2, 1)` (desde parado, pero
+  acelera antes). Con la X, la curva de siempre.
+
+**Medido** (dedazo soltando en y = 334): frena de forma continua hasta 484 en ~310 ms (la foto, hacia
+los 190 ms; el tramo congelado, a ~0,3 px/ms, apenas se nota), ~35 ms casi quieto en el punto más bajo
+(antes ~150) y vuela a su tarjeta, que alcanza a los ~815 ms (antes ~850). Tirón más largo: ~80 ms
+quieto (la galería tardó más en colocarse). Ancho quieto hasta despegar; segunda vuelta seguida con la
+X igual que siempre. Sin errores; build correcto.
+

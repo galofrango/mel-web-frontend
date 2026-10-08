@@ -7750,7 +7750,9 @@ const tags = [
         datos = JSON.parse(sessionStorage.getItem('mel-vuelo') || 'null');
         sessionStorage.removeItem('mel-vuelo');
       } catch (err) {}
-      window.__melVuelo = datos && e.viewTransition ? { ...datos, vt: e.viewTransition } : null;
+      // `foto`: cuándo se fotografió la ficha (este evento llega justo después);
+      // lo usa la cola de la inercia de cerrar tirando (D-348).
+      window.__melVuelo = datos && e.viewTransition ? { ...datos, vt: e.viewTransition, foto: performance.now() } : null;
       window.__melTelonVT = e.viewTransition || null;
     });
     document.addEventListener('astro:after-swap', () => {
@@ -7814,6 +7816,29 @@ const tags = [
       for (let n = el; n; n = n.parentElement) if (n.style && n.style.opacity === '0') return true;
       return false;
     };
+    const raiz = document.documentElement;
+    const GRUPO = '::view-transition-group(mel-vuelo)';
+    // Cola de la inercia de cerrar tirando (D-348): la ficha frena el cartel en
+    // vivo y se fotografía al 60 %, ya despacio; aquí se termina la frenada
+    // mientras se coloca la galería, con la misma curva (es autosemejante: su
+    // último tramo es la misma curva más corta) hasta el punto más bajo (`E`),
+    // y el vuelo sale de ahí cuando acaba. El tiempo que queda se cuenta desde
+    // la foto, no desde ahora: entre la foto y el arranque el cartel está
+    // congelado, y descontarlo lo hacía acelerar (el «doble rebote»). Con el
+    // tamaño a la vista y sin escala, como el primer fotograma del vuelo: la
+    // foto llega con el cartel encogido dentro de su matriz.
+    let cola = null;
+    const colaLista = v.inercia && v.vt && v.vt.ready
+      ? v.vt.ready.then(() => {
+          const ms = v.inercia.ms - (v.foto - v.inercia.t0);
+          if (ms < 16) return;
+          cola = raiz.animate(
+            [{ transform: `matrix(1, 0, 0, 1, ${v.E.x}, ${v.E.y})`, width: `${v.E.w}px`, height: `${v.E.h}px` }],
+            { pseudoElement: GRUPO, duration: ms, easing: 'cubic-bezier(0.33, 1, 0.68, 1)', fill: 'forwards' });
+          if (v.vt.finished) v.vt.finished.finally(() => cola.cancel());
+          return cola.finished;
+        }).catch(() => {})
+      : Promise.resolve();
     const inicio = Date.now();
     let anterior = '';
     let quieta = 0;
@@ -7831,7 +7856,7 @@ const tags = [
         anterior = caja;
         if (quieta >= 1 && r.width > 0 && r.bottom > 0 && r.top < window.innerHeight) {
           clearInterval(reloj);
-          despegar(destino, r);
+          colaLista.then(() => despegar(destino, r));
           return;
         }
       }
@@ -7851,8 +7876,6 @@ const tags = [
       // La foto de la transición es la caja ENTERA de la imagen de la ficha;
       // se escala para que el cartel de dentro (P) caiga justo sobre T.
       const k = T.w / v.P.w;
-      const raiz = document.documentElement;
-      const GRUPO = '::view-transition-group(mel-vuelo)';
       const VIEJA = '::view-transition-old(mel-vuelo)';
       try {
         // Fuera el fundido de serie: el cartel vuela entero. Y si ese fundido no
@@ -7873,7 +7896,14 @@ const tags = [
             width: `${v.E.w * k}px`,
             height: `${v.E.h * k}px`,
           },
-        ], { pseudoElement: GRUPO, duration: 500, easing: 'cubic-bezier(0.76, 0, 0.24, 1)', fill: 'forwards' });
+        ], {
+          pseudoElement: GRUPO, duration: 500, fill: 'forwards',
+          // Tras cerrar tirando con inercia (D-348) el cartel está parado en el
+          // punto más bajo: arranca desde parado pero acelera antes, como algo
+          // que cae hacia su sitio. La de siempre tardaba ~70 ms en moverse
+          // 4 px y alargaba el parón de abajo.
+          easing: v.inercia ? 'cubic-bezier(0.45, 0, 0.2, 1)' : 'cubic-bezier(0.76, 0, 0.24, 1)',
+        });
         // Mientras vuela, su tarjeta espera ESCONDIDA ENTERA —en la galería, la
         // tarjeta; en la Lista, la caja de la miniatura—; al aterrizar,
         // aparece. Escondiendo solo la imagen quedaba a la vista el fondo de su

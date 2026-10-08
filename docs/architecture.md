@@ -141,6 +141,9 @@ derecho, sin pulsación larga (`-webkit-touch-callout: none`) y sin arrastrar.
 
 El visor se cierra con la X; «atrás» sale de la ficha como siempre (se probó que
 lo cerrara y se quitó, ver D-305). 
+En pantallas táctiles con la ficha de móvil (< 1024 px), **tirar hacia abajo cierra
+la ficha** (D-348) si el gesto empieza arriba del todo: equivale a pulsar su X
+(mismo destino, mismo vuelo o fundido); si no llega al umbral, vuelve a su sitio.
 Un identificador de evento que no existe hace `rewrite` a `/404` (no
 `redirect` a la home): conserva la URL fallida a la vista y da el 404 real.
 
