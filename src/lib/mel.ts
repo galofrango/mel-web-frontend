@@ -215,7 +215,7 @@ export function escHtml(s?: unknown): string {
  * porque estos enlaces van dentro de texto en sans.
  */
 const RE_ENLACE = /\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>"]*[^\s<>".,;:!?)\]])|([\w.+-]+@[\w-]+\.[\w.-]*\w)|(^|\s)@([\w.]*\w)/g;
-const HREF_VALIDO = /^(https?:\/\/|mailto:|\/(?!\/))/i;
+const HREF_VALIDO = /^(https?:\/\/|mailto:|\/(?![\/\\]))/i;
 
 export function enlazar(s?: unknown): string {
   const raw = String(s ?? '');

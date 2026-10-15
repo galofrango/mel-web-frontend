@@ -7702,3 +7702,4 @@ menos ese margen». Medido en 375 y en 1440 px: el título queda a 24 px bajo la
 - **Fondo al 80 % con desenfoque de 8 px** que trae el nodo `Page Header` (637:49180): no se aplica; la cabecera
   sigue opaca. **Relleno superior** del diseño (24 px) frente al token (16 px): lo revisa el propietario.
 - **Separación entre módulos abiertos** de `/info`: de 40 a 32 px (`mb-[32px]` en `info.astro`), a petición del propietario. La del título al texto (16 px) no cambia.
+- **Revisión de seguridad del commit (v1.16.0)**: `[x](/\evil.com)` pasaba por ruta interna y los navegadores leen `\` como `/` (= `//evil.com`, otro dominio). `enlazar()` rechaza ahora `/` seguido de `/` o `\`. Con prueba. Subido como v1.16.1.

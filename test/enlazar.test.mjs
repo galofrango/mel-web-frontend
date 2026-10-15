@@ -41,6 +41,13 @@ test('nada de javascript: ni HTML suelto', () => {
   assert.match(h, /&lt;script&gt;.*&amp; más/);
 });
 
+test('una «ruta» que el navegador leería como otro sitio no es un enlace', () => {
+  // `/\evil.com` y `//evil.com` se convierten en `//evil.com` (otro dominio).
+  assert.equal(hrefs(enlazar('[x](//evil.com)')).length, 0);
+  assert.equal(hrefs(enlazar('[x](/\\evil.com)')).length, 0);
+  assert.deepEqual(hrefs(enlazar('[x](/info#contacto)')), ['/info#contacto']);
+});
+
 test('texto sin enlaces sale igual, escapado', () => {
   assert.equal(enlazar('Sin nada. Ni @ ni correo'), 'Sin nada. Ni @ ni correo');
   assert.equal(enlazar(undefined), '');
