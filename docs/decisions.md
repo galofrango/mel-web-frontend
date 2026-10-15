@@ -7632,3 +7632,73 @@ los 190 ms; el tramo congelado, a ~0,3 px/ms, apenas se nota), ~35 ms casi quiet
 quieto (la galería tardó más en colocarse). Ancho quieto hasta despegar; segunda vuelta seguida con la
 X igual que siempre. Sin errores; build correcto.
 
+
+## D-349 · `/info` sin acordeones: módulos abiertos con título; y el texto ya no pasa por encima de la cabecera en Safari del iPhone
+
+**Propietario** (15/10): reescribió los textos de Proyecto y Contacto en la hoja y pasó todos los módulos de
+«Acordeón» a «Párrafo» para quitar los desplegables. Resultado: desaparecían los títulos (Memoria,
+Electrónica, Leonesa) y, de cada sección, solo se veía el primer módulo. **Causa**: `info.astro`
+trataba cualquier `Párrafo` como el subtítulo de la sección (y solo el primero, sin leer la columna D).
+
+**Decisión**: en la columna C, `Párrafo` **sin** título en D sigue siendo el subtítulo de la sección;
+`Párrafo` **con** título en D es un módulo abierto (`<h3 class="typo-h4">` + texto, sin caja ni
+chevron); `Acordeón` sigue igual y se puede mezclar. Sin cambios en la hoja: vale lo que ya escribió.
+
+**Columna L de la pestaña** (números 1–4 sin cabecera, filas 2–11): ningún código del repositorio la lee
+(`info.astro` solo usa A–G); no coinciden con la E; se pueden borrar. No se cambió nada en la hoja.
+
+**Cabecera** (`HeaderSimple.astro`, usada por `/info`, `/exposiciones` y 404). Captura del iPhone (Safari 26):
+al hacer scroll, el texto se veía pasar POR ENCIMA de la cabecera (en Chrome, un segundo). Con `sticky top-0` la
+cabecera quedaba bajo la franja que Safari reserva para su barra de estado y el contenido se pintaba en ella.
+Primer intento (sombra de 96 px hacia arriba del color del fondo): retirado, el propietario vio que en Chrome la
+cabecera «se esconde al hacer scroll»; no se reprodujo en el Chromium del panel, pero era el único cambio en ella.
+**Decisión**: la cabecera pasa a **`position: fixed`** (arriba, a todo el ancho, `z-[190]`, fondo opaco), con un
+espaciador del mismo alto en el flujo (`padding + 65`: fila de 48 + 16 + filete de 1) para que la página no se
+mueva. Razón: Safari 26 tiñe su barra con el fondo de una capa FIJA pegada arriba (D-340), así que la franja toma el
+color de la cabecera. El contenido interior conserva `max-w-[1440px]` y los mismos márgenes que la página: el filete
+sigue sin llegar al borde. Medido en 1440 px: 110 px de cabecera y de espaciador (igual que antes) y el logo en x = 108.
+**Diseño de Figma** (nodo 637:49180, «Page Header»): logo de 32 px (`public/logo-mel.svg`, el SVG de Figma sin tocar,
+usado como máscara con `currentColor` para que siga al modo oscuro) + título, TODO en `action-secondary` (como el
+icono del menú) y `action-primary` al pasar el ratón. **No se copió** del diseño: el fondo al 80 % con desenfoque
+de 8 px (se pidió que no se vea el texto de detrás; la cabecera sigue opaca) ni el relleno de arriba de 24 px (el
+token móvil sigue en 16, D-152/regla 10). **Efecto del logo**: la fila gana 40 px; a 440 px (iPhone Pro Max) el
+título entero cabe con 12 px de hueco al menú (antes 52, y se pidieron 40). Subir el colapso a «M.E.L.» a 480 px lo
+arreglaría, pero tiene que cambiar también la home (regla 10): pendiente de decidir.
+
+**Verificado**: servidor de pruebas (375, 440 y 1440 px): títulos y textos de las secciones, cabecera fija en `top: 0`
+tras el scroll, espaciador igual a la cabecera, menú que abre, `/exposiciones` y 404 con el mismo aspecto.
+**Sin verificar**: Safari y Chrome del iPhone (propietario). La portada tiene su propia cabecera y no se ha tocado.
+
+**Añadido el mismo día (15/10)**:
+- **Divisor entre secciones** de `/info` (Proyecto / Contacto): el filete de 1 px en `bg-mel-border` que ya
+  separaba los módulos del acordeón, a todo el ancho de la columna, con `role="separator"`.
+- **Enlaces desde la hoja** (`enlazar()` en `src/lib/mel.ts`, antes `linkify` dentro de `info.astro`):
+  además de emails y `@usuario`, reconoce `[texto](https://…)`, `[texto](mailto:…)`, `[texto](/ruta)` y
+  direcciones `https://…` sueltas. Solo http(s), mailto y rutas del sitio (un `javascript:` queda como texto);
+  se escapa cada trozo por separado. Mismo aspecto que `Link.astro` en reposo (Lora, `text-secondary`,
+  subrayado que crece al pasar el ratón; ahora a 15 px, el Body Roman del DS, frente a los 16 px del texto).
+  **Límite**: un enlace creado en la hoja con «Insertar enlace» no se ve desde la web (`gviz` solo da el
+  texto); leerlo pediría la API de Sheets con clave en Vercel. Prueba: `test/enlazar.test.mjs` (7 casos).
+- «Escríbenos» de Contacto: en la celda va `[Escríbenos](mailto:<correo del proyecto>)`.
+
+**Menú y anclas de `/info`** (mismo día): fuera «Apoya el proyecto» del menú lateral (llevaba a
+`/info#contacto`, que ya reúne todo). Cada enlace lleva ahora al **título** de su sección, 24 px bajo la
+cabecera: `scroll-margin-top` = padding superior de la cabecera (token, cambia en `md` y `lg`) + 65 px
+(fila de 48 + 16 + filete) + 24, en vez de los 180 px fijos. La última sección (Contacto) es más corta que
+la pantalla y el scroll no podía subir su título (se acababa la página): lleva `min-height` de «pantalla
+menos ese margen». Medido en 375 y en 1440 px: el título queda a 24 px bajo la cabecera en las dos secciones.
+
+**Segunda ronda de la cabecera (mismo día)**:
+- **Logo**: el de Figma cambió (el dibujo sube 1 px: de y 4–27 a 3–26 en su caja de 32); `public/logo-mel.svg` es el
+  nuevo. **Alineación** del grupo «Logo & Title» (1437:63783): `items-end` y 8 px de hueco, no centrado: la línea de
+  texto (22/28) se apoya en el borde inferior del logo. Medido: la base del dibujo del logo (y = 72,4) y la línea
+  base del texto (71,9) quedan a 0,5 px. Consecuencia: el texto de `/info` queda 2 px más bajo que el de la home (que
+  no lleva logo) y 31 px a la derecha por el logo.
+- **Colapso a «M.E.L.» a 480 px** (antes 440) en `HeaderSimple` Y en `HeaderTitle` (regla 10: el mismo punto en las
+  dos). El propietario acepta 24 px de hueco hasta el menú, como en Figma; con el logo, a 440 quedaban 12. La cuenta
+  (`ventana − 2×padding − menú − 340`) pide 452 px en el tramo móvil; a 480 sobran 52 (medido). Si el logo llega a
+  la home, con la pica pide 461. Medido en 479 (siglas, en las dos cabeceras) y 480 (título entero, 52 px de hueco).
+  El `min-[440px]` de la lista de la home (tarjetas/tabla) NO se ha tocado: es otra cosa.
+- **Fondo al 80 % con desenfoque de 8 px** que trae el nodo `Page Header` (637:49180): no se aplica; la cabecera
+  sigue opaca. **Relleno superior** del diseño (24 px) frente al token (16 px): lo revisa el propietario.
+- **Separación entre módulos abiertos** de `/info`: de 40 a 32 px (`mb-[32px]` en `info.astro`), a petición del propietario. La del título al texto (16 px) no cambia.

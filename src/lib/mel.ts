@@ -195,6 +195,48 @@ export function escHtml(s?: unknown): string {
 }
 
 /**
+ * Texto plano de la hoja → HTML seguro con enlaces (D-349). Lo que se escriba
+ * en una celda se enlaza solo, sin tocar código:
+ *   [texto](https://…)  [texto](mailto:…)  [texto](/ruta)   → enlace con ese texto
+ *   https://…                                              → enlace con su propia dirección
+ *   correo@dominio.es                                      → mailto:
+ *   @usuario                                               → perfil de Instagram
+ * Los pasos se hacen sobre el texto CRUDO y se escapa cada trozo por separado
+ * (no se escapa antes y se busca después: `&quot;` se colaría en las direcciones).
+ * Solo se enlazan http(s), mailto y rutas del propio sitio: un `javascript:`
+ * entre corchetes se queda como texto.
+ *
+ * ¿Un enlace puesto en la hoja con «Insertar enlace» (texto enriquecido)? NO
+ * llega: el endpoint `gviz` solo da el texto, sin la dirección. Hay que
+ * escribirlo con corchetes.
+ *
+ * Mismo aspecto que Link.astro en reposo (Lora, text-secondary, y el subrayado
+ * que crece de izquierda a derecha al pasar el ratón); la fuente se fija aquí
+ * porque estos enlaces van dentro de texto en sans.
+ */
+const RE_ENLACE = /\[([^\]]+)\]\(([^)\s]+)\)|(https?:\/\/[^\s<>"]*[^\s<>".,;:!?)\]])|([\w.+-]+@[\w-]+\.[\w.-]*\w)|(^|\s)@([\w.]*\w)/g;
+const HREF_VALIDO = /^(https?:\/\/|mailto:|\/(?!\/))/i;
+
+export function enlazar(s?: unknown): string {
+  const raw = String(s ?? '');
+  const a = (href: string, texto: string) => {
+    const fuera = /^https?:/i.test(href);
+    return `<a href="${escHtml(href)}"${fuera ? ' target="_blank" rel="noopener"' : ''} class="group typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors relative no-underline"><span class="relative inline-block text-inherit">${escHtml(texto)}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
+  };
+  let out = '';
+  let fin = 0;
+  for (const m of raw.matchAll(RE_ENLACE)) {
+    out += escHtml(raw.slice(fin, m.index));
+    fin = m.index + m[0].length;
+    if (m[1] !== undefined) out += HREF_VALIDO.test(m[2]) ? a(m[2], m[1]) : escHtml(m[0]);
+    else if (m[3]) out += a(m[3], m[3]);
+    else if (m[4]) out += a(`mailto:${m[4]}`, m[4]);
+    else out += escHtml(m[5]) + a(`https://instagram.com/${m[6]}`, `@${m[6]}`);
+  }
+  return out + escHtml(raw.slice(fin));
+}
+
+/**
  * Una fila de la hoja de Flyers a objeto. Los índices son el contrato con la
  * hoja y están documentados en AGENTS.md; los intermedios que no aparecen (c[1],
  * c[12], c[14]–c[15], c[17]–c[20], c[22]–c[23]) existen en la hoja pero no se

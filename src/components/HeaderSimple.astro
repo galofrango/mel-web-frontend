@@ -11,39 +11,76 @@
  * título es un campo, no un enlace. Lo que ambas comparten es la geometría de la
  * fila y el punto en que el título colapsa a siglas, y eso sí tiene que coincidir
  * — si no, el título salta de sitio al navegar entre páginas (regla 10).
+ *
+ * FIJA (`position: fixed`), no pegajosa (D-349). Con `sticky top-0`, Safari 26
+ * dejaba ver el texto pasar POR ENCIMA de la cabecera (en Chrome, un segundo): el
+ * navegador pinta el contenido bajo su barra de estado y la cabecera quedaba
+ * debajo de esa franja. Una capa fija pegada arriba es lo que Safari 26 usa para
+ * teñir su barra (D-340), así que la franja toma el color del fondo. Como sale
+ * del flujo, un espaciador del mismo alto (`padding + 65` = fila de 48 + 16 de
+ * padding inferior + 1 del filete) deja la página donde estaba.
  */
 import MenuItem from './MenuItem.astro';
 ---
 
-<div class="w-full bg-mel-bg-primary shrink-0 sticky top-0 z-[190] border-b border-mel-border pb-4 pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)]">
-  <div class="flex items-center gap-4 lg:gap-6 w-full">
-    <div class="flex-1 min-w-0 w-full">
-      <!-- Enlace de vuelta al inicio. Aquí el título SÍ va en `text-primary` y en
-           negrita: es un elemento de navegación, no el placeholder de un campo
-           como en la home. -->
-      <a href="/" class="flex items-center h-[48px] no-underline text-mel-text-primary hover:text-mel-action-primary transition-colors duration-200">
-        <span class="typo-h3 whitespace-nowrap select-none">
-          <!-- Colapso a siglas en 440px, no en `lg` (1024), donde estaba.
-               Mismo criterio y mismo breakpoint que la home (D-152), para que el
-               título no cambie de forma al navegar entre páginas.
-               La cuenta aquí es la de la home MENOS los 9px de la pica, que esta
-               cabecera no tiene: `ventana − 2×padding − ancho del menú − 300`, con
-               el mínimo de 40px al menú que pidió el propietario:
-                 <640    padding 24 · menú 40 (icono)        → mínimo 428px
-                 640–767 padding 48 · menú 40                → mínimo 476px
-                 768–1023 padding 48 · menú 113 (Menú+icono) → mínimo 549px
-                 ≥1024   padding 108 · menú 113              → mínimo 669px
-               Cada tramo necesita menos de lo que mide su suelo, así que el título
-               entero cabe en cualquier ancho ≥428px. A 440 quedan 52px de
-               separación: más holgado que en la home (44) porque no hay pica.
+<div class="fixed top-0 inset-x-0 z-[190] bg-mel-bg-primary">
+  <!-- Mismo ancho y mismos márgenes laterales que el contenedor de la página
+       (`max-w-[1440px]`, `px-6 sm:px-12 lg:px-[108px]`): el filete de abajo no llega
+       al borde de la pantalla, y la fila queda donde estaba cuando era pegajosa. -->
+  <div class="w-full max-w-[1440px] mx-auto px-6 sm:px-12 lg:px-[108px]">
+    <div class="border-b border-mel-border pb-4 pt-[var(--mel-header-pt-mobile)] lg:pt-[var(--mel-header-pt-desktop)]">
+      <div class="flex items-center gap-4 lg:gap-6 w-full">
+        <div class="flex-1 min-w-0 w-full">
+          <!-- Enlace de vuelta al inicio: logo + título, todo en `action-secondary`
+               (como el icono del menú) para que se perciba pulsable; en hover pasa
+               a `action-primary`. El logo es la máscara del SVG del diseño de Figma
+               (`public/logo-mel.svg`) pintada con `currentColor`, así que sigue al
+               color del texto y al modo oscuro. -->
+          <a href="/" class="flex items-center h-[48px] no-underline text-mel-action-secondary hover:text-mel-action-primary transition-colors duration-200">
+            <!-- Grupo «Logo & Title» de Figma (1437:63783): 32px de alto, logo y texto
+                 ALINEADOS POR ABAJO (`items-end`), 8px entre ellos. La línea de
+                 texto mide 28 (22/28 del typo-h3) y se apoya en el borde inferior
+                 del logo; el dibujo del logo acaba en y=26 de su caja y la línea
+                 base del texto cae a ~25,6, así que la base del logo y la del
+                 texto coinciden. Centrarlos (`items-center`) los desalinea 2-3px. -->
+            <span class="flex items-end gap-2">
+            <span class="mel-logo shrink-0" aria-hidden="true"></span>
+            <span class="typo-h3 whitespace-nowrap select-none">
+          <!-- Colapso a siglas en 480px (antes 440, D-152): con el logo (32 + 8 de
+               hueco) la fila gana 40px y a 440 el hueco hasta el menú se quedaba en
+               12 (medido). El propietario acepta 24px, como en Figma. Cuenta:
+               `ventana − 2×padding − ancho del menú − 340` (300 del título + 40 del
+               logo), que con 24px de hueco da:
+                 <640    padding 24 · menú 40 (icono)        → mínimo 452px
+                 640–767 padding 48 · menú 40                → mínimo 500px
+                 768–1023 padding 48 · menú 113 (Menú+icono) → mínimo 573px
+                 ≥1024   padding 108 · menú 113              → mínimo 693px
+               Solo manda el primer tramo (los demás empiezan en 640 o más). 480
+               deja 52px en ese tramo y es el MISMO punto que la home (regla 10),
+               donde además cabría el logo con la pica (si se añade: mínimo 461).
                Si cambia el texto del título, el del menú o el padding de la
                página, hay que rehacer esta cuenta. -->
-          <span class="min-[440px]:hidden">M.E.L.</span><span class="hidden min-[440px]:inline">Memoria Electrónica Leonesa</span>
-        </span>
-      </a>
-    </div>
-    <div class="shrink-0 flex justify-end">
-      <MenuItem id="menu-btn" />
+              <span class="min-[480px]:hidden">M.E.L.</span><span class="hidden min-[480px]:inline">Memoria Electrónica Leonesa</span>
+            </span>
+            </span>
+          </a>
+        </div>
+        <div class="shrink-0 flex justify-end">
+          <MenuItem id="menu-btn" />
+        </div>
+      </div>
     </div>
   </div>
 </div>
+<!-- Espaciador: ocupa el sitio que la cabecera fija ya no ocupa en el flujo. -->
+<div aria-hidden="true" class="w-full shrink-0 h-[calc(var(--mel-header-pt-mobile)+65px)] lg:h-[calc(var(--mel-header-pt-desktop)+65px)]"></div>
+
+<style>
+  .mel-logo {
+    width: 32px;
+    height: 32px;
+    background-color: currentColor;
+    -webkit-mask: url(/logo-mel.svg) no-repeat center / contain;
+    mask: url(/logo-mel.svg) no-repeat center / contain;
+  }
+</style>

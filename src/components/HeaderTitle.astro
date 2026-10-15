@@ -34,7 +34,10 @@ import IconButton from './IconButton.astro';
            leer); restarle peso al texto es lo que la deja llamar la atención.
            Se probó primero `secondary` y el propietario pidió bajar otra talla.
 
-           El colapso a siglas está en 440px y NO en `lg` (1024), donde estaba.
+           El colapso a siglas está en 480px (era 440; subió con el logo de las
+           otras cabeceras, D-349: el punto tiene que ser el mismo, regla 10) y NO en
+           `lg` (1024), donde estaba. La cuenta de abajo se hizo para 440: con 480 el
+           hueco es 40px mayor que el que dice.
            Medido: el título largo ocupa 300px con Space Grotesk cargada (270 con
            la de reserva, así que la medida es con la fuente buena) y la pica suma
            9px con su margen. La separación real hasta el menú es
@@ -65,7 +68,7 @@ import IconButton from './IconButton.astro';
            Si hiciera falta abrirlo más, la otra palanca es relajar el tracking
            negativo, que es la causa de fondo. -->
       <span class="font-sans font-semibold text-[22px] leading-[28px] tracking-[-0.44px] text-mel-text-tertiary whitespace-nowrap select-none transition-colors duration-200">
-        <span class="min-[440px]:hidden">M.E.L.</span><span class="hidden min-[440px]:inline">Memoria Electrónica Leonesa</span>
+        <span class="min-[480px]:hidden">M.E.L.</span><span class="hidden min-[480px]:inline">Memoria Electrónica Leonesa</span>
       </span>
     </div>
   </button>

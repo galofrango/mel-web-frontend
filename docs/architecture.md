@@ -76,11 +76,11 @@ Las filas se **agrupan por `evento + fecha`** formando objetos de evento con una
 Actúa como mini-CMS de la página `/info`. Columnas:
 - **A**: Sección
 - **B**: Orden de sección
-- **C**: Tipo de módulo (`Párrafo` = subtítulo, `Acordeón` = elemento desplegable)
+- **C**: Tipo de módulo (`Párrafo` sin título en D = subtítulo de la sección; `Párrafo` con título en D = módulo abierto, sin acordeón; `Acordeón` = elemento desplegable) — D-349
 - **D**: Título del módulo
 - **E**: Orden del módulo
 - **F**: Imagen (URL de Google Drive convertida a thumbnail)
-- **G**: Contenido (los saltos de línea se convierten en párrafos; emails y menciones `@handle` se transforman automáticamente en enlaces `mailto:` e Instagram vía la función `linkify`).
+- **G**: Contenido (los saltos de línea se convierten en párrafos; los enlaces se detectan solos con `enlazar()` de `src/lib/mel.ts` (D-349): `[texto](https://…)`, `[texto](mailto:…)`, `[texto](/ruta)`, una dirección `https://…` suelta, un email y `@usuario` de Instagram. Un enlace puesto en la hoja con «Insertar enlace» NO llega: `gviz` solo entrega el texto).
 
 ### Procesamiento de Imágenes (Google Drive)
 

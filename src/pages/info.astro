@@ -2,7 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import SideMenu from '../components/SideMenu.astro';
 import HeaderSimple from '../components/HeaderSimple.astro';
-import { fetchSheetRows, extractDriveImage, escHtml } from '../lib/mel';
+import { fetchSheetRows, extractDriveImage, enlazar } from '../lib/mel';
 
 // Dynamic fetching from Google Sheets tab: "Página de Información"
 const HOJA_INFO = 'Página de Información';
@@ -98,8 +98,10 @@ const fallbackSections = [
 //                           add a row with a new section name in the sheet
 //                           and it appears on the page, no code change)
 //  B "Orden de Sección"   -> section order (filled on the section's 1st row)
-//  C "Tipo de módulo"     -> "Párrafo" (section subtitle) | "Acordeón" (item)
-//  D "Título de módulo"   -> accordion title
+//  C "Tipo de módulo"     -> "Párrafo" sin título en D = subtítulo de la sección;
+//                           "Párrafo" con título en D = módulo abierto (sin
+//                           acordeón); "Acordeón" = módulo desplegable
+//  D "Título de módulo"   -> título del módulo
 //  E "Orden de módulo"    -> item order within its section
 //  F "Imagen"             -> optional image URL shown inside the accordion
 //  G "Contenido"          -> text (line breaks split paragraphs)
@@ -147,15 +149,17 @@ try {
       const section = sectionsMap[sectionName];
       if (sectionOrder != null) section.order = sectionOrder;
 
-      if (type === 'Párrafo' || type === 'Parrafo') {
+      const paragraphs = textVal.split('\n').map(p => p.trim()).filter(p => p.length > 0);
+
+      // `Párrafo` SIN título de módulo = subtítulo de la sección (lo de siempre).
+      // `Párrafo` CON título = módulo abierto: título y texto a la vista, sin
+      // acordeón (D-349). `Acordeón` = módulo desplegable.
+      if ((type === 'Párrafo' || type === 'Parrafo') && !moduleTitle) {
         if (!section.subtitle) section.subtitle = textVal.trim();
+      } else if (type === 'Párrafo' || type === 'Parrafo') {
+        section.items.push({ title: moduleTitle, order: moduleOrder, photo: null, paragraphs, abierto: true });
       } else if (type === 'Acordeon' || type === 'Acordeón') {
-        section.items.push({
-          title: moduleTitle,
-          order: moduleOrder,
-          photo: imageUrl || null,
-          paragraphs: textVal.split('\n').map(p => p.trim()).filter(p => p.length > 0)
-        });
+        section.items.push({ title: moduleTitle, order: moduleOrder, photo: imageUrl || null, paragraphs });
       }
     });
 
@@ -169,23 +173,6 @@ try {
 // Fallback if data is empty or fetch failed
 if (sectionsData.length === 0) {
   sectionsData = fallbackSections;
-}
-
-// Turns plain sheet text into safe HTML where emails and @handles become
-// links (mailto: / instagram profile) — so contact info typed straight into
-// the sheet works as links without anyone touching code.
-
-// Same style as Link.astro's default state (Body Roman Lora): serif font,
-// text-secondary that turns action-primary on hover, with a scaleX(0->1)
-// underline instead of the browser's native text-decoration. The font is
-// set explicitly here (not inherited) since these links sit inline inside
-// sans body text but must render in Lora regardless.
-function linkify(s) {
-  const wrap = (href, label, extraAttrs = '') =>
-    `<a href="${href}" ${extraAttrs} class="group typo-body-roman text-mel-text-secondary hover:text-mel-action-primary transition-colors relative no-underline"><span class="relative inline-block text-inherit">${label}<span class="absolute bottom-0 left-0 right-0 h-[1px] bg-current scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span></span></a>`;
-  return escHtml(s)
-    .replace(/([\w.+-]+@[\w-]+\.[\w.-]*\w)/g, (_m, email) => wrap(`mailto:${email}`, email))
-    .replace(/(^|\s)@([\w.]*\w)/g, (_m, pre, handle) => `${pre}${wrap(`https://instagram.com/${handle}`, `@${handle}`, 'target="_blank" rel="noopener"')}`);
 }
 
 ---
@@ -207,8 +194,12 @@ function linkify(s) {
     <div class="w-full grid grid-cols-1 md:grid-cols-12 gap-6 pt-[40px] relative">
       <div class="col-span-12 md:col-span-8 flex flex-col gap-[40px] pb-[80px]">
         
-        {sectionsData.map((section) => (
-          <section id={section.id} data-info-section class="w-full scroll-mt-[180px] flex flex-col gap-6" data-node-id="606:39642">
+        {sectionsData.map((section, i) => (
+          <Fragment>
+          {/* Divisor entre secciones: el mismo filete de 1px en `border` que separa
+              los módulos del acordeón, a todo el ancho de la columna (D-349). */}
+          {i > 0 && <div class="w-full h-[1px] bg-mel-border" role="separator"></div>}
+          <section id={section.id} data-info-section class="w-full flex flex-col gap-6" data-node-id="606:39642">
             
             <!-- Section Title & Subtitle Header (subtitle comes straight from
                  the sheet; emails/@handles in it are auto-linked) -->
@@ -217,14 +208,24 @@ function linkify(s) {
                 {section.title}
               </h2>
               {section.subtitle && (
-                <p class="typo-body-sans text-mel-text-primary" set:html={linkify(section.subtitle)} />
+                <p class="typo-body-sans text-mel-text-primary" set:html={enlazar(section.subtitle)} />
               )}
             </div>
 
             <!-- Accordion elements wrapper -->
             <div class="w-full flex flex-col overflow-hidden" data-node-id="600:91873">
               {section.items.map((item, idx) => (
-                <div 
+                item.abierto ? (
+                  <div class="w-full flex flex-col gap-[16px] mb-[32px] last:mb-0">
+                    <h3 class="typo-h4 text-mel-text-primary">{item.title}</h3>
+                    <div class="typo-body-sans text-mel-text-primary">
+                      {item.paragraphs.map((p) => (
+                        <p class="mb-[16px] last:mb-0" set:html={enlazar(p)} />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                <div
                   class="accordion-item w-full relative flex flex-col transition-all duration-300"
                   data-open="false"
                   data-node-id="600:91782"
@@ -257,7 +258,7 @@ function linkify(s) {
                         )}
                         <div class="typo-body-sans flex-1 min-w-[280px] text-mel-text-primary">
                           {item.paragraphs.map((p) => (
-                            <p class="mb-[16px] last:mb-0" set:html={linkify(p)} />
+                            <p class="mb-[16px] last:mb-0" set:html={enlazar(p)} />
                           ))}
                         </div>
                       </div>
@@ -269,10 +270,12 @@ function linkify(s) {
                     <div class="absolute bottom-0 left-[24px] right-[24px] h-[1px] bg-mel-border pointer-events-none"></div>
                   )}
                 </div>
+                )
               ))}
             </div>
 
           </section>
+          </Fragment>
         ))}
 
       </div>
@@ -285,6 +288,27 @@ function linkify(s) {
 </Layout>
 
 <style>
+  /* Cada enlace del menú (/info#proyecto, /info#contacto) lleva al TÍTULO de su
+     sección, 24px por debajo de la cabecera pegajosa. La altura de esa cabecera
+     es su padding superior (un token, que cambia en `md` y en `lg`) + la fila de
+     48 + 16 de padding inferior + 1 del filete = padding + 65. Antes era un
+     margen fijo de 180px: dejaba el título muy por debajo de la cabecera.
+     La ÚLTIMA sección es más corta que la pantalla, y entonces el scroll no
+     puede subir su título hasta arriba (se acaba la página antes): por eso lleva
+     un alto mínimo de «pantalla menos ese margen», lo justo para que llegue. */
+  section[data-info-section] {
+    --info-mt: calc(var(--mel-header-pt-mobile) + 65px + 24px);
+    scroll-margin-top: var(--info-mt);
+  }
+  @media (min-width: 1024px) {
+    section[data-info-section] {
+      --info-mt: calc(var(--mel-header-pt-desktop) + 65px + 24px);
+    }
+  }
+  section[data-info-section]:last-of-type {
+    min-height: calc(100dvh - var(--info-mt));
+  }
+
   /* Accordion styling for padding, backgrounds, and hover transitions */
   /* Los cuatro colores de este bloque estaban escritos a pelo, con sus reglas
      `.dark` a mano reimplementando el cambio de tema. Eran los tokens de
