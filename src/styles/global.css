@@ -587,6 +587,14 @@ button:disabled { cursor: not-allowed; }
     max-width 0s linear var(--marquee-return, 0.4s),
     width 0s linear var(--marquee-return, 0.4s);
 }
+/* Las tags (TagWithLink) sin esos 3 px de abajo (D-351): son para la tabla,
+   cuyo subrayado (`.table-link-underline`) va DENTRO de `.marquee-inner`. En
+   la tag el de Link.astro va FUERA, al pie de un span que con ellos medía 27 px
+   dentro de una celda de 24 con `overflow: clip`: caía en el píxel 27 y no se
+   veía nunca, solo la flecha. */
+.marquee-cell .marquee-inner.tag-count-val {
+  padding-bottom: 0;
+}
 .marquee-cell:hover .marquee-inner.is-overflowing {
   max-width: none;
   /* `width: max-content` es imprescindible, no un adorno (D-231): el

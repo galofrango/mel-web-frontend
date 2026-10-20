@@ -7703,3 +7703,43 @@ menos ese margen». Medido en 375 y en 1440 px: el título queda a 24 px bajo la
   sigue opaca. **Relleno superior** del diseño (24 px) frente al token (16 px): lo revisa el propietario.
 - **Separación entre módulos abiertos** de `/info`: de 40 a 32 px (`mb-[32px]` en `info.astro`), a petición del propietario. La del título al texto (16 px) no cambia.
 - **Revisión de seguridad del commit (v1.16.0)**: `[x](/\evil.com)` pasaba por ruta interna y los navegadores leen `\` como `/` (= `//evil.com`, otro dominio). `enlazar()` rechaza ahora `/` seguido de `/` o `\`. Con prueba. Subido como v1.16.1.
+
+## D-350 · La descripción de la ficha también enlaza (`enlazar()`)
+
+**Contexto**: el propietario escribió `[Buto en Youtube](https://…)` en la descripción de MEL-00200 siguiendo lo de
+`/info` (D-349) y en la ficha salían los corchetes tal cual: `#detail-descripcion` pintaba el texto plano.
+
+**Decisión**: la descripción pasa por la misma `enlazar()` de `src/lib/mel.ts` (`set:html`), así que admite lo mismo
+que `/info`: `[texto](url)`, direcciones sueltas, correos y `@usuario` de Instagram, con el mismo aspecto de enlace. Es
+el único sitio donde se pinta la descripción (la portada no la usa). El texto para compartir (`descripcionCompartir`)
+no la lleva, así que no cambia. Verificado en local: el enlace se ve y se puede pulsar en escritorio; el gesto de cerrar
+tirando del móvil solo se queda el toque si se ha tirado.
+
+**Saltos de línea** (mismo día): cada salto dentro de la celda (⌘+Intro u ⌥+Intro en Mac; Ctrl+Intro o Alt+Intro en
+Windows) es un párrafo, con 16 px entre párrafos, igual que el «Contenido» de `/info`. Antes el navegador convertía el
+salto en un espacio. `#detail-descripcion` pasa de `<p>` a `<div>` con un `<p>` por párrafo (el id solo lo usan los
+selectores del pase entre fichas, a los que les da igual la etiqueta). Las líneas vacías se descartan, y la
+descripción llega recortada, así que una celda con solo saltos no pinta la raya.
+
+## D-351 · El subrayado de los enlaces de las etiquetas no se veía nunca
+
+**Propietario** (20/10): en la ficha, los enlaces de las etiquetas (Lugar, Localidad, Organiza, Diseño, Anterior,
+Siguiente) solo enseñaban la flecha al pasar el ratón, sin el subrayado de `Link.astro`; y «BRUTO INDUSTRIES»
+(MEL-00200) solo cambiaba de color. Preguntó si era a propósito: **no lo era**, no hay ninguna decisión que lo quite.
+
+**Causa** (medida): `.marquee-inner` lleva `padding-bottom: 3px` desde D-220 (04/08) para la tabla de Lista, cuyo
+subrayado va DENTRO de ese span. En la etiqueta el subrayado va fuera, al pie del texto del enlace, que con esos 3 px
+medía 27 px dentro de una celda de 24 con `overflow: clip`: caía en el píxel 27 y se recortaba siempre.
+
+**Decisión** (`global.css`): `.marquee-cell .marquee-inner.tag-count-val { padding-bottom: 0 }`. El texto no se mueve
+(misma posición medida antes y después) y el subrayado cae en el último píxel de la línea de 24, igual que el de los
+artistas. La tabla no cambia (sus celdas no llevan `tag-count-val`).
+
+**Queda abierto**: la flecha de un valor que no cabe («BRUTO INDUSTRIES», «Veguellina De Órbigo») sigue sin verse.
+Va posicionada justo después del enlace (para no reservar hueco en reposo, D-066) y el enlace de un valor recortado
+ocupa toda la celda, así que la flecha cae fuera y la celda la recorta. **El propietario lo deja así** (20/10): el
+subrayado y el color ya bastan para saber que es un enlace.
+
+**Sentido del subrayado** (mismo día, propietario): crece hacia la flecha. En los enlaces alineados a la derecha
+(flecha a la izquierda; hoy solo «Anterior») va de derecha a izquierda: `origin-right` en `Link.astro` cuando
+`alignment="Right"`.

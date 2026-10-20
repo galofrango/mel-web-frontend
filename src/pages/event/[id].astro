@@ -7,7 +7,7 @@ import BotonCompartir from '../../components/BotonCompartir.astro';
 import Whisper from '../../components/Whisper.astro';
 import IconButton from '../../components/IconButton.astro';
 import AdaptiveTagsRow from '../../components/AdaptiveTagsRow.astro';
-import { fetchEvents, extractDriveImage, srcSetDrive, formatFechaDMY } from '../../lib/mel';
+import { fetchEvents, extractDriveImage, srcSetDrive, formatFechaDMY, enlazar } from '../../lib/mel';
 import flyerTecnico from '../../data/flyer_tecnico.json';
 
 // SSR route (server-rendered per request, see astro.config.mjs) — reads the
@@ -51,7 +51,9 @@ const evento = (e: any) => ({
   date: formatFechaDMY(e.fecha),
   location: e.lugar,
   locality: e.localidad,
-  description: e.descripcion,
+  // Texto y recortada: abajo se parte por saltos de línea (D-350), y una celda
+  // con solo saltos pintaría la raya sin texto encima.
+  description: String(e.descripcion ?? '').trim(),
   artists: e.artistas,
   organizer: e.organiza,
   designer: e.disenador,
@@ -610,9 +612,11 @@ const imagenCompartir = urlCompartir ? {
           <div class="flex flex-col gap-8">
             {eventData.description && (
               <div class="flex flex-col gap-8">
-                <p id="detail-descripcion" class="typo-body-sans text-mel-text-primary select-text">
-                  {eventData.description}
-                </p>
+                <div id="detail-descripcion" class="typo-body-sans text-mel-text-primary select-text">
+                  {eventData.description.split('\n').map((p) => p.trim()).filter(Boolean).map((p) => (
+                    <p class="mb-[16px] last:mb-0" set:html={enlazar(p)} />
+                  ))}
+                </div>
                 <!-- Figma 1px divider -->
                 <div id="detail-raya" class="h-px w-full bg-mel-border"></div>
               </div>

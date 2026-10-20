@@ -43,7 +43,9 @@ const isDisabled = state === "Disabled";
   >
     <span class="mel-link-text relative inline-block text-inherit min-w-0">
       <slot />
-      <span class="mel-link-underline absolute bottom-0 left-0 right-0 h-[1px] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 origin-left"></span>
+      <!-- El subrayado crece HACIA la flecha: de izquierda a derecha, y alineado
+           a la derecha (flecha a la izquierda, «Anterior»), al revés. -->
+      <span class={`mel-link-underline absolute bottom-0 left-0 right-0 h-[1px] scale-x-0 group-hover:scale-x-100 transition-transform duration-200 ${isRight ? "origin-right" : "origin-left"}`}></span>
     </span>
     
     <!-- Chevron icon for Left alignment (appears at the right of the text on

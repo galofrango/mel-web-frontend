@@ -195,8 +195,9 @@ export function escHtml(s?: unknown): string {
 }
 
 /**
- * Texto plano de la hoja → HTML seguro con enlaces (D-349). Lo que se escriba
- * en una celda se enlaza solo, sin tocar código:
+ * Texto plano de la hoja → HTML seguro con enlaces (D-349; en `/info` y en la
+ * descripción de la ficha, D-350). Lo que se escriba en una celda se enlaza
+ * solo, sin tocar código:
  *   [texto](https://…)  [texto](mailto:…)  [texto](/ruta)   → enlace con ese texto
  *   https://…                                              → enlace con su propia dirección
  *   correo@dominio.es                                      → mailto:
